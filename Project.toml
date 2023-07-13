@@ -1,7 +1,7 @@
 name = "FiniteElementContainers"
 uuid = "d08262e4-672f-4e7f-a976-f2cea5767631"
 authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
-version = "0.1.1"
+version = "0.1.0"
 
 [deps]
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
