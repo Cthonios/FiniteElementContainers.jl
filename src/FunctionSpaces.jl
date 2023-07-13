@@ -95,6 +95,7 @@ function Base.getindex(f::FunctionSpace, q::Integer, e::Integer)
     JxWs(f, q, e)
   )
 end
+Base.length(f::FunctionSpace) = size(f.conn, 2)
 
 function FunctionSpace(
   coords::Matrix{<:AbstractFloat}, block::Block{B}, 
