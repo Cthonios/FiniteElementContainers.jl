@@ -1,11 +1,12 @@
 module FiniteElementContainers
 
 # types
+export EssentialBC
 export FunctionSpace
+export Mesh
 
 # methods
 export connectivity
-# export getindex
 export JxWs
 export quadrature_point_coordinates
 export shape_function_gradients
@@ -24,6 +25,10 @@ const MeshTypes = Union{
 abstract type AbstractFEMContainer end
 abstract type AbstractCellContainer <: AbstractFEMContainer end
 
+include("EssentialBCs.jl")
 include("FunctionSpaces.jl")
+include("Mesh.jl")
+
+include("DofManagers.jl")
 
 end
