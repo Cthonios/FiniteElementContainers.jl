@@ -32,7 +32,7 @@ abstract type AbstractFEMContainer end
 abstract type AbstractCellContainer <: AbstractFEMContainer end
 
 include("EssentialBCs.jl")
-include("FunctionSpace.jl")
+include("FunctionSpaces.jl")
 # include("Variables.jl")
 # include("FunctionSpaces.jl")
 include("Mesh.jl")
