@@ -9,7 +9,7 @@ using TestSetExtensions
 @testset ExtendedTestSet "DofManager" begin
   Nx, Ny = 4, 5
   mesh = Mesh(Nx, Ny, [0., 1.], [0., 1.])
-  re = ReferenceFE(Tri3(), 2)
+  re = ReferenceFE(Tri3(2))
   fs = FunctionSpace(mesh.coords, mesh.blocks[1], re)
   bcs = [
     EssentialBC(1, 1)
@@ -43,9 +43,9 @@ end
   exo = ExodusDatabase("meshes/mesh_test.e", "r")
   coords = read_coordinates(exo)
   block = Block(exo, 1)
-  re = ReferenceFE(Quad4(), 2)
+  re = ReferenceFE(Quad4(2))
   fs = FunctionSpace(coords, block, re)
-  @test sum(fs.JxWs) ≈ 1.0
+  @test sum(fs.interpolants.JxW) ≈ 1.0
   close(exo)
 end
 
