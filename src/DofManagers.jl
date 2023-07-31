@@ -1,136 +1,157 @@
-function setup_hessian_coordinates(
-  fspaces::Vector{FunctionSpace{Itype, N, D, Ftype, L, Q}},
-  ids::Matrix{<:Integer}, is_unknown::Matrix{Bool}, dof_to_unknown::Vector{<:Integer}
-) where {Itype, N, D, Ftype, L, Q}
-
-  n_els = sum(map(x -> length(x), fspaces))  
-
-  n_el_unknowns = zeros(Int, n_els)
-  n_hessian_entries = 0
-  el_count = 1
-  for fspace in fspaces
-    # for e in 1:length(fspace)
-    for e in 1:size(fspace, 2)
-      el_unknown_flags = is_unknown[:, connectivity(fspace, e)][:]
-      # el_unknown_flags = view(view(is_unknown, :, connectivity(fspace, e)), :)
-      # el_unknown_flags = view(view(is_unknown, :, fspace.connectivity[:, e]))
-      n_el_unknowns[el_count] = sum(el_unknown_flags)
-      n_hessian_entries = n_hessian_entries + n_el_unknowns[e]^2
-      el_count = el_count + 1
-    end
+function number_of_hessian_entries(mesh::Mesh, is_unknown::BitMatrix)
+  n_hessian_entries::Int = 0
+  for block in mesh.blocks
+    unknowns = is_unknown[:, block.conn]
+    for e in axes(unknowns, 3)
+      n_hessian_entries = @views n_hessian_entries + sum(unknowns[:, :, e])^2
+    end 
   end
-  
-  row_coords = zeros(Int, n_hessian_entries)
-  col_coords = zeros(Int, n_hessian_entries)
-
-  range_begin = 1
-  el_count = 1
-
-  for fspace in fspaces
-    # for e in 1:length(fspace)
-    for e in 1:size(fspace, 2)
-      el_dofs = @views ids[:, connectivity(fspace, e)]
-      el_unknown_flags = @views is_unknown[:, connectivity(fspace, e)]
-      el_unknowns = @views dof_to_unknown[el_dofs[el_unknown_flags]]
-      el_hess_coords = repeat(el_unknowns, 1, n_el_unknowns[el_count])
-
-      range_end = range_begin + n_el_unknowns[el_count]^2
-
-      row_coords[range_begin:range_end - 1] = el_hess_coords[:]
-      col_coords[range_begin:range_end - 1] = el_hess_coords'[:]
-
-      range_begin = range_begin + n_el_unknowns[el_count]^2
-      el_count = el_count + 1
-    end
-  end
-
-  return row_coords, col_coords
+  return n_hessian_entries
 end
 
-function setup_hessian_bc_mask(
-  fspace::FunctionSpace{Itype, N, D, Ftype, L, Q},
-  ids::Matrix{<:Integer}, is_bc::Matrix{<:Integer}
-) where {Itype, N, D, Ftype, L, Q}
-
-  # n_els = length(fspace)  
-  n_els = size(fspace, 2)
-  n_nodes_per_element = size(fspace.connectivity, 1)
-  n_fields = size(ids, 1)
-  n_dofs_per_e = n_nodes_per_element * n_fields
-  hessian_bc_mask = Array{Bool, 3}(undef, n_dofs_per_e, n_dofs_per_e, n_els)
-  hessian_bc_mask .= true
-
-  # for e in 1:length(fspace)
-  for e in 1:size(fspace, 2)
-    e_flag = @views is_bc[:, connectivity(fspace, e)][:]
-    hessian_bc_mask[e_flag, :, e] .= false
-    hessian_bc_mask[:, e_flag, e] .= false
+function number_of_hessian_entries_naive(mesh::Mesh)
+  n_hessian_entries::Int = 0
+  for block in mesh.blocks
+    n_nodes_per_elem, n_elem = size(block.conn)
+    n_dim = size(mesh.coords, 1)
+    n_hessian_entries = n_hessian_entries + n_elem * (n_dim * n_nodes_per_elem)^2
   end
-
-  return hessian_bc_mask
+  return n_hessian_entries
 end
 
-# TODO type on Int
-struct DofManager
+# function setup_hessian_bc_masks!(bc_masks::Vector{Array{Bool, 3}}, mesh::Mesh, is_bc::BitMatrix)
+# function setup_hessian_bc_masks!(bc_masks::Vector{BitArray{3}}, mesh::Mesh, is_bc::BitMatrix)
+#   for (n, block) in enumerate(mesh.blocks)
+#     is_bc_block = @views is_bc[:, block.conn]
+#     bc_masks[n] .= true 
+    
+#   end
+# end
+
+# function setup_hessian_bc_masks(mesh::Mesh, is_bc::BitMatrix)
+#   # bc_masks = Vector{Array{Bool, 3}}(undef, length(mesh.blocks))
+#   bc_masks = Vector{BitArray{3}}(undef, length(mesh.blocks))
+#   n_fields = size(is_bc, 1)
+#   for (n, block) in enumerate(mesh.blocks)
+#     n_nodes_per_elem, n_elem = size(block.conn)
+#     n_dof_per_elem = n_fields * n_nodes_per_elem
+#     # bc_masks[n] = Array{Bool, 3}(undef, n_dof_per_elem, n_dof_per_elem, n_elem)
+#     bc_masks[n] = BitArray{3}(undef, n_dof_per_elem, n_dof_per_elem, n_elem)
+#   end
+#   setup_hessian_bc_masks!(bc_masks, mesh, is_bc)
+#   # display(bc_masks)
+# end
+
+function setup_hessian_coordinates!(row_coords::Vector{Itype}, col_coords::Vector{Itype}, mesh::Mesh, ids::Matrix{<:Integer}) where Itype
+  counter = 1
+
+  for block in mesh.blocks
+    conn = block.conn
+    conn = convert(Matrix{Itype}, conn)
+
+    for e in axes(conn, 2)
+      ids_e = @views vec(ids[:, conn[:, e]])
+      for i in axes(ids_e, 1)
+        for j in axes(ids_e, 1)
+          row_coords[counter] = ids_e[i]
+          col_coords[counter] = ids_e[j]
+          counter = counter + 1
+        end
+      end
+
+    end
+  end
+end
+
+struct DofManager{Itype, D, Rtype}
   field_shape::Tuple{Int, Int}
-  is_bc::Matrix{Bool}
-  is_unknown::Matrix{Bool}
-  ids::Matrix{Int}
-  bc_indices::Vector{Int}
-  unknown_indices::Vector{Int}
-  dof_to_unknown::Vector{Int}
-  row_coords::Vector{Int}
-  col_coords::Vector{Int}
-  bc_masks::Vector{Array{Bool, 3}}
+  is_bc::BitMatrix
+  bc_indices::Vector{Itype}
+  is_unknown::BitMatrix
+  unknown_indices::Vector{Itype}
+  essential_bcs::Vector{EssentialBC{Itype, D, Rtype}}
+  row_coords::Vector{Itype}
+  col_coords::Vector{Itype}
+end
+# Base.length(d::DofManager) = d.field_shape[1] * d.field_shape[2]
+
+create_fields(d::DofManager{Itype, D, Rtype}) where {Itype, D, Rtype} = zeros(Rtype, d.field_shape)
+create_unknowns(d::DofManager{Itype, D, Rtype}) where {Itype, D, Rtype} = zeros(Rtype, length(d.unknown_indices))
+
+function create_linear_system(d::DofManager{Itype, D, Rtype}) where {Itype, D, Rtype}
+  R = Vector{Rtype}(undef, length(d.row_coords))
+  K = sparse(d.row_coords, d.col_coords, zeros(Rtype, length(d.row_coords)))
+  return R, K
 end
 
-create_field(d::DofManager, ::Type{T} = Float64) where T = zeros(T, d.field_shape)
-get_bc_size(d::DofManager) = sum(d.is_bc)
-get_bc_values(d::DofManager, U::A) where A <: AbstractArray = @views U[d.bc_indices]
-get_unknown_size(d::DofManager) = sum(d.is_unknown)
-get_unknown_values(d::DofManager, U::A) where A <: AbstractArray = @views U[d.unknown_indices]
+f_zero(::SVector{D, Rtype}) where {D, Rtype} = 0.0
+f_zero(::SVector{D, Rtype}, t::Rtype) where {D, Rtype} = 0.0
+
+"""
+for zero dirichlet bc
+"""
+function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int) where {Itype, D, Rtype}
+  bc = d.essential_bcs[bc_index]
+  @inbounds U[bc.dof, bc.nodes] .= f_zero.(bc.coords)
+end
+
+"""
+for time in-dependent bcs
+"""
+function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int, f::Function) where {Itype, D, Rtype}
+  bc = d.essential_bcs[bc_index]
+  @views map!(x -> f(x, 0.), U[bc.dof, bc.nodes], bc.coords)
+end
+
+"""
+for time dependent bcs
+"""
+function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int, f::Function, t::Rtype) where {Itype, D, Rtype}
+  bc = d.essential_bcs[bc_index]
+  @views map!(x -> f(x, t), U[bc.dof, bc.nodes], bc.coords)
+end
+
+function update_fields!(U::Matrix{Rtype}, d::DofManager{Itype, D, Rtype}, Uu::Vector{Rtype}) where {Itype, D, Rtype}
+  @assert length(Uu) == length(d.unknown_indices)
+  @inbounds U[d.is_unknown] = Uu
+end
 
 function DofManager(
-  mesh::Mesh{B, F},
-  fspaces::Vector{FunctionSpace{Itype, N, D, Ftype, L, Q}},
-  essential_bcs::Vector{EssentialBC},
-  n_dofs::Integer
-) where {B, F, Itype, N, D, Ftype, L, Q}
+  mesh::Mesh,
+  n_dofs::Int,
+  essential_bcs::Vector{EssentialBC{Itype, D, Rtype}},
+) where {Itype, D, Rtype}
+
   field_shape = n_dofs, size(mesh.coords, 2)
 
-  is_bc = Matrix{Bool}(undef, field_shape)
-  is_bc .= false
+  is_bc = BitMatrix(undef, field_shape)
+  is_bc .= 0
 
   for bc in essential_bcs
-    nset = filter(x -> x.id == bc.nset_id, mesh.nsets)
-    if length(nset) < 0
-      throw(BoundsError("nset id not found"))
-    else
-      nset = nset[1]
-    end
-    is_bc[bc.dof, nset.nodes] .= true
+    is_bc[bc.dof, bc.nodes] .= 1
   end
-  is_unknown = map(x -> !x, is_bc)
+
+  is_unknown = .!is_bc
   ids = reshape(1:length(is_bc), field_shape) |> collect
 
   unknown_indices = ids[is_unknown]
   bc_indices = ids[is_bc]
 
-  dof_to_unknown = -1 * ones(Int, length(is_bc))
-  dof_to_unknown[unknown_indices] = 1:length(unknown_indices)
+  n_hessian_entries = number_of_hessian_entries_naive(mesh)
 
-  row_coords, col_coords = setup_hessian_coordinates(fspaces, ids, is_unknown, dof_to_unknown)
+  # @time bc_masks = setup_hessian_bc_masks(mesh, is_bc)
 
-  bc_masks = Vector{Array{Bool, 3}}(undef, length(fspaces))
-  for (n, fspace) in enumerate(fspaces)
-    bc_masks[n] = setup_hessian_bc_mask(fspace, ids, is_bc)
-  end
+  col_coords = Vector{Itype}(undef, n_hessian_entries)
+  row_coords = Vector{Itype}(undef, n_hessian_entries)
 
-  return DofManager(
-    field_shape, 
-    is_bc, is_unknown, 
-    ids, bc_indices, unknown_indices,
-    dof_to_unknown,
-    row_coords, col_coords, bc_masks
-  )
+  setup_hessian_coordinates!(col_coords, row_coords, mesh, ids)
+
+  # display(row_coords)
+  # display(col_coords)
+
+  return DofManager{Itype, D, Rtype}(field_shape, 
+                                     is_bc, bc_indices, 
+                                     is_unknown, unknown_indices, 
+                                     essential_bcs,
+                                     row_coords, col_coords)
 end
