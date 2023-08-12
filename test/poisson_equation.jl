@@ -1,12 +1,3 @@
-# FiniteElementContainers [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://cmhamel.github.io/FiniteElementContainers.jl/stable/) [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://cmhamel.github.io/FiniteElementContainers.jl/dev/) [![Build Status](https://github.com/cmhamel/FiniteElementContainers.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/cmhamel/FiniteElementContainers.jl/actions/workflows/CI.yml?query=branch%3Amain) [![Coverage](https://codecov.io/gh/cmhamel/FiniteElementContainers.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/cmhamel/FiniteElementContainers.jl)
-
-This package is meant to serve as a light weight and allocation free set of containers for carrying out finite element or finite element-like calculations.
-
-The goal is to be platform independent and leverage ReferenceFiniteElements.jl for easy implementation of new containers for new element types/formulations.
-
-Below is an example for using the package to solve the Poisson equation with a simple forcing function
-
-```julia
 using Exodus
 using FiniteElementContainers
 using LinearAlgebra
@@ -98,7 +89,7 @@ println("Solving")
 U = solve(fspace, dof, assembler)
 
 exo = ExodusDatabase("./meshes/mesh_test.g", "r")
-Exodus.copy(exo, "output.e")
+Exodus.copy(exo, "poisson_output.e")
 close(exo)
 exo = ExodusDatabase("poisson_output.e", "rw")
 write_number_of_variables(exo, NodalVariable, 1)
@@ -110,4 +101,3 @@ close(exo)
 @exodiff "poisson_output.e.gold" "poisson_output.e"
 
 Base.rm("poisson_output.e")
-```
