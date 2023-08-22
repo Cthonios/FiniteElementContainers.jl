@@ -1,8 +1,8 @@
-struct Mesh
-  coords::Matrix{Float64}
-  blocks::Vector{Block{Int64, Int64}}
-  nsets::Vector{NodeSet{Int64, Int64}}
-  ssets::Vector{SideSet{Int64, Int64}}
+struct Mesh{Rtype, I, B}
+  coords::Matrix{Rtype}
+  blocks::Vector{Block{I, B}}
+  nsets::Vector{NodeSet{I, B}}
+  ssets::Vector{SideSet{I, B}}
 end
 
 function Mesh(
@@ -13,31 +13,25 @@ function Mesh(
 ) where T <: Union{Int64, String}
 
   exo = ExodusDatabase(file_name, "r")
-
+  _, I, B, F = Exodus.int_and_float_modes(exo.exo)
   coords = read_coordinates(exo)
-  blocks_read = Vector{Block{Int64, Int64}}(undef, length(blocks))
-  nsets_read  = Vector{NodeSet{Int64, Int64}}(undef, length(nsets))
-  ssets_read  = Vector{SideSet{Int64, Int64}}(undef, length(ssets))
-
+  blocks_read = Vector{Block{I, B}}(undef, length(blocks))
+  nsets_read  = Vector{NodeSet{I, B}}(undef, length(nsets))
+  ssets_read  = Vector{SideSet{I, B}}(undef, length(ssets))
 
   for (n, id) in enumerate(blocks)
-    block = Block(exo, id)
-    blocks_read[n] = Block{Int64, Int64}(block.id, block.num_elem, 
-                                         block.num_nodes_per_elem, 
-                                         block.elem_type, block.conn)
+    blocks_read[n] = Block(exo, id)
   end
 
   for (n, id) in enumerate(nsets)
-    nset = NodeSet(exo, id)
-    nsets_read[n] = NodeSet{Int64, Int64}(nset.id, nset.nodes)
+    nsets_read[n] = NodeSet(exo, id)
   end
 
   for (n, id) in enumerate(ssets)
-    sset = SideSet(exo, id)
-    ssets_read[n] = SideSet{Int64, Int64}(sset.id, sset.elements, sset.sides)
+    ssets_read[n] = SideSet(exo, id)
   end
 
-  return Mesh(coords, blocks_read, nsets_read, ssets_read)
+  return Mesh{F, I, B}(coords, blocks_read, nsets_read, ssets_read)
 end
 
 function Mesh(n_x::Int, n_y::Int, x_extent::Vector{<:Real}, y_extent::Vector{<:Real})
@@ -92,5 +86,5 @@ function Mesh(n_x::Int, n_y::Int, x_extent::Vector{<:Real}, y_extent::Vector{<:R
 
   ssets = []
 
-  return Mesh(coords, blocks, nsets, ssets)
+  return Mesh{Float64, Int64, Int64}(coords, blocks, nsets, ssets)
 end

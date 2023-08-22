@@ -52,42 +52,44 @@ function setup_hessian_coordinates!(row_coords::Vector{Itype}, col_coords::Vecto
   end
 end
 
-struct DofManager{Itype, D, Rtype, NDof}
-  # field_shape::Union{Int, Tuple{Int, Int}}
-  field_shape::Union{Itype, Tuple{Itype, Itype}}
+struct DofManager{Itype, Rtype, NDof}
+  field_shape::Union{Int, Tuple{Int, Int}}
+  # field_shape::Union{Itype, Tuple{Itype, Itype}}
   # ids::Matrix{Itype}
   ids::VecOrMat{Itype}
   is_bc::BitArray{NDof}
   bc_indices::Vector{Itype}
   is_unknown::BitArray{NDof}
   unknown_indices::Vector{Itype}
-  essential_bcs::Vector{EssentialBC{Itype, D, Rtype}}
+  essential_bcs::Vector{EssentialBC{Itype, Rtype}}
   row_coords::Vector{Itype}
   col_coords::Vector{Itype}
 end
 
-create_fields(d::DofManager{Itype, D, Rtype, NDof}) where {Itype, D, Rtype, NDof} = zeros(Rtype, d.field_shape)
-create_unknowns(d::DofManager{Itype, D, Rtype, NDof}) where {Itype, D, Rtype, NDof} = zeros(Rtype, length(d.unknown_indices))
-ndofs(::DofManager{Itype, D, Rtype, NDof}) where {Itype, D, Rtype, NDof} = NDof
+create_fields(d::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof} = zeros(Rtype, d.field_shape)
+create_unknowns(d::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof} = zeros(Rtype, length(d.unknown_indices))
+ndofs(::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof} = NDof
 
+f_zero() = 0.0
 f_zero(::SVector{D, Rtype}) where {D, Rtype} = 0.0
 f_zero(::SVector{D, Rtype}, t::Rtype) where {D, Rtype} = 0.0
 
 """
 for zero dirichlet bc
 """
-function update_bc!(U::Vector{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int) where {Itype, D, Rtype}
+function update_bc!(U::Vector{Rtype}, d::DofManager{Itype, Rtype, NDof}, bc_index::Int) where {Itype, Rtype, NDof}
   bc = d.essential_bcs[bc_index]
   @inbounds U[bc.nodes] .= f_zero.(bc.coords)
 end
 
-function update_bcs!(U::Vector{Rtype}, d::DofManager{Itype, D, Rtype}) where {Itype, D, Rtype}
+function update_bcs!(U::Vector{Rtype}, d::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof}
   for bc in d.essential_bcs
-    @inbounds U[bc.nodes] .= f_zero.(bc.coords)
+    # @inbounds U[bc.nodes] .= f_zero.(bc.coords)
+    @inbounds U[bc.nodes] .= f_zero()
   end
 end
 
-function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int) where {Itype, D, Rtype}
+function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, Rtype, NDof}, bc_index::Int) where {Itype, Rtype, NDof}
   bc = d.essential_bcs[bc_index]
   @inbounds U[bc.dof, bc.nodes] .= f_zero.(bc.coords)
 end
@@ -95,12 +97,12 @@ end
 """
 for time in-dependent bcs
 """
-function update_bc!(U::Vector{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int, f::Function) where {Itype, D, Rtype}
+function update_bc!(U::Vector{Rtype}, d::DofManager{Itype, Rtype, NDof}, bc_index::Int, f::Function) where {Itype, Rtype, NDof}
   bc = d.essential_bcs[bc_index]
   @views map!(x -> f(x, 0.), U[bc.nodes], bc.coords)
 end
 
-function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int, f::Function) where {Itype, D, Rtype}
+function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, Rtype, NDof}, bc_index::Int, f::Function) where {Itype, Rtype, NDof}
   bc = d.essential_bcs[bc_index]
   @views map!(x -> f(x, 0.), U[bc.dof, bc.nodes], bc.coords)
 end
@@ -108,30 +110,29 @@ end
 """
 for time dependent bcs
 """
-function update_bc!(U::Vector{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int, f::Function, t::Rtype) where {Itype, D, Rtype}
+function update_bc!(U::Vector{Rtype}, d::DofManager{Itype, Rtype, NDof}, bc_index::Int, f::Function, t::Rtype) where {Itype, Rtype, NDof}
   bc = d.essential_bcs[bc_index]
   @views map!(x -> f(x, t), U[bc.nodes], bc.coords)
 end
 
-function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, D, Rtype}, bc_index::Int, f::Function, t::Rtype) where {Itype, D, Rtype}
+function update_bc!(U::Matrix{Rtype}, d::DofManager{Itype, Rtype, NDof}, bc_index::Int, f::Function, t::Rtype) where {Itype, Rtype, NDof}
   bc = d.essential_bcs[bc_index]
   @views map!(x -> f(x, t), U[bc.dof, bc.nodes], bc.coords)
 end
 
 """
 """
-function update_fields!(U::VecOrMat{Rtype}, d::DofManager{Itype, D, Rtype}, Uu::Vector{Rtype}) where {Itype, D, Rtype}
+function update_fields!(U::VecOrMat{Rtype}, d::DofManager{Itype, Rtype, NDof}, Uu::Vector{Rtype}) where {Itype, Rtype, NDof}
   @assert length(Uu) == length(d.unknown_indices)
   @inbounds U[d.is_unknown] = Uu
 end
 
 function DofManager(
-  # mesh::Mesh{I, B, F},
-  mesh::Mesh,
+  mesh::Mesh{F, I, B},
   n_dofs::Int,
   # essential_bcs::Vector{EssentialBC{B, D, F}},
   essential_bcs::Vector{<:EssentialBC}
-)
+) where {F, I, B}
 
   if n_dofs == 1
     field_shape = size(mesh.coords, 2)
@@ -154,20 +155,21 @@ function DofManager(
 
   is_unknown = .!is_bc
   ids = reshape(1:length(is_bc), field_shape) |> collect
+  ids = convert.(B, ids)
   
   unknown_indices = ids[is_unknown]
   bc_indices = ids[is_bc]
 
   n_hessian_entries = number_of_hessian_entries_naive(mesh, ids)
 
-  col_coords = Vector{Int64}(undef, n_hessian_entries)
-  row_coords = Vector{Int64}(undef, n_hessian_entries)
+  col_coords = Vector{B}(undef, n_hessian_entries)
+  row_coords = Vector{B}(undef, n_hessian_entries)
 
   setup_hessian_coordinates!(col_coords, row_coords, mesh, ids)
 
-  return DofManager{Int64, D, Float64, n_dofs}(field_shape, ids,
-                                               is_bc, bc_indices, 
-                                               is_unknown, unknown_indices, 
-                                               essential_bcs,
-                                               row_coords, col_coords)
+  return DofManager{B, Float64, n_dofs}(field_shape, ids,
+                                        is_bc, bc_indices, 
+                                        is_unknown, unknown_indices, 
+                                        essential_bcs,
+                                        row_coords, col_coords)
 end

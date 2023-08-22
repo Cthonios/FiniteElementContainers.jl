@@ -2,6 +2,7 @@ module FiniteElementContainers
 
 # types
 export Assembler
+export AssemblerCache
 export DofManager
 export EssentialBC
 export FunctionSpace

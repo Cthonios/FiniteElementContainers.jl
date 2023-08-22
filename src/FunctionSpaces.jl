@@ -29,12 +29,9 @@ function setup_shape_function_gradients_and_JxWs!(
   @inbounds @fastmath begin
     for e in axes(∇N_Xs, 2)
       for q in axes(∇N_Xs, 1)
-        # J = el_coords[e] * shape_function_gradients(re, q)
         J = (shape_function_gradients(re, q)' * el_coords[e]')'
         J_inv = inv(J)
         ∇N_Xs[q, e] = (J_inv * shape_function_gradients(re, q)')'
-        # ∇N_Xs[q, e] = shape_function_gradients(re, q) * J_inv'
-        # ∇N_Xs[q, e] = J_inv * shape_function_gradients(re, q)
         JxWs[q, e] = det(J) * quadrature_weight(re, q)
       end
     end
@@ -47,7 +44,6 @@ struct FunctionSpaceInterpolant{N, D, Rtype, L}
   ξ::SVector{D, Rtype}
   N::SMatrix{N, 1, Rtype, N}
   ∇N_X::SMatrix{N, D, Rtype, L}
-  # ∇N_X::SMatrix{D, N, Rtype, L}
   JxW::Rtype
 end
 
@@ -59,7 +55,6 @@ struct FunctionSpace{Itype, N, D, Rtype, L}
         Matrix{SVector{D, Rtype}}, 
         Matrix{SVector{N, Rtype}}, 
         Matrix{SMatrix{N, D, Rtype, L}}, 
-        # Matrix{SMatrix{D, N, Rtype, L}},
         Matrix{Rtype}
       }
     }, Int64
@@ -68,6 +63,7 @@ struct FunctionSpace{Itype, N, D, Rtype, L}
 end
 Base.axes(f::FunctionSpace, i::Int) = Base.OneTo(size(f, i))
 Base.getindex(f::FunctionSpace, q::Int, e::Int) = f.fspace[q, e]
+Base.getindex(f::FunctionSpace, ::Colon, e::Int) = f.fspace[:, e]
 Base.size(f::FunctionSpace) = size(f.fspace)
 Base.size(f::FunctionSpace, i::Int) = size(f.fspace, i)
 
@@ -83,7 +79,6 @@ function FunctionSpace(
   ξs = Matrix{SVector{D, Rtype}}(undef, length(re.interpolants), block.num_elem)
   Ns = Matrix{SVector{N, Rtype}}(undef, length(re.interpolants), block.num_elem)
   ∇N_Xs = Matrix{SMatrix{N, D, Rtype, L1}}(undef, length(re.interpolants), block.num_elem)
-  # ∇N_Xs = Matrix{SMatrix{D, N, Rtype, L}}(undef, length(re.interpolants), block.num_elem)
   JxWs = Matrix{Rtype}(undef, length(re.interpolants), block.num_elem)
 
   setup_quadrature_point_coordinates!(ξs, el_coords, re)
