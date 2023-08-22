@@ -1,6 +1,7 @@
 using Aqua
 using Exodus
 using FiniteElementContainers
+using JET
 using ReferenceFiniteElements
 using Test
 using TestSetExtensions
@@ -52,6 +53,7 @@ end
 
 include("poisson_equation.jl")
 
+# Aqua testing
 # Aqua.test_all(FiniteElementContainers)
 Aqua.test_ambiguities(ReferenceFiniteElements)
 Aqua.test_unbound_args(ReferenceFiniteElements)
@@ -61,3 +63,6 @@ Aqua.test_project_extras(ReferenceFiniteElements)
 Aqua.test_stale_deps(ReferenceFiniteElements)
 Aqua.test_deps_compat(ReferenceFiniteElements)
 Aqua.test_project_toml_formatting(ReferenceFiniteElements)
+
+# JET testing
+# test_package("FiniteElementContainers"; target_defined_modules=true)

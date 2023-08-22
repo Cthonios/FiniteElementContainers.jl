@@ -29,12 +29,9 @@ function setup_shape_function_gradients_and_JxWs!(
   @inbounds @fastmath begin
     for e in axes(∇N_Xs, 2)
       for q in axes(∇N_Xs, 1)
-        # J = el_coords[e] * shape_function_gradients(re, q)
         J = (shape_function_gradients(re, q)' * el_coords[e]')'
         J_inv = inv(J)
         ∇N_Xs[q, e] = (J_inv * shape_function_gradients(re, q)')'
-        # ∇N_Xs[q, e] = shape_function_gradients(re, q) * J_inv'
-        # ∇N_Xs[q, e] = J_inv * shape_function_gradients(re, q)
         JxWs[q, e] = det(J) * quadrature_weight(re, q)
       end
     end
@@ -82,7 +79,6 @@ function FunctionSpace(
   ξs = Matrix{SVector{D, Rtype}}(undef, length(re.interpolants), block.num_elem)
   Ns = Matrix{SVector{N, Rtype}}(undef, length(re.interpolants), block.num_elem)
   ∇N_Xs = Matrix{SMatrix{N, D, Rtype, L1}}(undef, length(re.interpolants), block.num_elem)
-  # ∇N_Xs = Matrix{SMatrix{D, N, Rtype, L}}(undef, length(re.interpolants), block.num_elem)
   JxWs = Matrix{Rtype}(undef, length(re.interpolants), block.num_elem)
 
   setup_quadrature_point_coordinates!(ξs, el_coords, re)
