@@ -61,7 +61,7 @@ struct DofManager{Itype, Rtype, NDof}
   bc_indices::Vector{Itype}
   is_unknown::BitArray{NDof}
   unknown_indices::Vector{Itype}
-  essential_bcs::Vector{EssentialBC{Itype, Rtype}}
+  essential_bcs::Vector{EssentialBC{Itype}}
   row_coords::Vector{Itype}
   col_coords::Vector{Itype}
 end
@@ -167,9 +167,9 @@ function DofManager(
 
   setup_hessian_coordinates!(col_coords, row_coords, mesh, ids)
 
-  return DofManager{B, Float64, n_dofs}(field_shape, ids,
-                                        is_bc, bc_indices, 
-                                        is_unknown, unknown_indices, 
-                                        essential_bcs,
-                                        row_coords, col_coords)
+  return DofManager{B, F, n_dofs}(field_shape, ids,
+                                  is_bc, bc_indices, 
+                                  is_unknown, unknown_indices, 
+                                  essential_bcs,
+                                  row_coords, col_coords)
 end
