@@ -42,7 +42,7 @@ bcs = [
 re        = ReferenceFE(Quad4(1), Int32, Float64)
 fspace    = FunctionSpace(mesh.coords, mesh.blocks[1], re)
 dof       = DofManager(mesh, 1, bcs)
-assembler = Assembler(fspace, dof)
+assembler = Assembler(dof)
 println("Setup complete")
 
 function solve(fspace, dof, assembler)
@@ -52,21 +52,15 @@ function solve(fspace, dof, assembler)
 
   update_bcs!(U, dof)
   update_fields!(U, dof, Uu)
-
-  reset!(assembler)
-  update_scratch!(assembler, fspace, poisson_residual_kernel, poisson_tangent_kernel, U)
-  assemble!(assembler, fspace, dof)
-
+  assemble!(assembler, fspace, dof, poisson_residual_kernel, poisson_tangent_kernel, U)
+  
   K = assembler.K[dof.unknown_indices, dof.unknown_indices]
 
   for n in 1:10
 
     update_bcs!(U, dof)
     update_fields!(U, dof, Uu)
-
-    reset!(assembler)
-    update_scratch!(assembler, fspace, poisson_residual_kernel, poisson_tangent_kernel, U)
-    assemble!(assembler, fspace, dof)
+    assemble!(assembler, fspace, dof, poisson_residual_kernel, poisson_tangent_kernel, U)
 
     R = assembler.R[dof.unknown_indices]
 

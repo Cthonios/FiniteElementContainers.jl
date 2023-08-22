@@ -47,7 +47,6 @@ struct FunctionSpaceInterpolant{N, D, Rtype, L}
   ξ::SVector{D, Rtype}
   N::SMatrix{N, 1, Rtype, N}
   ∇N_X::SMatrix{N, D, Rtype, L}
-  # ∇N_X::SMatrix{D, N, Rtype, L}
   JxW::Rtype
 end
 
@@ -59,7 +58,6 @@ struct FunctionSpace{Itype, N, D, Rtype, L}
         Matrix{SVector{D, Rtype}}, 
         Matrix{SVector{N, Rtype}}, 
         Matrix{SMatrix{N, D, Rtype, L}}, 
-        # Matrix{SMatrix{D, N, Rtype, L}},
         Matrix{Rtype}
       }
     }, Int64
@@ -68,6 +66,7 @@ struct FunctionSpace{Itype, N, D, Rtype, L}
 end
 Base.axes(f::FunctionSpace, i::Int) = Base.OneTo(size(f, i))
 Base.getindex(f::FunctionSpace, q::Int, e::Int) = f.fspace[q, e]
+Base.getindex(f::FunctionSpace, ::Colon, e::Int) = f.fspace[:, e]
 Base.size(f::FunctionSpace) = size(f.fspace)
 Base.size(f::FunctionSpace, i::Int) = size(f.fspace, i)
 
