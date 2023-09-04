@@ -1,3 +1,18 @@
+element_types = Dict{String, Type{<:ReferenceFiniteElements.ReferenceFEType}}(
+  "HEX8"  => Hex8,
+  "QUAD4" => Quad4,
+  "QUAD9" => Quad9,
+  "TET4"  => Tet4,
+  "TET10" => Tet10,
+  "TRI3"  => Tri3,
+  "TRI6"  => Tri6
+)
+
+abstract type AbstractGradientConversion end
+struct NoGradientConversion <: AbstractGradientConversion end
+struct PlaneStrainGradientConversion <: AbstractGradientConversion end
+voigt_dim(::Type{PlaneStrainGradientConversion}) = 3
+
 function setup_quadrature_point_coordinates!(
   ξs::Matrix{T1},
   el_coords::T2, re::ReferenceFE
@@ -38,53 +53,103 @@ function setup_shape_function_gradients_and_JxWs!(
   end
 end
 
-"""
-"""
-struct FunctionSpaceInterpolant{N, D, Rtype, L}
-  ξ::SVector{D, Rtype}
+function convert_shape_function_gradient(
+  ::Type{PlaneStrainGradientConversion},
+  ∇N_X::SMatrix{N, 2, Rtype, L},
+  B_cache::Matrix{Rtype}
+) where {N, Rtype, L}
+
+  B_cache .= 0.0
+  for n in 1:N
+    B_cache[1, 1 + 2 * (n - 1)] = ∇N_X[n, 1]
+    B_cache[2, 2 + 2 * (n - 1)] = ∇N_X[n, 2]
+    B_cache[3, 1 + 2 * (n - 1)] = ∇N_X[n, 2]
+    B_cache[3, 2 + 2 * (n - 1)] = ∇N_X[n, 1]
+  end
+
+  return SMatrix{3, 2 * N, Rtype, 3 * 2 * N}(B_cache)
+end
+
+function setup_converted_gradients!(
+  Bs::Matrix{T1}, ∇N_Xs::Matrix{T2}, type::Type{Conv}
+) where {T1 <: AbstractArray, T2 <: AbstractArray, Conv <: AbstractGradientConversion}
+
+  N, D = size(∇N_Xs[1, 1])
+  Rtype = eltype(∇N_Xs[1, 1])
+  B_cache = Matrix{Rtype}(undef, voigt_dim(type), D * N)
+  for e in axes(Bs, 2)
+    for q in axes(Bs, 1)
+      Bs[q, e] = convert_shape_function_gradient(type, ∇N_Xs[q, e], B_cache)
+    end
+  end
+end
+
+abstract type AbstractQuadratureValues end
+
+struct QuadratureValues{N, D, Rtype, L1} <: AbstractQuadratureValues
+  X::SVector{D, Rtype}
   N::SMatrix{N, 1, Rtype, N}
-  ∇N_X::SMatrix{N, D, Rtype, L}
+  ∇N_X::SMatrix{N, D, Rtype, L1}
   JxW::Rtype
 end
 
-struct FunctionSpace{Itype, N, D, Rtype, L} 
-  fspace::StructArray{
-    FunctionSpaceInterpolant{N, D, Rtype, L}, 2, 
-    NamedTuple{(:ξ, :N, :∇N_X, :JxW), 
-      Tuple{
-        Matrix{SVector{D, Rtype}}, 
-        Matrix{SVector{N, Rtype}}, 
-        Matrix{SMatrix{N, D, Rtype, L}}, 
-        Matrix{Rtype}
-      }
-    }, Int64
-  }
-  conn::Matrix{Itype}
+struct QuadratureValuesWithSymmetricGradient{N, D, Rtype, L1, N_V, NxNDof, L2} <: AbstractQuadratureValues
+  X::SVector{D, Rtype}
+  N::SMatrix{N, 1, Rtype, N}
+  ∇N_X::SMatrix{N, D, Rtype, L1}
+  B::SMatrix{N_V, NxNDof, Rtype, L2}
+  JxW::Rtype
 end
-Base.axes(f::FunctionSpace, i::Int) = Base.OneTo(size(f, i))
-Base.getindex(f::FunctionSpace, q::Int, e::Int) = f.fspace[q, e]
-Base.getindex(f::FunctionSpace, ::Colon, e::Int) = f.fspace[:, e]
-Base.size(f::FunctionSpace) = size(f.fspace)
-Base.size(f::FunctionSpace, i::Int) = size(f.fspace, i)
 
-"""
-"""
 function FunctionSpace(
-  coords::Matrix{<:AbstractFloat}, block::Block{I, B},
-  re::ReferenceFE{Itype, N, D, Rtype, L1, L2}
-) where {I, B, Itype, N, D, Rtype, L1, L2}
+  mesh::Mesh{Rtype, I, B},
+  block::Block{I, B},
+  re::ReferenceFE{Itype, N, D, Rtype, L1, L2};
+  n_state_variables::Int = 0,
+  shape_function_gradient_conversion::Type{Conv} = NoGradientConversion
+) where {Rtype, I, B, Itype, N, D, L1, L2, Conv <: AbstractGradientConversion}
 
+  # now make element level coords for calculating other things
+  coords    = mesh.coords
   el_coords = @views reinterpret(SMatrix{D, N, Rtype, L1}, vec(coords[:, block.conn]))
 
-  ξs = Matrix{SVector{D, Rtype}}(undef, length(re.interpolants), block.num_elem)
-  Ns = Matrix{SVector{N, Rtype}}(undef, length(re.interpolants), block.num_elem)
+  Xs    = Matrix{SVector{D, Rtype}}(undef, length(re.interpolants), block.num_elem)
+  Ns    = Matrix{SVector{N, Rtype}}(undef, length(re.interpolants), block.num_elem)
   ∇N_Xs = Matrix{SMatrix{N, D, Rtype, L1}}(undef, length(re.interpolants), block.num_elem)
-  JxWs = Matrix{Rtype}(undef, length(re.interpolants), block.num_elem)
+  JxWs  = Matrix{Rtype}(undef, length(re.interpolants), block.num_elem)
 
-  setup_quadrature_point_coordinates!(ξs, el_coords, re)
+  setup_quadrature_point_coordinates!(Xs, el_coords, re)
   setup_shape_function_values!(Ns, re)
   setup_shape_function_gradients_and_JxWs!(∇N_Xs, JxWs, el_coords, re)
 
-  fspace = StructArray{FunctionSpaceInterpolant{N, D, Rtype, L1}}((ξs, Ns, ∇N_Xs, JxWs))
-  return FunctionSpace{Itype, N, D, Rtype, L1}(fspace, block.conn)
+  if !(shape_function_gradient_conversion <: NoGradientConversion)
+    N_V = voigt_dim(shape_function_gradient_conversion)
+    Bs = Matrix{SMatrix{N_V, N * D, Rtype, N_V * N * D}}(undef, length(re.interpolants), block.num_elem)
+    setup_converted_gradients!(Bs, ∇N_Xs, shape_function_gradient_conversion)
+    fspace = StructArray{QuadratureValuesWithSymmetricGradient{N, D, Rtype, L1, N_V, N * D, N_V * N * D}}((Xs, Ns, ∇N_Xs, Bs, JxWs))
+  else
+    fspace = StructArray{QuadratureValues{N, D, Rtype, L1}}((Xs, Ns, ∇N_Xs, JxWs))
+  end
+  
+  return fspace
+end
+
+function FunctionSpace(
+  mesh::Mesh{Rtype, I, B},
+  block_id::Union{Int, String},
+  q_degree::Int;
+  n_state_variables::Int = 0,
+  shape_function_gradient_conversion::Type{Conv} = NoGradientConversion
+) where {Rtype, I, B, Conv <: AbstractGradientConversion}
+
+  # unpack stuff from mesh
+  block  = filter(x -> x.id == block_id, mesh.blocks)[1]
+
+  # make reference finite element for this block
+  el_type = element_types[uppercase(block.elem_type)](q_degree)
+  re      = ReferenceFE(el_type, I, Rtype)
+
+  return FunctionSpace(mesh, block, re; 
+                       n_state_variables=n_state_variables,
+                       shape_function_gradient_conversion=shape_function_gradient_conversion)
 end

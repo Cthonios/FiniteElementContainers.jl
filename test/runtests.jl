@@ -1,24 +1,24 @@
 using Aqua
 using Exodus
 using FiniteElementContainers
+using ForwardDiff
 using JET
-using ReferenceFiniteElements
+using LinearAlgebra
+using Parameters
+using Printf
 using Test
 using TestSetExtensions
-
 
 @testset ExtendedTestSet "DofManager" begin
   Nx, Ny = 4, 5
   mesh = Mesh(Nx, Ny, [0., 1.], [0., 1.])
-  re = ReferenceFE(Tri3(2))
-  fs = FunctionSpace(mesh.coords, mesh.blocks[1], re)
+  fs = FunctionSpace(mesh, 1, 2)
   bcs = [
     EssentialBC(mesh, 1, 1)
     EssentialBC(mesh, 3, 2)
   ]
   dof_manager = DofManager(mesh, 2, bcs)
 
-  @test dof_manager.bc_indices |> length == Nx + Ny
   @test dof_manager.unknown_indices |> length == 2 * Nx * Ny - Nx - Ny
   U = zeros(Float64, 2, Nx * Ny)
   U[2, :]                   .= 1.0
@@ -26,14 +26,14 @@ using TestSetExtensions
   U[2, mesh.nsets[3].nodes] .= 3.0
 
   Uu = U[dof_manager.is_unknown]
-  bc = U[dof_manager.is_bc]
+  bc = U[.~dof_manager.is_unknown]
   @test all(x -> x ≈ 0.0 || x ≈ 1.0, Uu)
   @test all(x -> x ≈ 2.0 || x ≈ 3.0, bc)
 end
 
 
 @testset ExtendedTestSet "EssentialBC" begin
-  mesh = Mesh("meshes/mesh_test.g", [1]; nsets=[1])
+  mesh = Mesh("meshes/mesh_test.g"; nsets=[1])
   bc = EssentialBC(mesh, 1, 2)
   @test bc.dof   == 2
   @test bc.nodes == mesh.nsets[1].nodes
@@ -45,24 +45,24 @@ end
 end
 
 @testset ExtendedTestSet "FunctionSpace" begin
-  mesh = Mesh("meshes/mesh_test.g", [1])
-  re = ReferenceFE(Quad4(2))
-  fs = FunctionSpace(mesh.coords, mesh.blocks[1], re)
-  @test sum(fs.fspace.JxW) ≈ 1.0
+  mesh = Mesh("meshes/mesh_test.g")
+  fs = FunctionSpace(mesh, 1, 2)
+  @test sum(fs.JxW) ≈ 1.0
 end
 
 include("poisson_equation.jl")
+include("poisson_equation_multi_component.jl")
 
 # Aqua testing
 # Aqua.test_all(FiniteElementContainers)
-Aqua.test_ambiguities(ReferenceFiniteElements)
-Aqua.test_unbound_args(ReferenceFiniteElements)
-Aqua.test_undefined_exports(ReferenceFiniteElements)
-Aqua.test_piracy(ReferenceFiniteElements)
-Aqua.test_project_extras(ReferenceFiniteElements)
-Aqua.test_stale_deps(ReferenceFiniteElements)
-Aqua.test_deps_compat(ReferenceFiniteElements)
-Aqua.test_project_toml_formatting(ReferenceFiniteElements)
+Aqua.test_ambiguities(FiniteElementContainers)
+Aqua.test_unbound_args(FiniteElementContainers)
+Aqua.test_undefined_exports(FiniteElementContainers)
+Aqua.test_piracy(FiniteElementContainers)
+Aqua.test_project_extras(FiniteElementContainers)
+Aqua.test_stale_deps(FiniteElementContainers)
+Aqua.test_deps_compat(FiniteElementContainers)
+Aqua.test_project_toml_formatting(FiniteElementContainers)
 
 # JET testing
 # test_package("FiniteElementContainers"; target_defined_modules=true)
