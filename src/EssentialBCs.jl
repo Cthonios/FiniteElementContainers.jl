@@ -1,14 +1,12 @@
 struct EssentialBC{Itype}
   nodes::Vector{Itype}
-  # coords::Vector{SVector{D, Rtype}}
   dof::Int
+  func::Function
 end
 
-function EssentialBC(mesh::Mesh{F, I, B}, id::Int, dof::Int) where {F, I, B}
+function EssentialBC(mesh::Mesh{F, I, B}, id::Int, dof::Int, func::Function = (x, t) -> 0.) where {F, I, B}
   nset = mesh.nsets[id]
-  # D = size(mesh.coords, 1)
-  # coords = @views reinterpret(SVector{D, Float64}, vec(mesh.coords[:, nset.nodes]))
-  # return EssentialBC{Int64, D, Float64}(nset.nodes, coords, dof)
-  # return EssentialBC{B, D, Float64}(nset.nodes, coords, dof)
-  return EssentialBC{B}(nset.nodes, dof)
+  return EssentialBC{B}(nset.nodes, dof, func)
 end 
+
+call_bc_func(e::EssentialBC{Itype}, X, t) where {Itype} = getfield(e, :func)(X, t) 

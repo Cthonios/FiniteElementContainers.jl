@@ -9,36 +9,32 @@ using StaticArrays
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 
 function residual(cell, u_el)
-  @unpack ξ, N, ∇N_X, JxW = cell
+  @unpack X, N, ∇N_X, JxW = cell
   ∇u_q = ∇N_X' * u_el
-  R_q = (∇N_X * ∇u_q)' .- N' * f(ξ, 0.0)
+  R_q = (∇N_X * ∇u_q)' .- N' * f(X, 0.0)
   return JxW * R_q[:]
 end
 
 function tangent(cell, _)
-  @unpack ξ, N, ∇N_X, JxW = cell
+  @unpack X, N, ∇N_X, JxW = cell
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q
 end
 
-function solve(fspace, dof, assembler, assembler_cache)
+function solve(mesh, fspaces, dof, assembler, bcs)
   Uu = create_unknowns(dof)
   U  = create_fields(dof)
 
-  update_bcs!(U, dof)
+  update_bcs!(U, bcs)
   update_fields!(U, dof, Uu)
-  assemble!(assembler, assembler_cache,
-            fspace, dof, 
-            residual, tangent, 
-            U)
-  
+  assemble!(assembler, mesh, fspaces, dof, residual, tangent, U)
+
   K = assembler.K[dof.unknown_indices, dof.unknown_indices]
 
   for n in 1:10
-
-    update_bcs!(U, dof)
+    update_bcs!(U, bcs)
     update_fields!(U, dof, Uu)
-    assemble!(assembler, assembler_cache, fspace, dof, residual, U)
+    assemble!(assembler, mesh, fspaces, dof, residual, U)
 
     R = assembler.R[dof.unknown_indices]
 
@@ -53,12 +49,11 @@ function solve(fspace, dof, assembler, assembler_cache)
   end
 
   update_fields!(U, dof, Uu)
-
   return U
 end
 
 function run_simulation()
-  mesh = Mesh("mesh.g", [1]; nsets=[1, 2, 3, 4])
+  mesh = Mesh("mesh.g"; nsets=[1, 2, 3, 4])
 
   bcs = [
     EssentialBC(mesh, 1, 1)
@@ -67,19 +62,20 @@ function run_simulation()
     EssentialBC(mesh, 4, 1)
   ]
 
-  re        = ReferenceFE(Quad4(1), Int32, Float64)
-  fspace    = FunctionSpace(mesh.coords, mesh.blocks[1], re)
-  dof       = DofManager(mesh, 1, bcs)
-  assembler = Assembler(dof)
-  assembler_cache = AssemblerCache(dof, fspace)
-  println("Setup complete")
+  q_degree = 2
+  n_dof    = 1
+  block_id = 1
 
-  @time U = solve(fspace, dof, assembler, assembler_cache)
-
+  fspace    = FunctionSpace(mesh, block_id, q_degree)
+  fspaces   = [fspace]
+  dof       = DofManager(mesh, n_dof, bcs)
+  assembler = StaticAssembler(dof)
+  U         = solve(mesh, fspaces, dof, assembler, bcs)
   copy_mesh("mesh.g", "poisson_output.e")
   exo = ExodusDatabase("poisson_output.e", "rw")
   write_names(exo, NodalVariable, ["u"])
   write_time(exo, 1, 0.0)
   write_values(exo, NodalVariable, 1, "u", U)
   close(exo)
+  
 end

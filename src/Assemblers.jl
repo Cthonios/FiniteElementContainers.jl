@@ -1,161 +1,175 @@
-# struct Assembler{Rtype, Itype}
-#   R::Vector{Rtype}
-#   K::SparseMatrixCSC{Rtype, Itype}
-#   M::SparseMatrixCSC{Rtype, Itype}
-# end
-# issue with Int32 maybe put a pull request in to julia itself
+abstract type AbstractAssembler end
 
-"""
-"""
-struct Assembler{Rtype, Itype}
+struct StaticAssembler{Rtype, Itype} <: AbstractAssembler
   R::Vector{Rtype}
   K::SparseMatrixCSC{Rtype, Int64}
-  M::SparseMatrixCSC{Rtype, Int64}
 end
 
-"""
-"""
-function Assembler(dof::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof}
-  R = Vector{Rtype}(undef, length(dof.row_coords))
-  K = sparse(dof.row_coords, dof.col_coords, zeros(Rtype, length(dof.row_coords)))
-  M = sparse(dof.row_coords, dof.col_coords, zeros(Rtype, length(dof.row_coords)))
-  return Assembler{Rtype, Itype}(R, K, M)
-end
-
-"""
-"""
-struct AssemblerCache{NxNDof, Rtype, L}
-  R_el::Vector{SVector{NxNDof, Rtype}}
-  K_el::Vector{SMatrix{NxNDof, NxNDof, Rtype, L}}
-  M_el::Vector{SMatrix{NxNDof, NxNDof, Rtype, L}}
-end
-
-"""
-"""
-function AssemblerCache(
-  ::DofManager{Itype, Rtype, NDof},
-  fspace::FunctionSpace{Itype, N, D, Rtype, L}
-) where {Itype, N, D, Rtype, L, NDof}
-  NxNDof = N * NDof
-  R_el = Vector{SVector{NxNDof, Rtype}}(undef, size(fspace, 1))
-  K_el = Vector{SMatrix{NxNDof, NxNDof, Rtype, NxNDof * NxNDof}}(undef, size(fspace, 1))
-  M_el = Vector{SMatrix{NxNDof, NxNDof, Rtype, NxNDof * NxNDof}}(undef, size(fspace, 1))
-  return AssemblerCache{NxNDof, Rtype, NxNDof * NxNDof}(R_el, K_el, M_el)
-end
-
-struct AssemblerBlock{Itype, N, D, Rtype, L1, NxNDof, L2}
-  fspace::FunctionSpace{Itype, N, D, Rtype, L1}
-  cache::AssemblerCache{NxNDof, Rtype, L2}
-end
-
-function AssemblerBlock(
+function StaticAssembler(
   dof::DofManager{Itype, Rtype, NDof},
-  fspace::FunctionSpace{Itype, N, D, Rtype, L}
-) where {Itype, N, D, Rtype, L, NDof}
+) where {Itype, Rtype, NDof}
 
-  cache = AssemblerCache(dof, fspace)
-  return AssemblerBlock{Itype, N, D, Rtype, L1, N * NDof, Rtype, L2}(fspace, cache)
+  n_hessian_entries = number_of_hessian_entries_naive(dof)
+  col_coords = Vector{Itype}(undef, n_hessian_entries)
+  row_coords = Vector{Itype}(undef, n_hessian_entries)
+  setup_hessian_coordinates!(col_coords, row_coords, dof)
+
+  R = Vector{Rtype}(undef, length(row_coords))
+  K = sparse(row_coords, col_coords, zeros(Rtype, length(row_coords)))
+  return StaticAssembler{Rtype, Itype}(R, K)
 end
 
 function assemble!(
-  assembler::Assembler{Rtype, Itype},
-  assembler_cache::AssemblerCache{NxNDof, Rtype, L1},
-  fspace::FunctionSpace{<:Integer, N, D, Rtype, L2},
+  assembler::StaticAssembler{Rtype, Itype},
+  mesh::Mesh,
+  fspaces,
   dof::DofManager{<:Integer, Rtype, NDof},
   residual_func::Function,
-  U::Vector{Rtype},
-) where {NxNDof, Rtype, L1, Itype, N, D, L2, NDof}
+  U::Vector{Rtype}
+) where {Rtype, Itype, NDof}
 
   assembler.R .= 0.
 
-  conn_ids = @views dof.ids[fspace.conn]
+  for n in axes(fspaces, 1)
+    fspace = fspaces[n]
+    N = length(fspace[1, 1].N)
+    NxNDof = N * NDof
 
-  for e in axes(fspace, 2)
-    U_el = @views SMatrix{N, NDof, Rtype, NxNDof}(U[fspace.conn[:, e]])
+    for e in axes(fspace, 2)
+      U_el = @views SMatrix{N, NDof, Rtype, NxNDof}(U[dof.conns[n][:, e]])
 
-    for q in axes(fspace, 1)
-      assembler_cache.R_el[q] = residual_func(fspace[q, e], U_el)
-    end
+      R_el = zeros(SVector{NxNDof, Rtype})
+      for q in axes(fspace, 1)
+        R_el = R_el + residual_func(fspace[q, e], U_el)
+      end
 
-    R_el = sum(assembler_cache.R_el)
-
-    for i in axes(fspace.conn, 1)
-      assembler.R[conn_ids[i, e]] += R_el[i]
-    end
-  end
-end
-
-function assemble!(
-  assembler::Assembler{Rtype, Itype},
-  assembler_cache::AssemblerCache{NxNDof, Rtype, L1},
-  fspace::FunctionSpace{<:Integer, N, D, Rtype, L2},
-  dof::DofManager{<:Integer, Rtype, NDof},
-  residual_func::Function,
-  stiffness_func::Function,
-  U::Vector{Rtype},
-) where {NxNDof, Rtype, L1, Itype, N, D, L2, NDof}
-
-  assembler.R .= 0.
-  assembler.K .= 0.
-
-  conn_ids = @views dof.ids[fspace.conn]
-
-  for e in axes(fspace, 2)
-    U_el = @views SMatrix{N, NDof, Rtype, NxNDof}(U[fspace.conn[:, e]])
-
-    for q in axes(fspace, 1)
-      assembler_cache.R_el[q] = residual_func(fspace[q, e], U_el)
-      assembler_cache.K_el[q] = stiffness_func(fspace[q, e], U_el)
-    end
-
-    R_el = sum(assembler_cache.R_el)
-    K_el = sum(assembler_cache.K_el)
-
-    for i in axes(fspace.conn, 1)
-      assembler.R[conn_ids[i, e]] += R_el[i]
-      for j in axes(fspace.conn, 1)
-        assembler.K[conn_ids[i, e], conn_ids[j, e]] += K_el[i, j]
+      for i in axes(dof.conns[n], 1)
+        assembler.R[dof.conns[n][i, e]] += R_el[i]
       end
     end
   end
 end
 
 function assemble!(
-  assembler::Assembler{Rtype, Itype},
-  assembler_cache::AssemblerCache{NxNDof, Rtype, L1},
-  fspace::FunctionSpace{<:Integer, N, D, Rtype, L2},
+  assembler::StaticAssembler{Rtype, Itype},
+  mesh::Mesh,
+  fspaces,
+  dof::DofManager{<:Integer, Rtype, NDof},
+  residual_func::Function,
+  U::Matrix{Rtype}
+) where {Rtype, Itype, NDof}
+
+  assembler.R .= 0.
+
+  for n in axes(fspaces, 1)
+    fspace = fspaces[n]
+    N = length(fspace[1, 1].N)
+    NxNDof = N * NDof
+
+    conn = mesh.blocks[n].conn
+    for e in axes(fspace, 2)
+      U_el = @views SMatrix{NDof, N, Rtype, NxNDof}(U[:, conn[:, e]])
+
+
+      R_el = zeros(SVector{NxNDof, Rtype})
+      for q in axes(fspace, 1)
+        # works
+        R_el = R_el + residual_func(fspace[q, e], U_el)
+
+        # maybe something to think about later
+        # Rs = vcat(residual_func(fspace[q, e], U_el)...)
+        # R_el = R_el + Rs[:]
+      end
+
+      for i in axes(dof.conns[n], 1)
+        assembler.R[dof.conns[n][i, e]] += R_el[i]
+      end
+    end
+  end
+end
+
+function assemble!(
+  assembler::StaticAssembler{Rtype, Itype},
+  mesh::Mesh,
+  fspaces,
   dof::DofManager{<:Integer, Rtype, NDof},
   residual_func::Function,
   stiffness_func::Function,
-  mass_func::Function,
-  U::Vector{Rtype},
-) where {NxNDof, Rtype, L1, Itype, N, D, L2, NDof}
+  U::Vector{Rtype}
+) where {Rtype, Itype, NDof}
+
+  assembler.R .= 0.
+
+  # loop over blocks
+  for n in axes(fspaces, 1)
+    fspace = fspaces[n]
+    N = length(fspace[1, 1].N)
+    NxNDof = N * NDof
+
+    for e in axes(fspace, 2)
+      U_el = @views SMatrix{N, NDof, Rtype, NxNDof}(U[dof.conns[n][:, e]])
+
+      R_el = zeros(SVector{NxNDof, Rtype})
+      K_el = zeros(SMatrix{NxNDof, NxNDof, Rtype, NxNDof * NxNDof})
+      for q in axes(fspace, 1)
+        R_el = R_el + residual_func(fspace[q, e], U_el)
+        K_el = K_el + stiffness_func(fspace[q, e], U_el)
+      end
+
+      # actual assembly here
+      for i in axes(dof.conns[n], 1)
+        assembler.R[dof.conns[n][i, e]] += R_el[i]
+        for j in axes(dof.conns[n], 1)
+          assembler.K[dof.conns[n][i, e], dof.conns[n][j, e]] += K_el[i, j]
+        end
+      end
+
+    end
+  end
+end
+
+function assemble!(
+  assembler::StaticAssembler{Rtype, Itype},
+  mesh::Mesh,
+  fspaces,
+  dof::DofManager{<:Integer, Rtype, NDof},
+  # conns,
+  residual_func::Function,
+  stiffness_func::Function,
+  U::Matrix{Rtype}
+) where {Rtype, Itype, NDof}
 
   assembler.R .= 0.
   assembler.K .= 0.
-  assembler.M .= 0.
 
-  conn_ids = @views dof.ids[fspace.conn]
+  # loop over blocks
+  for n in axes(fspaces, 1)
+    fspace = fspaces[n]
+    N = length(fspace[1, 1].N)
+    NxNDof = N * NDof
+    conn = mesh.blocks[n].conn
 
-  for e in axes(fspace, 2)
-    U_el = @views SMatrix{N, NDof, Rtype, NxNDof}(U[fspace.conn[:, e]])
+    for e in axes(fspace, 2)
+      # U_el = @views SMatrix{NDof, N, Rtype, NxNDof}(U[:, conns[n][:, e]])
+      U_el = @views SMatrix{NDof, N, Rtype, NxNDof}(U[:, conn[:, e]])
 
-    for q in axes(fspace, 1)
-      assembler_cache.R_el[q] = residual_func(fspace[q, e], U_el)
-      assembler_cache.K_el[q] = stiffness_func(fspace[q, e], U_el)
-      assembler_cache.M_el[q] = mass_func(fspace[q, e], U_el)
-    end
+      R_el = zeros(SVector{NxNDof, Rtype})
+      K_el = zeros(SMatrix{NxNDof, NxNDof, Rtype, NxNDof * NxNDof})
+      for q in axes(fspace, 1)
 
-    R_el = sum(assembler_cache.R_el)
-    K_el = sum(assembler_cache.K_el)
-    M_el = sum(assembler_cache.M_el)
-
-    for i in axes(fspace.conn, 1)
-      assembler.R[conn_ids[i, e]] += R_el[i]
-      for j in axes(fspace.conn, 1)
-        assembler.K[conn_ids[i, e], conn_ids[j, e]] += K_el[i, j]
-        assembler.M[conn_ids[i, e], conn_ids[j, e]] += M_el[i, j]
+        # works
+        R_el = R_el + residual_func(fspace[q, e], U_el)
+        K_el = K_el + stiffness_func(fspace[q, e], U_el)
       end
+
+      # actual assembly here
+      for i in axes(dof.conns[n], 1)
+        assembler.R[dof.conns[n][i, e]] += R_el[i]
+        for j in axes(dof.conns[n], 1)
+          assembler.K[dof.conns[n][i, e], dof.conns[n][j, e]] += K_el[i, j]
+        end
+      end
+
     end
   end
 end

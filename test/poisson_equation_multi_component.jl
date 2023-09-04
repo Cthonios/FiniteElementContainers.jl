@@ -1,18 +1,18 @@
 # methods
-f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+f_u(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+f_v(X, _) = 2. * π^2 * cos(π * X[1]) * cos(π * X[2])
 
 function residual(cell, u_el)
   @unpack X, N, ∇N_X, JxW = cell
-  ∇u_q = ∇N_X' * u_el
-  R_q = (∇N_X * ∇u_q)' .- N' * f(X, 0.0)
-  return JxW * R_q[:]
+  ∇u_q = ∇N_X' * u_el[1, :]
+  ∇v_q = ∇N_X' * u_el[2, :]
+  R_u_q = (∇N_X * ∇u_q)' .- N' * f_u(X, 0.0)
+  R_v_q = (∇N_X * ∇v_q)' .- N' * f_v(X, 0.0)
+  R_q = JxW * vcat(R_u_q, R_v_q)[:]
+  return R_q
 end
 
-function tangent(cell, _)
-  @unpack X, N, ∇N_X, JxW = cell
-  K_q = ∇N_X * ∇N_X'
-  return JxW * K_q
-end
+tangent(cell, u_el) = ForwardDiff.jacobian(z -> residual(cell, z), u_el)
 
 # script
 mesh = Mesh("./meshes/mesh_test.g"; nsets=[1, 2, 3, 4])
@@ -22,12 +22,16 @@ bcs = [
   EssentialBC(mesh, 2, 1)
   EssentialBC(mesh, 3, 1)
   EssentialBC(mesh, 4, 1)
+  EssentialBC(mesh, 1, 2)
+  EssentialBC(mesh, 2, 2)
+  EssentialBC(mesh, 3, 2)
+  EssentialBC(mesh, 4, 2)
 ]
 
 # re        = ReferenceFE(Quad4(1), Int32, Float64)
 fspace    = FunctionSpace(mesh, 1, 1)
 fspaces   = [fspace]
-dof       = DofManager(mesh, 1, bcs)
+dof       = DofManager(mesh, 2, bcs)
 assembler = StaticAssembler(dof)
 
 function solve(mesh, fspaces, dof, assembler)
@@ -63,13 +67,14 @@ end
 
 U = solve(mesh, fspaces, dof, assembler)
 
-copy_mesh("./meshes/mesh_test.g", "poisson_output.e")
-exo = ExodusDatabase("poisson_output.e", "rw")
-write_names(exo, NodalVariable, ["u"])
+copy_mesh("./meshes/mesh_test.g", "poisson_output_multi_component.e")
+exo = ExodusDatabase("poisson_output_multi_component.e", "rw")
+write_names(exo, NodalVariable, ["u", "v"])
 write_time(exo, 1, 0.0)
-write_values(exo, NodalVariable, 1, "u", U)
+write_values(exo, NodalVariable, 1, "u", U[1, :])
+write_values(exo, NodalVariable, 1, "v", U[2, :])
 close(exo)
 
-exodiff("poisson_output.e.gold", "poisson_output.e")
+exodiff("poisson_output_multi_component.e.gold", "poisson_output_multi_component.e")
 
-Base.rm("poisson_output.e")
+Base.rm("poisson_output_multi_component.e")

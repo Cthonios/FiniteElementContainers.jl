@@ -5,23 +5,31 @@ struct Mesh{Rtype, I, B}
   ssets::Vector{SideSet{I, B}}
 end
 
-function Mesh(
-  file_name::String, 
-  blocks::Vector{T};
-  nsets::Vector{T} = T[],
-  ssets::Vector{T} = T[]
-) where T <: Union{Int64, String}
+# for now we read in all blocks
+# to make omitting blocks possible we'll
+# need to create our own native ids and reorder things
+# function Mesh(
+#   file_name::String,
+#   nsets::Vector{T} = T[],
+#   ssets::Vector{T} = T[]
+# ) where T <: Union{Int64, String}
 
+function Mesh(
+  file_name::String;
+  nsets = [],
+  ssets = []
+)
   exo = ExodusDatabase(file_name, "r")
   _, I, B, F = Exodus.int_and_float_modes(exo.exo)
   coords = read_coordinates(exo)
-  blocks_read = Vector{Block{I, B}}(undef, length(blocks))
+  # blocks_read = Vector{Block{I, B}}(undef, length(blocks))
+  blocks_read = read_sets(exo, Block)
   nsets_read  = Vector{NodeSet{I, B}}(undef, length(nsets))
   ssets_read  = Vector{SideSet{I, B}}(undef, length(ssets))
 
-  for (n, id) in enumerate(blocks)
-    blocks_read[n] = Block(exo, id)
-  end
+  # for (n, id) in enumerate(blocks)
+  #   blocks_read[n] = Block(exo, id)
+  # end
 
   for (n, id) in enumerate(nsets)
     nsets_read[n] = NodeSet(exo, id)
