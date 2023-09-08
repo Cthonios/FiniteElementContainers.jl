@@ -1,7 +1,7 @@
 name = "FiniteElementContainers"
 uuid = "d08262e4-672f-4e7f-a976-f2cea5767631"
 authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
@@ -12,7 +12,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 
 [compat]
-Exodus = "0.7"
+Exodus = "0.8"
 ReferenceFiniteElements = "0.5"
 StaticArrays = "1.6.2"
 StructArrays = "0.6"
