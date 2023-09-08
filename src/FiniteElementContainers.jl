@@ -34,4 +34,6 @@ include("FunctionSpaces.jl")
 include("DofManagers.jl")
 include("Assemblers.jl")
 
+include("ElementColorings.jl")
+
 end
