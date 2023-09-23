@@ -1,39 +1,33 @@
 module FiniteElementContainers
 
-# types
-export DofManager
-export EssentialBC
-export FunctionSpace
-export Mesh
-export StaticAssembler
+# type exports
+export DofManager,
+       EssentialBC,
+       FunctionSpace,
+       Mesh
 
-# methods
-export assemble!
-export create_fields
-export create_unknowns
-export update_bcs!
-export update_fields!
+# method exports
+export create_fields,
+       create_unknowns,
+       dof_connectivity,
+       element_connectivity,
+       update_bcs!,
+       update_fields!
 
-using Exodus
-using LinearAlgebra
-using ReferenceFiniteElements
-using SparseArrays
-using StaticArrays
-using StructArrays
+# dependencies
+using Exodus,
+      Graphs,
+      KernelAbstractions,
+      LinearAlgebra,
+      ReferenceFiniteElements,
+      SparseArrays,
+      StaticArrays,
+      StructArrays
 
-const MeshTypes = Union{
-  ExodusDatabase
-}
-
-abstract type AbstractFEMContainer end
-abstract type AbstractCellContainer <: AbstractFEMContainer end
-
+# include files
 include("Meshes.jl")
 include("EssentialBCs.jl")
 include("FunctionSpaces.jl")
 include("DofManagers.jl")
-include("Assemblers.jl")
 
-include("ElementColorings.jl")
-
-end
+end # module

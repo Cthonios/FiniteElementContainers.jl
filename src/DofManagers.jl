@@ -1,143 +1,108 @@
-struct DofManager{Itype, Rtype, NDof}
-  field_shape::Union{Int, Tuple{Int, Int}}
-  ids::VecOrMat{Itype}
-  is_unknown::BitArray
-  unknown_indices::Vector{Itype}
-  conns::Vector{Matrix{Itype}}
+"""
+"""
+struct MyConn{T <: AbstractArray{<:Integer}}
+  conn::T
 end
 
-create_fields(d::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof} = zeros(Rtype, d.field_shape)
-create_unknowns(d::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof} = zeros(Rtype, length(d.unknown_indices))
-ndofs(::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof} = NDof
+"""
+"""
+struct DofManager{
+  NDof, 
+  B <: AbstractArray{Bool, 2},
+  V <: AbstractArray{<:Integer},
+  S <: StructArray{<:MyConn{<:Vector{<:Integer}}}
+}
+	is_unknown::B
+	unknown_indices::V
+  conns::S
+  dof_conns::S
+end
 
-f_zero() = 0.0
-f_zero(::SVector{D, Rtype}) where {D, Rtype} = 0.0
-f_zero(::SVector{D, Rtype}, t::Rtype) where {D, Rtype} = 0.0
-
+"""
+"""
 function DofManager(
-  mesh::Mesh{F, I, B},
-  n_dofs::Int,
-  essential_bcs::Vector{<:EssentialBC}
-) where {F, I, B}
+  mesh::Mesh{M, V1, V2, V3},
+  n_dofs::Int
+) where {M, V1, V2, V3}
 
-  # Note this implementation assumes you are using
-  # all of the blocks in the exodus file
+  # convenient parameters
+  n_nodes = size(mesh.coords, 2)
+  n_els   = map(x -> size(x.conn, 2), mesh.blocks) |> sum
 
-  if n_dofs == 1
-    field_shape = size(mesh.coords, 2)
-  else
-    field_shape = n_dofs, size(mesh.coords, 2)
-  end
-
-  is_bc = BitArray(undef, field_shape)
-  is_bc .= 0
-
-  for bc in essential_bcs
-    if n_dofs == 1
-      is_bc[bc.nodes] .= 1
-    else
-      is_bc[bc.dof, bc.nodes] .= 1
-    end
-  end
-
-  is_unknown = .!is_bc
-  ids = reshape(1:length(is_bc), field_shape) |> collect
-  ids = convert.(B, ids)
-  
+  # setup indexing arrays
+  is_unknown      = BitArray(1 for _ = 1:n_dofs, _ = 1:n_nodes)
+  ids             = reshape(1:length(is_unknown), n_dofs, n_nodes)
   unknown_indices = ids[is_unknown]
 
-  conns = Vector{Matrix{B}}(undef, length(mesh.blocks))
-  for (n, block) in enumerate(mesh.blocks)
-    conn = block.conn
-    if n_dofs > 1
-      temp_conn = Matrix{B}(undef, n_dofs * size(conn, 1), size(conn, 2))
-      for e in axes(conn, 2)
-        ids_e = @views vec(ids[:, conn[:, e]])
-        temp_conn[:, e] = ids_e
-      end
-      conns[n] = temp_conn
-    else
-      conns[n] = conn
+  # using a struct array - TODO template this
+  conns     = StructArray{MyConn{Vector{Int64}}}(undef, n_els)
+  dof_conns = StructArray{MyConn{Vector{Int64}}}(undef, n_els)
+  n = 1
+  for block in mesh.blocks
+    for e in axes(block.conn, 2)
+      # TODO for typing below
+      @views conns[n] = MyConn(convert.(Int64, block.conn[:, e]))
+      @views dof_conns[n] = MyConn(convert.(Int64, vec(ids[:, block.conn[:, e]])))
+      n = n + 1
     end
   end
 
-  return DofManager{B, F, n_dofs}(field_shape, ids, is_unknown, unknown_indices, conns)
+  # get types
+  B = typeof(is_unknown)
+  V = typeof(unknown_indices)
+  S = typeof(conns)
+  return DofManager{n_dofs, B, V, S}(is_unknown, unknown_indices, conns, dof_conns)
 end
 
-function number_of_hessian_entries_naive(dof::DofManager{Itype, Rtype, NDof}) where {Itype, Rtype, NDof}
+"""
+"""
+create_fields(d::DofManager, Rtype::Type{<:AbstractFloat} = Float64) = zeros(Rtype, size(d.is_unknown))
 
-  n_hessian_entries::Int = 0
-  if typeof(dof.ids) <: Matrix
-    n_dof = size(dof.ids, 1)
-  else
-    n_dof = 1
-  end
+"""
+"""
+create_unknowns(d::DofManager, Rtype::Type{<:AbstractFloat} = Float64) = zeros(Rtype, sum(d.is_unknown))
 
-  # for block in mesh.blocks
-  # for block in values(mesh.blocks)
-  for conn in dof.conns
-    # n_nodes_per_elem, n_elem = size(block.conn)
-    n_nodes_per_elem, n_elem = size(conn)
-    # n_hessian_entries = n_hessian_entries + n_elem * (n_dof * n_nodes_per_elem)^2
-    n_hessian_entries = n_hessian_entries + n_elem * n_nodes_per_elem^2
+"""
+"""
+dof_ids(d::DofManager) = reshape(1:length(d.is_unknown), size(d.is_unknown))
 
-  end
+"""
+"""
+Base.size(d::DofManager) = size(d.is_unknown)
 
-  return n_hessian_entries
-end
+"""
+"""
+element_connectivity(d::DofManager, e::Int) = d.conns[e].conn
 
-function setup_hessian_coordinates!(
-  row_coords::Vector{Itype}, 
-  col_coords::Vector{Itype}, 
-  dof::DofManager{Itype, Rtype, NDof}
-) where {Itype, Rtype, NDof}
+"""
+"""
+dof_connectivity(d::DofManager, e::Int) = d.dof_conns[e].conn
 
-  counter = 1
 
-  for conn in values(dof.conns)
-    conn = convert(Matrix{Itype}, conn)
+function update_bcs!(
+  U::M1,
+  mesh::Mesh{M2, V1, V2, V3},
+  dof::DofManager,
+  bcs::V4
+) where {M1 <: AbstractMatrix, M2 <: AbstractMatrix,
+         V1 <: AbstractVector, V2 <: AbstractVector,
+         V3 <: AbstractVector, V4 <: AbstractVector{<:EssentialBC}}
 
-    for e in axes(conn, 2)
-      ids_e = @views conn[:, e]
-
-      for i in axes(ids_e, 1)
-        for j in axes(ids_e, 1)
-          row_coords[counter] = ids_e[i]
-          col_coords[counter] = ids_e[j]
-          counter = counter + 1
-        end
-      end
+  dof.is_unknown .= 1
+  for bc in bcs
+    for node in bc.nodes
+      dof.is_unknown[node] = false
+      U[bc.dof, node] = @views bc.func(mesh.coords[:, node], 0.)
     end
   end
+
+  # TODO below line is the only source of allocations here
+  @views new_unknown_indices = dof_ids(dof)[dof.is_unknown]
+	resize!(dof.unknown_indices, length(new_unknown_indices))
+	dof.unknown_indices .= new_unknown_indices
 end
 
-function update_bcs!(
-  U::Vector{Rtype}, 
-  mesh::Mesh,
-  bcs::Vector{<:EssentialBC}
-) where Rtype
-
-  for bc in bcs
-    # @inbounds U[bc.nodes] .= f_zero()
-    @inbounds U[bc.nodes] .= @views bc.func.(eachcol(mesh.coords[:, bc.nodes]), (0.,))
-  end
-end
-
-"""
-for static problems with more than one dof
-"""
-function update_bcs!(
-  U::Matrix{Rtype},
-  mesh::Mesh{Rtype, I, B},
-  bcs::Vector{<:EssentialBC}
-) where {Rtype, I, B}
-
-  for bc in bcs
-    @inbounds U[bc.dof, bc.nodes] .= @views bc.func.(eachcol(mesh.coords[:, bc.nodes]), (0.,))
-  end
-end
-
-function update_fields!(U::VecOrMat{Rtype}, d::DofManager{Itype, Rtype, NDof}, Uu::Vector{Rtype}) where {Itype, Rtype, NDof}
-  @assert length(Uu) == length(d.unknown_indices)
+function update_fields!(U::M, d::DofManager, Uu::V) where {M <: AbstractMatrix, V <: AbstractVector}
+  @assert length(Uu) == sum(d.is_unknown)
   U[d.is_unknown] = Uu
-end
+end 
