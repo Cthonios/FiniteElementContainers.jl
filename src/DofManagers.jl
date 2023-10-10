@@ -1,8 +1,12 @@
 """
 """
-struct MyConn{T <: AbstractArray{<:Integer}}
+struct MyConn{T <: AbstractArray{<:Integer}} #<: AbstractArray{T, 1}
   conn::T
 end
+
+Base.length(c::MyConn) = length(c.conn)
+Base.axes(c::MyConn) = Base.OneTo(length(c))
+Base.getindex(c::MyConn, i::Int) = c.conn[i]
 
 """
 """
@@ -17,6 +21,10 @@ struct DofManager{
   conns::S
   dof_conns::S
 end
+
+"""
+"""
+n_dofs(::DofManager{NDof, B, V, S}) where {NDof, B, V, S} = NDof
 
 """
 """
@@ -76,6 +84,10 @@ element_connectivity(d::DofManager, e::Int) = d.conns[e].conn
 
 """
 """
+element_connectivity_2(d::DofManager{NDOF, B, V, S}, e::Int) where {NDOF, B, V, S} = d.dof_conns[e].conn[1:NDOF:end]
+
+"""
+"""
 dof_connectivity(d::DofManager, e::Int) = d.dof_conns[e].conn
 
 
@@ -91,7 +103,7 @@ function update_bcs!(
   dof.is_unknown .= 1
   for bc in bcs
     for node in bc.nodes
-      dof.is_unknown[node] = false
+      dof.is_unknown[bc.dof, node] = 0
       U[bc.dof, node] = @views bc.func(mesh.coords[:, node], 0.)
     end
   end

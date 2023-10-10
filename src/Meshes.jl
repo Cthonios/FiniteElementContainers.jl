@@ -29,14 +29,18 @@ blocks(m::Mesh) = m.blocks
 nodesets(m::Mesh) = m.nsets
 sidesets(m::Mesh) = m.ssets
 
-function Mesh(file_name::String; nsets = [], ssets = [])
+function Mesh(file_name::String; nsets::Vector{<:Integer} = Int[], ssets::Vector{<:Integer} = Int[])
   exo = ExodusDatabase(file_name, "r")
   _, I, B, F = Exodus.int_and_float_modes(exo.exo)
+
+  nsets = convert(Vector{I}, nsets)
+  ssets = convert(Vector{I}, ssets)
+
   coords = read_coordinates(exo)
   blocks_read = read_sets(exo, Block)
   blocks = MeshBlock.(blocks_read)
-  nsets_read  = Vector{NodeSet{I, B}}(undef, length(nsets))
-  ssets_read  = Vector{SideSet{I, B}}(undef, length(ssets))
+  nsets_read  = Vector{NodeSet{I, Vector{B}}}(undef, length(nsets))
+  ssets_read  = Vector{SideSet{I, Vector{B}}}(undef, length(ssets))
   el_types    = map(x -> x.elem_type, blocks_read)
 
   for (n, id) in enumerate(nsets)

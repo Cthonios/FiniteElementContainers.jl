@@ -39,7 +39,7 @@ end
   fspace.JxW[q, e] = JxW
 end
 
-# CPU implementation
+# CPU implementation, others in extensions
 function FunctionSpace(
   coords::M1,
   block::MeshBlock{I, M2},

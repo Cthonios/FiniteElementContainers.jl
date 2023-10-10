@@ -4,10 +4,12 @@ module FiniteElementContainers
 export DofManager,
        EssentialBC,
        FunctionSpace,
-       Mesh
+       Mesh,
+       StaticAssembler
 
 # method exports
-export create_fields,
+export assemble!,
+       create_fields,
        create_unknowns,
        dof_connectivity,
        element_connectivity,
@@ -29,5 +31,6 @@ include("Meshes.jl")
 include("EssentialBCs.jl")
 include("FunctionSpaces.jl")
 include("DofManagers.jl")
+include("Assemblers.jl")
 
 end # module
