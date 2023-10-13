@@ -53,27 +53,32 @@ tangent(cell, u_el) = ForwardDiff.jacobian(z -> residual(cell, z), u_el)
 # end
 
 function solve(mesh, fspaces, dof, assembler, bcs, timer)
-  Uu = create_unknowns(dof)
+  # Uu = create_unknowns(dof)
   U  = create_fields(dof)
 
   @timeit timer "Boundary Conditions" begin
-    @timeit timer "Update Boundary Conditions" update_bcs!(U, mesh, bcs)
-    @timeit timer "Update Fields"  update_fields!(U, dof, Uu)
+    @timeit timer "Update Boundary Conditions" update_bcs!(U, mesh, dof, bcs)
+    # @timeit timer "Update Fields"  update_fields!(U, dof, Uu)
   end
 
+  # U = create_fields(dof)
+  Uu = create_unknowns(dof)
+
   @timeit timer "Assembly" begin
-    @timeit timer "Assemble Stiffness and Residual" assemble!(assembler, mesh, fspaces, dof, residual, tangent, U)
+    @timeit timer "Assemble Stiffness and Residual" assemble!(assembler, fspaces, dof, residual, tangent, U)
   end
   K = assembler.K[dof.unknown_indices, dof.unknown_indices]
   
   for n in 1:10
-    @timeit timer "Boundary Conditions" begin
-      @timeit timer "Update Boundary Conditions" update_bcs!(U, mesh, bcs)
-      @timeit timer "Update Fields" update_fields!(U, dof, Uu)
-    end
+    # @timeit timer "Boundary Conditions" begin
+    #   # @timeit timer "Update Boundary Conditions" update_bcs!(U, mesh, dof, bcs)
+    #   @timeit timer "Update Fields" update_fields!(U, dof, Uu)
+    # end
+
+    @timeit timer "Update Fields" update_fields!(U, dof, Uu)
 
     @timeit timer "Assembly" begin
-      @timeit timer "Assemble Residual" assemble!(assembler, mesh, fspaces, dof, residual, U)
+      @timeit timer "Assemble Residual" assemble!(assembler, fspaces, dof, residual, U)
     end
     R = assembler.R[dof.unknown_indices]
 
@@ -120,7 +125,7 @@ function run_simulation()
   fspaces   = [fspace]
   # conn      = mesh.blocks[1].conn
   # conns     = [conn]
-  @timeit timer "DofManager" dof = DofManager(mesh, n_dof, bcs)
+  @timeit timer "DofManager" dof = DofManager(mesh, n_dof)
   @timeit timer "Assembly" begin
     @timeit timer "Setup" assembler = StaticAssembler(dof)
   end

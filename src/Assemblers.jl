@@ -1,175 +1,129 @@
 abstract type AbstractAssembler end
 
-struct StaticAssembler{Rtype, Itype} <: AbstractAssembler
-  R::Vector{Rtype}
-  K::SparseMatrixCSC{Rtype, Int64}
+struct StaticAssembler{Rtype} <: AbstractAssembler
+	R::Vector{Rtype}
+	K::SparseMatrixCSC{Rtype, Int64}
 end
 
-function StaticAssembler(
-  dof::DofManager{Itype, Rtype, NDof},
-) where {Itype, Rtype, NDof}
+Base.show(io::IO, a::StaticAssembler{Rtype}) where Rtype = 
+print(
+	io, "StaticAssembler:\n",
+	"  Rtype = $Rtype\n",
+	"  Size  = $(size(a.K))\n"
+)
 
-  n_hessian_entries = number_of_hessian_entries_naive(dof)
-  col_coords = Vector{Itype}(undef, n_hessian_entries)
-  row_coords = Vector{Itype}(undef, n_hessian_entries)
+function number_of_hessian_entries_naive(dof::DofManager)
+	n_hessian_entries = 0
+  for conn in dof.dof_conns
+    n_hessian_entries += length(conn)^2
+  end
+	return n_hessian_entries
+end
+
+function setup_hessian_coordinates!(
+  row_coords::Vector{Int64}, # hardcoded due to limitation in SparseArrays 
+  col_coords::Vector{Int64}, # hardcoded due to limitation in SparseArrays 
+  dof::DofManager
+)
+
+  counter = 1
+  for conn in dof.dof_conns
+    for i in axes(conn)
+      for j in axes(conn)
+        row_coords[counter] = conn[i]
+        col_coords[counter] = conn[j]
+        counter += 1
+      end
+    end
+  end
+end
+
+function StaticAssembler(dof::DofManager, Rtype::Type{<:AbstractFloat} = Float64)
+	n_hessian_entries = number_of_hessian_entries_naive(dof)
+  col_coords = Vector{Int64}(undef, n_hessian_entries) # hardcoded due to limitation in SparseArrays 
+  row_coords = Vector{Int64}(undef, n_hessian_entries) # hardcoded due to limitation in SparseArrays 
   setup_hessian_coordinates!(col_coords, row_coords, dof)
 
-  R = Vector{Rtype}(undef, length(row_coords))
+	R = Vector{Rtype}(undef, length(dof.is_unknown))
   K = sparse(row_coords, col_coords, zeros(Rtype, length(row_coords)))
-  return StaticAssembler{Rtype, Itype}(R, K)
+  return StaticAssembler{Rtype}(R, K)
 end
 
 function assemble!(
-  assembler::StaticAssembler{Rtype, Itype},
-  mesh::Mesh,
+  assembler::StaticAssembler{Rtype},
   fspaces,
-  dof::DofManager{<:Integer, Rtype, NDof},
+  dof::DofManager{NDof, B, V, S},
   residual_func::Function,
-  U::Vector{Rtype}
-) where {Rtype, Itype, NDof}
+  U::VecOrMat{Rtype}
+) where {Rtype, NDof, B, V, S}
 
   assembler.R .= 0.
 
+  e_global = 1
+
   for n in axes(fspaces, 1)
     fspace = fspaces[n]
-    N = length(fspace[1, 1].N)
+
+    N      = length(fspace[1, 1].N)
     NxNDof = N * NDof
 
     for e in axes(fspace, 2)
-      U_el = @views SMatrix{N, NDof, Rtype, NxNDof}(U[dof.conns[n][:, e]])
+      U_el = @views SMatrix{NDof, N, Rtype, NxNDof}(U[:, dof.conns[e].conn])
 
-      R_el = zeros(SVector{NxNDof, Rtype})
-      for q in axes(fspace, 1)
-        R_el = R_el + residual_func(fspace[q, e], U_el)
+			R_el = zeros(SVector{NxNDof, Rtype})
+			for q in axes(fspace, 1)
+				R_el = R_el + residual_func(fspace[q, e], U_el)
+			end
+
+      conn = dof.dof_conns[e_global]
+      for i in axes(conn)
+        assembler.R[conn[i]] += R_el[i]
       end
 
-      for i in axes(dof.conns[n], 1)
-        assembler.R[dof.conns[n][i, e]] += R_el[i]
-      end
+      e_global += 1
     end
   end
 end
 
 function assemble!(
-  assembler::StaticAssembler{Rtype, Itype},
-  mesh::Mesh,
+  assembler::StaticAssembler{Rtype},
   fspaces,
-  dof::DofManager{<:Integer, Rtype, NDof},
-  residual_func::Function,
-  U::Matrix{Rtype}
-) where {Rtype, Itype, NDof}
-
-  assembler.R .= 0.
-
-  for n in axes(fspaces, 1)
-    fspace = fspaces[n]
-    N = length(fspace[1, 1].N)
-    NxNDof = N * NDof
-
-    conn = mesh.blocks[n].conn
-    for e in axes(fspace, 2)
-      U_el = @views SMatrix{NDof, N, Rtype, NxNDof}(U[:, conn[:, e]])
-
-
-      R_el = zeros(SVector{NxNDof, Rtype})
-      for q in axes(fspace, 1)
-        # works
-        R_el = R_el + residual_func(fspace[q, e], U_el)
-
-        # maybe something to think about later
-        # Rs = vcat(residual_func(fspace[q, e], U_el)...)
-        # R_el = R_el + Rs[:]
-      end
-
-      for i in axes(dof.conns[n], 1)
-        assembler.R[dof.conns[n][i, e]] += R_el[i]
-      end
-    end
-  end
-end
-
-function assemble!(
-  assembler::StaticAssembler{Rtype, Itype},
-  mesh::Mesh,
-  fspaces,
-  dof::DofManager{<:Integer, Rtype, NDof},
+  dof::DofManager{NDof, B, V, S},
   residual_func::Function,
   stiffness_func::Function,
-  U::Vector{Rtype}
-) where {Rtype, Itype, NDof}
-
-  assembler.R .= 0.
-
-  # loop over blocks
-  for n in axes(fspaces, 1)
-    fspace = fspaces[n]
-    N = length(fspace[1, 1].N)
-    NxNDof = N * NDof
-
-    for e in axes(fspace, 2)
-      U_el = @views SMatrix{N, NDof, Rtype, NxNDof}(U[dof.conns[n][:, e]])
-
-      R_el = zeros(SVector{NxNDof, Rtype})
-      K_el = zeros(SMatrix{NxNDof, NxNDof, Rtype, NxNDof * NxNDof})
-      for q in axes(fspace, 1)
-        R_el = R_el + residual_func(fspace[q, e], U_el)
-        K_el = K_el + stiffness_func(fspace[q, e], U_el)
-      end
-
-      # actual assembly here
-      for i in axes(dof.conns[n], 1)
-        assembler.R[dof.conns[n][i, e]] += R_el[i]
-        for j in axes(dof.conns[n], 1)
-          assembler.K[dof.conns[n][i, e], dof.conns[n][j, e]] += K_el[i, j]
-        end
-      end
-
-    end
-  end
-end
-
-function assemble!(
-  assembler::StaticAssembler{Rtype, Itype},
-  mesh::Mesh,
-  fspaces,
-  dof::DofManager{<:Integer, Rtype, NDof},
-  # conns,
-  residual_func::Function,
-  stiffness_func::Function,
-  U::Matrix{Rtype}
-) where {Rtype, Itype, NDof}
+  U::VecOrMat{Rtype}
+) where {Rtype, NDof, B, V, S}
 
   assembler.R .= 0.
   assembler.K .= 0.
 
-  # loop over blocks
+  e_global = 1
+
   for n in axes(fspaces, 1)
     fspace = fspaces[n]
-    N = length(fspace[1, 1].N)
+
+    N      = length(fspace[1, 1].N)
     NxNDof = N * NDof
-    conn = mesh.blocks[n].conn
 
     for e in axes(fspace, 2)
-      # U_el = @views SMatrix{NDof, N, Rtype, NxNDof}(U[:, conns[n][:, e]])
-      U_el = @views SMatrix{NDof, N, Rtype, NxNDof}(U[:, conn[:, e]])
+      U_el = @views SMatrix{NDof, N, Rtype, NxNDof}(U[:, dof.conns[e].conn])
 
-      R_el = zeros(SVector{NxNDof, Rtype})
-      K_el = zeros(SMatrix{NxNDof, NxNDof, Rtype, NxNDof * NxNDof})
-      for q in axes(fspace, 1)
+			R_el = zeros(SVector{NxNDof, Rtype})
+			K_el = zeros(SMatrix{NxNDof, NxNDof, Rtype, NxNDof * NxNDof})
+			for q in axes(fspace, 1)
+				R_el = R_el + residual_func(fspace[q, e], U_el)
+				K_el = K_el + stiffness_func(fspace[q, e], U_el)
+			end
 
-        # works
-        R_el = R_el + residual_func(fspace[q, e], U_el)
-        K_el = K_el + stiffness_func(fspace[q, e], U_el)
-      end
-
-      # actual assembly here
-      for i in axes(dof.conns[n], 1)
-        assembler.R[dof.conns[n][i, e]] += R_el[i]
-        for j in axes(dof.conns[n], 1)
-          assembler.K[dof.conns[n][i, e], dof.conns[n][j, e]] += K_el[i, j]
+      conn = dof.dof_conns[e_global]
+      for i in axes(conn)
+        assembler.R[conn[i]] += R_el[i]
+        for j in axes(conn)
+          assembler.K[conn[i], conn[j]] += K_el[i, j]
         end
       end
 
+      e_global += 1
     end
   end
 end
