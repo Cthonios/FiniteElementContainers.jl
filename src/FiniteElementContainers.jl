@@ -18,7 +18,6 @@ export assemble!,
 
 # dependencies
 using Exodus,
-      Graphs,
       KernelAbstractions,
       LinearAlgebra,
       ReferenceFiniteElements,
