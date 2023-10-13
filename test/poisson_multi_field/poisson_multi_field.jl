@@ -39,6 +39,7 @@
   U = simple_solver(mesh, fspaces, dof, asm, bcs, residual, tangent)
   simple_post_processor("./poisson_multi_field/poisson_multi_field.g", U, ["u", "v", "w"])
   
-  @test exodiff("./poisson_multi_field/poisson_multi_field.e", "./poisson_multi_field/poisson_multi_field.gold")
+  @test exodiff("./poisson_multi_field/poisson_multi_field.e", "./poisson_multi_field/poisson_multi_field.gold";
+                command_file="./poisson_multi_field/poisson_multi_field.cmd")
   rm("./poisson_multi_field/poisson_multi_field.e")
 end

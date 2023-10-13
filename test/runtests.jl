@@ -77,11 +77,11 @@ end
   for regression_test in regression_test_dirs
     jl_file = filter(x -> splitext(x)[2] == ".jl", readdir(regression_test))
     @assert length(jl_file) == 1
-    println("Running regression test from $(joinpath(regression_test, jl_file[1]))...")
     push!(jl_files, joinpath(regression_test, jl_file[1]))
   end
 
   for jl_file in jl_files
+    println("\nRunning regression test from $(jl_file)...")
     include(jl_file)
   end
 end
