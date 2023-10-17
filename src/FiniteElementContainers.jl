@@ -2,6 +2,7 @@ module FiniteElementContainers
 
 # type exports
 export DofManager,
+       DynamicAssembler,
        EssentialBC,
        FunctionSpace,
        Mesh,

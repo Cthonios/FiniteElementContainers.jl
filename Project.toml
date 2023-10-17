@@ -34,11 +34,13 @@ Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+PaddedViews = "5432bcbf-9aad-5242-b902-cca2824c8663"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestSetExtensions = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"
 
 [targets]
-test = ["Adapt", "Aqua", "CUDA", "ForwardDiff", "JET", "Parameters", "Printf", "Test", "TestSetExtensions"]
+test = ["Adapt", "Aqua", "CUDA", "ForwardDiff", "IterativeSolvers", "JET", "PaddedViews", "Parameters", "Printf", "Test", "TestSetExtensions"]
