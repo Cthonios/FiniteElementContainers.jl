@@ -6,7 +6,7 @@
     @unpack X, N, ∇N_X, JxW = cell
     u_q = dot(N, u_el[1, :])
     ∇u_q = ∇N_X' * u_el[1, :]
-    Π = 0.5 * dot(∇u_q, ∇u_q) - f(X, 0.0) * u_q
+    Π = JxW * (0.5 * dot(∇u_q, ∇u_q) - f(X, 0.0) * u_q)
   end
 
   residual(cell, u_el) = ForwardDiff.gradient(z -> energy(cell, z), u_el)[:]
