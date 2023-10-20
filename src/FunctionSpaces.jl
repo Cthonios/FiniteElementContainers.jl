@@ -33,11 +33,19 @@ end
   JxW   = det(J) * quadrature_weight(re, q)
 
   # set them in the structarray
-  fspace.X[q, e] = X * N
-  fspace.N[q, e] = N
+  fspace.X[q, e]    = X * N
+  fspace.N[q, e]    = N
   fspace.∇N_X[q, e] = ∇N_X
-  fspace.JxW[q, e] = JxW
+  fspace.JxW[q, e]  = JxW
 end
+
+struct FunctionSpace{S} #<: AbstractArray
+  fspace::S
+end
+
+Base.getindex(f::F, q::Int, e::Int) where F <: FunctionSpace = f.fspace[q, e]
+Base.size(f::F) where F <: FunctionSpace = size(f.fspace)
+Base.axes(f::F, n::Int) where F <: FunctionSpace = Base.OneTo(size(f.fspace, n)) 
 
 # CPU implementation, others in extensions
 function FunctionSpace(
@@ -65,7 +73,9 @@ function FunctionSpace(
   # dispatch kernels
   setup_kernel(fspace, el_coords, re, ndrange=(n_qs, n_els))
 
-  return fspace
+  # return fspace
+
+  return FunctionSpace(fspace)
 end
 
 function FunctionSpace(

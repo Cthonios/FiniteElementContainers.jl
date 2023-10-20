@@ -1,12 +1,12 @@
 """
 """
-struct MyConn{T <: AbstractArray{<:Integer}} #<: AbstractArray{T, 1}
+struct Connectivity{T <: AbstractArray{<:Integer}} #<: AbstractArray{T, 1}
   conn::T
 end
 
-Base.length(c::MyConn) = length(c.conn)
-Base.axes(c::MyConn) = Base.OneTo(length(c))
-Base.getindex(c::MyConn, i::Int) = c.conn[i]
+Base.length(c::Connectivity) = length(c.conn)
+Base.axes(c::Connectivity) = Base.OneTo(length(c))
+Base.getindex(c::Connectivity, i::Int) = c.conn[i]
 
 """
 """
@@ -14,7 +14,7 @@ struct DofManager{
   NDof, 
   B <: AbstractArray{Bool, 2},
   V <: AbstractArray{<:Integer},
-  S <: StructArray{<:MyConn{<:Vector{<:Integer}}}
+  S <: StructArray{<:Connectivity{<:Vector{<:Integer}}}
 }
 	is_unknown::B
 	unknown_indices::V
@@ -43,14 +43,14 @@ function DofManager(
   unknown_indices = ids[is_unknown]
 
   # using a struct array - TODO template this
-  conns     = StructArray{MyConn{Vector{Int64}}}(undef, n_els)
-  dof_conns = StructArray{MyConn{Vector{Int64}}}(undef, n_els)
+  conns     = StructArray{Connectivity{Vector{Int64}}}(undef, n_els)
+  dof_conns = StructArray{Connectivity{Vector{Int64}}}(undef, n_els)
   n = 1
   for block in mesh.blocks
     for e in axes(block.conn, 2)
       # TODO for typing below
-      @views conns[n] = MyConn(convert.(Int64, block.conn[:, e]))
-      @views dof_conns[n] = MyConn(convert.(Int64, vec(ids[:, block.conn[:, e]])))
+      @views conns[n] = Connectivity(convert.(Int64, block.conn[:, e]))
+      @views dof_conns[n] = Connectivity(convert.(Int64, vec(ids[:, block.conn[:, e]])))
       n = n + 1
     end
   end

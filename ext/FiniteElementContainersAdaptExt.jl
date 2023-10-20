@@ -15,19 +15,6 @@ function Adapt.adapt_structure(to, block::FiniteElementContainers.MeshBlock{I, B
   return FiniteElementContainers.MeshBlock{I, B}(id, conn)
 end
 
-function Adapt.adapt_structure(to, nset::NodeSet{I, B}) where {I, B}
-  id    = Adapt.adapt_structure(to, nset.id)
-  nodes = Adapt.adapt_structure(to, nset.nodes)
-  return NodeSet{I, B}(id, nodes)
-end
-
-function Adapt.adapt_structure(to, sset::SideSet{I, B}) where {I, B}
-  id       = Adapt.adapt_structure(to, sset.id)
-  elements = Adapt.adapt_structure(to, sset.elements)
-  sides    = Adapt.adapt_structure(to, sset.sides)
-  return SideSet{I, B}(id, elements, sides)
-end
-
 # Mesh type
 # function Adapt.adapt_structure(to, mesh::Mesh{F, I, B}) where {F, I, B}
 #   coords = Adapt.adapt_structure(to, mesh.coords)
@@ -78,14 +65,26 @@ function FiniteElementContainers.FunctionSpace(
   return fspace_dev
 end
 
+function Adapt.adapt_storage(to, fspace::F) where F <: FiniteElementContainers.FunctionSpace
+  fspace_dev = Adapt.adapt_storage(to, fspace.fspace)
+  return FiniteElementContainers.FunctionSpace(fspace_dev)
+end
 # boundary conditions below
 
-function Adapt.adapt_structure(to, bc::EssentialBC{V, F}) where {V, F}
-  nodes = Adapt.adapt_structure(to, bc.nodes)
-  dof   = bc.dof
-  func  = bc.func
-
-  return EssentialBC(nodes, dof, func)
+function Adapt.adapt_storage(to, bc::EssentialBC{V, F}) where {V, F}
+  FiniteElementContainers.EssentialBC(
+    Adapt.adapt_storage(to, bc.nodes), bc.dof, bc.func
+  )
 end
 
+# DofManagers
+function Adapt.adapt_storage(to, dof::D) where D <: FiniteElementContainers.DofManager
+  DofManager(
+    Adapt.adapt_storage(to, dof.is_unknown),
+    Adapt.adapt_storage(to, dof.unknown_indices),
+    replace_storage(to, dof.conns),
+    replace_storage(to, dof.dof_conns)
+  )
 end
+
+end # module
