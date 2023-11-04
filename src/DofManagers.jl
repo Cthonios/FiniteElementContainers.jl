@@ -1,104 +1,46 @@
-"""
-"""
-struct Connectivity{T <: AbstractArray{<:Integer}} #<: AbstractArray{T, 1}
-  conn::T
+struct DofManager{NDOFS, B <: AbstractMatrix{Bool}, V <: AbstractArray{<:Integer}, Rtype <: AbstractFloat}
+  is_unknown::B
+  unknown_indices::V
 end
 
-Base.length(c::Connectivity) = length(c.conn)
-Base.axes(c::Connectivity) = Base.OneTo(length(c))
-Base.getindex(c::Connectivity, i::Int) = c.conn[i]
-
-"""
-"""
-struct DofManager{
-  NDof, 
-  B <: AbstractArray{Bool, 2},
-  V <: AbstractArray{<:Integer},
-  S <: StructArray{<:Connectivity{<:Vector{<:Integer}}}
-}
-	is_unknown::B
-	unknown_indices::V
-  conns::S
-  dof_conns::S
-end
-
-"""
-"""
-n_dofs(::DofManager{NDof, B, V, S}) where {NDof, B, V, S} = NDof
-
-"""
-"""
 function DofManager(
-  mesh::Mesh{M, V1, V2, V3},
-  n_dofs::Int
-) where {M, V1, V2, V3}
-
-  # convenient parameters
+  mesh::M, n_dofs::Int; 
+  Rtype::Type{<:AbstractFloat} = Float64
+) where M <: Mesh
   n_nodes = size(mesh.coords, 2)
-  n_els   = map(x -> size(x.conn, 2), mesh.blocks) |> sum
 
-  # setup indexing arrays
   is_unknown      = BitArray(1 for _ = 1:n_dofs, _ = 1:n_nodes)
-  ids             = reshape(1:length(is_unknown), n_dofs, n_nodes)
+  ids             = reshape(1:n_nodes * n_dofs, n_dofs, n_nodes)
   unknown_indices = ids[is_unknown]
 
-  # using a struct array - TODO template this
-  conns     = StructArray{Connectivity{Vector{Int64}}}(undef, n_els)
-  dof_conns = StructArray{Connectivity{Vector{Int64}}}(undef, n_els)
-  n = 1
-  for block in mesh.blocks
-    for e in axes(block.conn, 2)
-      # TODO for typing below
-      @views conns[n] = Connectivity(convert.(Int64, block.conn[:, e]))
-      @views dof_conns[n] = Connectivity(convert.(Int64, vec(ids[:, block.conn[:, e]])))
-      n = n + 1
-    end
-  end
-
-  # get types
   B = typeof(is_unknown)
   V = typeof(unknown_indices)
-  S = typeof(conns)
-  return DofManager{n_dofs, B, V, S}(is_unknown, unknown_indices, conns, dof_conns)
+
+  return DofManager{n_dofs, B, V, Rtype}(is_unknown, unknown_indices)
 end
 
-"""
-"""
-create_fields(d::DofManager, Rtype::Type{<:AbstractFloat} = Float64) = zeros(Rtype, size(d.is_unknown))
+Base.size(dof::DofManager) = size(dof.is_unknown)
+KernelAbstractions.get_backend(dof::DofManager) = get_backend(dof.unknown_indices)
 
-"""
-"""
-create_unknowns(d::DofManager, Rtype::Type{<:AbstractFloat} = Float64) = zeros(Rtype, sum(d.is_unknown))
+ids(d::DofManager) = reshape(1:length(d.is_unknown), size(d.is_unknown))
+n_dofs(dof::DofManager)  = size(dof.is_unknown, 1)
+n_nodes(dof::DofManager) = size(dof.is_unknown, 2)
+fieldtype(::DofManager{NDOFS, B, V, Rtype}) where {NDOFS, B, V, Rtype} = Rtype
 
-"""
-"""
-dof_ids(d::DofManager) = reshape(1:length(d.is_unknown), size(d.is_unknown))
+create_fields(dof::DofManager)   = KernelAbstractions.zeros(get_backend(dof), fieldtype(dof), size(dof))
+create_unknowns(dof::DofManager) = KernelAbstractions.zeros(get_backend(dof), fieldtype(dof), sum(dof.is_unknown))
 
-"""
-"""
-Base.size(d::DofManager) = size(d.is_unknown)
+# function update_bcs!(U::S, )
 
-"""
-"""
-element_connectivity(d::DofManager, e::Int) = d.conns[e].conn
+@kernel function update_bc_kernel!(U, mesh_coords, dof, bc)
+  node = @index(Global)
+  dof.is_unknown[bc.dof, node] = 0
+  U[bc.dof, node] = @views bc.func(mesh_coords[:, node], 0.)
+end
 
-"""
-"""
-element_connectivity_2(d::DofManager{NDOF, B, V, S}, e::Int) where {NDOF, B, V, S} = d.dof_conns[e].conn[1:NDOF:end]
-
-"""
-"""
-dof_connectivity(d::DofManager, e::Int) = d.dof_conns[e].conn
-
-
-function update_bcs!(
-  U::M1,
-  mesh::Mesh{M2, V1, V2, V3},
-  dof::DofManager,
-  bcs::V4
-) where {M1 <: AbstractMatrix, M2 <: AbstractMatrix,
-         V1 <: AbstractVector, V2 <: AbstractVector,
-         V3 <: AbstractVector, V4 <: AbstractVector{<:EssentialBC}}
+function update_bcs_old!(
+  U::Mat, mesh::M, dof::DofManager, bcs::V
+) where {Mat <: AbstractMatrix, M <: Mesh, V <: Vector{<:EssentialBC}}
 
   dof.is_unknown .= 1
   for bc in bcs
@@ -109,12 +51,48 @@ function update_bcs!(
   end
 
   # TODO below line is the only source of allocations here
-  @views new_unknown_indices = dof_ids(dof)[dof.is_unknown]
+  new_unknown_indices = @views ids(dof)[dof.is_unknown]
 	resize!(dof.unknown_indices, length(new_unknown_indices))
 	dof.unknown_indices .= new_unknown_indices
 end
 
-function update_fields!(U::M, d::DofManager, Uu::V) where {M <: AbstractMatrix, V <: AbstractVector}
-  @assert length(Uu) == sum(d.is_unknown)
-  U[d.is_unknown] = Uu
+
+# function update_bcs!(
+#   U::Mat, mesh::M, dof::DofManager, bcs::V, 
+#   dev::Backend, wg_size::Int
+# ) where {Mat <: AbstractMatrix, M <: Mesh, V <: Vector{<:EssentialBC}}
+
+#   kernel! = update_bc_kernel!(dev, wg_size)
+#   dof.is_unknown .= 1
+#   for bc in bcs
+#     kernel!(U, dof, mesh, bc, ndrange=length(bc.nodes))
+#   end
+
+#   # TODO below line is the only source of allocations here
+#   new_unknown_indices = @views ids(dof)[dof.is_unknown]
+# 	resize!(dof.unknown_indices, length(new_unknown_indices))
+# 	dof.unknown_indices .= new_unknown_indices
+# end
+
+function update_bcs!(U::Mat, mesh::M, dof::DofManager, bcs::V) where {Mat <: AbstractMatrix, M <: Mesh, V <: Vector{<:EssentialBC}}
+  kernel! = update_bc_kernel!(get_backend(U))
+
+  dof.is_unknown .= 1
+  for bc in bcs
+    @time kernel!(U, mesh.coords, dof, bc, ndrange=length(bc.nodes))
+  end
 end 
+
+
+# TODO adding @Const to Uu adds some serious allocations.
+# Find out the right way to parametrically type @Consts
+@kernel function update_fields_kernel!(U::M, @Const(dof::DofManager), Uu::V) where {M <: AbstractMatrix, V <: AbstractVector}
+  n = @index(Global)
+  i = dof.unknown_indices[n]
+  U[i] = Uu[n]
+end
+
+function update_fields!(U::M, dof::DofManager, Uu::V) where {M <: AbstractMatrix, V <: AbstractVector}
+  kernel! = update_fields_kernel!(get_backend(U))
+  kernel!(U, dof, Uu, ndrange=length(Uu))
+end

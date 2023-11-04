@@ -1,7 +1,8 @@
 module FiniteElementContainers
 
 # type exports
-export DofManager,
+export Connectivity,
+       DofManager,
        DynamicAssembler,
        EssentialBC,
        FunctionSpace,
@@ -29,7 +30,9 @@ using Exodus,
 # include files
 include("Meshes.jl")
 include("EssentialBCs.jl")
+include("Connectivities.jl")
 include("FunctionSpaces.jl")
+# include("Connectivities.jl")
 include("DofManagers.jl")
 include("Assemblers.jl")
 

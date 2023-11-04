@@ -39,19 +39,23 @@ end
   fspace.JxW[q, e]  = JxW
 end
 
-struct FunctionSpace{S} #<: AbstractArray
+struct FunctionSpace{S, C} #<: AbstractArray
   fspace::S
+  connectivity::C
 end
 
 Base.getindex(f::F, q::Int, e::Int) where F <: FunctionSpace = f.fspace[q, e]
 Base.size(f::F) where F <: FunctionSpace = size(f.fspace)
 Base.axes(f::F, n::Int) where F <: FunctionSpace = Base.OneTo(size(f.fspace, n)) 
 
+connectivity(f::F) where F <: FunctionSpace = f.connectivity
+
 # CPU implementation, others in extensions
 function FunctionSpace(
   coords::M1,
   block::MeshBlock{I, M2},
   re,
+  n_dofs::Int,
   dev::CPU,
   wg_size::Int
 ) where {M1 <: AbstractMatrix, I, M2 <: AbstractMatrix}
@@ -62,6 +66,7 @@ function FunctionSpace(
   N = eltype(re.interpolants).parameters[1]
 
   # setup up arrays for dispatch to kernels
+  n_nodes   = size(coords, 2)
   n_els     = size(block.conn, 2)
   n_qs      = length(re.interpolants.N)
   el_coords = StructArray(@views reinterpret(SMatrix{D, N, Rtype, D * N}, vec(coords[:, block.conn])))
@@ -73,15 +78,19 @@ function FunctionSpace(
   # dispatch kernels
   setup_kernel(fspace, el_coords, re, ndrange=(n_qs, n_els))
 
+  # connectivity for this function space
+  conn = Connectivity(block, n_nodes, n_dofs)
+
   # return fspace
 
-  return FunctionSpace(fspace)
+  return FunctionSpace(fspace, conn)
 end
 
 function FunctionSpace(
   mesh::Mesh{M, V1, V2, V3},
   block_id::Int,
   q_degree::Int,
+  n_dofs::Int,
   dev::Backend = CPU(),
   wg_size::Int = 1
 ) where {M, V1, V2, V3}
@@ -101,5 +110,5 @@ function FunctionSpace(
   re = ReferenceFE(el, Itype, Rtype)
 
   # now call the actual local method
-  FunctionSpace(coords, block, re, dev, wg_size)
+  FunctionSpace(coords, block, re, n_dofs, dev, wg_size)
 end

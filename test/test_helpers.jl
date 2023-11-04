@@ -15,15 +15,15 @@ function read_mesh(file_name, nsets)
 end
 
 function container_setup(mesh, block_ids, q_degree, ndofs; is_dynamic=false)
-  fspaces = []
+  fspaces = FunctionSpace[]
   for block_id in block_ids
-    push!(fspaces, FunctionSpace(mesh, block_id, q_degree))
+    push!(fspaces, FunctionSpace(mesh, block_id, q_degree, ndofs))
   end
   dof = DofManager(mesh, ndofs)
   if is_dynamic
-    asm = DynamicAssembler(dof)
+    asm = DynamicAssembler(dof, fspaces)
   else
-    asm = StaticAssembler(dof)
+    asm = StaticAssembler(dof, fspaces)
   end
   return fspaces, dof, asm
 end

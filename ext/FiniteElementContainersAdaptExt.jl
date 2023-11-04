@@ -9,20 +9,21 @@ using StaticArrays
 using StructArrays
 
 # Exodus types - eventually maybe move to exodus?
-function Adapt.adapt_structure(to, block::FiniteElementContainers.MeshBlock{I, B}) where {I, B}
-  id   = Adapt.adapt_structure(to, block.id)
-  conn = Adapt.adapt_structure(to, block.conn)
+function Adapt.adapt_storage(to, block::FiniteElementContainers.MeshBlock{I, B}) where {I, B}
+  id   = Adapt.adapt_storage(to, block.id)
+  conn = Adapt.adapt_storage(to, block.conn)
   return FiniteElementContainers.MeshBlock{I, B}(id, conn)
 end
 
 # Mesh type
-# function Adapt.adapt_structure(to, mesh::Mesh{F, I, B}) where {F, I, B}
-#   coords = Adapt.adapt_structure(to, mesh.coords)
-#   blocks = Adapt.adapt_structure.(to, mesh.blocks) |> to
-#   nsets  = Adapt.adapt_structure.(to, mesh.nsets) |> to
-#   ssets  = Adapt.adapt_structure.(to, mesh.ssets) |> to
-#   return Mesh(coords, blocks, nsets, ssets)
-# end 
+function Adapt.adapt_storage(to, mesh::M) where M <: FiniteElementContainers.Mesh
+  println("here")
+  coords = Adapt.adapt_storage(to, mesh.coords)
+  blocks = replace_storage(to, mesh.blocks)
+  nsets  = replace_storage(to, mesh.nsets)
+  ssets  = replace_storage(to, mesh.ssets)
+  return Mesh(coords, blocks, nsets, ssets)
+end 
 
 # Element level coordinates
 # function Adapt.adapt_structure(to, e::FiniteElementContainers.ElementLevelCoordinates{T}) where T
@@ -77,14 +78,33 @@ function Adapt.adapt_storage(to, bc::EssentialBC{V, F}) where {V, F}
   )
 end
 
+function Adapt.adapt_storage(to, conn::C) where C <: FiniteElementContainers.Connectivity
+  FiniteElementContainers.Connectivity(
+    conn.n_elm,
+    conn.n_nodes_per_elem,
+    conn.n_dofs,
+    Adapt.adapt_storage(to, conn.conn),
+    Adapt.adapt_storage(to, conn.dof_conn)
+  )
+end
+
+# function Adapt.adapt_storage(to, conn::C) where C <: 
+
 # DofManagers
 function Adapt.adapt_storage(to, dof::D) where D <: FiniteElementContainers.DofManager
-  DofManager(
-    Adapt.adapt_storage(to, dof.is_unknown),
-    Adapt.adapt_storage(to, dof.unknown_indices),
-    replace_storage(to, dof.conns),
-    replace_storage(to, dof.dof_conns)
+
+  is_unknown = Adapt.adapt_storage(to, dof.is_unknown)
+  unknown_indices = Adapt.adapt_storage(to, dof.unknown_indices)
+  B = typeof(is_unknown)
+  V = typeof(unknown_indices)
+  Rtype = FiniteElementContainers.fieldtype(dof)
+  DofManager{B, V, Rtype}(
+    is_unknown, unknown_indices
   )
+  # DofManager(
+  #   Adapt.adapt_storage(to, dof.is_unknown),
+  #   Adapt.adapt_storage(to, dof.unknown_indices)
+  # )
 end
 
 end # module
