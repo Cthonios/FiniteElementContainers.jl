@@ -21,7 +21,7 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 FiniteElementContainersAdaptExt = ["Adapt", "CUDA"]
 
 [compat]
-Exodus = "0.9"
+Exodus = "0.9, 0.10"
 KernelAbstractions = "0.9"
 Parameters = "0.12"
 ReferenceFiniteElements = "0.7"
