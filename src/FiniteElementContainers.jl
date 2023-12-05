@@ -1,36 +1,27 @@
 module FiniteElementContainers
 
-# type exports
-export DofManager,
-       DynamicAssembler,
-       EssentialBC,
-       FunctionSpace,
-       Mesh,
-       StaticAssembler
+# Meshes exports
+export FileMesh
+export Mesh
+export connectivity
+export coordinates
+export element_type
+export num_dimensions
+export num_nodes
 
-# method exports
-export assemble!,
-       create_fields,
-       create_unknowns,
-       dof_connectivity,
-       element_connectivity,
-       update_bcs!,
-       update_fields!
+# Fie exports
+export Field
+export NodalField
 
-# dependencies
-using Exodus,
-      KernelAbstractions,
-      LinearAlgebra,
-      ReferenceFiniteElements,
-      SparseArrays,
-      StaticArrays,
-      StructArrays
+# Domain exports
+export Domain
 
-# include files
+abstract type FEMContainer end
+
 include("Meshes.jl")
-include("EssentialBCs.jl")
-include("FunctionSpaces.jl")
-include("DofManagers.jl")
-include("Assemblers.jl")
+
+include("Fields.jl")
+
+include("Domains.jl")
 
 end # module
