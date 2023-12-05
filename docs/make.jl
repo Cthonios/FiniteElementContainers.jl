@@ -6,20 +6,22 @@ DocMeta.setdocmeta!(FiniteElementContainers, :DocTestSetup, :(using FiniteElemen
 makedocs(;
     modules=[FiniteElementContainers],
     authors="Craig M. Hamel <cmhamel32@gmail.com> and contributors",
-    repo="https://github.com/cmhamel/FiniteElementContainers.jl/blob/{commit}{path}#{line}",
+    repo="https://github.com/Cthonios/FiniteElementContainers.jl/blob/{commit}{path}#{line}",
     sitename="FiniteElementContainers.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://cmhamel.github.io/FiniteElementContainers.jl",
+        canonical="https://cthonios.github.io/FiniteElementContainers.jl",
         edit_link="main",
         assets=String[],
     ),
     pages=[
-        "Home" => "index.md",
+        "Home"   => "index.md",
+        "Meshes" => "meshes.md",
+        "Fields" => "fields.md"
     ],
 )
 
 deploydocs(;
-    repo="github.com/cmhamel/FiniteElementContainers.jl",
+    repo="github.com/Cthonios/FiniteElementContainers.jl",
     devbranch="main",
 )
