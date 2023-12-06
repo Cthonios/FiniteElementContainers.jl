@@ -322,7 +322,7 @@ end
 # TODO real question is how to store these differently typed arrays?
 function element_level_fields(mesh::Mesh, block_index::Int, e::Int, u::NodalField)
   conn  = connectivity(mesh, block_index)
-  u_els = element_level_coordinates(conn, e, u)
+  u_els = element_level_fields(conn, e, u)
   return u_els
 end
 
