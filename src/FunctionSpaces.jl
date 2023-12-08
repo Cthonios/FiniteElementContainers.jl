@@ -12,6 +12,15 @@ elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.ReferenceFEType}}(
   "TETRA10" => Tet10
 )
 
+# elem_type = @NamedTuple begin
+#   TETRA4::Type{Tet4}
+#   TETRA10::Type{Tet10}
+# end
+# elem_type_map = elem_type((
+#   Tet4,
+#   Tet10
+# ))
+
 abstract type AbstractFunctionSpace{Conn, RefFE} <: FEMContainer end
 connectivity(fspace::AbstractFunctionSpace)          = fspace.conn
 reference_element(fspace::AbstractFunctionSpace)     = fspace.ref_fe
@@ -50,6 +59,22 @@ function map_shape_function_gradients(X, ∇N_ξ)
   return ∇N_X
 end
 
+# function setup_reference_element(type::Symbol, q_degree)
+#   el_type = elem_type_map[type]
+#   return setup_reference_element(el_type, q_degree)
+# end
+
+function setup_reference_element(type::Type{<:ReferenceFiniteElements.ReferenceFEType}, q_degree)
+  ReferenceFiniteElements.ReferenceFE(type(Val(q_degree)))
+end
+
+
+
+#######################################################
+
+# still need more work on this one. Big questions are what to do with adjoints
+# and discrete gradient operators that will get bigger to store
+
 struct NonAllocatedFunctionSpace{
   Conn  <: Connectivity,
   RefFE <: ReferenceFE
@@ -65,6 +90,74 @@ function NonAllocatedFunctionSpace(mesh::Mesh, block_id::Int, q_degree::Int)
   ref_fe    = ReferenceFE(elem_type_map[elem_type](Val(q_degree)))
   @assert num_nodes_per_element(conn) == ReferenceFiniteElements.num_nodes_per_element(ref_fe)
   return NonAllocatedFunctionSpace(conn, ref_fe)
+end
+
+#######################################################
+
+struct Interpolants{A1, A2, A3, A4}
+  X_q::A1
+  N::A2
+  ∇N_X::A3
+  JxW::A4
+end
+
+struct AllocatedFunctionSpace{
+  Conn  <: Connectivity,
+  RefFE <: ReferenceFE,
+  S     <: StructArray
+} <: AbstractFunctionSpace{Conn, RefFE}
+
+  conn::Conn
+  ref_fe::RefFE
+  interps::S
+end
+
+function AllocatedFunctionSpace!(X_qs, Ns, ∇N_Xs, JxWs, Xs, conn, ref_fe)
+  for e in axes(X_qs, 2)
+    X_e = element_level_fields(conn, e, Xs)
+    for q in axes(X_qs, 1)
+      N    = ReferenceFiniteElements.shape_function_values(ref_fe, q)
+      ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
+
+      X_q  = X_e * N
+      ∇N_X = map_shape_function_gradients(X_e, ∇N_ξ)
+      JxW  = volume(X_e, ∇N_ξ) * ReferenceFiniteElements.quadrature_weight(ref_fe, q)
+
+      X_qs[q, e]  = X_q
+      Ns[q, e]    = N
+      ∇N_Xs[q, e] = ∇N_X
+      JxWs[q, e]  = JxW
+    end
+  end
+end
+
+# TODO make constructor parameteric on type
+function AllocatedFunctionSpace(mesh::Mesh, block_id::Int, q_degree)
+  # TODO maybe move below to a common function since it's exactly the same
+  # as the constructor for NonAllocatedFunctionSpace
+  conn      = mesh.conns[block_id]
+  elem_type = elem_type_map[mesh.elem_types[block_id]] #|> Symbol
+  ref_fe = setup_reference_element(elem_type, q_degree)
+
+  # error checking
+  @assert num_dimensions(mesh)        == ReferenceFiniteElements.num_dimensions(ref_fe.ref_fe_type)
+  @assert num_nodes_per_element(conn) == ReferenceFiniteElements.num_nodes_per_element(ref_fe)
+
+  # TODO need to type perly below for Quantities eventually
+  # initialize arrays
+  T     = eltype(mesh.coords)
+  N, D  = num_nodes_per_element(conn), num_dimensions(mesh)
+  E, Q  = num_elements(conn), ReferenceFiniteElements.num_q_points(ref_fe)
+
+  X_qs  = Matrix{SVector{D, eltype(mesh.coords)}}(undef, Q, E)
+  Ns    = Matrix{eltype(ref_fe.interpolants.N)}(undef, Q, E)
+  ∇N_Xs = Matrix{eltype(ref_fe.interpolants.∇N_ξ)}(undef, Q, E)
+  JxWs  = Matrix{eltype(mesh.coords)}(undef, Q, E)
+
+  AllocatedFunctionSpace!(X_qs, Ns, ∇N_Xs, JxWs, mesh.coords, conn, ref_fe)
+
+  interps = StructArray{Interpolants{eltype(X_qs), eltype(Ns), eltype(∇N_Xs), eltype(JxWs)}}((X_qs, Ns, ∇N_Xs, JxWs))
+  return AllocatedFunctionSpace(conn, ref_fe, interps)
 end
 
 """
@@ -195,6 +288,10 @@ end
 
 volume(fspace::NonAllocatedFunctionSpace, X::NodalField) = sum(JxW(fspace, X)) 
 
+################################################################################
+
+
+
 ##############################################################################
 
 abstract type AbstractMechanicsFormulation end
@@ -210,7 +307,7 @@ end
   Expr(:tuple, (:(ifelse($j == i, x, t[$j])) for j in 1:N)...)
 end
 
-function discrete_gradient(::Type{PlaneStrain}, X_el, ∇N_X)
+function discrete_gradient(::Type{PlaneStrain}, ∇N_X)
   N   = size(∇N_X, 1)
   tup = ntuple(i -> 0.0, Val(4 * 2 * N))
 
@@ -232,10 +329,10 @@ function discrete_gradient(::Type{PlaneStrain}, X_el, ∇N_X)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
   end
 
-  return SMatrix{2 * N, 4, eltype(X_el), 2 * N * 4}(tup)
+  return SMatrix{2 * N, 4, eltype(∇N_X), 2 * N * 4}(tup)
 end
 
-function discrete_gradient(::Type{ThreeDimensional}, X_el, ∇N_X)
+function discrete_gradient(::Type{ThreeDimensional}, ∇N_X)
   N   = size(∇N_X, 1)
   tup = ntuple(i -> 0.0, Val(9 * 3 * N))
 
@@ -288,17 +385,23 @@ function discrete_gradient(::Type{ThreeDimensional}, X_el, ∇N_X)
     tup = set(tup, ∇N_X[n, 3], k + 3)
   end
 
-  return SMatrix{3 * N, 9, eltype(X_el), 3 * N * 9}(tup)
+  return SMatrix{3 * N, 9, eltype(∇N_X), 3 * N * 9}(tup)
 end
 
-function discrete_gradient(fspace, type::Type{PlaneStrain}, q, e, X)
+function discrete_gradient(fspace::NonAllocatedFunctionSpace, type::Type{PlaneStrain}, q, e, X)
   D = num_dimensions(fspace)
 
   @assert D == 2
 
   X_el = element_level_fields(fspace, e, X)
   ∇N_X = map_shape_function_gradients(X_el, shape_function_gradients(fspace, q))
-  G    = discrete_gradient(type, X_el, ∇N_X)
+  G    = discrete_gradient(type, ∇N_X)
+  return G
+end
+
+function discrete_gradient(fspace::AllocatedFunctionSpace, type::Type{PlaneStrain}, q, e, X)
+  ∇N_X = fspace.∇N_X[q, e]
+  G    = discrete_gradient(type, ∇N_X)
   return G
 end
 
@@ -309,7 +412,7 @@ function discrete_gradient(fspace, type::Type{ThreeDimensional}, q, e, X)
 
   X_el = element_level_fields(fspace, e, X)
   ∇N_X = map_shape_function_gradients(X_el, shape_function_gradients(fspace, q))
-  G    = discrete_gradient(type, X_el, ∇N_X)
+  G    = discrete_gradient(type, ∇N_X)
   return G
 end
 
