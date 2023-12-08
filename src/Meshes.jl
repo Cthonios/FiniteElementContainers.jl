@@ -86,7 +86,7 @@ function Mesh(
 
   # read coordinates
   coords = coordinates(f)
-  coords = NodalField{size(coords, 1), size(coords, 2)}(:nodal_X, coords)
+  coords = NodalField{size(coords, 1), size(coords, 2)}(coords, :nodal_X)
   # coords = Noda
 
   # read block connectivity and element types
@@ -296,7 +296,8 @@ function element_level_fields(conn::Connectivity, u::NodalField)
   NN      = num_nodes_per_element(conn)
   T       = SMatrix{NFields, NN, eltype(u), NFields * NN}
   names   = Symbol("element_", field_names(u))
-  u_els   = ElementField{NFields * NN, num_elements(conn)}(StructArray, T, names, undef)
+  # u_els   = ElementField{NFields * NN, num_elements(conn)}(StructArray, T, names, undef)
+  u_els   = ElementField{NFields * NN, num_elements(conn), StructArray, T}(undef, names)
   element_level_fields!(u_els, conn, u)
   return u_els
 end

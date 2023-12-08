@@ -18,6 +18,7 @@ export sideset_ids
 export ElementField
 export NodalField
 export QuadratureField
+export field_names
 
 # Connectivities
 export Connectivity
@@ -29,10 +30,27 @@ export element_level_coordinates!
 export element_level_fields
 export element_level_fields!
 
+# DofManager
+export DofManager
+export create_field
+export create_unknowns
+export dof_connectivity
+export update_fields!
+export update_unknown_ids!
+
+# FunctionSpaces
+export NonAllocatedFunctionSpace
+
+# Assemblers
+export Assembler
+export assemble!
+export remove_constraints
+
 # dependencies
 using DocStringExtensions
 using LinearAlgebra
 using ReferenceFiniteElements
+using SparseArrays
 using StaticArrays
 using StructArrays
 using Tensors
@@ -55,10 +73,11 @@ abstract type FEMContainer end
 
 include("Fields.jl")
 include("Connectivities.jl")
-
 include("Meshes.jl")
 
 
 include("FunctionSpaces.jl")
+include("DofManagers.jl")
+include("Assemblers.jl")
 
 end # module

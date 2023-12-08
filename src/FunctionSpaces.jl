@@ -101,6 +101,18 @@ struct Interpolants{A1, A2, A3, A4}
   JxW::A4
 end
 
+# TODO try to move this to an abstract method
+function Base.getindex(fspace::NonAllocatedFunctionSpace, q::Int, e::Int, X::NodalField)
+  X_el = element_level_fields(fspace, e, X) 
+  N    = shape_function_values(fspace, q)
+  ∇N_ξ = shape_function_gradients(fspace, q)
+  ∇N_X = map_shape_function_gradients(X_el, ∇N_ξ)
+  JxW  = volume(X_el, ∇N_ξ) * quadrature_weight(fspace, q)
+  X_q  = X_el * N
+  # return X_q, N, ∇N_X, JxW
+  return Interpolants(X_q, N, ∇N_X, JxW)
+end
+
 struct AllocatedFunctionSpace{
   Conn  <: Connectivity,
   RefFE <: ReferenceFE,
@@ -157,6 +169,10 @@ function AllocatedFunctionSpace(mesh::Mesh, block_id::Int, q_degree)
   AllocatedFunctionSpace!(X_qs, Ns, ∇N_Xs, JxWs, mesh.coords, conn, ref_fe)
 
   interps = StructArray{Interpolants{eltype(X_qs), eltype(Ns), eltype(∇N_Xs), eltype(JxWs)}}((X_qs, Ns, ∇N_Xs, JxWs))
+
+  # TODO convert to element field and give it names and the total number of fields equal to number
+  # of total fields in the structarray
+  # interps = ElementField{}
   return AllocatedFunctionSpace(conn, ref_fe, interps)
 end
 
@@ -194,12 +210,17 @@ function field_values(fspace::NonAllocatedFunctionSpace, X::NodalField, u::Nodal
   NQ    = num_q_points(fspace)
   NE    = num_elements(fspace)
   T     = SVector{NF, eltype(u)}
-  X_els = element_level_fields_reinterpret(fspace, X)
   u_els = element_level_fields_reinterpret(fspace, u)
   u_qs  = QuadratureField{NF, NQ, NE}(StructArray, T, Symbol("quadrature_values_", field_names(u)), undef)
   field_values!(u_qs, fspace, u_els)
   return u_qs
 end
+
+# Too many allocations
+# function field_values_v2(fspace::NonAllocatedFunctionSpace, X::NodalField, u::NodalField)
+#   X_els = element_level_fields_reinterpret(fspace.conn, X)
+#   return ElementField{length(X_els[1]), length(X_els)}(X_els, Symbol("element_level"))
+# end
 
 function field_values(fspace::NonAllocatedFunctionSpace, q::Int, e::Int, ::NodalField, u::NodalField)
   u_el = element_level_fields(fspace, e, u)

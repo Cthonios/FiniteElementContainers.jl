@@ -68,6 +68,12 @@ end
 
 """
 """
+function NodalField{NFields, NNodes}(vals::Matrix{<:Number}, names) where {NFields, NNodes}
+  return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
+end
+
+"""
+"""
 function NodalField{NFields, NNodes, A, T}(::UndefInitializer, names) where {NFields, NNodes, A <: AbstractArray, T}
   if A <: Vector
     if NFields != 1
@@ -150,6 +156,25 @@ function zeros!(field::ElementField)
     field[n] = zero(eltype(field))
   end
 end
+
+"""
+"""
+function ElementField{NFields, NElements}(vals::Matrix{<:Number}, names) where {NFields, NElements}
+  return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+end
+
+"""
+"""
+function ElementField{NFields, NElements}(vals::S, names) where S <: StructArray where {NFields, NElements}
+  return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+end
+
+# too many allocations
+# """
+# """
+# function ElementField{NFields, NElements}(vals::A, names) where {NFields, NElements, A <: Base.ReinterpretArray}
+#   return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+# end
 
 """
 """

@@ -4,8 +4,10 @@ struct Connectivity{T, N, NNodesPerElement, NElements, Conn} <: AbstractConnecti
   conn::Conn
 end
 
+# TODO further template this guy
+# might want ragged arrays or arrays of staticarrays
 function Connectivity{NN, NE}(conn::Matrix{<:Integer}, block_index::Int) where {NN, NE}
-  conn = ElementField{size(conn, 1), size(conn, 2)}(Symbol("connectivity_id_$block_index"), conn)
+  conn = ElementField{size(conn, 1), size(conn, 2)}(conn, Symbol("connectivity_id_$block_index"))
   return Connectivity{eltype(conn), ndims(conn), NN, NE, typeof(conn)}(conn)
 end
 
