@@ -16,6 +16,47 @@ Base.getindex(field::AbstractField, index::Int)     = getindex(field.vals, index
 Base.setindex!(field::AbstractField, v, index::Int) = setindex!(field.vals, v, index)
 Base.axes(field::AbstractField)                     = Base.axes(field.vals)
 
+struct FieldTypeException{F <: AbstractField, T1, T2} <: Exception
+  field_type::Type{F}
+  provided_type::T1
+  expected_type::T2
+end
+
+Base.show(io::IO, e::FieldTypeException) = 
+println(io, 
+  "\nField type error type while trying to construct $(e.field_type).", "\n",
+  "Provided type = ", e.provided_type, "\n",
+  "Expected type = ", e.expected_type, "\n"
+)
+
+field_type_error(field_type::Type{<:AbstractField}, provided_type::Type, expected_type::Type) = 
+throw(FieldTypeException(field_type, provided_type, expected_type))
+
+struct FieldNumberException{F <: AbstractField, T} <: Exception
+  field_type::Type{F}
+  provided_type::T
+  provided_number_of_fields::Int
+  expected_number_of_fields::Int
+end
+
+Base.show(io::IO, e::FieldNumberException) =
+println(io,
+  "\nInvalid number of fields while trying to construct $(e.field_type).\n",
+  "Provided type                    = $(e.provided_type)\n",
+  "Number of field in provided type = $(e.provided_number_of_fields)\n",
+  "Expected number of fields        = $(e.expected_number_of_fields)"
+)
+
+function field_number_error(field_type::Type{<:AbstractField}, provided_type::Type, expected_length::Int)
+  if provided_type <: Number
+    provided_length = ndims(provided_type)
+  else
+    provided_length = length(provided_type)
+  end
+
+  throw(FieldNumberException(field_type, provided_type, provided_length, expected_length))
+end
+
 ##################################################################################
 
 """
@@ -27,32 +68,26 @@ end
 
 """
 """
-function NodalField{1, NNodes}(names, vals::V) where {NNodes, V <: Vector}
-  @assert NNodes == length(vals)
-  return NodalField{eltype(vals), ndims(vals), 1, NNodes, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function NodalField{NFields, NNodes}(names, vals::M) where {NFields, NNodes, M <: Matrix}
-  @assert NFields == size(vals, 1)
-  @assert NNodes  == size(vals, 2)
-  return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function NodalField{NFields, NNodes}(::Type{A}, ::Type{T}, names, ::UndefInitializer) where {NFields, NNodes, A <: AbstractArray, T}
+function NodalField{NFields, NNodes, A, T}(::UndefInitializer, names) where {NFields, NNodes, A <: AbstractArray, T}
   if A <: Vector
-    @assert NFields == 1
+    if NFields != 1
+      field_number_error(NodalField, T, NFields)
+    end
     vals = A{T}(undef, NNodes)
   elseif A <: Matrix
     vals = A{T}(undef, NFields, NNodes)
   else
-    @assert false "Unsupported type in NodalField undef constructor. TODO add an exception"
+    field_type_error(NodalField, A, AbstractArray)
   end
-
   return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
+end
+
+"""
+"""
+function Base.zeros(::Type{NodalField{NFields, NNodes, A, T}}, name) where {NFields, NNodes, A <: AbstractArray, T}
+  field = NodalField{NFields, NNodes, A, T}(undef, name)
+  field .= zero(eltype(T))
+  return field
 end
 
 """
@@ -75,56 +110,54 @@ end
 
 """
 """
-function ElementField{1, NElements}(names, vals::V) where {NElements, V <: Vector}
-  @assert NElements == length(vals)
-  return ElementField{eltype(vals), ndims(vals), 1, NElements, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function ElementField{NFields, NElements}(names, vals::M) where {NFields, NElements, M <: Matrix}
-  @assert NFields   == size(vals, 1)
-  @assert NElements == size(vals, 2)
-  return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function ElementField{NFields, NElements}(
-  ::Type{A}, ::Type{T}, 
-  names, ::UndefInitializer
-) where {NFields, NElements, A <: AbstractArray, T}
-  # TODO fill this out more
-  if A <: Vector
-    @assert NFields == 1
-    vals = A{T}(undef, NElements)
-  elseif A <: Matrix
-    vals = A{T}(undef, NFields, NElements)
-  elseif A <: StructArray
-    if T <: Union{<:MArray, <:SArray}
-      @assert NFields == length(T)
+function ElementField{NFields, NElements, A, T}(::UndefInitializer, names) where {NFields, NElements, A <: AbstractArray, T}
+  
+  # scalar variable case
+  if T <: Number
+    if A <: Vector
       vals = A{T}(undef, NElements)
+    elseif A <: Matrix
+      vals = A{T}(undef, NFields, NElements)
     else
-      @assert false "Unsupported type in ElementField undef constructor."
+      if NFields > 1
+        type = Vector
+      else
+        type = Matrix
+      end
+      field_type_error(ElementField, A, type)
     end
+  # non-scalar case
+  elseif T <: AbstractArray
+    # edge case
+    if A <: Matrix || A <: Array{3}
+      field_type_error(ElementField, A, AbstractArray{1})
+    end
+
+    if NFields != length(T)
+      field_number_error(ElementField, T, NFields)
+    end
+    vals = A{T}(undef, NElements)
+  # weird stuff
   else
-    @show A
-    @show T
-    @assert false "Unsupported type in ElementField undef constructor."
+    field_type_error(ElementField, T, Union{<:Number, <:AbstractArray})
   end
-  # vals = A{T}(undef, NFields, NElements)
+  
   return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+end
+
+function zeros!(field::ElementField)
+  for n in axes(field, 1)
+    field[n] = zero(eltype(field))
+  end
 end
 
 """
 """
-function ElementField{NFields, NElements}(names, vals::S) where {NFields, NElements, S <: StructArray}
-  @assert ndims(vals) == 1
-  @assert NFields     == length(vals[1])
-  @assert NElements   == length(vals)
-  return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+function Base.zeros(::Type{ElementField{NFields, NElements, A, T}}, name) where {NFields, NElements, A <: AbstractArray, T}
+  field = ElementField{NFields, NElements, A, T}(undef, name)
+  zeros!(field)
+  return field
 end
-
 
 """
 """
@@ -146,44 +179,40 @@ end
 
 """
 """
-function QuadratureField{NF, NQ, NE}(names, vals::M) where {NF, NQ, NE, M <: Matrix}
-  @assert NF == 1
-  @assert NQ == size(vals, 1)
-  @assert NE == size(vals, 2)
-  return QuadratureField{eltype(vals), ndims(vals), NF, NQ, NE, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function QuadratureField{NF, NQ, NE}(names, vals::A) where {NF, NQ, NE, A <: Array{<:Number, 3}}
-  @assert NF == size(vals, 1)
-  @assert NQ == size(vals, 2)
-  @assert NE == size(vals, 3)
-  return QuadratureField{eltype(vals), ndims(vals), NF, NQ, NE, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function QuadratureField{NF, NQ, NE}(names, vals::S) where {NF, NQ, NE, S <: StructArray}
-  @assert NF == length(vals[1])
-  @assert NQ == size(vals, 1)
-  @assert NE == size(vals, 2)
-  return QuadratureField{eltype(vals), ndims(vals), NF, NQ, NE, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function QuadratureField{NF, NQ, NE}(
-  ::Type{A}, ::Type{T}, 
-  names, ::UndefInitializer
+function QuadratureField{NF, NQ, NE, A, T}(
+  ::UndefInitializer, names
 ) where {NF, NQ, NE, A <: Union{<:Matrix, <:StructArray}, T}
-  
-  if T <: Union{MArray, SArray}
-    @assert NF == length(T)
+
+  if T <: Number
+    if NF != 1
+      field_number_error(QuadratureField, T, NF)
+    end
+  elseif T <: Union{MArray, SArray}
+    if NF != length(T)
+      field_number_error(QuadratureField, T, NF)
+    end
+  else
+    field_type_error(QuadratureField, T, Union{<:Number, <:Union{MArray, SArray}})
   end
 
   vals = A{T}(undef, NQ, NE)
   return QuadratureField{eltype(vals), ndims(vals), NF, NQ, NE, typeof(names), typeof(vals)}(names, vals)
+end
+
+function zeros!(field::QuadratureField)
+  for e in axes(field, 2)
+    for q in axes(field, 1)
+      field[q, e] = zero(eltype(field))
+    end
+  end
+end
+
+"""
+"""
+function Base.zeros(::Type{QuadratureField{NFields, NQ, NElements, A, T}}, name) where {NFields, NQ, NElements, A <: AbstractArray, T}
+  field = QuadratureField{NFields, NQ, NElements, A, T}(undef, name)
+  zeros!(field)
+  return field
 end
 
 """
