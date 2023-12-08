@@ -34,3 +34,11 @@ end
 @testset ExtendedTestSet "Poisson problem" begin
   include("TestPoisson.jl")
 end
+
+@testset ExtendedTestSet "Aqua" begin
+  Aqua.test_all(FiniteElementContainers; ambiguities=false)
+end
+
+# @testset ExtendedTestSet "JET" begin
+#   JET.test_package(FiniteElementContainers)
+# end
