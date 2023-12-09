@@ -37,6 +37,8 @@ export update_fields!
 export update_unknown_ids!
 
 # FunctionSpaces
+export AbstractFunctionSpace
+export AbstractMechanicsFormulation
 export NonAllocatedFunctionSpace
 
 # Assemblers
