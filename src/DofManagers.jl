@@ -15,6 +15,17 @@ struct DofManager{NDof, N, Itype, B <: AbstractArray, V <: AbstractArray{Itype, 
   unknown_indices::V
 end
 
+function DofManager{NDofs, NNodes, Vector}() where {NDofs, NNodes}
+  is_unknown      = BitVector(1 for _ = 1:NDofs * NNodes)
+  ids             = 1:length(is_unknown)
+  unknown_indices = ids[is_unknown]
+
+  # return DofManager{n_dofs, n_nodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
+  return DofManager{NDofs, NNodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
+    is_unknown, unknown_indices
+  )
+end
+
 # default is to set up everything as free dof
 function DofManager{NDofs}(mesh::Mesh, ::Type{Vector}) where NDofs
   n_nodes = num_nodes(mesh.coords)
@@ -27,6 +38,16 @@ function DofManager{NDofs}(mesh::Mesh, ::Type{Vector}) where NDofs
 
   # return DofManager{n_dofs, n_nodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
   return DofManager{NDofs, n_nodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
+    is_unknown, unknown_indices
+  )
+end
+
+function DofManager{NDofs, NNodes, Matrix}() where {NDofs, NNodes}
+  is_unknown      = BitArray(1 for _ = 1:NDofs, _ = 1:NNodes)
+  ids             = reshape(1:length(is_unknown), NDofs, NNodes)
+  unknown_indices = ids[is_unknown]
+
+  return DofManager{NDofs, NNodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
     is_unknown, unknown_indices
   )
 end
