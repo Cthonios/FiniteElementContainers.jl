@@ -21,13 +21,19 @@ elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.ReferenceFEType}}(
 #   Tet10
 # ))
 
-abstract type AbstractFunctionSpace{Conn, RefFE} <: FEMContainer end
-connectivity(fspace::AbstractFunctionSpace)          = fspace.conn
-reference_element(fspace::AbstractFunctionSpace)     = fspace.ref_fe
-num_dimensions(fspace::AbstractFunctionSpace)        = ReferenceFiniteElements.num_dimensions(fspace.ref_fe.ref_fe_type)
-num_elements(fspace::AbstractFunctionSpace)          = num_elements(fspace.conn)
-num_nodes_per_element(fspace::AbstractFunctionSpace) = ReferenceFiniteElements.num_nodes_per_element(fspace.ref_fe)
-num_q_points(fspace::AbstractFunctionSpace)          = ReferenceFiniteElements.num_q_points(fspace.ref_fe)
+abstract type AbstractFunctionSpace{NDof, Conn, RefFE} <: FEMContainer end
+connectivity(fspace::AbstractFunctionSpace)             = fspace.conn
+connectivity(fspace::AbstractFunctionSpace, e::Int)     = connectivity(fspace.conn, e)
+dof_connectivity(fspace::AbstractFunctionSpace)         = fspace.dof_conn
+dof_connectivity(fspace::AbstractFunctionSpace, e::Int) = connectivity(fspace.dof_conn, e)
+reference_element(fspace::AbstractFunctionSpace)        = fspace.ref_fe
+num_dimensions(fspace::AbstractFunctionSpace)           = ReferenceFiniteElements.num_dimensions(fspace.ref_fe.ref_fe_type)
+num_elements(fspace::AbstractFunctionSpace)             = num_elements(fspace.conn)
+num_nodes_per_element(fspace::AbstractFunctionSpace)    = ReferenceFiniteElements.num_nodes_per_element(fspace.ref_fe)
+num_q_points(fspace::AbstractFunctionSpace)             = ReferenceFiniteElements.num_q_points(fspace.ref_fe)
+
+num_dofs_per_node(::AbstractFunctionSpace{NDof, Conn, RefFE}) where {NDof, Conn, RefFE} = NDof
+
 
 quadrature_point(fspace::AbstractFunctionSpace, q::Int) =
 ReferenceFiniteElements.quadrature_point(fspace.ref_fe, q)
@@ -41,11 +47,11 @@ ReferenceFiniteElements.shape_function_values(fspace.ref_fe, q)
 shape_function_gradients(fspace::AbstractFunctionSpace, q::Int) = 
 ReferenceFiniteElements.shape_function_gradients(fspace.ref_fe, q)
 
-element_level_fields(fspace::AbstractFunctionSpace, u::NodalField)         = element_level_fields(fspace.conn, u)
-element_level_fields(fspace::AbstractFunctionSpace, e::Int, u::NodalField) = element_level_fields(fspace.conn, e, u)
+# element_level_fields(fspace::AbstractFunctionSpace, u::NodalField)         = element_level_fields(fspace.conn, u)
+# element_level_fields(fspace::AbstractFunctionSpace, e::Int, u::NodalField) = element_level_fields(fspace.conn, e, u)
 
-element_level_fields_reinterpret(fspace::AbstractFunctionSpace, u::NodalField) = 
-element_level_fields_reinterpret(fspace.conn, u)
+# element_level_fields_reinterpret(fspace::AbstractFunctionSpace, u::NodalField) = 
+# element_level_fields_reinterpret(fspace.conn, u)
 
 function volume(X, ∇N_ξ)
   J = X * ∇N_ξ
@@ -76,20 +82,40 @@ end
 # and discrete gradient operators that will get bigger to store
 
 struct NonAllocatedFunctionSpace{
-  Conn  <: Connectivity,
-  RefFE <: ReferenceFE
-} <: AbstractFunctionSpace{Conn, RefFE}
+  NDof, 
+  Conn    <: Connectivity,
+  DofConn <: Connectivity,
+  RefFE   <: ReferenceFE
+} <: AbstractFunctionSpace{NDof, Conn, RefFE}
 
   conn::Conn
+  dof_conn::DofConn
   ref_fe::RefFE
 end
 
-function NonAllocatedFunctionSpace(mesh::Mesh, block_id::Int, q_degree::Int)
+function setup_dof_connectivity!(dof_conns, ids, conns)
+  for e in 1:num_elements(dof_conns)
+    conn            = connectivity(conns, e)
+    dof_conns[:, e] = ids[:, vec(conn)]
+  end
+end
+
+function NonAllocatedFunctionSpace(mesh::Mesh, dof::DofManager, block_id::Int, q_degree::Int)
   conn      = mesh.conns[block_id]
+  N, E      = num_nodes(mesh.coords), num_elements(conn)
+  NN        = num_nodes_per_element(conn)
+  NDofs     = num_dofs_per_node(dof)
+  ids       = reshape(1:NDofs * N, NDofs, N)
+  temp      = reshape(ids[:, conn], NDofs * NN, E) |> collect
+  # dof_conns = Connectivity{NDofs * NN, E}(dof_conns, block_id)
+  dof_conns = Connectivity{NDofs * NN, E, Matrix, eltype(conn)}(temp, block_id)
+  # dof_conns = Connectivity{NDofs * NN, E, Matrix, eltype(conn)}(undef, )
+  # dof_conns = ElementField{NDofs * NN, E, Matrix, eltype(conn)}(undef, Symbol("connectivity_block_id_$block_id"))
+  # setup_dof_connectivity!(dof_conns, ids, conn)
   elem_type = mesh.elem_types[block_id]
   ref_fe    = ReferenceFE(elem_type_map[elem_type](Val(q_degree)))
   @assert num_nodes_per_element(conn) == ReferenceFiniteElements.num_nodes_per_element(ref_fe)
-  return NonAllocatedFunctionSpace(conn, ref_fe)
+  return NonAllocatedFunctionSpace{NDofs, typeof(conn), typeof(dof_conns), typeof(ref_fe)}(conn, dof_conns, ref_fe)
 end
 
 #######################################################
@@ -101,23 +127,25 @@ struct Interpolants{A1, A2, A3, A4}
   JxW::A4
 end
 
-# TODO try to move this to an abstract method
-function Base.getindex(fspace::NonAllocatedFunctionSpace, q::Int, e::Int, X::NodalField)
-  X_el = element_level_fields(fspace, e, X) 
-  N    = shape_function_values(fspace, q)
-  ∇N_ξ = shape_function_gradients(fspace, q)
-  ∇N_X = map_shape_function_gradients(X_el, ∇N_ξ)
-  JxW  = volume(X_el, ∇N_ξ) * quadrature_weight(fspace, q)
-  X_q  = X_el * N
-  # return X_q, N, ∇N_X, JxW
-  return Interpolants(X_q, N, ∇N_X, JxW)
-end
+# # TODO try to move this to an abstract method
+# function Base.getindex(fspace::NonAllocatedFunctionSpace, X::NodalField, q::Int, e::Int)
+#   # X_el = element_level_fields(fspace, e, X) 
+#   X_el = element_level_fields(fspace, X, e)
+#   N    = shape_function_values(fspace, q)
+#   ∇N_ξ = shape_function_gradients(fspace, q)
+#   ∇N_X = map_shape_function_gradients(X_el, ∇N_ξ)
+#   JxW  = volume(X_el, ∇N_ξ) * quadrature_weight(fspace, q)
+#   X_q  = X_el * N
+#   # return X_q, N, ∇N_X, JxW
+#   return Interpolants(X_q, N, ∇N_X, JxW)
+# end
 
 struct AllocatedFunctionSpace{
+  NDof, 
   Conn  <: Connectivity,
   RefFE <: ReferenceFE,
   S     <: StructArray
-} <: AbstractFunctionSpace{Conn, RefFE}
+} <: AbstractFunctionSpace{NDof, Conn, RefFE}
 
   conn::Conn
   ref_fe::RefFE
@@ -176,6 +204,105 @@ function AllocatedFunctionSpace(mesh::Mesh, block_id::Int, q_degree)
   return AllocatedFunctionSpace(conn, ref_fe, interps)
 end
 
+
+
+
+
+################################################
+
+"""
+In place method for collecting element level fields
+  TODO need to add a method that takes into account element coloring maybe?
+"""
+function element_level_fields!(
+  u_els, fspace::F, u::NodalField{T, N, NFields, NNodes, Name, M}
+) where {F <: AbstractFunctionSpace, T, N, NFields, NNodes, Name, M <: Vector{T}}
+  NN   = num_nodes_per_element(fspace)
+  for e in axes(u_els, 1)
+    u_els[e] = SMatrix{NFields, NN, eltype(u), NFields * NN}(vec(@views u[dof_connectivity(fspace, e)]))
+  end 
+end
+
+"""
+In place method for collecting element level fields
+  TODO need to add a method that takes into account element coloring maybe?
+"""
+function element_level_fields!(
+  u_els, fspace::F, u::NodalField{T, N, NFields, NNodes, Name, M}
+) where {F <: AbstractFunctionSpace, T, N, NFields, NNodes, Name, M <: Matrix{T}}
+  NN   = num_nodes_per_element(fspace)
+  conn = connectivity(fspace)
+  for e in axes(u_els, 1)
+    u_els[e] = SMatrix{NFields, NN, eltype(u), NFields * NN}(vec(@views u[:, connectivity(conn, e)]))
+  end 
+end
+
+"""
+"""
+function element_level_fields(fspace::F, u::NodalField) where F <: AbstractFunctionSpace
+  NFields = num_fields(u)
+  NN      = num_nodes_per_element(fspace)
+  T       = SMatrix{NFields, NN, eltype(u), NFields * NN}
+  names   = Symbol("element_", field_names(u))
+  u_els   = ElementField{NFields * NN, num_elements(fspace), StructArray, T}(undef, names)
+  element_level_fields!(u_els, fspace, u)
+  return u_els
+end
+
+"""
+"""
+function element_level_fields(
+  fspace::F, u::NodalField{T, 1, NFields, NNodes, Name, Vals}, e::Int
+) where {F <: AbstractFunctionSpace, T, NFields, NNodes, Name, Vals <: AbstractArray{T, 1}}
+  NN      = num_nodes_per_element(fspace)
+  u_els   = SMatrix{NFields, NN, eltype(u), NFields * NN}(vec(@views u[dof_connectivity(fspace, e)]))
+  return u_els
+end
+
+"""
+"""
+function element_level_fields(
+  fspace::F, u::NodalField{T, 2, NFields, NNodes, Name, Vals}, e::Int
+) where {F <: AbstractFunctionSpace, T, NFields, NNodes, Name, Vals <: AbstractArray{T, 2}}
+  NN    = num_nodes_per_element(fspace)
+  u_els = SMatrix{NFields, NN, eltype(u), NFields * NN}(vec(@views u[:, connectivity(fspace, e)]))
+  return u_els
+end
+
+"""
+"""
+function element_level_fields_reinterpret(
+  fspace::F, u::NodalField{T, 1, NFields, NNodes, Name, Vals},
+) where {F <: AbstractFunctionSpace, T, NFields, NNodes, Name, Vals <: AbstractArray{T, 1}}
+
+  NN    = num_nodes_per_element(fspace)
+  u_els = reinterpret(SMatrix{NFields, NN, eltype(u), NFields * NN}, @views u[dof_connectivity(fspace)])
+  return u_els
+end
+
+"""
+"""
+function element_level_fields_reinterpret(
+  fspace::F, u::NodalField{T, 2, NFields, NNodes, Name, Vals},
+) where {F <: AbstractFunctionSpace, T, NFields, NNodes, Name, Vals <: AbstractArray{T, 2}}
+
+  NN    = num_nodes_per_element(fspace)
+  u_els = reinterpret(SMatrix{NFields, NN, eltype(u), NFields * NN}, vec(@views u[:, connectivity(fspace)]))
+  return u_els
+end
+
+# TODO try to move this to an abstract method
+function Base.getindex(fspace::NonAllocatedFunctionSpace, X::NodalField, q::Int, e::Int)
+  X_el = element_level_fields(fspace, X, e)
+  N    = shape_function_values(fspace, q)
+  ∇N_ξ = shape_function_gradients(fspace, q)
+  ∇N_X = map_shape_function_gradients(X_el, ∇N_ξ)
+  JxW  = volume(X_el, ∇N_ξ) * quadrature_weight(fspace, q)
+  X_q  = X_el * N
+  return Interpolants(X_q, N, ∇N_X, JxW)
+end
+
+####################################################################
 """
 In place method to update the quadrature values given
 a function space and the element level values
@@ -327,6 +454,30 @@ end
 @generated function set(t::Tuple{Vararg{Any, N}}, x, i) where {N}
   Expr(:tuple, (:(ifelse($j == i, x, t[$j])) for j in 1:N)...)
 end
+
+# function discrete_gradient_v2(::Type{PlaneStrain}, ∇N_X)
+#   N = size(∇N_X, 1)
+
+#   SMatrix{2 * N, 4, eltype(∇N_X), 2 * N * 4}(
+#     begin
+#       if i == 1
+#         if j % 2 != 0
+#           ∇N_X[div(j, 2) + 1, 1]
+#         else
+#           0
+#         end
+#       elseif i == 2
+#         if j % 2 != 0
+#           0
+#         else
+#           ∇N_X[div(j, 2), 1]
+#         end
+#       else
+#         -1
+#       end
+#     end for j = 1:2 * N, i = 1:4
+#   )
+# end
 
 function discrete_gradient(::Type{PlaneStrain}, ∇N_X)
   N   = size(∇N_X, 1)

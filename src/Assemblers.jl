@@ -10,7 +10,8 @@ function setup_hessian_coordinates!(
   counter = 1
   # need below to really be "dof connectivity"
   for fspace in fspaces
-    conn = dof_connectivity(dof, fspace)
+    # conn = dof_connectivity(dof, fspace)
+    conn = dof_connectivity(fspace)
     for e in axes(conn, 2)
       for i in axes(conn, 1)
         for j in axes(conn, 1)
@@ -38,7 +39,8 @@ function Assembler(dof::DofManager, fspaces::Fs) where Fs <: AbstractArray{<:Abs
   # seen in function space connectivity
   # uniques = Vector{Int64}(undef, 0)
   for fspace in fspaces
-    conn = dof_connectivity(dof, fspace)
+    # conn = dof_connectivity(dof, fspace)
+    conn = dof_connectivity(fspace)
     n_hessian_entries += size(conn, 2) * (size(conn, 1)^2)
 
     # append!(uniques, unique(conn))
@@ -51,25 +53,13 @@ function Assembler(dof::DofManager, fspaces::Fs) where Fs <: AbstractArray{<:Abs
 
   setup_hessian_coordinates!(Is, Js, dof, fspaces)
 
-  R = zeros(Float64, num_nodes(dof))
+  R = zeros(Float64, num_nodes(dof) * num_dofs_per_node(dof))
   K = sparse(Is, Js, Vs)
   return StaticAssembler{Float64, Int64, typeof(R), typeof(K)}(R, K)
 end
 
 # assembly methods, need different ones for what we're doing
 
-# function assemble!(
-#   assembler::StaticAssembler,
-#   dof::DofManager,
-#   R_el, K_el, conn
-# )
-
-#   NDof = num_dofs_per_node(dof)
-
-#   for i in axes(conn, 1)
-
-#   end
-# end
 
 function assemble!(
   assembler::StaticAssembler,
@@ -99,19 +89,21 @@ function assemble!(
   N      = num_nodes_per_element(fspace)
   NxNDof = N * NDof
 
-
   for e in 1:num_elements(fspace)
-    U_el = element_level_fields(fspace, e, U)
+    # U_el = element_level_fields(fspace, e, U)
+    U_el = element_level_fields(fspace, U, e)
     R_el = zeros(SVector{NxNDof, Float64})
     K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
     for q in num_q_points(fspace)
-      fspace_values = getindex(fspace, q, e, X)
+      fspace_values = getindex(fspace, X, q, e)
       R_el = R_el + residual_func(fspace_values, U_el)
       K_el = K_el + tangent_func(fspace_values, U_el)
     end
-
+    # @show U_el
+    # @show K_el
     # allocations below
-    conn = dof_connectivity(dof, fspace, e)
+    # conn = dof_connectivity(dof, fspace, e)
+    conn = dof_connectivity(fspace, e)
     assemble!(assembler, R_el, K_el, conn)
   end
 end

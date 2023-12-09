@@ -257,101 +257,24 @@ num_dimensions(
 
 ###############################################################################################3
 
-
-
-
-
-
-
-# TODO move these to a more sensible place
-
-
-"""
-In place method for collecting element level fields
-  TODO need to add a method that takes into account element coloring maybe?
-"""
-function element_level_fields!(u_els, conn::Connectivity, u::NodalField)
-  NFields = num_fields(u)
-  NN      = num_nodes_per_element(conn)
-  for e in axes(u_els, 1)
-    u_els[e] = SMatrix{NFields, NN, eltype(u), NFields * NN}(vec(@views u[:, connectivity(conn, e)]))
-  end 
-end
-
-"""
-Wrapper for type stable in place by index
-"""
-function element_level_fields!(u_els, mesh::Mesh, block_index::Int, u::NodalField)
-  conn = connectivity(mesh, block_index)
-  element_level_fields!(u_els, conn, u)
-end
-
-"""
-Out of place method for collecting element level fields
-This simply calls element_level_fields! with a pre-allocated
-ElementField. Currently it uses a structarray
-"""
-function element_level_fields(conn::Connectivity, u::NodalField)
-  NFields = num_fields(u)
-  NN      = num_nodes_per_element(conn)
-  T       = SMatrix{NFields, NN, eltype(u), NFields * NN}
-  names   = Symbol("element_", field_names(u))
-  # u_els   = ElementField{NFields * NN, num_elements(conn)}(StructArray, T, names, undef)
-  u_els   = ElementField{NFields * NN, num_elements(conn), StructArray, T}(undef, names)
-  element_level_fields!(u_els, conn, u)
-  return u_els
-end
-
-"""
-Wrapper to prevent type instabilities on different Connectivity types
-"""
-function element_level_fields(mesh::Mesh, block_index::Int, u::NodalField)
-  conn = connectivity(mesh, block_index)
-  u_el = element_level_fields(conn, u)
-  return u_el
-end
-
-# need this method for type stability 
-function element_level_fields(conn::Connectivity, e::Int, u::NodalField)
-  NFields = num_fields(u)
-  NN      = num_nodes_per_element(conn)
-  u_els   = SMatrix{NFields, NN, eltype(u), NFields * NN}(vec(@views u[:, connectivity(conn, e)]))
-  return u_els
-end
-
-# need this wrapper to eliminate most type instabilities
-# TODO real question is how to store these differently typed arrays?
-function element_level_fields(mesh::Mesh, block_index::Int, e::Int, u::NodalField)
-  conn  = connectivity(mesh, block_index)
-  u_els = element_level_fields(conn, e, u)
-  return u_els
-end
-
 # need this method for type stability
-"""
-A method that returns a ReinterpretArray for quicker access
-"""
-function element_level_fields_reinterpret(conn::Connectivity, u::NodalField)
-  NFields = num_fields(u)
-  NN      = num_nodes_per_element(conn)
-  u_els   = reinterpret(SMatrix{NFields, NN, eltype(u), NFields * NN}, vec(@views u[:, connectivity(conn)]))
-  return u_els
-end
+# """
+# A method that returns a ReinterpretArray for quicker access
+# """
+# function element_level_fields_reinterpret(conn::Connectivity, u::NodalField)
+#   NFields = num_fields(u)
+#   NN      = num_nodes_per_element(conn)
+#   u_els   = reinterpret(SMatrix{NFields, NN, eltype(u), NFields * NN}, vec(@views u[:, connectivity(conn)]))
+#   return u_els
+# end
 
-# need this wrapper to eliminate most type instabilities
-# TODO real question is how to store these differently typed arrays?
-"""
-Wrapper to prevent type instabilities
-"""
-function element_level_fields_reinterpret(mesh::Mesh, block_index::Int, u::NodalField)
-  conn  = connectivity(mesh, block_index)
-  u_els = element_level_fields_reinterpret(conn, u)
-  return u_els
-end
-
-
-#################################################
-# wrapper for coordinates
-element_level_coordinates!(X_els, mesh::Mesh, block_index::Int) = element_level_fields!(X_els, mesh, block_index, mesh.coords)
-element_level_coordinates(mesh::Mesh, block_index::Int)         = element_level_fields(mesh, block_index, mesh.coords)
-element_level_coordinates(mesh::Mesh, block_index::Int, e::Int) = element_level_fields(mesh, block_index, e, mesh.coords)
+# # need this wrapper to eliminate most type instabilities
+# # TODO real question is how to store these differently typed arrays?
+# """
+# Wrapper to prevent type instabilities
+# """
+# function element_level_fields_reinterpret(mesh::Mesh, block_index::Int, u::NodalField)
+#   conn  = connectivity(mesh, block_index)
+#   u_els = element_level_fields_reinterpret(conn, u)
+#   return u_els
+# end

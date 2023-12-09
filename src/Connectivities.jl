@@ -7,10 +7,19 @@ end
 # TODO further template this guy
 # might want ragged arrays or arrays of staticarrays
 function Connectivity{NN, NE}(conn::Matrix{<:Integer}, block_index::Int) where {NN, NE}
+  @assert size(conn, 1) == NN
+  @assert size(conn, 2) == NE
   conn = ElementField{size(conn, 1), size(conn, 2)}(conn, Symbol("connectivity_id_$block_index"))
   return Connectivity{eltype(conn), ndims(conn), NN, NE, typeof(conn)}(conn)
 end
 
+
+function Connectivity{NN, NE, Matrix, T}(conn::Matrix{T}, block_index) where {NN, NE, T <: Integer}
+  @assert size(conn, 1) == NN
+  @assert size(conn, 2) == NE
+  conn = ElementField{size(conn, 1), size(conn, 2)}(conn, Symbol("connectivity_id_$block_index"))
+  return Connectivity{T, ndims(conn), NN, NE, typeof(conn)}(conn)
+end
 # function Connectivity{NN, NE}(conn::C, block_index::Int) where {NN, NE, C <: Union{Vector{<:SVector}, StructVector{<:SVector}}}
 #   # NNodesPerElement = length(conn[1])
 #   conn = ElementField{eltype(conn)}(Symbol("connectivity_id_$block_index"), conn)

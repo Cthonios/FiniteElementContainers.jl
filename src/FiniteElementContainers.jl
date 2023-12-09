@@ -25,8 +25,6 @@ export Connectivity
 
 # Methods
 export connectivity
-export element_level_coordinates
-export element_level_coordinates!
 export element_level_fields
 export element_level_fields!
 
@@ -75,9 +73,8 @@ include("Fields.jl")
 include("Connectivities.jl")
 include("Meshes.jl")
 
-
-include("FunctionSpaces.jl")
 include("DofManagers.jl")
+include("FunctionSpaces.jl")
 include("Assemblers.jl")
 
 end # module

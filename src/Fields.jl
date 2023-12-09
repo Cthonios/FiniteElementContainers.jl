@@ -66,6 +66,22 @@ struct NodalField{T, N, NFields, NNodes, Names, Vals} <: AbstractField{T, N, NFi
   vals::Vals
 end
 
+Base.size(::NodalField{T, N, NFields, NNodes, Names, Vals}) where {
+  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
+} = (NFields * NNodes,)
+
+"""
+"""
+function NodalField{NFields, NNodes}(vals::Vector{<:Number}, names) where {NFields, NNodes}
+  if NFields == 1
+    @assert length(vals) == NNodes
+  else
+    @assert length(vals) == NNodes * NFields
+  end
+
+  return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
+end
+
 """
 """
 function NodalField{NFields, NNodes}(vals::Matrix{<:Number}, names) where {NFields, NNodes}
@@ -76,10 +92,9 @@ end
 """
 function NodalField{NFields, NNodes, A, T}(::UndefInitializer, names) where {NFields, NNodes, A <: AbstractArray, T}
   if A <: Vector
-    if NFields != 1
-      field_number_error(NodalField, T, NFields)
-    end
-    vals = A{T}(undef, NNodes)
+    # NOTE in this case we are allowing for a long multi dof vector
+    # e.g. convert a 3 x N matrix to a 3N vector
+    vals = A{T}(undef, NFields * NNodes)
   elseif A <: Matrix
     vals = A{T}(undef, NFields, NNodes)
   else
@@ -160,12 +175,17 @@ end
 """
 """
 function ElementField{NFields, NElements}(vals::Matrix{<:Number}, names) where {NFields, NElements}
+  @assert size(vals, 1) == NFields
+  @assert size(vals, 2) == NElements
   return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
 end
 
 """
 """
 function ElementField{NFields, NElements}(vals::S, names) where S <: StructArray where {NFields, NElements}
+  @assert size(vals) |> length == 1
+  @assert length(vals) == NElements
+  @assert length(eltype(vals)) == NFields
   return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
 end
 
