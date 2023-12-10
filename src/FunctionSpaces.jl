@@ -100,11 +100,14 @@ function setup_dof_connectivity!(dof_conns, ids, conns)
   end
 end
 
-function NonAllocatedFunctionSpace(mesh::Mesh, dof::DofManager, block_id::Int, q_degree::Int)
-  conn      = mesh.conns[block_id]
-  N, E      = num_nodes(mesh.coords), num_elements(conn)
+function NonAllocatedFunctionSpace(conn::Connectivity, dof::DofManager, block_id::Int, q_degree::Int, elem_type::String)
+  # conn      = mesh.conns[block_id]
+  # N, E      = num_nodes(mesh.coords), num_elements(conn)
+  N, E      = num_nodes(dof), num_elements(conn)
   NN        = num_nodes_per_element(conn)
   NDofs     = num_dofs_per_node(dof)
+
+  # TODO patch up below lines to use methods bound to DofManager
   ids       = reshape(1:NDofs * N, NDofs, N)
   temp      = reshape(ids[:, conn], NDofs * NN, E) |> collect
   # dof_conns = Connectivity{NDofs * NN, E}(dof_conns, block_id)
@@ -112,11 +115,32 @@ function NonAllocatedFunctionSpace(mesh::Mesh, dof::DofManager, block_id::Int, q
   # dof_conns = Connectivity{NDofs * NN, E, Matrix, eltype(conn)}(undef, )
   # dof_conns = ElementField{NDofs * NN, E, Matrix, eltype(conn)}(undef, Symbol("connectivity_block_id_$block_id"))
   # setup_dof_connectivity!(dof_conns, ids, conn)
-  elem_type = mesh.elem_types[block_id]
+  # elem_type = mesh.elem_types[block_id]
   ref_fe    = ReferenceFE(elem_type_map[elem_type](Val(q_degree)))
   @assert num_nodes_per_element(conn) == ReferenceFiniteElements.num_nodes_per_element(ref_fe)
   return NonAllocatedFunctionSpace{NDofs, typeof(conn), typeof(dof_conns), typeof(ref_fe)}(conn, dof_conns, ref_fe)
 end
+
+NonAllocatedFunctionSpace(mesh::Mesh, dof::DofManager, block_id::Int, q_degree::Int) =
+NonAllocatedFunctionSpace(mesh.conns[block_id], dof, block_id, q_degree, mesh.elem_types[block_id])
+
+# function NonAllocatedFunctionSpace(mesh::Mesh, dof::DofManager, block_id::Int, q_degree::Int)
+#   conn      = mesh.conns[block_id]
+#   N, E      = num_nodes(mesh.coords), num_elements(conn)
+#   NN        = num_nodes_per_element(conn)
+#   NDofs     = num_dofs_per_node(dof)
+#   ids       = reshape(1:NDofs * N, NDofs, N)
+#   temp      = reshape(ids[:, conn], NDofs * NN, E) |> collect
+#   # dof_conns = Connectivity{NDofs * NN, E}(dof_conns, block_id)
+#   dof_conns = Connectivity{NDofs * NN, E, Matrix, eltype(conn)}(temp, block_id)
+#   # dof_conns = Connectivity{NDofs * NN, E, Matrix, eltype(conn)}(undef, )
+#   # dof_conns = ElementField{NDofs * NN, E, Matrix, eltype(conn)}(undef, Symbol("connectivity_block_id_$block_id"))
+#   # setup_dof_connectivity!(dof_conns, ids, conn)
+#   elem_type = mesh.elem_types[block_id]
+#   ref_fe    = ReferenceFE(elem_type_map[elem_type](Val(q_degree)))
+#   @assert num_nodes_per_element(conn) == ReferenceFiniteElements.num_nodes_per_element(ref_fe)
+#   return NonAllocatedFunctionSpace{NDofs, typeof(conn), typeof(dof_conns), typeof(ref_fe)}(conn, dof_conns, ref_fe)
+# end
 
 #######################################################
 
