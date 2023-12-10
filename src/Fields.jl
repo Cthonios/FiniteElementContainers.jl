@@ -16,6 +16,10 @@ Base.getindex(field::AbstractField, index::Int)     = getindex(field.vals, index
 Base.setindex!(field::AbstractField, v, index::Int) = setindex!(field.vals, v, index)
 Base.axes(field::AbstractField)                     = Base.axes(field.vals)
 
+#######################################################
+# Exceptions
+#######################################################
+
 struct FieldTypeException{F <: AbstractField, T1, T2} <: Exception
   field_type::Type{F}
   provided_type::T1
@@ -57,8 +61,9 @@ function field_number_error(field_type::Type{<:AbstractField}, provided_type::Ty
   throw(FieldNumberException(field_type, provided_type, provided_length, expected_length))
 end
 
-##################################################################################
-
+#######################################################
+# Nodal field stuff
+#######################################################
 """
 """
 struct NodalField{T, N, NFields, NNodes, Names, Vals} <: AbstractField{T, N, NFields, Names, Vals}
@@ -66,9 +71,40 @@ struct NodalField{T, N, NFields, NNodes, Names, Vals} <: AbstractField{T, N, NFi
   vals::Vals
 end
 
+# note even though we want this guy to behave like a 2d array
+# if we don't make size the length of the value array
+# it will not behave correctly
 Base.size(::NodalField{T, N, NFields, NNodes, Names, Vals}) where {
   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} = (NFields * NNodes,)
+} = (NFields, NNodes)
+# } = (NFields * NNodes,)
+
+Base.getindex(field::NodalField{T, N, NFields, NNodes, Names, Vals}, d::Int, n::Int) where {
+  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
+} = getindex(field.vals, (n - 1) * NFields + d)
+
+Base.setindex!(field::NodalField{T, N, NFields, NNodes, Names, Vals}, v, d::Int, n::Int) where {
+  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
+} = setindex!(field.vals, v, (n - 1) * NFields + d)
+
+# note even though we want this guy to behave like a 2d array
+# if we don't make size the length of the value array
+# it will not behave correctly
+# Base.axes(::NodalField{T, N, NFields, NNodes, Names, Vals}) where {
+#   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
+# } = (Base.OneTo(NFields * NNodes),)
+
+Base.axes(::NodalField{T, N, NFields, NNodes, Names, Vals}, ::Val{1}) where {
+  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
+} = Base.OneTo(NFields)
+
+Base.axes(::NodalField{T, N, NFields, NNodes, Names, Vals}, ::Val{2}) where {
+  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
+} = Base.OneTo(NNodes)
+
+Base.axes(u::NodalField{T, N, NFields, NNodes, Names, Vals}, n::Int) where {
+  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
+} = axes(u, Val(n))
 
 """
 """
@@ -78,7 +114,6 @@ function NodalField{NFields, NNodes}(vals::Vector{<:Number}, names) where {NFiel
   else
     @assert length(vals) == NNodes * NFields
   end
-
   return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
 end
 
@@ -103,6 +138,15 @@ function NodalField{NFields, NNodes, A, T}(::UndefInitializer, names) where {NFi
   return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
 end
 
+# function zeros!(field::NodalField, ::Type{T}) where T
+#   @show axes(field)
+#   for d in axes(field, 2)
+#     for n in axes(field, 1)
+#       field[d, n] = zero(T)
+#     end
+#   end
+# end
+
 """
 """
 function Base.zeros(::Type{NodalField{NFields, NNodes, A, T}}, name) where {NFields, NNodes, A <: AbstractArray, T}
@@ -120,8 +164,9 @@ Base.show(io::IO, field::N) where N <: NodalField = print(io,
   "Values = "
 )
 
-###################################################################################
-
+#######################################################
+# Nodal field stuff
+#######################################################
 """
 """
 struct ElementField{T, N, NFields, NElements, Names, Vals} <: AbstractField{T, N, NFields, Names, Vals}
