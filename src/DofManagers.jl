@@ -67,6 +67,16 @@ function DofManager{NDofs}(mesh::Mesh, ::Type{Matrix}) where NDofs
   )
 end
 
+function create_field(::DofManager{ND, NN, <:Integer, ArrDim, <:BitArray, <:AbstractArray}, name::Symbol) where {ND, NN, ArrDim}
+  if ArrDim == 1
+    return zeros(NodalField{ND, NN, Vector, Float64}, name)
+  elseif ArrDim == 2
+    return zeros(NodalField{ND, NN, Matrix, Float64}, name)
+  else
+    @assert false "Add an actual error here"
+  end
+end
+
 function create_field(d::DofManager, name::Symbol, ::Type{T}) where T <: AbstractArray
   NDof, N = num_dofs_per_node(d), num_nodes(d)
   return zeros(NodalField{NDof, N, T, Float64}, name)
