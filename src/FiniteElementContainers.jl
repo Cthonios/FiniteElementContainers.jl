@@ -48,6 +48,13 @@ export Assembler
 export assemble!
 export remove_constraints
 
+
+export axes
+export getindex
+export setindex!
+export size
+
+
 # dependencies
 using DocStringExtensions
 using LinearAlgebra
