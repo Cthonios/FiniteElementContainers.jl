@@ -40,6 +40,7 @@ export update_unknown_ids!
 export AbstractFunctionSpace
 export AbstractMechanicsFormulation
 export NonAllocatedFunctionSpace
+export num_q_points
 
 # Assemblers
 export Assembler
