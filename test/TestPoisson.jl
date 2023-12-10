@@ -20,23 +20,25 @@ end
 
 # set up initial containers
 
-type = Vector
+type = Matrix
 
 mesh    = Mesh(ExodusDatabase, "./mesh.g")
-dof     = DofManager{1}(mesh, type)
+# dof     = DofManager{1}(mesh, type)
+dof     = DofManager{1, num_nodes(mesh.coords), type}()
 fspaces = NonAllocatedFunctionSpace[
   NonAllocatedFunctionSpace(mesh, dof, 1, 2)
 ]
 asm     = Assembler(dof, fspaces)
 
 # set up bcs
-update_unknown_ids!(dof, mesh.nset_nodes, 1)
+update_unknown_ids!(dof, mesh.nset_nodes, [1, 1, 1, 1])
 
 # @show dof.is_unknown
 
 # now pre-allocate arrays
 X   = mesh.coords
-U   = create_field(dof, :u, type)
+# U   = create_field(dof, :u, type)
+U   = create_field(dof, :u)
 Uu  = create_unknowns(dof)
 Uu  .= 1.0
 
@@ -67,4 +69,4 @@ write_time(exo, 1, 0.0)
 write_values(exo, NodalVariable, 1, field_names(U) |> String, U.vals[1, :])
 close(exo)
 
-# @test exodiff("./output.e", "./poisson.gold")
+@test exodiff("./output.e", "./poisson.gold")

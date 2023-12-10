@@ -80,9 +80,9 @@ end
   end
 end
 
-# @testset ExtendedTestSet "Poisson problem" begin
-#   include("TestPoisson.jl")
-# end
+@testset ExtendedTestSet "Poisson problem" begin
+  include("TestPoisson.jl")
+end
 
 # @testset ExtendedTestSet "Aqua" begin
 #   Aqua.test_all(FiniteElementContainers; ambiguities=false)

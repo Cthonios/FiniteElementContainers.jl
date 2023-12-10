@@ -71,28 +71,30 @@ struct NodalField{T, N, NFields, NNodes, Names, Vals} <: AbstractField{T, N, NFi
   vals::Vals
 end
 
-# note even though we want this guy to behave like a 2d array
-# if we don't make size the length of the value array
-# it will not behave correctly
 Base.size(::NodalField{T, N, NFields, NNodes, Names, Vals}) where {
   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
 } = (NFields, NNodes)
-# } = (NFields * NNodes,)
 
-Base.getindex(field::NodalField{T, N, NFields, NNodes, Names, Vals}, d::Int, n::Int) where {
+function Base.getindex(field::NodalField{T, N, NFields, NNodes, Names, Vals}, d::Int, n::Int) where {
   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} = getindex(field.vals, (n - 1) * NFields + d)
+} 
+  @assert d > 0        "Field index out of range in vectorized getindex"
+  @assert n > 0        "Field index out of range in vectorized getindex"
+  @assert d <= NFields "Field index out of range in vectorized getindex"
+  @assert n <= NNodes  "Field index out of range in vectorized getindex"
+  getindex(field.vals, (n - 1) * NFields + d)
+end
 
-Base.setindex!(field::NodalField{T, N, NFields, NNodes, Names, Vals}, v, d::Int, n::Int) where {
+function Base.setindex!(field::NodalField{T, N, NFields, NNodes, Names, Vals}, v, d::Int, n::Int) where {
   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} = setindex!(field.vals, v, (n - 1) * NFields + d)
+} 
 
-# note even though we want this guy to behave like a 2d array
-# if we don't make size the length of the value array
-# it will not behave correctly
-# Base.axes(::NodalField{T, N, NFields, NNodes, Names, Vals}) where {
-#   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-# } = (Base.OneTo(NFields * NNodes),)
+  @assert d > 0        "Field index out of range in vectorized getindex"
+  @assert n > 0        "Field index out of range in vectorized getindex"
+  @assert d <= NFields "Field index out of range in vectorized getindex"
+  @assert n <= NNodes  "Field index out of range in vectorized getindex"
+  setindex!(field.vals, v, (n - 1) * NFields + d)
+end
 
 Base.axes(::NodalField{T, N, NFields, NNodes, Names, Vals}, ::Val{1}) where {
   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
@@ -102,9 +104,13 @@ Base.axes(::NodalField{T, N, NFields, NNodes, Names, Vals}, ::Val{2}) where {
   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
 } = Base.OneTo(NNodes)
 
-Base.axes(u::NodalField{T, N, NFields, NNodes, Names, Vals}, n::Int) where {
+function Base.axes(u::NodalField{T, N, NFields, NNodes, Names, Vals}, n::Int) where {
   T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} = axes(u, Val(n))
+} 
+  @assert n > 0  "Dimension index out of range in vectorized axes"
+  @assert n <= 2 "Dimension index out of range in vectorized axes"
+  axes(u, Val(n))
+end
 
 """
 """
@@ -138,15 +144,6 @@ function NodalField{NFields, NNodes, A, T}(::UndefInitializer, names) where {NFi
   return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
 end
 
-# function zeros!(field::NodalField, ::Type{T}) where T
-#   @show axes(field)
-#   for d in axes(field, 2)
-#     for n in axes(field, 1)
-#       field[d, n] = zero(T)
-#     end
-#   end
-# end
-
 """
 """
 function Base.zeros(::Type{NodalField{NFields, NNodes, A, T}}, name) where {NFields, NNodes, A <: AbstractArray, T}
@@ -165,7 +162,8 @@ Base.show(io::IO, field::N) where N <: NodalField = print(io,
 )
 
 #######################################################
-# Nodal field stuff
+# Element field stuff - TODO this is the least tested likely, it mainly serves
+# the function of projecting nodal solution vectors to element containers
 #######################################################
 """
 """
@@ -258,8 +256,9 @@ Base.show(io::IO, field::N) where N <: ElementField = print(io,
   "Values = "
 )
 
-###################################################################################
-
+#######################################################
+# Nodal field stuff
+#######################################################
 """
 """
 struct QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals} <: AbstractField{T, N, NFields, Names, Vals}
@@ -267,11 +266,56 @@ struct QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals} <: Abstr
   vals::Vals
 end
 
+Base.size(::QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals}) where {
+  T, N, NFields, NQPoints, NElements, Names, Vals <: AbstractArray{T, 1}
+} = (NQPoints, NElements)
+
+# Base.getindex(field::QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals}, q::Int, e::Int) where {
+#   T, N, NFields, NQPoints, NElements, Names, Vals <: AbstractArray{T, 1}
+# } = getindex(field.vals, (e - 1) * NQPoints + q)
+
+function Base.getindex(field::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, q::Int, e::Int) where {
+  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
+} 
+  @assert q > 0   "Field index out of range in vectorized getindex"
+  @assert e > 0   "Field index out of range in vectorized getindex"
+  @assert q <= NQ "Field index out of range in vectorized getindex $q"
+  @assert e <= NE "Field index out of range in vectorized getindex"
+  getindex(field.vals, (e - 1) * NQ + q)
+end
+
+function Base.setindex!(field::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, v, q::Int, e::Int) where {
+  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
+} 
+
+  @assert q > 0   "Field index out of range in vectorized getindex"
+  @assert e > 0   "Field index out of range in vectorized getindex"
+  @assert q <= NQ "Field index out of range in vectorized getindex"
+  @assert e <= NE "Field index out of range in vectorized getindex"
+  setindex!(field.vals, v, (e - 1) * NQ + q)
+end
+
+Base.axes(::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, ::Val{1}) where {
+  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
+} = Base.OneTo(NQ)
+
+Base.axes(::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, ::Val{2}) where {
+  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
+} = Base.OneTo(NE)
+
+function Base.axes(u::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, n::Int) where {
+  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
+} 
+  @assert n > 0  "Dimension index out of range in vectorized axes"
+  @assert n <= 2 "Dimension index out of range in vectorized axes"
+  axes(u, Val(n))
+end
+
 """
 """
 function QuadratureField{NF, NQ, NE, A, T}(
   ::UndefInitializer, names
-) where {NF, NQ, NE, A <: Union{<:Matrix, <:StructArray}, T}
+) where {NF, NQ, NE, A <:AbstractArray, T}
 
   if T <: Number
     if NF != 1
@@ -279,13 +323,22 @@ function QuadratureField{NF, NQ, NE, A, T}(
     end
   elseif T <: Union{MArray, SArray}
     if NF != length(T)
+      # TODO add tensor types
       field_number_error(QuadratureField, T, NF)
     end
   else
     field_type_error(QuadratureField, T, Union{<:Number, <:Union{MArray, SArray}})
   end
 
-  vals = A{T}(undef, NQ, NE)
+  if A <: AbstractVector
+    # NOTE in this case we are allowing for a long multi dof vector
+    # e.g. convert a 3 x N matrix to a 3N vector
+    vals = A{T}(undef, NQ * NE)
+  else
+    vals = A{T}(undef, NQ, NE)
+  end
+
+  
   return QuadratureField{eltype(vals), ndims(vals), NF, NQ, NE, typeof(names), typeof(vals)}(names, vals)
 end
 
@@ -302,6 +355,7 @@ end
 function Base.zeros(::Type{QuadratureField{NFields, NQ, NElements, A, T}}, name) where {NFields, NQ, NElements, A <: AbstractArray, T}
   field = QuadratureField{NFields, NQ, NElements, A, T}(undef, name)
   zeros!(field)
+  # field .= zero(T)
   return field
 end
 
