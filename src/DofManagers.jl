@@ -10,7 +10,7 @@ end
 
 ########################################3
 
-struct DofManager{NDof, N, Itype, B <: AbstractArray, V <: AbstractArray{Itype, 1}} <: AbstractDofManager{NDof, N, Itype}
+struct DofManager{NDof, N, Itype, ArrDim, B <: BitArray{ArrDim}, V <: AbstractArray{Itype, 1}} <: AbstractDofManager{NDof, N, Itype}
   is_unknown::B
   unknown_indices::V
 end
@@ -21,7 +21,7 @@ function DofManager{NDofs, NNodes, Vector}() where {NDofs, NNodes}
   unknown_indices = ids[is_unknown]
 
   # return DofManager{n_dofs, n_nodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
-  return DofManager{NDofs, NNodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
+  return DofManager{NDofs, NNodes, Int64, 1, typeof(is_unknown), typeof(unknown_indices)}(
     is_unknown, unknown_indices
   )
 end
@@ -37,7 +37,7 @@ function DofManager{NDofs}(mesh::Mesh, ::Type{Vector}) where NDofs
   unknown_indices = ids[is_unknown]
 
   # return DofManager{n_dofs, n_nodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
-  return DofManager{NDofs, n_nodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
+  return DofManager{NDofs, n_nodes, Int64, 1, typeof(is_unknown), typeof(unknown_indices)}(
     is_unknown, unknown_indices
   )
 end
@@ -47,7 +47,7 @@ function DofManager{NDofs, NNodes, Matrix}() where {NDofs, NNodes}
   ids             = reshape(1:length(is_unknown), NDofs, NNodes)
   unknown_indices = ids[is_unknown]
 
-  return DofManager{NDofs, NNodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
+  return DofManager{NDofs, NNodes, Int64, 2, typeof(is_unknown), typeof(unknown_indices)}(
     is_unknown, unknown_indices
   )
 end
@@ -62,7 +62,7 @@ function DofManager{NDofs}(mesh::Mesh, ::Type{Matrix}) where NDofs
   unknown_indices = ids[is_unknown]
 
   # return DofManager{n_dofs, n_nodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
-  return DofManager{NDofs, n_nodes, Int64, typeof(is_unknown), typeof(unknown_indices)}(
+  return DofManager{NDofs, n_nodes, Int64, 2, typeof(is_unknown), typeof(unknown_indices)}(
     is_unknown, unknown_indices
   )
 end
@@ -85,7 +85,7 @@ end
 # this does it for a list of nodesets
 # below is allocation free
 function update_unknown_ids!(
-  dof_manager::DofManager{NDof, N, Itype, B, V1}, nsets::V2, dof::Int
+  dof_manager::DofManager{NDof, N, Itype, 1, B, V1}, nsets::V2, dof::Int
 ) where {NDof, N, Itype, B <: BitVector, V1 <: AbstractArray, V2 <: AbstractArray{<:AbstractArray{<:Integer, 1}}}
   for nset in nsets
     for node in nset
@@ -98,7 +98,7 @@ function update_unknown_ids!(
 end
 
 function update_unknown_ids!(
-  dof_manager::DofManager{NDof, N, Itype, B, V1}, nsets::V2, dof::Int
+  dof_manager::DofManager{NDof, N, Itype, 2, B, V1}, nsets::V2, dof::Int
 ) where {NDof, N, Itype, B <: BitMatrix, V1 <: AbstractArray, V2 <: AbstractArray{<:AbstractArray{<:Integer, 1}}}
   for nset in nsets
     for node in nset
