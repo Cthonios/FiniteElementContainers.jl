@@ -2,7 +2,7 @@ abstract type AbstractAssembler{Rtype, Itype} end
 
 function setup_hessian_coordinates!(
   row_coords::Is, col_coords::Js,
-  dof::DofManager, fspaces::Fs
+  fspaces::Fs
 ) where {Is <: AbstractArray{<:Integer, 1}, 
          Js <: AbstractArray{<:Integer, 1},
          Fs}
@@ -33,7 +33,7 @@ struct StaticAssembler{
   K::S
 end
 
-function Assembler(dof::DofManager, fspaces::Fs) where Fs <: AbstractArray{<:AbstractFunctionSpace, 1}
+function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs #<: AbstractArray{<:FunctionSpace, 1}
   n_hessian_entries = 0
   # TODO add functionality to only size things based on nodes
   # seen in function space connectivity
@@ -51,7 +51,7 @@ function Assembler(dof::DofManager, fspaces::Fs) where Fs <: AbstractArray{<:Abs
   Js = Vector{Int64}(undef, n_hessian_entries)
   Vs = zeros(Float64, n_hessian_entries)
 
-  setup_hessian_coordinates!(Is, Js, dof, fspaces)
+  setup_hessian_coordinates!(Is, Js, fspaces)
 
   R = zeros(Float64, num_nodes(dof) * num_dofs_per_node(dof))
   K = sparse(Is, Js, Vs)
@@ -60,12 +60,40 @@ end
 
 # assembly methods, need different ones for what we're doing
 
+function assemble!(
+  R::V1,
+  R_el, conn
+) where V1 <: AbstractVector
+  for i in axes(conn, 1)
+    R[conn[i]] += R_el[i]
+  end
+end
 
 function assemble!(
   assembler::StaticAssembler,
-  R_el, K_el, conn
-)
-  # NDof = num_dofs_per_node(dof)
+  R_el::V, conn
+) where V <: AbstractVector
+  for i in axes(conn, 1)
+    assembler.R[conn[i]] += R_el[i]
+  end
+end
+
+function assemble!(
+  K::M1,
+  K_el, conn
+) where M1 <: AbstractMatrix
+  for i in axes(conn, 1)
+    # assembler.R[conn[i]] += R_el[i]
+    for j in axes(conn, 1)
+      K[conn[i], conn[j]] += K_el[i, j]
+    end
+  end
+end
+
+function assemble!(
+  assembler::StaticAssembler,
+  R_el::V, K_el::M, conn
+) where {V <: AbstractVector, M <: AbstractMatrix}
   for i in axes(conn, 1)
     assembler.R[conn[i]] += R_el[i]
     for j in axes(conn, 1)
@@ -77,7 +105,7 @@ end
 function assemble!(
   assembler::StaticAssembler,
   dof::DofManager,
-  fspace::NonAllocatedFunctionSpace,
+  fspace::FunctionSpace,
   residual_func::F1,
   tangent_func::F2,
   X::V1,
@@ -116,7 +144,7 @@ function assemble!(
   tangent_func::F2,
   X::V1,
   U::V2
-) where {Fs <: AbstractArray{<:AbstractFunctionSpace}, 
+) where {Fs <: AbstractArray{<:FunctionSpace}, 
          F1 <: Function, F2 <: Function, 
          V1 <: AbstractArray, V2 <: AbstractArray}
 

@@ -18,7 +18,7 @@ export sideset_ids
 export ElementField
 export NodalField
 export QuadratureField
-export field_names
+# export field_names
 
 # Connectivities
 export Connectivity
@@ -26,25 +26,26 @@ export Connectivity
 # Methods
 export connectivity
 export element_level_fields
-export element_level_fields!
+# export element_level_fields!
 
 # DofManager
 export DofManager
-export create_field
+export create_fields
 export create_unknowns
 export dof_connectivity
 export update_fields!
 export update_unknown_ids!
 
 # FunctionSpaces
-export AbstractFunctionSpace
+# export AbstractFunctionSpace
 export AbstractMechanicsFormulation
+export FunctionSpace
 export NonAllocatedFunctionSpace
 export num_elements
 export num_q_points
 
 # Assemblers
-export Assembler
+export StaticAssembler
 export assemble!
 export remove_constraints
 

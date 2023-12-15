@@ -1,373 +1,262 @@
-"""
-"""
-abstract type AbstractField{T, N, NFields, Names, Vals} <: AbstractArray{T, N} end
+abstract type AbstractField{T, N, NF, Vals} <: AbstractArray{T, N} end
+abstract type ElementField{T, N, NN, NE, Vals} <: AbstractField{T, N, NN, Vals} end
+abstract type NodalField{T, N, NF, NN, Vals} <: AbstractField{T, N, NF, Vals} end
+abstract type QuadratureField{T, N, NF, NQ, NE, Vals} <: AbstractField{T, N, NF, Vals} end
 
-"""
-"""
-field_names(field::AbstractField) = field.names
+Base.eltype(::Type{AbstractField{T, N, NF, Vals}}) where {T, N, NF, Vals} = T
+num_fields(::AbstractField{T, N, NF, Vals}) where {T, N, NF, Vals} = NF
 
-"""
-"""
-num_fields(::AbstractField{T, N, NFields, Names, Vals}) where {T, N, NFields, Names, Vals} = NFields
+num_elements(::ElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals} = NE
+num_elements(::QuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals} = NE
+num_nodes(::NodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals} = NN
+num_nodes_per_element(field::ElementField) = num_fields(field)
+num_q_points(::QuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals} = NQ
 
-Base.IndexStyle(::Type{<:AbstractField})            = IndexLinear()
-Base.size(field::AbstractField)                     = size(field.vals)
-Base.getindex(field::AbstractField, index::Int)     = getindex(field.vals, index)
-Base.setindex!(field::AbstractField, v, index::Int) = setindex!(field.vals, v, index)
-Base.axes(field::AbstractField)                     = Base.axes(field.vals)
+###############################################
 
-#######################################################
-# Exceptions
-#######################################################
-
-struct FieldTypeException{F <: AbstractField, T1, T2} <: Exception
-  field_type::Type{F}
-  provided_type::T1
-  expected_type::T2
-end
-
-Base.show(io::IO, e::FieldTypeException) = 
-println(io, 
-  "\nField type error type while trying to construct $(e.field_type).", "\n",
-  "Provided type = ", e.provided_type, "\n",
-  "Expected type = ", e.expected_type, "\n"
-)
-
-field_type_error(field_type::Type{<:AbstractField}, provided_type::Type, expected_type::Type) = 
-throw(FieldTypeException(field_type, provided_type, expected_type))
-
-struct FieldNumberException{F <: AbstractField, T} <: Exception
-  field_type::Type{F}
-  provided_type::T
-  provided_number_of_fields::Int
-  expected_number_of_fields::Int
-end
-
-Base.show(io::IO, e::FieldNumberException) =
-println(io,
-  "\nInvalid number of fields while trying to construct $(e.field_type).\n",
-  "Provided type                    = $(e.provided_type)\n",
-  "Number of field in provided type = $(e.provided_number_of_fields)\n",
-  "Expected number of fields        = $(e.expected_number_of_fields)"
-)
-
-function field_number_error(field_type::Type{<:AbstractField}, provided_type::Type, expected_length::Int)
-  if provided_type <: Number
-    provided_length = ndims(provided_type)
-  else
-    provided_length = length(provided_type)
-  end
-
-  throw(FieldNumberException(field_type, provided_type, provided_length, expected_length))
-end
-
-#######################################################
-# Nodal field stuff
-#######################################################
-"""
-"""
-struct NodalField{T, N, NFields, NNodes, Names, Vals} <: AbstractField{T, N, NFields, Names, Vals}
-  names::Names
+struct SimpleNodalField{
+  T, N, NF, NN, Vals <: AbstractArray{T, 2}
+} <: NodalField{T, N, NF, NN, Vals}
   vals::Vals
 end
 
-Base.size(::NodalField{T, N, NFields, NNodes, Names, Vals}) where {
-  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} = (NFields, NNodes)
+Base.IndexStyle(::Type{<:SimpleNodalField}) = IndexLinear()
 
-function Base.getindex(field::NodalField{T, N, NFields, NNodes, Names, Vals}, d::Int, n::Int) where {
-  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} 
-  @assert d > 0        "Field index out of range in vectorized getindex"
-  @assert n > 0        "Field index out of range in vectorized getindex"
-  @assert d <= NFields "Field index out of range in vectorized getindex"
-  @assert n <= NNodes  "Field index out of range in vectorized getindex"
-  getindex(field.vals, (n - 1) * NFields + d)
+Base.axes(field::SimpleNodalField) = axes(field.vals)
+Base.getindex(field::SimpleNodalField, n::Int) = getindex(field.vals, n)
+Base.setindex!(field::SimpleNodalField, v, n::Int) = setindex!(field.vals, v, n)
+Base.size(::SimpleNodalField{T, N, NF, NN, V}) where {T, N, NF, NN, V} = (NF, NN)
+
+function SimpleNodalField{NF, NN}(vals::Matrix{<:Number}) where {NF, NN}
+  @assert size(vals) == (NF, NN)
+  SimpleNodalField{eltype(vals), 2, NF, NN, typeof(vals)}(vals)
 end
 
-function Base.setindex!(field::NodalField{T, N, NFields, NNodes, Names, Vals}, v, d::Int, n::Int) where {
-  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} 
-
-  @assert d > 0        "Field index out of range in vectorized getindex"
-  @assert n > 0        "Field index out of range in vectorized getindex"
-  @assert d <= NFields "Field index out of range in vectorized getindex"
-  @assert n <= NNodes  "Field index out of range in vectorized getindex"
-  setindex!(field.vals, v, (n - 1) * NFields + d)
+function SimpleNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T}
+  vals = Matrix{T}(undef, NF, NN)
+  return SimpleNodalField{T, 2, NF, NN, typeof(vals)}(vals)
 end
 
-Base.axes(::NodalField{T, N, NFields, NNodes, Names, Vals}, ::Val{1}) where {
-  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} = Base.OneTo(NFields)
+###############################################################################
 
-Base.axes(::NodalField{T, N, NFields, NNodes, Names, Vals}, ::Val{2}) where {
-  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} = Base.OneTo(NNodes)
-
-function Base.axes(u::NodalField{T, N, NFields, NNodes, Names, Vals}, n::Int) where {
-  T, N, NFields, NNodes, Names, Vals <: AbstractArray{T, 1}
-} 
-  @assert n > 0  "Dimension index out of range in vectorized axes"
-  @assert n <= 2 "Dimension index out of range in vectorized axes"
-  axes(u, Val(n))
-end
-
-"""
-"""
-function NodalField{NFields, NNodes}(vals::Vector{<:Number}, names) where {NFields, NNodes}
-  if NFields == 1
-    @assert length(vals) == NNodes
-  else
-    @assert length(vals) == NNodes * NFields
-  end
-  return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function NodalField{NFields, NNodes}(vals::Matrix{<:Number}, names) where {NFields, NNodes}
-  return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function NodalField{NFields, NNodes, A, T}(::UndefInitializer, names) where {NFields, NNodes, A <: AbstractArray, T}
-  if A <: Vector
-    # NOTE in this case we are allowing for a long multi dof vector
-    # e.g. convert a 3 x N matrix to a 3N vector
-    vals = A{T}(undef, NFields * NNodes)
-  elseif A <: Matrix
-    vals = A{T}(undef, NFields, NNodes)
-  else
-    field_type_error(NodalField, A, AbstractArray)
-  end
-  return NodalField{eltype(vals), ndims(vals), NFields, NNodes, typeof(names), typeof(vals)}(names, vals)
-end
-
-"""
-"""
-function Base.zeros(::Type{NodalField{NFields, NNodes, A, T}}, name) where {NFields, NNodes, A <: AbstractArray, T}
-  field = NodalField{NFields, NNodes, A, T}(undef, name)
-  field .= zero(eltype(T))
-  return field
-end
-
-"""
-"""
-num_nodes(::NodalField{T, N, NFields, NNodes, Names, Vals}) where {T, N, NFields, NNodes, Names, Vals} = NNodes
-
-Base.show(io::IO, field::N) where N <: NodalField = print(io,
-  "\nNodal fields named \"$(field_names(field))\" with $(num_fields(field)) fields and $(num_nodes(field)) nodes.\n",
-  "Values = "
-)
-
-#######################################################
-# Element field stuff - TODO this is the least tested likely, it mainly serves
-# the function of projecting nodal solution vectors to element containers
-#######################################################
-"""
-"""
-struct ElementField{T, N, NFields, NElements, Names, Vals} <: AbstractField{T, N, NFields, Names, Vals}
-  names::Names
+struct VectorizedNodalField{
+  T, N, NF, NN, Vals <: AbstractArray{T, 1}
+} <: NodalField{T, N, NF, NN, Vals}
   vals::Vals
 end
 
-"""
-"""
-function ElementField{NFields, NElements, A, T}(::UndefInitializer, names) where {NFields, NElements, A <: AbstractArray, T}
-  
-  # scalar variable case
-  if T <: Number
-    if A <: Vector
-      vals = A{T}(undef, NElements)
-    elseif A <: Matrix
-      vals = A{T}(undef, NFields, NElements)
-    else
-      if NFields > 1
-        type = Vector
-      else
-        type = Matrix
-      end
-      field_type_error(ElementField, A, type)
-    end
-  # non-scalar case
-  elseif T <: AbstractArray
-    # edge case
-    if A <: Matrix || A <: Array{3}
-      field_type_error(ElementField, A, AbstractArray{1})
-    end
+Base.IndexStyle(::Type{<:VectorizedNodalField}) = IndexLinear()
+Base.axes(field::VectorizedNodalField) = (Base.OneTo(num_fields(field)), Base.OneTo(num_nodes(field)))
+Base.getindex(field::VectorizedNodalField, n::Int) = getindex(field.vals, n)
+function Base.getindex(field::VectorizedNodalField, d::Int, n::Int) 
+  @assert d > 0 && d <= num_fields(field)
+  @assert n > 0 && n <= num_nodes(field)
+  getindex(field.vals, (n - 1) * num_fields(field) + d)
+end
+Base.setindex!(field::VectorizedNodalField, v, n::Int) = setindex!(field.vals, v, n)
+function Base.setindex!(field::VectorizedNodalField, v, d::Int, n::Int)
+  @assert d > 0 && d <= num_fields(field)
+  @assert n > 0 && n <= num_nodes(field)
+  setindex!(field.vals, v, (n - 1) * num_fields(field) + d)
+end
+Base.size(::VectorizedNodalField{T, N, NF, NN, V}) where {T, N, NF, NN, V} = (NF, NN)
 
-    if NFields != length(T)
-      field_number_error(ElementField, T, NFields)
-    end
-    vals = A{T}(undef, NElements)
-  # weird stuff
-  else
-    field_type_error(ElementField, T, Union{<:Number, <:AbstractArray})
-  end
-  
-  return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+function VectorizedNodalField{NF, NN}(vals::Vector{<:Number}) where {NF, NN}
+  @assert length(vals) == NF * NN
+  new_vals = vec(vals)
+  VectorizedNodalField{eltype(new_vals), 2, NF, NN, typeof(new_vals)}(new_vals)
 end
 
-function zeros!(field::ElementField)
-  for n in axes(field, 1)
-    field[n] = zero(eltype(field))
-  end
+function VectorizedNodalField{NF, NN}(vals::Matrix{<:Number}) where {NF, NN}
+  @assert size(vals) == (NF, NN)
+  new_vals = vec(vals)
+  VectorizedNodalField{eltype(new_vals), 2, NF, NN, typeof(new_vals)}(new_vals)
 end
 
-"""
-"""
-function ElementField{NFields, NElements}(vals::Matrix{<:Number}, names) where {NFields, NElements}
-  @assert size(vals, 1) == NFields
-  @assert size(vals, 2) == NElements
-  return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+function VectorizedNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T}
+  vals = Vector{T}(undef, NF * NN)
+  return VectorizedNodalField{T, 2, NF, NN, typeof(vals)}(vals)
 end
 
-"""
-"""
-function ElementField{NFields, NElements}(vals::S, names) where S <: StructArray where {NFields, NElements}
-  @assert size(vals) |> length == 1
-  @assert length(vals) == NElements
-  @assert length(eltype(vals)) == NFields
-  return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+NodalField{NF, NN, Vector}(vals::Matrix{<:Number}) where {NF, NN}    = VectorizedNodalField{NF, NN}(vals)
+NodalField{NF, NN, Matrix}(vals::Matrix{<:Number}) where {NF, NN}    = SimpleNodalField{NF, NN}(vals)
+NodalField{NF, NN, Vector}(vals::Vector{<:Number}) where {NF, NN}    = VectorizedNodalField{NF, NN}(vals)
+NodalField{NF, NN, Vector, T}(::UndefInitializer)  where {NF, NN, T} = VectorizedNodalField{NF, NN, T}(undef)
+NodalField{NF, NN, Matrix, T}(::UndefInitializer)  where {NF, NN, T} = SimpleNodalField{NF, NN, T}(undef)
+
+###############################################################################
+
+struct SimpleElementField{
+  T, N, NN, NE, Vals #<: AbstractArray{T, 2}
+} <: ElementField{T, N, NN, NE, Vals}
+  vals::Vals
 end
 
-# too many allocations
-# """
-# """
-# function ElementField{NFields, NElements}(vals::A, names) where {NFields, NElements, A <: Base.ReinterpretArray}
-#   return ElementField{eltype(vals), ndims(vals), NFields, NElements, typeof(names), typeof(vals)}(names, vals)
+Base.IndexStyle(::Type{<:SimpleElementField}) = IndexLinear()
+
+Base.axes(field::SimpleElementField) = axes(field.vals)
+Base.getindex(field::SimpleElementField, n::Int) = getindex(field.vals, n)
+Base.setindex!(field::SimpleElementField, v, n::Int) = setindex!(field.vals, v, n)
+Base.size(::SimpleElementField{T, N, NN, NE, V}) where {T, N, NN, NE, V} = (NN, NE)
+
+function SimpleElementField{NN, NE}(vals::Matrix{<:Number}) where {NN, NE}
+  @assert size(vals) == (NN, NE)
+  SimpleElementField{eltype(vals), 2, NN, NE, typeof(vals)}(vals)
+end
+
+function SimpleElementField{NN, NE, Matrix, T}(::UndefInitializer) where {NN, NE, T}
+  vals = Matrix{T}(undef, NN, NE)
+  return SimpleElementField{T, 2, NN, NE, typeof(vals)}(vals)
+end
+
+function SimpleElementField{NN, NE, StructVector, T}(::UndefInitializer) where {NN, NE, T}
+  # @assert length(T) == NN
+  vals = StructVector{T}(undef, NE)
+  return SimpleElementField{T, 1, NN, NE, typeof(vals)}(vals)
+end
+
+function SimpleElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T}
+  vals = StructArray{T}(undef, NN, NE)
+  return SimpleElementField{T, 2, NN, NE, typeof(vals)}(vals)
+end
+
+##########################################################################################
+
+struct VectorizedElementField{
+  T, N, NN, NE, Vals <: AbstractArray{T, 1}
+} <: ElementField{T, N, NN, NE, Vals}
+  vals::Vals
+end
+
+Base.IndexStyle(::Type{<:VectorizedElementField}) = IndexLinear()
+Base.axes(field::VectorizedElementField) = (Base.OneTo(num_nodes_per_element(field)), Base.OneTo(num_elements(field)))
+Base.getindex(field::VectorizedElementField, e::Int) = getindex(field.vals, e)
+function Base.getindex(field::VectorizedElementField, n::Int, e::Int) 
+  @assert n > 0 && n <= num_nodes_per_element(field)
+  @assert e > 0 && e <= num_elements(field)
+  getindex(field.vals, (e - 1) * num_nodes_per_element(field) + n)
+end
+Base.setindex!(field::VectorizedElementField, v, e::Int) = setindex!(field.vals, v, e)
+function Base.setindex!(field::VectorizedElementField, v, n::Int, e::Int)
+  @assert n > 0 && n <= num_nodes_per_element(field)
+  @assert e > 0 && e <= num_elements(field)
+  setindex!(field.vals, v, (e - 1) * num_nodes_per_element(field) + n)
+end
+Base.size(::VectorizedElementField{T, N, NN, NE, V}) where {T, N, NN, NE, V} = (NN, NE)
+
+function VectorizedElementField{NN, NE}(vals::Matrix{<:Number}) where {NN, NE}
+  @assert size(vals) == (NN, NE)
+  new_vals = vec(vals)
+  VectorizedElementField{eltype(new_vals), 2, NN, NE, typeof(new_vals)}(new_vals)
+end
+
+function VectorizedElementField{NN, NE, Vector, T}(::UndefInitializer) where {NN, NE, T}
+  vals = Vector{T}(undef, NN * NE)
+  return VectorizedElementField{T, 2, NN, NE, typeof(vals)}(vals)
+end
+
+# function VectorizedElementField{NN, NE, StructVector, T}(::UndefInitializer) where {NN, NE, T}
+#   vals = StructVector{T}(undef, NN * NE)
+#   return VectorizedElementField{T, 2, NN, NE, typeof(vals)}(vals)
 # end
 
-"""
-"""
-function Base.zeros(::Type{ElementField{NFields, NElements, A, T}}, name) where {NFields, NElements, A <: AbstractArray, T}
-  field = ElementField{NFields, NElements, A, T}(undef, name)
-  zeros!(field)
-  return field
-end
+##########################################################################################
 
-"""
-"""
-num_elements(::ElementField{T, N, NFields, NElements, Names, Vals}) where {T, N, NFields, NElements, Names, Vals} = NElements
 
-Base.show(io::IO, field::N) where N <: ElementField = print(io, 
-  "\nElement fields named \"$(field_names(field))\" with $(num_fields(field)) fields and $(num_elements(field)) elements.\n",
-  "Values = "
-)
+ElementField{NN, NE, Matrix}(vals::Matrix{<:Number})      where {NN, NE}    = SimpleElementField{NN, NE}(vals)
+ElementField{NN, NE, Vector}(vals::Matrix{<:Number})      where {NN, NE}    = VectorizedElementField{NN, NE}(vals)
+ElementField{NN, NE, Matrix, T}(::UndefInitializer)       where {NN, NE, T} = SimpleElementField{NN, NE, Matrix, T}(undef)
+ElementField{NN, NE, StructArray, T}(::UndefInitializer)  where {NN, NE, T} = SimpleElementField{NN, NE, StructArray, T}(undef)
+ElementField{NN, NE, StructVector, T}(::UndefInitializer) where {NN, NE, T} = SimpleElementField{NN, NE, StructVector, T}(undef)
+ElementField{NN, NE, Vector, T}(::UndefInitializer)       where {NN, NE, T} = VectorizedElementField{NN, NE, Vector, T}(undef)
 
-#######################################################
-# Nodal field stuff
-#######################################################
-"""
-"""
-struct QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals} <: AbstractField{T, N, NFields, Names, Vals}
-  names::Names
+##########################################################################################
+
+struct SimpleQuadratureField{
+  T, N, NF, NQ, NE, Vals <: AbstractArray{T, 2}
+} <: QuadratureField{T, N, NF, NQ, NE, Vals}
   vals::Vals
 end
 
-Base.size(::QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals}) where {
-  T, N, NFields, NQPoints, NElements, Names, Vals <: AbstractArray{T, 1}
-} = (NQPoints, NElements)
+Base.IndexStyle(::Type{<:SimpleQuadratureField}) = IndexLinear()
 
-# Base.getindex(field::QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals}, q::Int, e::Int) where {
-#   T, N, NFields, NQPoints, NElements, Names, Vals <: AbstractArray{T, 1}
-# } = getindex(field.vals, (e - 1) * NQPoints + q)
+Base.axes(field::SimpleQuadratureField) = axes(field.vals)
+Base.getindex(field::SimpleQuadratureField, n::Int) = getindex(field.vals, n)
+Base.setindex!(field::SimpleQuadratureField, v, n::Int) = setindex!(field.vals, v, n)
+Base.size(::SimpleQuadratureField{T, N, NF, NQ, NE, V}) where {T, N, NF, NQ, NE, V} = (NQ, NE)
 
-function Base.getindex(field::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, q::Int, e::Int) where {
-  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
-} 
-  @assert q > 0   "Field index out of range in vectorized getindex"
-  @assert e > 0   "Field index out of range in vectorized getindex"
-  @assert q <= NQ "Field index out of range in vectorized getindex $q"
-  @assert e <= NE "Field index out of range in vectorized getindex"
-  getindex(field.vals, (e - 1) * NQ + q)
+function SimpleQuadratureField{1, NQ, NE}(vals::Matrix{<:Number}) where {NQ, NE}
+  @assert size(vals) == (NQ, NE)
+  SimpleQuadratureField{eltype(vals), 2, 1, NQ, NE, typeof(vals)}(vals)
 end
 
-function Base.setindex!(field::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, v, q::Int, e::Int) where {
-  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
-} 
-
-  @assert q > 0   "Field index out of range in vectorized getindex"
-  @assert e > 0   "Field index out of range in vectorized getindex"
-  @assert q <= NQ "Field index out of range in vectorized getindex"
-  @assert e <= NE "Field index out of range in vectorized getindex"
-  setindex!(field.vals, v, (e - 1) * NQ + q)
+function SimpleQuadratureField{1, NQ, NE, Matrix, T}(::UndefInitializer) where {NQ, NE, T <: Number}
+  vals = Matrix{T}(undef, NQ, NE)
+  return SimpleQuadratureField{T, 2, 1, NQ, NE, typeof(vals)}(vals)
 end
 
-Base.axes(::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, ::Val{1}) where {
-  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
-} = Base.OneTo(NQ)
-
-Base.axes(::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, ::Val{2}) where {
-  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
-} = Base.OneTo(NE)
-
-function Base.axes(u::QuadratureField{T, N, NF, NQ, NE, Names, Vals}, n::Int) where {
-  T, N, NF, NQ, NE, Names, Vals <: AbstractArray{T, 1}
-} 
-  @assert n > 0  "Dimension index out of range in vectorized axes"
-  @assert n <= 2 "Dimension index out of range in vectorized axes"
-  axes(u, Val(n))
+function SimpleQuadratureField{1, NQ, NE, Matrix, T}(::UndefInitializer) where {NQ, NE, T <: AbstractArray}
+  vals = Matrix{T}(undef, NQ, NE)
+  return SimpleQuadratureField{T, 2, length(T), NQ, NE, typeof(vals)}(vals)
 end
 
-"""
-"""
-function QuadratureField{NF, NQ, NE, A, T}(
-  ::UndefInitializer, names
-) where {NF, NQ, NE, A <:AbstractArray, T}
-
-  if T <: Number
-    if NF != 1
-      field_number_error(QuadratureField, T, NF)
-    end
-  elseif T <: Union{MArray, SArray}
-    if NF != length(T)
-      # TODO add tensor types
-      field_number_error(QuadratureField, T, NF)
-    end
-  else
-    field_type_error(QuadratureField, T, Union{<:Number, <:Union{MArray, SArray}})
-  end
-
-  if A <: AbstractVector
-    # NOTE in this case we are allowing for a long multi dof vector
-    # e.g. convert a 3 x N matrix to a 3N vector
-    vals = A{T}(undef, NQ * NE)
-  else
-    vals = A{T}(undef, NQ, NE)
-  end
-
-  
-  return QuadratureField{eltype(vals), ndims(vals), NF, NQ, NE, typeof(names), typeof(vals)}(names, vals)
+function SimpleQuadratureField{NF, NQ, NE, StructArray, T}(::UndefInitializer) where {NF, NQ, NE, T}
+  @assert length(T) == NF
+  vals = StructArray{T}(undef, NQ, NE)
+  return SimpleQuadratureField{T, 2, length(T), NQ, NE, typeof(vals)}(vals)
 end
 
-function zeros!(field::QuadratureField)
-  for e in axes(field, 2)
-    for q in axes(field, 1)
-      field[q, e] = zero(eltype(field))
-    end
-  end
+##########################################################################################
+
+struct VectorizedQuadratureField{
+  T, N, NF, NQ, NE, Vals <: AbstractArray{T, 1}
+} <: QuadratureField{T, N, NF, NQ, NE, Vals}
+  vals::Vals
 end
 
-"""
-"""
-function Base.zeros(::Type{QuadratureField{NFields, NQ, NElements, A, T}}, name) where {NFields, NQ, NElements, A <: AbstractArray, T}
-  field = QuadratureField{NFields, NQ, NElements, A, T}(undef, name)
-  zeros!(field)
-  # field .= zero(T)
-  return field
+Base.IndexStyle(::Type{<:VectorizedQuadratureField}) = IndexLinear()
+Base.axes(field::VectorizedQuadratureField) = (Base.OneTo(num_q_points(field)), Base.OneTo(num_elements(field)))
+Base.getindex(field::VectorizedQuadratureField, e::Int) = getindex(field.vals, e)
+function Base.getindex(field::VectorizedQuadratureField, q::Int, e::Int) 
+  @assert q > 0 && q <= num_q_points(field)
+  @assert e > 0 && e <= num_elements(field)
+  getindex(field.vals, (e - 1) * num_q_points(field) + q)
+end
+Base.setindex!(field::VectorizedQuadratureField, v, e::Int) = setindex!(field.vals, v, e)
+function Base.setindex!(field::VectorizedQuadratureField, v, q::Int, e::Int)
+  @assert q > 0 && q <= num_q_points(field)
+  @assert e > 0 && e <= num_elements(field)
+  setindex!(field.vals, v, (e - 1) * num_q_points(field) + q)
+end
+Base.size(::VectorizedQuadratureField{T, N, NF, NQ, NE, V}) where {T, N, NF, NQ, NE, V} = (NQ, NE)
+
+function VectorizedQuadratureField{1, NQ, NE}(vals::Matrix{<:Number}) where {NQ, NE}
+  @assert size(vals) == (NQ, NE)
+  new_vals = vec(vals)
+  VectorizedQuadratureField{eltype(new_vals), 2, 1, NQ, NE, typeof(new_vals)}(new_vals)
 end
 
-"""
-"""
-num_elements(::QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals}) where {T, N, NFields, NQPoints, NElements, Names, Vals} = NElements
+function VectorizedQuadratureField{1, NQ, NE, Vector, T}(::UndefInitializer) where {NQ, NE, T <: Number}
+  vals = Vector{T}(undef, NQ * NE)
+  return VectorizedQuadratureField{T, 2, 1, NQ, NE, typeof(vals)}(vals)
+end
 
-"""
-"""
-num_q_points(::QuadratureField{T, N, NFields, NQPoints, NElements, Names, Vals}) where {T, N, NFields, NQPoints, NElements, Names, Vals} = NQPoints
+function VectorizedQuadratureField{1, NQ, NE, Vector, T}(::UndefInitializer) where {NQ, NE, T <: AbstractArray}
+  vals = Vector{T}(undef, NQ * NE)
+  return VectorizedQuadratureField{T, 2, length(T), NQ, NE, typeof(vals)}(vals)
+end
 
-Base.show(io::IO, field::N) where N <: QuadratureField = print(io, 
-  "\nQuadrature fields named \"$(field_names(field))\" with $(num_fields(field)) fields and $(num_elements(field)) elements.\n",
-  "Values = "
-)
+function VectorizedQuadratureField{NF, NQ, NE, StructVector, T}(::UndefInitializer) where {NF, NQ, NE, T}
+  @assert length(T) == NF
+  vals = StructVector{T}(undef, NQ * NE)
+  return VectorizedQuadratureField{T, 2, length(T), NQ, NE, typeof(vals)}(vals)
+end
+
+###############################################################################
+
+QuadratureField{NF, NQ, NE, Matrix}(vals::Matrix{<:Number})      where {NF, NQ, NE}    = SimpleQuadratureField{NF, NQ, NE}(vals)
+QuadratureField{NF, NQ, NE, Vector}(vals::Matrix{<:Number})      where {NF, NQ, NE}    = VectorizedQuadratureField{NF, NQ, NE}(vals)
+QuadratureField{NF, NQ, NE, Matrix, T}(::UndefInitializer)       where {NF, NQ, NE, T} = SimpleQuadratureField{NF, NQ, NE, Matrix, T}(undef)
+QuadratureField{NF, NQ, NE, StructArray, T}(::UndefInitializer)  where {NF, NQ, NE, T} = SimpleQuadratureField{NF, NQ, NE, StructArray, T}(undef)
+QuadratureField{NF, NQ, NE, StructVector, T}(::UndefInitializer) where {NF, NQ, NE, T} = VectorizedQuadratureField{NF, NQ, NE, StructVector, T}(undef)
+QuadratureField{NF, NQ, NE, Vector, T}(::UndefInitializer)       where {NF, NQ, NE, T} = VectorizedQuadratureField{NF, NQ, NE, Vector, T}(undef)

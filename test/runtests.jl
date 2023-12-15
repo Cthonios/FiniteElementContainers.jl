@@ -8,16 +8,21 @@ using Test
 using TestSetExtensions
 
 @testset ExtendedTestSet "Exodus Mesh Read" begin
-  mesh = Mesh(ExodusDatabase, "./mesh.g")
+  mesh = Mesh(ExodusDatabase, "./poisson/poisson.g")
 end
 
 @testset ExtendedTestSet "Element Field" begin
   vals = rand(2, 20)
-  field = ElementField{2, 20}(vals, :vals)
-  @test size(vals) == size(field)
-  
+
+  field_1 = ElementField{2, 20, Matrix}(vals)
+  field_2 = ElementField{2, 20, Vector}(vals)
+
+  @test size(vals) == size(field_1)
+  @test size(vals) == size(field_2)
+
   for n in axes(vals)
-    @test vals[n] == field[n]
+    @test vals[n] == field_1[n]
+    @test vals[n] == field_2[n]
   end
 end
 
@@ -33,16 +38,17 @@ end
   # test regular constructors
   vals = rand(2, 20)
 
-  field_1 = NodalField{2, 20}(vals, :vals)
-  field_2 = NodalField{2, 20, Vector, Float64}(undef, :vals)
-  field_3 = NodalField{2, 20, Matrix, Float64}(undef, :vals)
+  # field_1 = NodalField{2, 20}(vals)
+  field_2 = NodalField{2, 20, Matrix}(vals)
+  field_3 = NodalField{2, 20, Vector}(vals)
 
-  field_2 .= vec(vals)
-  field_3 .= vals
+  # field_2 .= vec(vals)
+  # field_2 .= vals
+  # field_3 .= vals
 
   # test basic axes and basic getindex
   for n in axes(vals)
-    @test vals[n] == field_1[n]
+    # @test vals[n] == field_1[n]
     @test vals[n] == field_2[n]
     @test vals[n] == field_3[n]
   end
@@ -50,7 +56,7 @@ end
   # test dual index getindex
   for n in axes(vals, 2)
     for d in axes(vals, 1)
-      @test vals[d, n] == field_1[d, n]
+      # @test vals[d, n] == field_1[d, n]
       @test vals[d, n] == field_2[d, n]
       @test vals[d, n] == field_3[d, n]
     end
@@ -60,11 +66,11 @@ end
   vals_2 = rand(2, 20)
   for n in axes(vals, 2)
     for d in axes(vals, 1)
-      field_1[d, n] = vals_2[d, n]
+      # field_1[d, n] = vals_2[d, n]
       field_2[d, n] = vals_2[d, n]
       field_3[d, n] = vals_2[d, n]
 
-      @test vals_2[d, n] == field_1[d, n]
+      # @test vals_2[d, n] == field_1[d, n]
       @test vals_2[d, n] == field_2[d, n]
       @test vals_2[d, n] == field_3[d, n]
     end
@@ -73,7 +79,7 @@ end
   # test axes with dimension specied
   for n in axes(field_2, 2)
     for d in axes(field_2, 1)
-      @test vals[d, n] == field_1[d, n]
+      # @test vals[d, n] == field_1[d, n]
       @test vals[d, n] == field_2[d, n]
       @test vals[d, n] == field_3[d, n]
     end
@@ -81,13 +87,13 @@ end
 end
 
 @testset ExtendedTestSet "Poisson problem" begin
-  include("TestPoisson.jl")
+  include("poisson/TestPoisson.jl")
 end
 
-# @testset ExtendedTestSet "Aqua" begin
-#   Aqua.test_all(FiniteElementContainers; ambiguities=false)
-# end
+@testset ExtendedTestSet "Aqua" begin
+  Aqua.test_all(FiniteElementContainers; ambiguities=false)
+end
 
 # @testset ExtendedTestSet "JET" begin
-#   JET.test_package(FiniteElementContainers)
+#   JET.test_package(FiniteElementContainers; target_defined_modules=true)
 # end

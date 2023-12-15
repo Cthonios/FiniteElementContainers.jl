@@ -1,7 +1,7 @@
-using Exodus
-using FiniteElementContainers
-using LinearAlgebra
-using Parameters
+# using Exodus
+# using FiniteElementContainers
+# using LinearAlgebra
+# using Parameters
 
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 
@@ -22,13 +22,12 @@ end
 
 type = Matrix
 
-mesh    = Mesh(ExodusDatabase, "./mesh.g")
-# dof     = DofManager{1}(mesh, type)
+mesh    = Mesh(ExodusDatabase, "./poisson/poisson.g")
 dof     = DofManager{1, num_nodes(mesh.coords), type}()
 fspaces = NonAllocatedFunctionSpace[
-  NonAllocatedFunctionSpace(mesh, dof, 1, 2)
+  NonAllocatedFunctionSpace(dof, mesh.conns[1], 2, mesh.elem_types[1])
 ]
-asm     = Assembler(dof, fspaces)
+asm     = StaticAssembler(dof, fspaces)
 
 # set up bcs
 update_unknown_ids!(dof, mesh.nset_nodes, [1, 1, 1, 1])
@@ -37,8 +36,7 @@ update_unknown_ids!(dof, mesh.nset_nodes, [1, 1, 1, 1])
 
 # now pre-allocate arrays
 X   = mesh.coords
-# U   = create_field(dof, :u, type)
-U   = create_field(dof, :u)
+U   = create_fields(dof)
 Uu  = create_unknowns(dof)
 Uu  .= 1.0
 
@@ -62,11 +60,11 @@ Uu = solve(asm, dof, fspaces, X, U, Uu)
 update_fields!(U, dof, Uu)
 
 
-copy_mesh("./mesh.g", "./output.e")
-exo = ExodusDatabase("./output.e", "rw")
-write_names(exo, NodalVariable, [field_names(U) |> String])
+copy_mesh("./poisson/poisson.g", "./poisson/poisson.e")
+exo = ExodusDatabase("./poisson/poisson.e", "rw")
+write_names(exo, NodalVariable, ["u"])
 write_time(exo, 1, 0.0)
-write_values(exo, NodalVariable, 1, field_names(U) |> String, U.vals[1, :])
+write_values(exo, NodalVariable, 1, "u", U.vals[1, :])
 close(exo)
 
-@test exodiff("./output.e", "./poisson.gold")
+@test exodiff("./poisson/poisson.e", "./poisson/poisson.gold")

@@ -17,6 +17,7 @@ Returns file name for an mesh type
 """
 file_name(mesh::AbstractMesh) = mesh.file_name
 
+# TODO this one is making JET not happy
 """
 Mesh type that has a handle to an open mesh file object.
 This type's methods are "overridden" in extensions.
@@ -27,6 +28,12 @@ struct FileMesh{MeshObj} <: AbstractMesh
   file_name::String
   mesh_obj::MeshObj
 end
+
+# struct DummyMeshObj
+# end
+
+# dummy function to make JET happy
+# file_mesh(::Type{DummyMeshObj}, ::String) = nothing
 
 """
 Mesh type that should have most everything one might want.
@@ -86,7 +93,7 @@ function Mesh(
 
   # read coordinates
   coords = coordinates(f)
-  coords = NodalField{size(coords, 1), size(coords, 2)}(coords, :nodal_X)
+  coords = NodalField{size(coords, 1), size(coords, 2), Matrix}(coords)
   # coords = Noda
 
   # read block connectivity and element types
@@ -105,7 +112,7 @@ function Mesh(
     # temp = reinterpret(SVector{N, Int64}, vec(temp)) |> collect
     # temp = StructArray(temp)
     # TODO, if we want to make connectivity static, we do it here!
-    conn = Connectivity{size(temp, 1), size(temp, 2)}(temp, id |> Int64) # TODO clean up Int32 vs. Int64 stuff
+    conn = Connectivity{size(temp, 1), size(temp, 2), Matrix, Int64}(temp)
 
     # TODO add block names 
     field_name = Symbol("connectivity_id_$id")
