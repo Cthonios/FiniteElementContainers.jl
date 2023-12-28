@@ -26,12 +26,12 @@ function create_unknowns(
   return zeros(float_type, length(dof.unknown_indices))
 end
 
-function dof_ids(::DofManager{T, N, ND, NN, Bools}) where {T, N, ND, NN, Bools <: BitArray{1}}
+function dof_ids(::DofManager{T, N, ND, NN, Bools}) where {T, N, ND, NN, Bools <: AbstractArray{Bool, 1}}
   ids = 1:ND * NN
   return ids
 end
 
-function dof_ids(::DofManager{T, N, ND, NN, Bools}) where {T, N, ND, NN, Bools <: BitArray{2}}
+function dof_ids(::DofManager{T, N, ND, NN, Bools}) where {T, N, ND, NN, Bools <: AbstractArray{Bool, 2}}
   ids = reshape(1:ND * NN, ND, NN)
   return ids
 end
