@@ -33,6 +33,9 @@ struct StaticAssembler{
   K::S
 end
 
+int_type(::StaticAssembler{R, I, V, S}) where {R, I, V, S} = I
+float_type(::StaticAssembler{R, I, V, S}) where {R, I, V, S} = R
+
 function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs #<: AbstractArray{<:FunctionSpace, 1}
   n_hessian_entries = 0
   # TODO add functionality to only size things based on nodes
