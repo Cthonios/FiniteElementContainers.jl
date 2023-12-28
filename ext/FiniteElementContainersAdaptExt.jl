@@ -37,4 +37,6 @@ function Adapt.adapt_structure(to, field::FiniteElementContainers.VectorizedQuad
   return FiniteElementContainers.VectorizedQuadratureField{NF, NQ, NE}(Adapt.adapt_structure(to, field.vals))
 end
 
+# no need for adapt_structure for connectivity fields since these are aliases anyway
+
 end # module

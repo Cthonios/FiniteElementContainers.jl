@@ -2,7 +2,7 @@ const Connectivity{T, N, NN, NE, Vals}           = ElementField{T, N, NN, NE, Va
 const SimpleConnectivity{T, N, NN, NE, Vals}     = SimpleElementField{T, N, NN, NE, Vals}
 const VectorizedConnectivity{T, N, NN, NE, Vals} = VectorizedElementField{T, N, NN, NE, Vals}
 
-function SimpleConnectivity{NN, NE}(vals::Matrix{<:Integer}) where {NN, NE}
+function SimpleConnectivity{NN, NE}(vals::M) where {NN, NE, M <: AbstractArray{<:Integer, 2}}
   # weirdly need to import base here, can't find eltype(::Matrix{Int64})
   return SimpleConnectivity{Base.eltype(vals), 2, NN, NE, typeof(vals)}(vals)
 end
@@ -17,7 +17,12 @@ connectivity(conn::SimpleConnectivity, e::Int) = @views conn.vals[:, e] # TODO m
 
 ###################################################################################
 
-function VectorizedConnectivity{NN, NE}(vals::Vector{<:Integer}) where {NN, NE}
+function VectorizedConnectivity{NN, NE}(vals::M) where {NN, NE, M <: Matrix{<:Integer}}
+  new_vals = vec(vals)
+  return VectorizedConnectivity{eltype(new_vals), 2, NN, NE, typeof(new_vals)}(new_vals)
+end
+
+function VectorizedConnectivity{NN, NE}(vals::V) where {NN, NE, V <: Vector{<:Integer}}
   return VectorizedConnectivity{eltype(vals), 2, NN, NE, typeof(vals)}(vals)
 end
 
@@ -27,6 +32,7 @@ connectivity(conn::VectorizedConnectivity, e::Int) = @views conn[:, e] # TODO ma
 ###################################################################################
 
 Connectivity{NN, NE, Matrix, T}(vals::Matrix{T}) where {NN, NE, T <: Integer} = SimpleConnectivity{NN, NE}(vals)
+Connectivity{NN, NE, Vector, T}(vals::Matrix{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE}(vals)
 Connectivity{NN, NE, Vector, T}(vals::Vector{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE}(vals)
 
 ###################################################################################
