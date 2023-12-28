@@ -32,7 +32,7 @@ NodalField{NF, NN, Vector}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 
 NodalField{NF, NN, Matrix}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 2}}    = SimpleNodalField{NF, NN}(vals)
 NodalField{NF, NN, Vector}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 1}}    = VectorizedNodalField{NF, NN}(vals)
 NodalField{NF, NN, Vector, T}(::UndefInitializer)  where {NF, NN, T} = VectorizedNodalField{NF, NN, T}(undef)
-NodalField{NF, NN, Matrix, T}(::UndefInitializer)  where {NF, NN, T} = SimpleNodalField{NF, NN, T}(undef)
+NodalField{NF, NN, Matrix, T}(::UndefInitializer)  where {NF, NN, T <: Number} = SimpleNodalField{NF, NN, T}(undef)
 NodalField{NF, NN, StructArray, T}(::UndefInitializer) where {NF, NN, T} = VectorizedNodalField{NF, NN, StructArray, T}(undef)
 
 ##########################################################################################
