@@ -27,7 +27,12 @@ Base.getindex(field::SimpleNodalField, n::Int) = getindex(field.vals, n)
 Base.setindex!(field::SimpleNodalField, v, n::Int) = setindex!(field.vals, v, n)
 Base.size(::SimpleNodalField{T, N, NF, NN, V}) where {T, N, NF, NN, V} = (NF, NN)
 
-function SimpleNodalField{NF, NN}(vals::Matrix{<:Number}) where {NF, NN}
+# function SimpleNodalField{NF, NN}(vals::Matrix{<:Number}) where {NF, NN}
+#   @assert size(vals) == (NF, NN)
+#   SimpleNodalField{eltype(vals), 2, NF, NN, typeof(vals)}(vals)
+# end
+
+function SimpleNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 2}}
   @assert size(vals) == (NF, NN)
   SimpleNodalField{eltype(vals), 2, NF, NN, typeof(vals)}(vals)
 end
@@ -61,13 +66,12 @@ function Base.setindex!(field::VectorizedNodalField, v, d::Int, n::Int)
 end
 Base.size(::VectorizedNodalField{T, N, NF, NN, V}) where {T, N, NF, NN, V} = (NF, NN)
 
-function VectorizedNodalField{NF, NN}(vals::Vector{<:Number}) where {NF, NN}
+function VectorizedNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 1}}
   @assert length(vals) == NF * NN
-  new_vals = vec(vals)
-  VectorizedNodalField{eltype(new_vals), 2, NF, NN, typeof(new_vals)}(new_vals)
+  VectorizedNodalField{eltype(vals), 2, NF, NN, typeof(vals)}(vals)
 end
 
-function VectorizedNodalField{NF, NN}(vals::Matrix{<:Number}) where {NF, NN}
+function VectorizedNodalField{NF, NN}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 2}}
   @assert size(vals) == (NF, NN)
   new_vals = vec(vals)
   VectorizedNodalField{eltype(new_vals), 2, NF, NN, typeof(new_vals)}(new_vals)
@@ -99,7 +103,7 @@ Base.getindex(field::SimpleElementField, n::Int) = getindex(field.vals, n)
 Base.setindex!(field::SimpleElementField, v, n::Int) = setindex!(field.vals, v, n)
 Base.size(::SimpleElementField{T, N, NN, NE, V}) where {T, N, NN, NE, V} = (NN, NE)
 
-function SimpleElementField{NN, NE}(vals::Matrix{<:Number}) where {NN, NE}
+function SimpleElementField{NN, NE}(vals::M) where {NN, NE, M <: AbstractArray{<:Number, 2}}
   @assert size(vals) == (NN, NE)
   SimpleElementField{eltype(vals), 2, NN, NE, typeof(vals)}(vals)
 end
@@ -150,6 +154,11 @@ function VectorizedElementField{NN, NE}(vals::Matrix{<:Number}) where {NN, NE}
   VectorizedElementField{eltype(new_vals), 2, NN, NE, typeof(new_vals)}(new_vals)
 end
 
+function VectorizedElementField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 1}}
+  @assert length(vals) == NF * NN
+  VectorizedElementField{eltype(vals), 2, NF, NN, typeof(vals)}(vals)
+end
+
 function VectorizedElementField{NN, NE, Vector, T}(::UndefInitializer) where {NN, NE, T}
   vals = Vector{T}(undef, NN * NE)
   return VectorizedElementField{T, 2, NN, NE, typeof(vals)}(vals)
@@ -185,9 +194,14 @@ Base.getindex(field::SimpleQuadratureField, n::Int) = getindex(field.vals, n)
 Base.setindex!(field::SimpleQuadratureField, v, n::Int) = setindex!(field.vals, v, n)
 Base.size(::SimpleQuadratureField{T, N, NF, NQ, NE, V}) where {T, N, NF, NQ, NE, V} = (NQ, NE)
 
-function SimpleQuadratureField{1, NQ, NE}(vals::Matrix{<:Number}) where {NQ, NE}
+function SimpleQuadratureField{1, NQ, NE}(vals::M) where {NQ, NE, M <: AbstractArray{<:Number, 2}}
   @assert size(vals) == (NQ, NE)
   SimpleQuadratureField{eltype(vals), 2, 1, NQ, NE, typeof(vals)}(vals)
+end
+
+function SimpleQuadratureField{NF, NQ, NE}(vals::S) where {NF, NQ, NE, S <: StructArray}
+  @assert size(vals) == (NQ, NE)
+  SimpleQuadratureField{eltype(vals), 2, NF, NQ, NE, typeof(vals)}(vals)
 end
 
 function SimpleQuadratureField{1, NQ, NE, Matrix, T}(::UndefInitializer) where {NQ, NE, T <: Number}
@@ -230,10 +244,20 @@ function Base.setindex!(field::VectorizedQuadratureField, v, q::Int, e::Int)
 end
 Base.size(::VectorizedQuadratureField{T, N, NF, NQ, NE, V}) where {T, N, NF, NQ, NE, V} = (NQ, NE)
 
-function VectorizedQuadratureField{1, NQ, NE}(vals::Matrix{<:Number}) where {NQ, NE}
+function VectorizedQuadratureField{1, NQ, NE}(vals::M) where {NQ, NE, M <: AbstractArray{<:Number, 2}}
   @assert size(vals) == (NQ, NE)
   new_vals = vec(vals)
   VectorizedQuadratureField{eltype(new_vals), 2, 1, NQ, NE, typeof(new_vals)}(new_vals)
+end
+
+function VectorizedQuadratureField{1, NQ, NE}(vals::V) where {NQ, NE, V <: AbstractArray{<:Number, 1}}
+  @assert length(vals) == NQ * NE
+  VectorizedQuadratureField{eltype(vals), 2, 1, NQ, NE, typeof(vals)}(vals)
+end
+
+function VectorizedQuadratureField{NF, NQ, NE}(vals::S) where {NF, NQ, NE, S <: StructVector}
+  @assert size(vals) == (NQ * NE,)
+  VectorizedQuadratureField{eltype(vals), 2, NF, NQ, NE, typeof(vals)}(vals)
 end
 
 function VectorizedQuadratureField{1, NQ, NE, Vector, T}(::UndefInitializer) where {NQ, NE, T <: Number}
