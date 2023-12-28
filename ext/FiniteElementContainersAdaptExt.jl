@@ -58,4 +58,27 @@ function Adapt.adapt_structure(to, dof::FiniteElementContainers.VectorizedDofMan
   )
 end
 
+# Function spaces
+function Adapt.adapt_structure(to, fspace::FiniteElementContainers.NonAllocatedFunctionSpace)
+  ND       = num_dofs_per_node(fspace)
+  conn     = Adapt.adapt_structure(to, fspace.conn)
+  dof_conn = Adapt.adapt_structure(to, fspace.dof_conn)
+  ref_fe   = Adapt.adapt_structure(to, fspace.ref_fe)
+  return FiniteElementContainers.NonAllocatedFunctionSpace{ND, typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
+    conn, dof_conn, ref_fe
+  )
+end
+
+# Assemblers
+"""
+Need to use SparseArrays.allowscalar(false)
+"""
+function Adapt.adapt_structure(to, assembler::FiniteElementContainers.StaticAssembler)
+  I = FiniteElementContainers.int_type(assembler)
+  F = FiniteElementContainers.float_type(assembler)
+  R = Adapt.adapt_structure(to, assembler.R)
+  K = Adapt.adapt_structure(to, assembler.K)
+  return FiniteElementContainers.StaticAssembler{I, F, typeof(R), typeof(K)}(R, K)
+end
+
 end # module
