@@ -10,6 +10,7 @@ export element_type
 export nodeset
 export nodeset_ids
 export num_dimensions
+export num_dofs_per_node
 export num_fields
 export num_nodes
 export num_nodes_per_element

@@ -82,8 +82,15 @@ end
 
 ##########################################################################
 
+# struct SimpleDofManager{
+#   T, N, ND, NN, Bools <: BitArray{2}, Indices <: AbstractArray{<:Integer, 1}
+# } <: DofManager{T, N, ND, NN, Bools}
+#   is_unknown::Bools
+#   unknown_indices::Indices
+# end
+
 struct SimpleDofManager{
-  T, N, ND, NN, Bools <: BitArray{2}, Indices <: AbstractArray{<:Integer, 1}
+  T, N, ND, NN, Bools <: AbstractArray{Bool, 2}, Indices <: AbstractArray{<:Integer, 1}
 } <: DofManager{T, N, ND, NN, Bools}
   is_unknown::Bools
   unknown_indices::Indices
@@ -107,7 +114,7 @@ end
 ##########################################################################
 
 struct VectorizedDofManager{
-  T, N, ND, NN, Bools <: BitArray{1}, Indices <: AbstractArray{<:Integer, 1}
+  T, N, ND, NN, Bools <: AbstractArray{Bool, 1}, Indices <: AbstractArray{<:Integer, 1}
 } <: DofManager{T, N, ND, NN, Bools}
   is_unknown::Bools
   unknown_indices::Indices

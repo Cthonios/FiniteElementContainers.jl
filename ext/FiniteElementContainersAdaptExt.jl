@@ -39,4 +39,23 @@ end
 
 # no need for adapt_structure for connectivity fields since these are aliases anyway
 
+# DofManagers
+function Adapt.adapt_structure(to, dof::FiniteElementContainers.SimpleDofManager)
+  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  is_unknown      = Adapt.adapt_structure(to, dof.is_unknown)
+  unknown_indices = Adapt.adapt_structure(to, dof.unknown_indices)
+  return FiniteElementContainers.SimpleDofManager{Bool, 2, ND, NN, typeof(is_unknown), typeof(unknown_indices)}(
+    is_unknown, unknown_indices
+  )
+end
+
+function Adapt.adapt_structure(to, dof::FiniteElementContainers.VectorizedDofManager)
+  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  is_unknown      = Adapt.adapt_structure(to, dof.is_unknown)
+  unknown_indices = Adapt.adapt_structure(to, dof.unknown_indices)
+  return FiniteElementContainers.VectorizedDofManager{Bool, 2, ND, NN, typeof(is_unknown), typeof(unknown_indices)}(
+    is_unknown, unknown_indices
+  )
+end
+
 end # module
