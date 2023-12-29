@@ -40,7 +40,8 @@ function VectorizedConnectivity{NN, NE, StructArray, SVector}(vals::M) where {NN
 end
 
 connectivity(conn::VectorizedConnectivity) = conn.vals
-connectivity(conn::VectorizedConnectivity, e::Int) = @views conn[:, e] # TODO maybe a duplicate view here in some cases
+connectivity(conn::VectorizedConnectivity{T, 1, NN, NE, Vals}, e::Int) where {T, NN, NE, Vals} = conn[e]
+connectivity(conn::VectorizedConnectivity{T, 2, NN, NE, Vals}, e::Int) where {T, NN, NE, Vals} = @views conn[:, e] # TODO maybe a duplicate view here in some cases
 
 ###################################################################################
 
