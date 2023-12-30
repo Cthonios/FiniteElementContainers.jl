@@ -3,27 +3,29 @@ num_dofs_per_node(dof::DofManager) = num_fields(dof)
 
 function create_fields(
   ::DofManager{T, N, ND, NN, B}, 
-  float_type::Type{<:Number} = Float64
+  # float_type::Type{<:Number} = Float64
+  type::Type = Float64
 ) where {T, N, ND, NN, B <: BitArray{1}}
 
-  vals = zeros(float_type, ND, NN)
+  vals = zeros(type, ND, NN)
   return NodalField{ND, NN, Vector}(vals)
 end
 
 function create_fields(
   ::DofManager{T, N, ND, NN, B}, 
-  float_type::Type{<:Number} = Float64
+  # float_type::Type{<:Number} = Float64
+  type::Type = Float64
 ) where {T, N, ND, NN, B <: BitArray{2}}
 
-  vals = zeros(float_type, ND, NN)
+  vals = zeros(type, ND, NN)
   return NodalField{ND, NN, Matrix}(vals)
 end
 
 function create_unknowns(
   dof::DofManager{T, N, ND, NN, Bools}, 
-  float_type::Type{<:Number} = Float64
+  type = Float64
 ) where {T, N, ND, NN, Bools}
-  return zeros(float_type, length(dof.unknown_indices))
+  return zeros(type, length(dof.unknown_indices))
 end
 
 function dof_ids(::DofManager{T, N, ND, NN, Bools}) where {T, N, ND, NN, Bools <: AbstractArray{Bool, 1}}
