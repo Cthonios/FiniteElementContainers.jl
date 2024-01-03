@@ -58,3 +58,8 @@ function VectorizedElementField{NN, NE, StructArray, T}(::UndefInitializer) wher
   vals = StructArray{T}(undef, NE)
   return VectorizedElementField{T, 1, length(T), NE, typeof(vals)}(vals)
 end
+
+function Base.similar(field::VectorizedElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals}
+  vals = similar(field.vals)
+  return VectorizedElementField{T, N, NN, NE, Vals}(vals)
+end

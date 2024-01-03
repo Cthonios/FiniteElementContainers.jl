@@ -57,3 +57,8 @@ function VectorizedNodalField{NF, NN, StructArray, T}(::UndefInitializer) where 
   vals = StructArray{T}(undef, NN)
   return VectorizedNodalField{T, 1, length(T), NN, typeof(vals)}(vals)
 end
+
+function Base.similar(field::VectorizedNodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals}
+  vals = similar(field.vals)
+  return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
+end

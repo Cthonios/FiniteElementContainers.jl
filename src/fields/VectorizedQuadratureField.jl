@@ -51,3 +51,8 @@ function VectorizedQuadratureField{NF, NQ, NE, StructVector, T}(::UndefInitializ
   vals = StructVector{T}(undef, NQ * NE)
   return VectorizedQuadratureField{T, 2, length(T), NQ, NE, typeof(vals)}(vals)
 end
+
+function Base.similar(field::VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals}
+  vals = similar(field.vals)
+  return VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
+end

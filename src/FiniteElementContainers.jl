@@ -45,6 +45,7 @@ export update_unknown_ids!
 export AbstractMechanicsFormulation
 export FunctionSpace
 export NonAllocatedFunctionSpace
+export VectorizedPreAllocatedFunctionSpace
 export num_elements
 export num_q_points
 
