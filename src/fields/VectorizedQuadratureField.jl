@@ -62,7 +62,7 @@ function Base.zero(::Type{VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}}) wh
   return VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
 end
 
-function Base.zero(::Type{VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}}) where {T, N, NF, NQ, NE, Vals <: AbstractVector}
+function Base.zero(::Type{VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}}) where {T, N, NF, NQ, NE, Vals <: StructVector}
   vals = StructVector{T}(undef, NQ * NE)
   for eq in axes(vals, 1)
     vals[eq] = zero(T)
