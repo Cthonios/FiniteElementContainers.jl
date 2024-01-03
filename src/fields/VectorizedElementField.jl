@@ -63,3 +63,13 @@ function Base.similar(field::VectorizedElementField{T, N, NN, NE, Vals}) where {
   vals = similar(field.vals)
   return VectorizedElementField{T, N, NN, NE, Vals}(vals)
 end
+
+function Base.zero(::Type{VectorizedElementField{T, N, NN, NE, Vals}}) where {T, N, NN, NE, Vals <: AbstractVector}
+  vals = zeros(T, NN * NE)
+  return VectorizedElementField{T, N, NN, NE, Vals}(vals)
+end
+
+function Base.zero(field::VectorizedElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals}
+  vals = zero(field.vals)
+  return VectorizedElementField{T, N, NN, NE, Vals}(vals)
+end
