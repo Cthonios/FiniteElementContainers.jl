@@ -31,3 +31,8 @@ function SimpleElementField{NN, NE, StructArray, T}(::UndefInitializer) where {N
   vals = StructArray{T}(undef, NN, NE)
   return SimpleElementField{T, 2, NN, NE, typeof(vals)}(vals)
 end
+
+function Base.similar(field::SimpleElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals}
+  vals = similar(field.vals)
+  return SimpleElementField{T, N, NN, NE, Vals}(vals)
+end

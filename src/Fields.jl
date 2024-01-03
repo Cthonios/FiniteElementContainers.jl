@@ -49,7 +49,7 @@ ElementField{NN, NE, Vector}(vals::M) where {NN, NE, M <: AbstractArray{<:Number
 ElementField{NN, NE, Matrix}(vals::M) where {NN, NE, M <: AbstractArray{<:Number, 2}}    = SimpleElementField{NN, NE}(vals)
 ElementField{NN, NE, Vector}(vals::V) where {NN, NE, V <: AbstractArray{<:Number, 1}}    = VectorizedElementField{NN, NE}(vals)
 ElementField{NN, NE, Vector, T}(::UndefInitializer)  where {NN, NE, T} = VectorizedElementField{NN, NE, T}(undef)
-ElementField{NN, NE, Matrix, T}(::UndefInitializer)  where {NN, NE, T <: Number} = SimpleElementField{NN, NE, T}(undef)
+ElementField{NN, NE, Matrix, T}(::UndefInitializer)  where {NN, NE, T <: Number} = SimpleElementField{NN, NE, Matrix, T}(undef)
 ElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T} = VectorizedElementField{NN, NE, StructArray, T}(undef)
 
 

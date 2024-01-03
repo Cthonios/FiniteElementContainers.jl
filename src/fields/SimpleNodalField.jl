@@ -20,3 +20,8 @@ function SimpleNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T}
   vals = Matrix{T}(undef, NF, NN)
   return SimpleNodalField{T, 2, NF, NN, typeof(vals)}(vals)
 end
+
+function Base.similar(field::SimpleNodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals}
+  vals = similar(field.vals)
+  return SimpleNodalField{T, N, NF, NN, Vals}(vals)
+end

@@ -36,3 +36,8 @@ function SimpleQuadratureField{NF, NQ, NE, StructArray, T}(::UndefInitializer) w
   vals = StructArray{T}(undef, NQ, NE)
   return SimpleQuadratureField{T, 2, length(T), NQ, NE, typeof(vals)}(vals)
 end
+
+function Base.similar(field::SimpleQuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals}
+  vals = similar(field.vals)
+  return SimpleQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
+end
