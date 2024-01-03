@@ -62,3 +62,19 @@ function Base.similar(field::VectorizedNodalField{T, N, NF, NN, Vals}) where {T,
   vals = similar(field.vals)
   return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
 end
+
+function Base.zero(::Type{VectorizedNodalField{T, N, NF, NN, Vals}}) where {T, N, NF, NN, Vals <: AbstractVector}
+  vals = zeros(T, NF * NN)
+  return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
+end
+
+function Base.zero(::Type{VectorizedNodalField{T, N, NF, NN, Vals}}) where {T, N, NF, NN, Vals <: StructVector}
+  vals = StructVector{T}(undef, NN)
+  vals .= zero(T)
+  return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
+end
+
+function Base.zero(field::VectorizedNodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals}
+  vals = zero(field.vals)
+  return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
+end

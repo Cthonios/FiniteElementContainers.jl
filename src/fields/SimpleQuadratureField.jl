@@ -41,3 +41,23 @@ function Base.similar(field::SimpleQuadratureField{T, N, NF, NQ, NE, Vals}) wher
   vals = similar(field.vals)
   return SimpleQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
 end
+
+function Base.zero(::Type{SimpleQuadratureField{T, N, NF, NQ, NE, Vals}}) where {T, N, NF, NQ, NE, Vals <: AbstractMatrix}
+  vals = zeros(T, NQ, NE)
+  return SimpleQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
+end
+
+function Base.zero(::Type{SimpleQuadratureField{T, N, NF, NQ, NE, Vals}}) where {T, N, NF, NQ, NE, Vals <: StructArray}
+  vals = StructArray{T}(undef, NQ, NE)
+  for e in axes(vals, 2)
+    for q in axes(vals, 1)
+      vals[q, e] = zero(T)
+    end
+  end
+  return SimpleQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
+end
+
+function Base.zero(field::SimpleQuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals}
+  vals = zero(field.vals)
+  return SimpleQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
+end

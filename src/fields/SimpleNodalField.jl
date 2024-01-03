@@ -25,3 +25,13 @@ function Base.similar(field::SimpleNodalField{T, N, NF, NN, Vals}) where {T, N, 
   vals = similar(field.vals)
   return SimpleNodalField{T, N, NF, NN, Vals}(vals)
 end
+
+function Base.zero(::Type{SimpleNodalField{T, N, NF, NN, Vals}}) where {T, N, NF, NN, Vals}
+  vals = zeros(T, NF, NN)
+  return SimpleNodalField{T, N, NF, NN, Vals}(vals)
+end
+
+function Base.zero(::SimpleNodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals}
+  vals = zeros(T, NF, NN)
+  return SimpleNodalField{T, N, NF, NN, Vals}(vals)
+end

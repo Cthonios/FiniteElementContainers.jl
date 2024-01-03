@@ -36,3 +36,39 @@ function Base.similar(field::SimpleElementField{T, N, NN, NE, Vals}) where {T, N
   vals = similar(field.vals)
   return SimpleElementField{T, N, NN, NE, Vals}(vals)
 end
+
+function Base.zero(::Type{SimpleElementField{T, N, NN, NE, Vals}}) where {T, N, NN, NE, Vals <: AbstractMatrix}
+  vals = zeros(T, NN, NE)
+  return SimpleElementField{T, N, NN, NE, Vals}(vals)
+end
+
+function Base.zero(::Type{SimpleElementField{T, N, NN, NE, Vals}}) where {T, N, NN, NE, Vals <: StructVector}
+  vals = StructVector{T}(undef, NE)
+  for e in axes(vals, 1)
+    vals[e] = zero(T)
+  end
+  return SimpleElementField{T, N, NN, NE, Vals}(vals)
+end
+
+function Base.zero(::Type{SimpleElementField{T, N, NN, NE, Vals}}) where {T, N, NN, NE, Vals <: StructArray}
+  vals = StructVector{T}(undef, NN, NE)
+  for e in axes(vals, 2)
+    for q in axes(vals, 1)
+      vals[q, e] = zero(T)
+    end
+  end
+  return SimpleElementField{T, N, NN, NE, Vals}(vals)
+end
+
+function Base.zero(field::SimpleElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals <: AbstractArray}
+  vals = similar(field.vals)
+  return SimpleElementField{T, N, NN, NE, Vals}(vals)
+end
+
+function Base.zero(::SimpleElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals <: StructVector}
+  vals = StructVector{T}(undef, NE)
+  for e in axes(vals, 1)
+    vals[e] = zero(T)
+  end
+  return SimpleElementField{T, N, NN, NE, Vals}(vals)
+end

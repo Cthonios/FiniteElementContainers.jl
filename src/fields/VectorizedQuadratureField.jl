@@ -56,3 +56,21 @@ function Base.similar(field::VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}) 
   vals = similar(field.vals)
   return VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
 end
+
+function Base.zero(::Type{VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}}) where {T, N, NF, NQ, NE, Vals <: AbstractVector}
+  vals = zeros(T, NQ * NE)
+  return VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
+end
+
+function Base.zero(::Type{VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}}) where {T, N, NF, NQ, NE, Vals <: StructVector}
+  vals = StructVector{T}(undef, NQ * NE)
+  for eq in axes(vals, 1)
+    vals[eq] = zero(T)
+  end
+  return VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
+end
+
+function Base.zero(field::VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals}
+  vals = zero(field.vals)
+  return VectorizedQuadratureField{T, N, NF, NQ, NE, Vals}(vals)
+end
