@@ -36,9 +36,9 @@ function VectorizedQuadratureField{NF, NQ, NE}(vals::S) where {NF, NQ, NE, S <: 
   VectorizedQuadratureField{eltype(vals), 2, NF, NQ, NE, typeof(vals)}(vals)
 end
 
-function VectorizedQuadratureField{1, NQ, NE, Vector, T}(::UndefInitializer) where {NQ, NE, T <: Number}
+function VectorizedQuadratureField{NF, NQ, NE, Vector, T}(::UndefInitializer) where {NF, NQ, NE, T}
   vals = Vector{T}(undef, NQ * NE)
-  return VectorizedQuadratureField{T, 2, 1, NQ, NE, typeof(vals)}(vals)
+  return VectorizedQuadratureField{T, 2, NF, NQ, NE, typeof(vals)}(vals)
 end
 
 function VectorizedQuadratureField{1, NQ, NE, Vector, T}(::UndefInitializer) where {NQ, NE, T <: AbstractArray}
