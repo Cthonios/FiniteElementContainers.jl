@@ -2,7 +2,6 @@ module FiniteElementContainersAdaptExt
 
 using Adapt
 using FiniteElementContainers
-using StructArrays
 
 # Nodal fields
 function Adapt.adapt_structure(to, field::FiniteElementContainers.SimpleNodalField)

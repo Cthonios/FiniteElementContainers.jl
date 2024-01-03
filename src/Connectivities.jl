@@ -26,13 +26,29 @@ function VectorizedConnectivity{NN, NE}(vals::V) where {NN, NE, V <: Vector{<:In
   return VectorizedConnectivity{eltype(vals), 2, NN, NE, typeof(vals)}(vals)
 end
 
+function VectorizedConnectivity{NN, NE, Vector, SVector}(vals::M) where {NN, NE, M <: Matrix{<:Integer}}
+  @assert size(vals) == (NN, NE)
+  new_vals = reinterpret(SVector{NN, eltype(vals)}, vec(vals)) |> collect
+  return VectorizedConnectivity{eltype(new_vals), 1, NN, NE, typeof(new_vals)}(new_vals)
+end
+
+function VectorizedConnectivity{NN, NE, StructArray, SVector}(vals::M) where {NN, NE, M <: Matrix{<:Integer}}
+  @assert size(vals) == (NN, NE)
+  new_vals = reinterpret(SVector{NN, eltype(vals)}, vec(vals)) |> collect
+  new_vals = StructArray(new_vals)
+  return VectorizedConnectivity{eltype(new_vals), 1, NN, NE, typeof(new_vals)}(new_vals)
+end
+
 connectivity(conn::VectorizedConnectivity) = conn.vals
-connectivity(conn::VectorizedConnectivity, e::Int) = @views conn[:, e] # TODO maybe a duplicate view here in some cases
+connectivity(conn::VectorizedConnectivity{T, 1, NN, NE, Vals}, e::Int) where {T, NN, NE, Vals} = conn[e]
+connectivity(conn::VectorizedConnectivity{T, 2, NN, NE, Vals}, e::Int) where {T, NN, NE, Vals} = @views conn[:, e] # TODO maybe a duplicate view here in some cases
 
 ###################################################################################
 
 Connectivity{NN, NE, Matrix, T}(vals::Matrix{T}) where {NN, NE, T <: Integer} = SimpleConnectivity{NN, NE}(vals)
 Connectivity{NN, NE, Vector, T}(vals::Matrix{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE}(vals)
 Connectivity{NN, NE, Vector, T}(vals::Vector{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE}(vals)
+Connectivity{NN, NE, Vector, SVector}(vals::Matrix{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE, Vector, SVector}(vals)
+Connectivity{NN, NE, StructArray, SVector}(vals::Matrix{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE, StructArray, SVector}(vals)
 
 ###################################################################################

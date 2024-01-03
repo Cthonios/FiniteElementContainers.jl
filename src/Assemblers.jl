@@ -1,29 +1,5 @@
 abstract type AbstractAssembler{Rtype, Itype} end
 
-function setup_hessian_coordinates!(
-  row_coords::Is, col_coords::Js,
-  fspaces::Fs
-) where {Is <: AbstractArray{<:Integer, 1}, 
-         Js <: AbstractArray{<:Integer, 1},
-         Fs}
-
-  counter = 1
-  # need below to really be "dof connectivity"
-  for fspace in fspaces
-    # conn = dof_connectivity(dof, fspace)
-    conn = dof_connectivity(fspace)
-    for e in axes(conn, 2)
-      for i in axes(conn, 1)
-        for j in axes(conn, 1)
-          row_coords[counter] = conn[i, e]
-          col_coords[counter] = conn[j, e]
-          counter += 1
-        end
-      end
-    end
-  end
-end
-
 struct StaticAssembler{
   Rtype, Itype, 
   V <: AbstractArray{<:Number, 1}, 
@@ -36,32 +12,36 @@ end
 int_type(::StaticAssembler{R, I, V, S}) where {R, I, V, S} = I
 float_type(::StaticAssembler{R, I, V, S}) where {R, I, V, S} = R
 
-function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs #<: AbstractArray{<:FunctionSpace, 1}
-  n_hessian_entries = 0
-  # TODO add functionality to only size things based on nodes
-  # seen in function space connectivity
-  # uniques = Vector{Int64}(undef, 0)
+# TODO type int
+function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
+  IJs = Tuple{Int64, Int64}[]
   for fspace in fspaces
-    # conn = dof_connectivity(dof, fspace)
-    conn = dof_connectivity(fspace)
-    n_hessian_entries += size(conn, 2) * (size(conn, 1)^2)
-
-    # append!(uniques, unique(conn))
+    for e in 1:num_elements(fspace)
+      conn = dof_connectivity(fspace, e)
+      for temp in Iterators.product(conn, conn)
+        push!(IJs, temp)
+      end
+    end
   end
-  # uniques = unique(uniques)
-
-  Is = Vector{Int64}(undef, n_hessian_entries)
-  Js = Vector{Int64}(undef, n_hessian_entries)
-  Vs = zeros(Float64, n_hessian_entries)
-
-  setup_hessian_coordinates!(Is, Js, fspaces)
-
-  R = zeros(Float64, num_nodes(dof) * num_dofs_per_node(dof))
-  K = sparse(Is, Js, Vs)
+  IJs = unique!(IJs)
+  Is  = map(x -> x[2], IJs)
+  Js  = map(x -> x[1], IJs)
+  Vs  = zeros(Float64, size(Is))
+  R   = zeros(Float64, num_nodes(dof) * num_dofs_per_node(dof))
+  K   = sparse(Is, Js, Vs)
   return StaticAssembler{Float64, Int64, typeof(R), typeof(K)}(R, K)
 end
 
 # assembly methods, need different ones for what we're doing
+
+function assemble_residual!(
+  R,
+  R_el, conn
+)
+  for i in axes(conn, 1)
+    R[conn[i]] += R_el[i]
+  end
+end
 
 function assemble!(
   R::V1,
@@ -84,7 +64,7 @@ end
 function assemble!(
   K::M1,
   K_el, conn
-) where M1 <: AbstractMatrix
+) where M1 <: AbstractMatrix{<:Number}
   for i in axes(conn, 1)
     # assembler.R[conn[i]] += R_el[i]
     for j in axes(conn, 1)

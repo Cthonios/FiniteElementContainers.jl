@@ -1,45 +1,47 @@
-elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.ReferenceFEType}}(
-  "HEX"     => Hex8,
-  "HEX8"    => Hex8,
-  "QUAD"    => Quad4,
-  "QUAD4"   => Quad4,
-  "QUAD9"   => Quad9,
-  "TRI"     => Tri3,
-  "TRI3"    => Tri3,
-  "TRI6"    => Tri6,
-  "TET"     => Tet4,
-  "TETRA4"  => Tet4,
-  "TETRA10" => Tet10
-)
+# elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.ReferenceFEType}}(
+#   "HEX"     => Hex8,
+#   "HEX8"    => Hex8,
+#   "QUAD"    => Quad4,
+#   "QUAD4"   => Quad4,
+#   "QUAD9"   => Quad9,
+#   "TRI"     => Tri3,
+#   "TRI3"    => Tri3,
+#   "TRI6"    => Tri6,
+#   "TET"     => Tet4,
+#   "TETRA4"  => Tet4,
+#   "TETRA10" => Tet10
+# )
 
-#####################################################
+# #####################################################
 
-function volume(X, ∇N_ξ)
-  J = X * ∇N_ξ
-  return det(J)
-end
+# function volume(X, ∇N_ξ)
+#   J = X * ∇N_ξ
+#   return det(J)
+# end
 
-function map_shape_function_gradients(X, ∇N_ξ)
-  J     = X * ∇N_ξ
-  J_inv = inv(J)
-  ∇N_X  = (J_inv * ∇N_ξ')'
-  return ∇N_X
-end
+# function map_shape_function_gradients(X, ∇N_ξ)
+#   J     = X * ∇N_ξ
+#   J_inv = inv(J)
+#   ∇N_X  = (J_inv * ∇N_ξ')'
+#   return ∇N_X
+# end
 
-function setup_reference_element(
-  type::Type{<:ReferenceFiniteElements.ReferenceFEType}, 
-  q_degree
-)
-  ReferenceFiniteElements.ReferenceFE(type(Val(q_degree)))
-end
+# function setup_reference_element(
+#   type::Type{<:ReferenceFiniteElements.ReferenceFEType}, 
+#   q_degree
+# )
+#   ReferenceFiniteElements.ReferenceFE(type(Val(q_degree)))
+# end
 
-function setup_dof_connectivity!(dof_conns, ids, conns)
-  for e in 1:num_elements(dof_conns)
-    conn            = connectivity(conns, e)
-    # dof_conns[:, e] = ids[:, vec(conn)]
-    dof_conns[:, e] = ids[:, conn]
-  end
-end
+# function setup_dof_connectivity!(dof_conns, ids, conns)
+#   for e in 1:num_elements(dof_conns)
+#     conn            = connectivity(conns, e)
+#     # dof_conns[:, e] = ids[:, vec(conn)]
+#     dof_conns[:, e] = ids[:, conn]
+#   end
+# end
+
+include("function_spaces/Utils.jl")
 
 #####################################################
 
@@ -346,7 +348,7 @@ end
 
 #####################################################
 
-function modify_field_gradients(::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}) where T <: Number
+function modify_field_gradients(::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}, ::Type{<:Tensor}) where T <: Number
   return Tensor{2, 3, T, 9}((
     ∇u_q[1, 1], ∇u_q[2, 1], 0.0,
     ∇u_q[1, 2], ∇u_q[2, 2], 0.0,
@@ -354,7 +356,18 @@ function modify_field_gradients(::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}) wher
   ))
 end
 
-function modify_field_gradients(::PlaneStrain, ∇u_q::Tensor{2, 2, T, 4}) where T <: Number
+function modify_field_gradients(::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}, ::Type{<:SArray}) where T <: Number
+  return SMatrix{3, 3, T, 9}((
+    ∇u_q[1, 1], ∇u_q[2, 1], 0.0,
+    ∇u_q[1, 2], ∇u_q[2, 2], 0.0,
+    0.0,        0.0,        0.0
+  ))
+end
+
+modify_field_gradients(form::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}; type = Tensor) where T <: Number =
+modify_field_gradients(form, ∇u_q, type)
+
+function modify_field_gradients(::PlaneStrain, ∇u_q::Tensor{2, 2, T, 4}, ::Type{<:Tensor}) where T <: Number
   return Tensor{2, 3, T, 9}((
     ∇u_q[1, 1], ∇u_q[2, 1], 0.0,
     ∇u_q[1, 2], ∇u_q[2, 2], 0.0,
@@ -407,6 +420,11 @@ struct NonAllocatedFunctionSpace{
   conn::Conn
   dof_conn::DofConn
   ref_fe::RefFE
+end
+
+function Base.show(io::IO, fspace::NonAllocatedFunctionSpace)
+  print(io::IO, "NonAllocatedFunctionSpace\n",
+        "  Reference finite element = $(fspace.ref_fe)\n")
 end
 
 function NonAllocatedFunctionSpace(
@@ -468,3 +486,83 @@ end
 ########################################################
 
 # FunctionSpace{}
+
+struct VectorizedPreAllocatedFunctionSpace{
+  NDof,
+  Conn    <: Connectivity,
+  DofConn <: Connectivity,
+  RefFE   <: ReferenceFE,
+  V1      <: QuadratureField,
+  V2      <: QuadratureField,
+  V3      <: QuadratureField
+} <: FunctionSpace{NDof, Conn, RefFE}
+
+  conn::Conn
+  dof_conn::DofConn
+  ref_fe::RefFE
+  Ns::V1
+  ∇N_Xs::V2
+  JxWs::V3
+end
+
+function setup_shape_function_values!(Ns, ref_fe)
+  for e in axes(Ns, 2)
+    for q in axes(Ns, 1)
+      Ns[q, e] = ReferenceFiniteElements.shape_function_values(ref_fe, q)
+    end 
+  end
+end
+
+function setup_shape_function_gradients!(∇N_Xs, Xs, conn, ref_fe)
+  for e in axes(∇N_Xs, 2)
+    X = Xs[e]
+    for q in axes(∇N_Xs, 1)
+      ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
+      J     = X * ∇N_ξ
+      J_inv = inv(J)
+      ∇N_Xs[q, e]  = (J_inv * ∇N_ξ')'
+    end
+  end
+end
+
+function setup_shape_function_JxWs!(JxWs, Xs, ref_fe)
+  for e in axes(JxWs, 2)
+    X = Xs[e]
+    for q in axes(JxWs, 1)
+      ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
+      J     = X * ∇N_ξ
+      JxWs[q, e] = det(J) * ReferenceFiniteElements.quadrature_weight(ref_fe, q)
+    end
+  end
+end
+
+function VectorizedPreAllocatedFunctionSpace(
+  dof_manager::VectorizedDofManager,
+  conn::VectorizedConnectivity, 
+  q_degree::Int, 
+  elem_type::Type{<:ReferenceFiniteElements.ReferenceFEType},
+  coords::VectorizedNodalField
+)
+  
+  ND       = num_dofs_per_node(dof_manager)
+  NN, NE   = num_nodes_per_element(conn), num_elements(conn)
+  ids      = dof_ids(dof_manager)
+  ids      = reshape(1:ND * num_nodes(dof_manager), ND, num_nodes(dof_manager))
+  temp     = reshape(ids[:, conn], ND * NN, NE)
+  dof_conn = Connectivity{ND * NN, NE, Vector, eltype(temp)}(vec(temp))
+  ref_fe   = ReferenceFE(elem_type(q_degree))
+  D        = ReferenceFiniteElements.num_dimensions(ref_fe)
+  NQ       = ReferenceFiniteElements.num_q_points(ref_fe)
+  Ns       = QuadratureField{NN, NQ, NE, Vector, SVector{NN, Float64}}(undef)
+  ∇N_Xs    = QuadratureField{NN * D, NQ, NE, Vector, SMatrix{NN, D, Float64, NN * D}}(undef)
+  JxWs     = QuadratureField{1, NQ, NE, Vector, Float64}(undef)
+  Xs       = reinterpret(SMatrix{D, NN, eltype(coords), D * NN}, @views vec(coords[:, conn])) |> collect
+
+  setup_shape_function_values!(Ns, ref_fe)
+  setup_shape_function_gradients!(∇N_Xs, Xs, conn, ref_fe)
+  setup_shape_function_JxWs!(JxWs, Xs, ref_fe)
+
+  return VectorizedPreAllocatedFunctionSpace{
+    ND, typeof(conn), typeof(dof_conn), typeof(ref_fe), typeof(Ns), typeof(∇N_Xs), typeof(JxWs)
+  }(conn, dof_conn, ref_fe, Ns, ∇N_Xs, JxWs)
+end
