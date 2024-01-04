@@ -30,34 +30,46 @@ function FiniteElementContainers.create_unknowns(
   return KernelAbstractions.zeros(backend, float_type, length(dof.unknown_indices))
 end
 
-# Not sure how to do this one....
-# @kernel function update_unknown_ids_kernel!(
-#   dof_manager::DofManager, nodes::Nodes, dof::Int
-# ) where Nodes
-#   I = @index(Global)
-#   @time @views dof_manager[dof, nodes[I]] = 0
-#   # @time dof_manager[dof, I] = 0
-# end
+@kernel function update_fields_kernel!(U::NodalField, dof::DofManager, Uu::V) where V <: AbstractVector
+  I = @index(Global)
+  U[dof.unknown_indices[I]] = Uu[I]
+end
 
-# function FiniteElementContainers.update_unknown_ids!(
-#   backend::Backend, dof_manager::DofManager, nsets::NSets, dofs::Dofs
-# ) where {NSets, Dofs}
+# TODO add wg size as parameter
+function FiniteElementContainers.update_fields!(backend::Backend, U::NodalField, dof::DofManager, Uu::V) where V <: AbstractVector
+  @assert length(Uu) == sum(dof.is_unknown)
+  kernel = update_fields_kernel!(backend)
+  kernel(U, dof, Uu, ndrange=length(Uu))
+  synchronize(backend)
+end
 
-#   @assert length(nsets) == length(dofs)
-#   kernel = update_unknown_ids_kernel!(backend)
-#   for (n, nset) in enumerate(nsets)
-#     @assert dofs[n] > 0 && dofs[n] <= num_dofs_per_node(dof_manager)
-#     kernel(dof_manager, nset, dofs[n], ndrange=length(nset))
-#     synchronize(backend)
-#   end
-#   resize!(dof_manager.unknown_indices, sum(dof_manager.is_unknown))
-#   ids = FiniteElementContainers.dof_ids(dof_manager)
-#   dof_manager.unknown_indices .= ids[dof_manager.is_unknown]
-# end
+@kernel function update_unknown_ids_nset_kernel!(dof_manager, nset, dof)
+  I = @index(Global)
+  dof_manager[dof, nset[I]] = 0
+end
 
-# function FiniteElementContainers.element_level_fields(
-#   backend::Backend,
-#   fspace::Fini
-# )
+@kernel function update_unknown_ids_kernel!(dof, ids)
+  I = @index(Global)
+  dof.unknown_indices[I] = ids[dof.unknown_indices[I]]
+end
+
+function FiniteElementContainers.update_unknown_ids!(
+  backend::Backend,
+  dof::DofManager,
+  nsets::Nsets,
+  dofs::Dofs
+) where {Nsets, Dofs}
+
+  kernel1 = update_unknown_ids_nset_kernel!(backend)
+  kernel2 = update_unknown_ids_kernel!(backend)
+  @assert length(nsets) == length(dofs)
+  for (n, nset) in enumerate(nsets)
+    @assert dofs[n] > 0 && dofs[n] <= num_dofs_per_node(dof)
+    kernel1(dof, nset, dofs[n], ndrange=length(nset))
+  end
+  resize!(dof.unknown_indices, sum(dof.is_unknown))
+  ids = FiniteElementContainers.dof_ids(dof)
+  kernel2(dof, ids, ndrange=length(dof.unknown_indices))
+end
 
 end # module
