@@ -70,6 +70,7 @@ function FiniteElementContainers.update_unknown_ids!(
   resize!(dof.unknown_indices, sum(dof.is_unknown))
   ids = FiniteElementContainers.dof_ids(dof)
   kernel2(dof, ids, ndrange=length(dof.unknown_indices))
+  synchronize(backend)
 end
 
 end # module
