@@ -2,7 +2,6 @@ module FiniteElementContainers
 
 # Meshes exports
 export FileMesh
-export Mesh
 export coordinates
 export element_block_ids
 export element_connectivity

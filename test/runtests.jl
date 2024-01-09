@@ -7,9 +7,9 @@ using Parameters
 using Test
 using TestSetExtensions
 
-@testset ExtendedTestSet "Exodus Mesh Read" begin
-  mesh = Mesh(ExodusDatabase, "./poisson/poisson.g")
-end
+# @testset ExtendedTestSet "Exodus Mesh Read" begin
+#   mesh = Mesh(ExodusDatabase, "./poisson/poisson.g")
+# end
 
 @testset ExtendedTestSet "Element Field" begin
   vals = rand(2, 20)

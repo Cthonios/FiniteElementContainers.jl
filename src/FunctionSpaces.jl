@@ -59,11 +59,11 @@ num_dofs_per_node(::FunctionSpace{ND, RefFE, Conn}) where {ND, RefFE, Conn} = ND
 
 #####################################################
 
-quadrature_point(fspace::FunctionSpace, q::Int) =
-ReferenceFiniteElements.quadrature_point(fspace.ref_fe, q)
+quadrature_points(fspace::FunctionSpace, q::Int) =
+ReferenceFiniteElements.quadrature_points(fspace.ref_fe, q)
 
-quadrature_weight(fspace::FunctionSpace, q::Int) = 
-ReferenceFiniteElements.quadrature_weight(fspace.ref_fe, q)
+quadrature_weights(fspace::FunctionSpace, q::Int) = 
+ReferenceFiniteElements.quadrature_weights(fspace.ref_fe, q)
 
 shape_function_values(fspace::FunctionSpace, q::Int) = 
 ReferenceFiniteElements.shape_function_values(fspace.ref_fe, q) 
@@ -477,7 +477,7 @@ function Base.getindex(fspace::NonAllocatedFunctionSpace, X::NodalField, q::Int,
   N    = shape_function_values(fspace, q)
   ∇N_ξ = shape_function_gradients(fspace, q)
   ∇N_X = map_shape_function_gradients(X_el, ∇N_ξ)
-  JxW  = volume(X_el, ∇N_ξ) * quadrature_weight(fspace, q)
+  JxW  = volume(X_el, ∇N_ξ) * quadrature_weights(fspace, q)
   X_q  = X_el * N
   return Interpolants(X_q, N, ∇N_X, JxW)
 end
@@ -534,7 +534,7 @@ function setup_shape_function_JxWs!(JxWs, Xs, conn, ref_fe)
     for q in axes(JxWs, 1)
       ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
       J     = X * ∇N_ξ
-      JxWs[q, e] = det(J) * ReferenceFiniteElements.quadrature_weight(ref_fe, q)
+      JxWs[q, e] = det(J) * ReferenceFiniteElements.quadrature_weights(ref_fe, q)
     end
   end
 end

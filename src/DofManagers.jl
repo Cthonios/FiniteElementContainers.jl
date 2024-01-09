@@ -39,8 +39,10 @@ function dof_ids(::DofManager{T, N, ND, NN, Bools}) where {T, N, ND, NN, Bools <
 end
 
 function update_fields!(U::NodalField, dof::DofManager, Uu::V) where V <: AbstractArray{<:Number, 1}
-  @assert length(Uu) == sum(dof.is_unknown)
-  U[dof.is_unknown] = Uu
+  # @assert length(Uu) == sum(dof.is_unknown)
+  # U[dof.is_unknown] = Uu
+  @assert length(Uu) == length(dof.unknown_indices)
+  U[dof.unknown_indices] = Uu
 end
 
 # function update_fields!(
