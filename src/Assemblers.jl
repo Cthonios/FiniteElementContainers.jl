@@ -168,94 +168,37 @@ end
 
 """
 method that assumes first dof
-
-TODO need to also update Is and Js
-since they will be offset now
+TODO move sorting of nodes up stream
+TODO remove other scratch unknowns and unknown_indices arrays
 """
 function update_unknown_ids!(
   assembler::StaticAssembler,
   fspaces, 
-  nodes
+  nodes_in
 )
 
-  n_entries = 0
-  for fspace in fspaces
-    conn = dof_connectivity(fspace)
-    n_entries += size(conn, 1)^2 * size(conn, 2)
-  end
-  unknown_indices = Vector{Int64}(undef, n_entries)
-  # n_dofs = length(assembler.unknown_indices) #- length(nodes)
-  # resize!(assembler.unknown_indices, n_dofs)
-  # sizehint!(assembler.unknown_indices, n_dofs)
-  # TODO need a good size hint here
+  # make this an assumption of the method
+  nodes = sort(nodes_in)
 
+  # TODO change to a good sizehint!
+  resize!(assembler.Is, 0)
+  resize!(assembler.Js, 0)
+  resize!(assembler.unknown_indices, 0)
 
-  # first set up as if there were no dirichlet arrays
-
-  unknowns = Int64[]
-  Is = Int64[]
-  Js = Int64[]
   n = 1
-  bcs_so_far = 0
   for fspace in fspaces
     for e in 1:num_elements(fspace)
       conn = dof_connectivity(fspace, e)
       for temp in Iterators.product(conn, conn)
-        if temp[1] in nodes || temp[2] in nodes
-          bcs_so_far += 1
+        if insorted(temp[1], nodes) || insorted(temp[2], nodes)
+          # really do nothing here
         else
-          push!(unknowns, n)
-          # push!(Is, n - bcs_so_far)
-          # @show n length(nodes[nodes .< n])
-          push!(Is, temp[1] - length(nodes[nodes .< temp[1]]))
-          push!(Js, temp[2] - length(nodes[nodes .< temp[2]]))
+          push!(assembler.Is, temp[1] - count(x -> x < temp[1], nodes))
+          push!(assembler.Js, temp[2] - count(x -> x < temp[2], nodes))
+          push!(assembler.unknown_indices, n)
         end
-        # assembler.unknown_indices[n] = n
-        unknown_indices[n] = n
-        # push!(unknown_indices, n)
         n += 1
       end
     end
   end
-
-  resize!(assembler.unknown_indices, length(unknowns))
-  resize!(assembler.Is, length(Is))
-  resize!(assembler.Js, length(Js))
-  assembler.unknown_indices .= unknown_indices[unknowns]
-  assembler.Is .= Is
-  assembler.Js .= Js
-
-  # assembler.unknown_indices
-
-  # # setdiff!(assembler.unknown_indices, nodes)
-  # for n in axes(assembler.unknown_indices, 1)
-
-  # end
-
-  # TODO need to convert nodes to dofs
-  # dofs = 
-
-  # below is slow
-  # resize!(assembler.unknown_indices, 0)
-  # n = 1
-  # for fspace in fspaces
-  #   for e in 1:num_elements(fspace)
-  #     conn = dof_connectivity(fspace, e)
-  #     for temp in Iterators.product(conn, conn)
-
-  #       if temp[1] in nodes || temp[2] in nodes
-  #         # n += 1
-  #         # continue
-          
-  #       else
-  #         push!(assembler.unknown_indices, n)
-  #       end
-
-  #       # increment regardless if bc dof or not
-  #       n += 1
-  #     end
-  #   end
-  # end
-
-  # unique!(assembler.unknown_indices)
 end
