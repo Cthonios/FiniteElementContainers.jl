@@ -1,7 +1,9 @@
-# using Exodus
-# using FiniteElementContainers
-# using LinearAlgebra
-# using Parameters
+using Exodus
+using FiniteElementContainers
+using IterativeSolvers
+using LinearAlgebra
+using Parameters
+using SparseArrays
 
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 
@@ -41,6 +43,9 @@ for type in types
 
   # set up bcs
   update_unknown_ids!(dof, nsets, [1, 1, 1, 1])
+  bc_nodes = unique!(vcat(nsets...))
+  update_unknown_ids!(asm, fspaces, bc_nodes)
+
 
   # now pre-allocate arrays
   U   = create_fields(dof)
@@ -50,9 +55,16 @@ for type in types
   function solve(asm, dof, fspaces, X, U, Uu)
     for n in 1:10
       update_fields!(U, dof, Uu)
-      assemble!(asm, dof, fspaces, residual, tangent, X, U)
-      R, K = remove_constraints(asm, dof)
-      ΔUu = -K \ R
+      # assemble!(asm, dof, fspaces, residual, tangent, X, U)
+      assemble!(asm, dof, fspaces, X, U, residual, tangent)
+      # R, K = remove_constraints(asm, dof)
+      R = @views asm.residuals[dof.unknown_indices]
+      # K = sparse(asm) # this one not working at the moment
+      K = sparse(asm)#[dof.unknown_indices, dof.unknown_indices]
+      # @time K = K[dof.unknown_indices, dof.unknown_indices]
+      # ΔUu = -K \ R
+      ΔUu = cg(-K, R)
+      # ΔUu = -K * R
       @show norm(ΔUu) norm(R)
       if norm(R) < 1e-12
         println("Converged")

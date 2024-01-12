@@ -1,147 +1,261 @@
-abstract type AbstractAssembler{Rtype, Itype} end
+abstract type Assembler{Rtype, Itype} end
+int_type(::Assembler{R, I}) where {R, I} = I
+float_type(::Assembler{R, I}) where {R, I} = R
 
 struct StaticAssembler{
-  Rtype, Itype, 
-  V <: AbstractArray{<:Number, 1}, 
-  S <: AbstractSparseMatrix
-} <: AbstractAssembler{Rtype, Itype}
-  R::V
-  K::S
+  Rtype, Itype,
+  I       <: AbstractArray{Itype, 1},
+  J       <: AbstractArray{Itype, 1},
+  U       <: AbstractArray{Itype, 1},
+  Sizes   <: AbstractArray{Itype, 1},
+  Offsets <: AbstractArray{Itype, 1},
+  R       <: AbstractArray{Rtype}, # can maybe be a nodalfield depending upon what the user wants
+  K       <: AbstractArray{Rtype, 1} # should always be a vector type thing
+} <: Assembler{Rtype, Itype}
+  Is::I
+  Js::J
+  unknown_indices::U
+  block_sizes::Sizes
+  block_offsets::Offsets
+  residuals::R
+  stiffnesses::K
 end
 
-int_type(::StaticAssembler{R, I, V, S}) where {R, I, V, S} = I
-float_type(::StaticAssembler{R, I, V, S}) where {R, I, V, S} = R
+"""
+Default initialization
+Assumes no dirichlet bcs
 
-# TODO type int
+TODO add typing to constructor
+"""
 function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
-  IJs = Tuple{Int64, Int64}[]
+
+  # first get total number of entries in a stupid matter
+  n_entries = 0
+  block_sizes = Vector{Int64}(undef, length(fspaces))
+  block_offsets = Vector{Int64}(undef, length(fspaces))
+  for (n, fspace) in enumerate(fspaces)
+    conn = dof_connectivity(fspace)
+    n_entries += size(conn, 1)^2 * size(conn, 2)
+    block_sizes[n] = size(conn, 2)
+    block_offsets[n] = size(conn, 1)^2
+  end
+
+  # setup pre-allocated arrays based on number of entries found above
+  Is = Vector{Int64}(undef, n_entries)
+  Js = Vector{Int64}(undef, n_entries)
+  unknown_indices = Vector{Int64}(undef, n_entries)
+
+  # now loop over function spaces and elements
+  n = 1
   for fspace in fspaces
     for e in 1:num_elements(fspace)
       conn = dof_connectivity(fspace, e)
       for temp in Iterators.product(conn, conn)
-        push!(IJs, temp)
+        Is[n] = temp[1]
+        Js[n] = temp[2]
+        unknown_indices[n] = n
+        n += 1
       end
     end
   end
-  IJs = unique!(IJs)
-  Is  = map(x -> x[2], IJs)
-  Js  = map(x -> x[1], IJs)
-  Vs  = zeros(Float64, size(Is))
-  R   = zeros(Float64, num_nodes(dof) * num_dofs_per_node(dof))
-  K   = sparse(Is, Js, Vs)
-  return StaticAssembler{Float64, Int64, typeof(R), typeof(K)}(R, K)
+
+  residuals = create_fields(dof)
+  stiffnesses = zeros(Float64, size(Is))
+
+  return StaticAssembler{
+    Float64, Int64, 
+    typeof(Is), typeof(Js), typeof(unknown_indices), typeof(block_sizes), typeof(block_offsets),
+    typeof(residuals), typeof(stiffnesses)
+  }(Is, Js, unknown_indices, block_sizes, block_offsets, residuals, stiffnesses)
 end
 
-# assembly methods, need different ones for what we're doing
-
-function assemble_residual!(
-  R,
-  R_el, conn
-)
-  for i in axes(conn, 1)
-    R[conn[i]] += R_el[i]
-  end
+"""
+"""
+function SparseArrays.sparse(assembler::StaticAssembler)
+  ids = assembler.unknown_indices
+  # return sparse(assembler.Is[ids], assembler.Js[ids], assembler.stiffnesses[ids])
+  return sparse(assembler.Is, assembler.Js, assembler.stiffnesses[ids])
 end
 
-function assemble!(
-  R::V1,
-  R_el, conn
-) where V1 <: AbstractVector
-  for i in axes(conn, 1)
-    R[conn[i]] += R_el[i]
-  end
-end
+"""
+assembly method for just a residual vector
 
+TODO need to add an Atomix lock here
+TODO add block_id to fspace or something like that
+"""
 function assemble!(
   assembler::StaticAssembler,
   R_el::V, conn
 ) where V <: AbstractVector
+
   for i in axes(conn, 1)
-    assembler.R[conn[i]] += R_el[i]
+    assembler.residuals[conn[i]] += R_el[i]
   end
 end
 
-function assemble!(
-  K::M1,
-  K_el, conn
-) where M1 <: AbstractMatrix{<:Number}
-  for i in axes(conn, 1)
-    # assembler.R[conn[i]] += R_el[i]
-    for j in axes(conn, 1)
-      K[conn[i], conn[j]] += K_el[i, j]
-    end
-  end
-end
 
+"""
+assembly for stiffness matrix
+"""
 function assemble!(
   assembler::StaticAssembler,
-  R_el::V, K_el::M, conn
-) where {V <: AbstractVector, M <: AbstractMatrix}
-  for i in axes(conn, 1)
-    assembler.R[conn[i]] += R_el[i]
-    for j in axes(conn, 1)
-      assembler.K[conn[i], conn[j]] += K_el[i, j]
-    end
-  end
+  K_el::M, block_id::Int, el_id::Int
+) where M <: AbstractMatrix
+
+  # first get mapping from block and element id to ids in assembler.stiffnesses
+  start_id = (block_id - 1) * assembler.block_sizes[block_id] + 
+             (el_id - 1) * assembler.block_offsets[block_id] + 1
+  end_id = start_id + assembler.block_offsets[block_id] - 1
+  ids = start_id:end_id
+
+  # now assemble into stiffnesses
+  assembler.stiffnesses[ids] = K_el
 end
 
+"""
+Simple method for assembling in serial
+"""
 function assemble!(
   assembler::StaticAssembler,
   dof::DofManager,
   fspace::FunctionSpace,
-  residual_func::F1,
-  tangent_func::F2,
-  X::V1,
-  U::V2
-) where {F1 <: Function, F2 <: Function, 
-         V1 <: AbstractArray, V2 <: AbstractArray}
+  X, U, block_id,
+  residual_func, tangent_func
+)
 
-  NDof   = num_dofs_per_node(dof)
-  N      = num_nodes_per_element(fspace)
+  NDof = num_dofs_per_node(dof)
+  N    = num_nodes_per_element(fspace)
   NxNDof = N * NDof
 
   for e in 1:num_elements(fspace)
-    # U_el = element_level_fields(fspace, e, U)
     U_el = element_level_fields(fspace, U, e)
     R_el = zeros(SVector{NxNDof, Float64})
     K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
-    for q in num_q_points(fspace)
+
+    # quadrature loop
+    for q in 1:num_q_points(fspace)
       fspace_values = getindex(fspace, X, q, e)
       R_el = R_el + residual_func(fspace_values, U_el)
       K_el = K_el + tangent_func(fspace_values, U_el)
     end
-    # @show U_el
-    # @show K_el
-    # allocations below
-    # conn = dof_connectivity(dof, fspace, e)
+
+    # assemble residual using connectivity here
     conn = dof_connectivity(fspace, e)
-    assemble!(assembler, R_el, K_el, conn)
+    assemble!(assembler, R_el, conn)
+
+    # assemble stiffness
+    assemble!(assembler, K_el, block_id, e)
   end
+
 end
 
 function assemble!(
   assembler::StaticAssembler,
   dof::DofManager,
-  fspaces::Fs,
-  residual_func::F1,
-  tangent_func::F2,
-  X::V1,
-  U::V2
-) where {Fs <: AbstractArray{<:FunctionSpace}, 
-         F1 <: Function, F2 <: Function, 
-         V1 <: AbstractArray, V2 <: AbstractArray}
+  fspaces, X, U,
+  residual_func, tangent_func
+)
 
-  assembler.R .= 0.
-  assembler.K .= 0.
+  # reset in some way
+  assembler.residuals .= 0.
+  assembler.stiffnesses .= 0.
 
-  for fspace in fspaces
-    assemble!(assembler, dof, fspace, residual_func, tangent_func, X, U)
-  end 
+  for (block_id, fspace) in enumerate(fspaces)
+    assemble!(assembler, dof, fspace, X, U, block_id, residual_func, tangent_func)
+  end
 
 end
 
-function remove_constraints(asm::StaticAssembler, dof::DofManager)
-  R = asm.R[dof.unknown_indices]
-  K = asm.K[dof.unknown_indices, dof.unknown_indices]
-  return R, K
+"""
+method that assumes first dof
+
+TODO need to also update Is and Js
+since they will be offset now
+"""
+function update_unknown_ids!(
+  assembler::StaticAssembler,
+  fspaces, 
+  nodes
+)
+
+  n_entries = 0
+  for fspace in fspaces
+    conn = dof_connectivity(fspace)
+    n_entries += size(conn, 1)^2 * size(conn, 2)
+  end
+  unknown_indices = Vector{Int64}(undef, n_entries)
+  # n_dofs = length(assembler.unknown_indices) #- length(nodes)
+  # resize!(assembler.unknown_indices, n_dofs)
+  # sizehint!(assembler.unknown_indices, n_dofs)
+  # TODO need a good size hint here
+
+
+  # first set up as if there were no dirichlet arrays
+
+  unknowns = Int64[]
+  Is = Int64[]
+  Js = Int64[]
+  n = 1
+  bcs_so_far = 0
+  for fspace in fspaces
+    for e in 1:num_elements(fspace)
+      conn = dof_connectivity(fspace, e)
+      for temp in Iterators.product(conn, conn)
+        if temp[1] in nodes || temp[2] in nodes
+          bcs_so_far += 1
+        else
+          push!(unknowns, n)
+          # push!(Is, n - bcs_so_far)
+          # @show n length(nodes[nodes .< n])
+          push!(Is, temp[1] - length(nodes[nodes .< temp[1]]))
+          push!(Js, temp[2] - length(nodes[nodes .< temp[2]]))
+        end
+        # assembler.unknown_indices[n] = n
+        unknown_indices[n] = n
+        # push!(unknown_indices, n)
+        n += 1
+      end
+    end
+  end
+
+  resize!(assembler.unknown_indices, length(unknowns))
+  resize!(assembler.Is, length(Is))
+  resize!(assembler.Js, length(Js))
+  assembler.unknown_indices .= unknown_indices[unknowns]
+  assembler.Is .= Is
+  assembler.Js .= Js
+
+  # assembler.unknown_indices
+
+  # # setdiff!(assembler.unknown_indices, nodes)
+  # for n in axes(assembler.unknown_indices, 1)
+
+  # end
+
+  # TODO need to convert nodes to dofs
+  # dofs = 
+
+  # below is slow
+  # resize!(assembler.unknown_indices, 0)
+  # n = 1
+  # for fspace in fspaces
+  #   for e in 1:num_elements(fspace)
+  #     conn = dof_connectivity(fspace, e)
+  #     for temp in Iterators.product(conn, conn)
+
+  #       if temp[1] in nodes || temp[2] in nodes
+  #         # n += 1
+  #         # continue
+          
+  #       else
+  #         push!(assembler.unknown_indices, n)
+  #       end
+
+  #       # increment regardless if bc dof or not
+  #       n += 1
+  #     end
+  #   end
+  # end
+
+  # unique!(assembler.unknown_indices)
 end
