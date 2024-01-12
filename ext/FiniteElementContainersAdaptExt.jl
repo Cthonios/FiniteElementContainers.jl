@@ -69,15 +69,15 @@ function Adapt.adapt_structure(to, fspace::FiniteElementContainers.NonAllocatedF
 end
 
 # Assemblers
-"""
-Need to use SparseArrays.allowscalar(false)
-"""
-function Adapt.adapt_structure(to, assembler::FiniteElementContainers.StaticAssembler)
-  I = FiniteElementContainers.int_type(assembler)
-  F = FiniteElementContainers.float_type(assembler)
-  R = Adapt.adapt_structure(to, assembler.R)
-  K = Adapt.adapt_structure(to, assembler.K)
-  return FiniteElementContainers.StaticAssembler{I, F, typeof(R), typeof(K)}(R, K)
-end
+# """
+# Need to use SparseArrays.allowscalar(false)
+# """
+# function Adapt.adapt_structure(to, assembler::FiniteElementContainers.StaticAssembler)
+#   I = FiniteElementContainers.int_type(assembler)
+#   F = FiniteElementContainers.float_type(assembler)
+#   R = Adapt.adapt_structure(to, assembler.R)
+#   K = Adapt.adapt_structure(to, assembler.K)
+#   return FiniteElementContainers.StaticAssembler{I, F, typeof(R), typeof(K)}(R, K)
+# end
 
 end # module

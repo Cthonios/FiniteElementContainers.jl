@@ -2,7 +2,6 @@ module FiniteElementContainers
 
 # Meshes exports
 export FileMesh
-export Mesh
 export coordinates
 export element_block_ids
 export element_connectivity
@@ -52,7 +51,6 @@ export num_q_points
 # Assemblers
 export StaticAssembler
 export assemble!
-export remove_constraints
 
 
 export axes
@@ -63,6 +61,7 @@ export size
 
 # dependencies
 using DocStringExtensions
+using FillArrays
 using LinearAlgebra
 using ReferenceFiniteElements
 using SparseArrays
