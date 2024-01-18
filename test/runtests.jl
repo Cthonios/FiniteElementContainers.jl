@@ -7,10 +7,6 @@ using Parameters
 using Test
 using TestSetExtensions
 
-# @testset ExtendedTestSet "Exodus Mesh Read" begin
-#   mesh = Mesh(ExodusDatabase, "./poisson/poisson.g")
-# end
-
 @testset ExtendedTestSet "Element Field" begin
   vals = rand(2, 20)
 
@@ -86,6 +82,10 @@ end
   end
 end
 
+@testset ExtendedTestSet "Eigen problem" begin
+  include("eigen/TestEigen.jl")
+end
+
 @testset ExtendedTestSet "Poisson problem" begin
   include("poisson/TestPoisson.jl")
 end
@@ -94,6 +94,6 @@ end
   Aqua.test_all(FiniteElementContainers; ambiguities=false)
 end
 
-# @testset ExtendedTestSet "JET" begin
-#   JET.test_package(FiniteElementContainers; target_defined_modules=true)
-# end
+@testset ExtendedTestSet "JET" begin
+  JET.test_package(FiniteElementContainers; target_defined_modules=true)
+end

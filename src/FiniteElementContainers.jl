@@ -37,7 +37,7 @@ export create_fields
 export create_unknowns
 export dof_connectivity
 export update_fields!
-export update_unknown_ids!
+export update_unknown_dofs!
 
 # FunctionSpaces
 # export AbstractFunctionSpace
@@ -49,19 +49,13 @@ export num_elements
 export num_q_points
 
 # Assemblers
+export Assembler
+export DynamicAssembler
 export StaticAssembler
 export assemble!
 
-
-export axes
-export getindex
-export setindex!
-export size
-
-
 # dependencies
 using DocStringExtensions
-using FillArrays
 using LinearAlgebra
 using ReferenceFiniteElements
 using SparseArrays
@@ -85,12 +79,13 @@ $(DOCSTRING)
 
 abstract type FEMContainer end
 
-include("Fields.jl")
+include("fields/Fields.jl")
 include("Connectivities.jl")
 include("Meshes.jl")
 
 include("DofManagers.jl")
 include("FunctionSpaces.jl")
-include("Assemblers.jl")
+# include("Assemblers.jl")
+include("assemblers/Assemblers.jl")
 
 end # module

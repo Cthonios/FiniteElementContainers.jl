@@ -29,42 +29,38 @@ for type in types
 
   mesh_new = FileMesh(ExodusDatabase, "./poisson/poisson.g")
   coords  = coordinates(mesh_new)
-  coords  = NodalField{size(coords, 1), size(coords, 2), type}(coords)
+  coords  = NodalField{size(coords), type}(coords)
   conn    = element_connectivity(mesh_new, 1)
-  conn    = ElementField{size(conn, 1), size(conn, 2), type}(convert.(Int64, conn))
+  conn    = ElementField{size(conn), type}(convert.(Int64, conn))
   elem    = element_type(mesh_new, 1)
   nsets   = nodeset.((mesh_new,), [1, 2, 3, 4])
   nsets   = map(nset -> convert.(Int64, nset), nsets)
-  dof     = DofManager{1, size(coords, 2), type}()
+  dof     = DofManager{1, size(coords, 2), type{Float64}}()
   fspaces = NonAllocatedFunctionSpace[
     NonAllocatedFunctionSpace(dof, conn, 2, elem)
   ]
   asm     = StaticAssembler(dof, fspaces)
 
   # set up bcs
-  update_unknown_ids!(dof, nsets, [1, 1, 1, 1])
-  bc_nodes = unique!(vcat(nsets...))
-  update_unknown_ids!(asm, fspaces, bc_nodes)
+  # update_unknown_ids!(dof, nsets, [1, 1, 1, 1])
+  bc_nodes = sort!(unique!(vcat(nsets...)))
+  update_unknown_dofs!(dof, bc_nodes)
+  update_unknown_dofs!(asm, dof, fspaces, bc_nodes)
 
 
   # now pre-allocate arrays
   U   = create_fields(dof)
   Uu  = create_unknowns(dof)
+  ΔUu = create_unknowns(dof)
   Uu  .= 1.0
 
   function solve(asm, dof, fspaces, X, U, Uu)
     for n in 1:10
       update_fields!(U, dof, Uu)
-      # assemble!(asm, dof, fspaces, residual, tangent, X, U)
       assemble!(asm, dof, fspaces, X, U, residual, tangent)
-      # R, K = remove_constraints(asm, dof)
-      R = @views asm.residuals[dof.unknown_indices]
-      # K = sparse(asm) # this one not working at the moment
-      K = sparse(asm)#[dof.unknown_indices, dof.unknown_indices]
-      # @time K = K[dof.unknown_indices, dof.unknown_indices]
-      # ΔUu = -K \ R
-      ΔUu = cg(-K, R)
-      # ΔUu = -K * R
+      R = asm.residuals[dof.unknown_dofs]
+      K = sparse(asm)
+      cg!(ΔUu, -K, R)
       @show norm(ΔUu) norm(R)
       if norm(R) < 1e-12
         println("Converged")
