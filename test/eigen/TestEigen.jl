@@ -52,7 +52,7 @@ for type in types
   # bc_nodes = sort!(unique!(vcat(nsets...)))
   bc_nodes = Int64[]
   update_unknown_dofs!(dof, bc_nodes)
-  update_unknown_dofs!(asm, fspaces, bc_nodes)
+  update_unknown_dofs!(asm, dof, fspaces, bc_nodes)
 
 
   # now pre-allocate arrays

@@ -34,12 +34,15 @@ TODO remove other scratch unknowns and unknown_dofs arrays
 """
 function update_unknown_dofs!(
   assembler::Assembler,
+  dof,
   fspaces, 
   nodes_in::V
 ) where V <: AbstractVector{<:Integer}
 
   # make this an assumption of the method
   nodes = sort(nodes_in)
+
+  n_total_dofs = num_dofs_per_node(dof) * num_nodes(dof) - length(nodes)
 
   # TODO change to a good sizehint!
   resize!(assembler.Is, 0)
@@ -62,6 +65,12 @@ function update_unknown_dofs!(
       end
     end
   end
+
+  # resize cache arrays
+  resize!(assembler.klasttouch, n_total_dofs)
+  resize!(assembler.csrrowptr, n_total_dofs + 1)
+  resize!(assembler.csrcolval, length(assembler.Is))
+  resize!(assembler.csrnzval, length(assembler.Is))
 end
 
 # implementations

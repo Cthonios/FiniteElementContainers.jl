@@ -12,7 +12,11 @@ struct DynamicAssembler{
   Offsets <: AbstractArray{Itype, 1},
   R       <: AbstractArray{Rtype}, # can maybe be a nodalfield depending upon what the user wants
   K       <: AbstractArray{Rtype, 1}, # should always be a vector type thing
-  M       <: AbstractArray{Rtype, 1}
+  M       <: AbstractArray{Rtype, 1},
+  # cache types
+  C1, C2, C3, C4,
+  # additional cache arrays
+  C5, C6, C7
 } <: Assembler{Rtype, Itype}
   Is::I
   Js::J
@@ -22,6 +26,15 @@ struct DynamicAssembler{
   residuals::R
   stiffnesses::K
   masses::M
+  # cache arrays
+  klasttouch::C1
+  csrrowptr::C2
+  csrcolval::C3
+  csrnzval::C4
+  # additional cache arrays
+  csccolptr::C5
+  cscrowval::C6
+  cscnzval::C7
 end
 
 """
@@ -31,6 +44,9 @@ Assumes no dirichlet bcs
 TODO add typing to constructor
 """
 function DynamicAssembler(dof::DofManager, fspaces::Fs) where Fs
+
+  # get number of dofs for creating cache arrays
+  n_total_dofs = num_dofs_per_node(dof) * num_nodes(dof)
 
   # first get total number of entries in a stupid matter
   n_entries = 0
@@ -66,11 +82,31 @@ function DynamicAssembler(dof::DofManager, fspaces::Fs) where Fs
   stiffnesses = zeros(Float64, size(Is))
   masses = zeros(Float64, size(Is))
 
+  # create caches
+  klasttouch = zeros(Int64, n_total_dofs)
+  csrrowptr  = zeros(Int64, n_total_dofs + 1)
+  csrcolval  = zeros(Int64, length(Is))
+  csrnzval   = zeros(Float64, length(Is))
+
+  csccolptr = Vector{Int64}(undef, 0)
+  cscrowval = Vector{Int64}(undef, 0)
+  cscnzval  = Vector{Float64}(undef, 0)
+
   return DynamicAssembler{
     Float64, Int64, 
     typeof(Is), typeof(Js), typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
-    typeof(residuals), typeof(stiffnesses), typeof(masses)
-  }(Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses, masses)
+    typeof(residuals), typeof(stiffnesses), typeof(masses),
+    # cache arrays
+    typeof(klasttouch), typeof(csrrowptr), typeof(csrcolval), typeof(csrnzval),
+    # additional cache arrays
+    typeof(csccolptr), typeof(cscrowval), typeof(cscnzval)
+  }(
+    Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses, masses,
+    # cache arrays
+    klasttouch, csrrowptr, csrcolval, csrnzval,
+    # additional cache arrays
+    csccolptr, cscrowval, cscnzval
+  )
 end
 
 """
@@ -79,6 +115,25 @@ function SparseArrays.sparse(assembler::DynamicAssembler)
   ids = assembler.unknown_dofs
   K = sparse(assembler.Is, assembler.Js, assembler.stiffnesses[ids])
   M = sparse(assembler.Is, assembler.Js, assembler.masses[ids])
+  return K, M
+end
+
+"""
+"""
+function SparseArrays.sparse!(assembler::DynamicAssembler)
+  ids = assembler.unknown_dofs
+  K = SparseArrays.sparse!(
+    assembler.Is, assembler.Js, assembler.stiffnesses[ids],
+    length(assembler.klasttouch), length(assembler.klasttouch), +, assembler.klasttouch,
+    assembler.csrrowptr, assembler.csrcolval, assembler.csrnzval,
+    assembler.csccolptr, assembler.cscrowval, assembler.cscnzval
+  )
+  M = SparseArrays.sparse!(
+    assembler.Is, assembler.Js, assembler.stiffnesses[ids],
+    length(assembler.klasttouch), length(assembler.klasttouch), +, assembler.klasttouch,
+    assembler.csrrowptr, assembler.csrcolval, assembler.csrnzval,
+    assembler.csccolptr, assembler.cscrowval, assembler.cscnzval
+  )
   return K, M
 end
 

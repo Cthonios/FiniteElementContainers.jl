@@ -45,7 +45,7 @@ for type in types
   # update_unknown_ids!(dof, nsets, [1, 1, 1, 1])
   bc_nodes = sort!(unique!(vcat(nsets...)))
   update_unknown_dofs!(dof, bc_nodes)
-  update_unknown_dofs!(asm, fspaces, bc_nodes)
+  update_unknown_dofs!(asm, dof, fspaces, bc_nodes)
 
 
   # now pre-allocate arrays
