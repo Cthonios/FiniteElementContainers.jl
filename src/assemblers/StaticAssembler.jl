@@ -45,7 +45,6 @@ function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
   # get number of dofs for creating cache arrays
   n_total_dofs = num_dofs_per_node(dof) * num_nodes(dof)
 
-
   # first get total number of entries in a stupid matter
   n_entries = 0
   block_sizes = Vector{Int64}(undef, length(fspaces))
@@ -80,18 +79,11 @@ function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
   stiffnesses = zeros(Float64, size(Is))
 
   # create caches
-  # klasttouch = Vector{Int64}(undef, n_total_dofs)
-  # csrrowptr  = Vector{Int64}(undef, n_total_dofs + 1)
-  # csrcolval  = Vector{Int64}(undef, length(Is))
-  # csrnzval   = Vector{Float64}(undef, length(Is))
-
   klasttouch = zeros(Int64, n_total_dofs)
   csrrowptr  = zeros(Int64, n_total_dofs + 1)
   csrcolval  = zeros(Int64, length(Is))
   csrnzval   = zeros(Float64, length(Is))
 
-  # csccolptr = z(Int64, n_total_dofs + 1)
-  # cscrowval = zeros(Int64, )
   csccolptr = Vector{Int64}(undef, 0)
   cscrowval = Vector{Int64}(undef, 0)
   cscnzval  = Vector{Float64}(undef, 0)
