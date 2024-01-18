@@ -56,7 +56,6 @@ export assemble!
 
 # dependencies
 using DocStringExtensions
-using FillArrays
 using LinearAlgebra
 using ReferenceFiniteElements
 using SparseArrays
