@@ -39,22 +39,9 @@ end
 # no need for adapt_structure for connectivity fields since these are aliases anyway
 
 # DofManagers
-function Adapt.adapt_structure(to, dof::FiniteElementContainers.SimpleDofManager)
-  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
-  is_unknown      = Adapt.adapt_structure(to, dof.is_unknown)
-  unknown_indices = Adapt.adapt_structure(to, dof.unknown_indices)
-  return FiniteElementContainers.SimpleDofManager{Bool, 2, ND, NN, typeof(is_unknown), typeof(unknown_indices)}(
-    is_unknown, unknown_indices
-  )
-end
-
-function Adapt.adapt_structure(to, dof::FiniteElementContainers.VectorizedDofManager)
-  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
-  is_unknown      = Adapt.adapt_structure(to, dof.is_unknown)
-  unknown_indices = Adapt.adapt_structure(to, dof.unknown_indices)
-  return FiniteElementContainers.VectorizedDofManager{Bool, 2, ND, NN, typeof(is_unknown), typeof(unknown_indices)}(
-    is_unknown, unknown_indices
-  )
+function Adapt.adapt_structure(to, dof::FiniteElementContainers.DofManager{T, ND, NN, A, V}) where {T, ND, NN, A, V}
+  unknown_dofs = Adapt.adapt_structure(to, dof.unknown_dofs)
+  return FiniteElementContainers.DofManager{T, ND, NN, A, typeof(unknown_dofs)}(unknown_dofs)
 end
 
 # Function spaces
@@ -69,15 +56,57 @@ function Adapt.adapt_structure(to, fspace::FiniteElementContainers.NonAllocatedF
 end
 
 # Assemblers
-# """
-# Need to use SparseArrays.allowscalar(false)
-# """
-# function Adapt.adapt_structure(to, assembler::FiniteElementContainers.StaticAssembler)
-#   I = FiniteElementContainers.int_type(assembler)
-#   F = FiniteElementContainers.float_type(assembler)
-#   R = Adapt.adapt_structure(to, assembler.R)
-#   K = Adapt.adapt_structure(to, assembler.K)
-#   return FiniteElementContainers.StaticAssembler{I, F, typeof(R), typeof(K)}(R, K)
-# end
+function Adapt.adapt_structure(to, asm::FiniteElementContainers.DynamicAssembler)
+  I = FiniteElementContainers.int_type(assembler)
+  F = FiniteElementContainers.float_type(assembler)
+
+  Is = Adapt.adapt_structure(to, asm.Is)
+  Js = Adapt.adapt_structure(to, asm.Js)
+  unknown_dofs = Adapt.adapt_structure(to, asm.unknown_dofs)
+  block_sizes = Adapt.adapt_structure(to, asm.block_sizes)
+  block_offsets = Adapt.adapt_structure(to, asm.block_offsets)
+  residuals = Adapt.adapt_structure(to, asm.residuals)
+  stiffnesses = Adapt.adapt_structure(to, asm.stiffnesses)
+  masses = Adapt.adapt_structure(to, asm.masses)
+
+  return FiniteElementContainers.StaticAssembler{
+    F, I,
+    typeof(Is), typeof(Js), 
+    typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
+    typeof(residuals), tyepof(stiffnesses), typeof(masses)
+  }(Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses, masses)
+end
+
+function Adapt.adapt_structure(to, asm::FiniteElementContainers.StaticAssembler)
+  I = FiniteElementContainers.int_type(assembler)
+  F = FiniteElementContainers.float_type(assembler)
+
+  Is = Adapt.adapt_structure(to, asm.Is)
+  Js = Adapt.adapt_structure(to, asm.Js)
+  unknown_dofs = Adapt.adapt_structure(to, asm.unknown_dofs)
+  block_sizes = Adapt.adapt_structure(to, asm.block_sizes)
+  block_offsets = Adapt.adapt_structure(to, asm.block_offsets)
+  residuals = Adapt.adapt_structure(to, asm.residuals)
+  stiffnesses = Adapt.adapt_structure(to, asm.stiffnesses)
+
+  return FiniteElementContainers.StaticAssembler{
+    F, I,
+    typeof(Is), typeof(Js), 
+    typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
+    typeof(residuals), tyepof(stiffnesses)
+  }(Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses)
+end 
+
+ 
+# # """
+# # Need to use SparseArrays.allowscalar(false)
+# # """
+# # function Adapt.adapt_structure(to, assembler::FiniteElementContainers.StaticAssembler)
+# #   I = FiniteElementContainers.int_type(assembler)
+# #   F = FiniteElementContainers.float_type(assembler)
+# #   R = Adapt.adapt_structure(to, assembler.R)
+# #   K = Adapt.adapt_structure(to, assembler.K)
+# #   return FiniteElementContainers.StaticAssembler{I, F, typeof(R), typeof(K)}(R, K)
+# # end
 
 end # module

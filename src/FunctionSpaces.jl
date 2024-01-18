@@ -76,7 +76,7 @@ ReferenceFiniteElements.shape_function_gradients(fspace.ref_fe, q)
 function element_level_fields(fspace::FunctionSpace, u::NodalField)
   u_el = element_level_fields_reinterpret(fspace, u)
   NN, NE = num_nodes_per_element(fspace), num_elements(fspace)
-  u_el_ret = ElementField{NN, NE, StructVector, eltype(u_el)}(undef)
+  u_el_ret = ElementField{NN, NE, StructArray, eltype(u_el)}(undef)
   u_el_ret .= u_el
 end
 
@@ -428,7 +428,7 @@ function Base.show(io::IO, fspace::NonAllocatedFunctionSpace)
 end
 
 function NonAllocatedFunctionSpace(
-  dof_manager::SimpleDofManager,
+  dof_manager::DofManager,
   conn::SimpleConnectivity, 
   q_degree::Int, 
   elem_type::Type{<:ReferenceFiniteElements.ReferenceFEType}
@@ -436,7 +436,7 @@ function NonAllocatedFunctionSpace(
 
   ND       = num_dofs_per_node(dof_manager)
   NN, NE   = num_nodes_per_element(conn), num_elements(conn)
-  ids      = dof_ids(dof_manager)
+  ids      = reshape(dof_ids(dof_manager), ND, size(dof_manager, 2))
   # display(ids)
   temp     = reshape(ids[:, conn], ND * NN, NE)
   dof_conn = Connectivity{ND * NN, NE, Matrix, eltype(temp)}(temp)
@@ -447,7 +447,7 @@ function NonAllocatedFunctionSpace(
 end
 
 function NonAllocatedFunctionSpace(
-  dof_manager::VectorizedDofManager,
+  dof_manager::DofManager,
   conn::VectorizedConnectivity, 
   q_degree::Int, 
   elem_type::Type{<:ReferenceFiniteElements.ReferenceFEType}
@@ -540,7 +540,7 @@ function setup_shape_function_JxWs!(JxWs, Xs, conn, ref_fe)
 end
 
 function VectorizedPreAllocatedFunctionSpace(
-  dof_manager::VectorizedDofManager,
+  dof_manager::DofManager,
   # conn::VectorizedConnectivity, 
   conn,
   q_degree::Int, 

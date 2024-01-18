@@ -12,7 +12,7 @@ Base.setindex!(field::SimpleNodalField, v, n::Int) = setindex!(field.vals, v, n)
 Base.size(::SimpleNodalField{T, N, NF, NN, V}) where {T, N, NF, NN, V} = (NF, NN)
 
 function SimpleNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 2}}
-  @assert size(vals) == (NF, NN)
+  @assert size(vals) == (NF, NN) "NF = $NF, NN = $NN"
   SimpleNodalField{eltype(vals), 2, NF, NN, typeof(vals)}(vals)
 end
 

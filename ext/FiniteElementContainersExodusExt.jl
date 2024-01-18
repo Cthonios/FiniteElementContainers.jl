@@ -3,18 +3,22 @@ module FiniteElementContainersExodusExt
 using Exodus
 using FiniteElementContainers
 
-function FiniteElementContainers.FileMesh(::Type{ExodusDatabase}, file_name::String)
-  exo = ExodusDatabase(file_name, "r")
+function FiniteElementContainers.FileMesh(type::Type{<:ExodusDatabase}, file_name::String)
+  exo = type(file_name, "r")
   return FileMesh{typeof(exo)}(file_name, exo)
 end
 
-FiniteElementContainers.num_dimensions(
+function FiniteElementContainers.num_dimensions(
   mesh::FileMesh{<:ExodusDatabase}
-)  = mesh.mesh_obj.init.num_dim
+)::Int32
+  return mesh.mesh_obj.init.num_dim
+end
 
-FiniteElementContainers.num_nodes(
+function FiniteElementContainers.num_nodes(
   mesh::FileMesh{<:ExodusDatabase}
-) = mesh.mesh_obj.init.num_nodes
+)::Int32
+  return mesh.mesh_obj.init.num_nodes
+end
 
 function FiniteElementContainers.element_block_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, Block)
@@ -28,7 +32,7 @@ function FiniteElementContainers.sideset_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, SideSet)
 end
 
-function FiniteElementContainers.coordinates(mesh::FileMesh{<:ExodusDatabase}) 
+function FiniteElementContainers.coordinates(mesh::FileMesh{ExodusDatabase{M, I, B, F}})::Matrix{F} where {M, I, B, F} 
   coords = Exodus.read_coordinates(mesh.mesh_obj)
   return coords
 end

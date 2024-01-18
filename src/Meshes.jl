@@ -24,10 +24,13 @@ This type's methods are "overridden" in extensions.
 
 See FiniteElementContainersExodusExt for an example.
 """
+# struct FileMesh{MeshObj} <: AbstractMesh
 struct FileMesh{MeshObj} <: AbstractMesh
   file_name::String
   mesh_obj::MeshObj
 end
+# function num_dimensions(::FileMesh{ND, NN, M})::Int32 where {ND, NN, M}
+# num_nodes(::FileMesh{ND, NN, M}) where {ND, NN, M} = NN
 
 # struct DummyMeshObj
 # end
