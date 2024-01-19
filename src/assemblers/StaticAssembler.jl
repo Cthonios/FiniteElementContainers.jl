@@ -109,14 +109,14 @@ end
 """
 function SparseArrays.sparse(assembler::StaticAssembler)
   ids = assembler.unknown_dofs
-  return sparse(assembler.Is, assembler.Js, assembler.stiffnesses[ids])
+  return @views sparse(assembler.Is, assembler.Js, assembler.stiffnesses[ids])
 end
 
 """
 """
 function SparseArrays.sparse!(assembler::StaticAssembler)
   ids = assembler.unknown_dofs
-  return SparseArrays.sparse!(
+  return @views SparseArrays.sparse!(
     assembler.Is, assembler.Js, assembler.stiffnesses[ids],
     length(assembler.klasttouch), length(assembler.klasttouch), +, assembler.klasttouch,
     assembler.csrrowptr, assembler.csrcolval, assembler.csrnzval,
@@ -179,6 +179,9 @@ function assemble!(
 
 end
 
+"""
+Top level method using methods
+"""
 function assemble!(
   assembler::StaticAssembler,
   dof::DofManager,
