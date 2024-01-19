@@ -1,11 +1,15 @@
 push!(LOAD_PATH, "../src/")
-using FiniteElementContainers
 using Documenter
+using Exodus
+using FiniteElementContainers
 
 # DocMeta.setdocmeta!(FiniteElementContainers, :DocTestSetup, :(using FiniteElementContainers); recursive=true)
 
 makedocs(;
-    # modules=[FiniteElementContainers],
+    modules=[
+        FiniteElementContainers,
+        Base.get_extension(FiniteElementContainers, :FiniteElementContainersExodusExt)
+    ],
     authors="Craig M. Hamel <cmhamel32@gmail.com> and contributors",
     repo="https://github.com/Cthonios/FiniteElementContainers.jl/blob/{commit}{path}#{line}",
     source="src",
@@ -23,9 +27,12 @@ makedocs(;
         "Connectivities"  => "connectivities.md",
         "DofManager"      => "dof_manager.md",
         "Fields"          => "fields.md",
+        "Formulations"    => "formulations.md",
         "Function spaces" => "function_spaces.md",
         "Meshes"          => "meshes.md"
     ],
+    # delete later
+    checkdocs=:none
 )
 
 # deploydocs(;

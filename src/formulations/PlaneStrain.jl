@@ -1,5 +1,6 @@
 """
-$(TYPEDSIGNATURES)
+$(TYPEDEF)
+$(TYPEDFIELDS)
 """
 struct PlaneStrain <: AbstractMechanicsFormulation
 end

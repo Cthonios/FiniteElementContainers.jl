@@ -1,5 +1,5 @@
 """
-$(TYPEDSIGNATURES)
+$(TYPEDEF)
 """
 abstract type AbstractMechanicsFormulation end
 
