@@ -68,6 +68,11 @@ $(TYPEDSIGNATURES)
 """
 shape_function_gradients(fspace::FunctionSpace, q::Int) = 
 ReferenceFiniteElements.shape_function_gradients(fspace.ref_fe, q)
+"""
+$(TYPEDSIGNATURES)
+"""
+shape_function_hessians(fspace::FunctionSpace, q::Int) = 
+ReferenceFiniteElements.shape_function_hessians(fspace.ref_fe, q)
 
 #####################################################
 """
@@ -124,14 +129,25 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-volume(fspace::FunctionSpace, X::NodalField, q::Int, e::Int) = fspace[X, q, e].JxW
+volume(fspace::FunctionSpace, ::ReferenceFEType, X::NodalField, q::Int, e::Int) =
+fspace[X, q, e].JxW
+# volume(fspace::FunctionSpace, X::NodalField, q::Int, e::Int) = fspace[X, q, e].JxW
+
+function volume(fspace::FunctionSpace, ::R, X::NodalField, q::Int, e::Int) where R <: Tri3
+  @show "here"
+  X_el = element_level_fields(fspace, X, e)
+  w    = quadrature_weights(fspace, q)
+  vol  = w * cross(X_el[:, 1] - X_el[:, 2], X_el[:, 3] - X_el[:, 1])
+  return vol
+end
+
 """
 $(TYPEDSIGNATURES)
 """
 function volume(fspace::FunctionSpace, X::NodalField, e::Int)
   v = 0.0 # TODO place for unitful to not work
   for q in 1:num_q_points(fspace)
-    v = v + volume(fspace, X, q, e)
+    v = v + volume(fspace, fspace.ref_fe.ref_fe_type, X, q, e)
   end
   return v
 end
@@ -142,10 +158,23 @@ function volume(fspace::FunctionSpace, X::NodalField)
   v = 0.0
   for e in 1:num_elements(fspace)
     for q in 1:num_q_points(fspace)
-      v = v + volume(fspace, X, q, e)
+      v = v + volume(fspace, fspace.ref_fe.ref_fe_type, X, q, e)
     end
   end
   return v
+end
+
+function shape_function_gradient_and_volume(::ReferenceFiniteElements.ReferenceFEType, X_el, ∇N_ξ, w)
+  J    = X_el * ∇N_ξ
+  J_inv = inv(J)
+  ∇N_X = (J_inv * ∇N_ξ')'
+  return ∇N_X, JxW
+end 
+
+function shape_function_gradient_and_volume(ref_fe::ReferenceFE, X_el, q::Int)
+  ∇N_ξ = shape_function_gradients(ref_fe, q)
+  w    = quadrature_weights(ref_fe, q)
+  return shape_function_gradient_and_volume(ref_fe.ref_fe_type, X_el, ∇N_ξ, w)
 end
 
 ##############################################################################
