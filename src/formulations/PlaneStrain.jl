@@ -101,7 +101,10 @@ $(TYPEDSIGNATURES)
 """
 function extract_stress(::PlaneStrain, P::Tensor{2, 3, T, 9}) where T <: Number
   P_vec = tovoigt(SVector, P)
-  return SVector{4, T}((P_vec[1], P_vec[9], P_vec[6], P_vec[2]))
+  return SVector{4, T}((
+    P_vec[1], P_vec[9], 
+    P_vec[6], P_vec[2]
+  ))
 end
 """
 $(TYPEDSIGNATURES)

@@ -129,7 +129,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-volume(fspace::FunctionSpace, ::ReferenceFEType, X::NodalField, q::Int, e::Int) =
+volume(fspace::FunctionSpace, ::ReferenceFiniteElements.ReferenceFEType, X::NodalField, q::Int, e::Int) =
 fspace[X, q, e].JxW
 # volume(fspace::FunctionSpace, X::NodalField, q::Int, e::Int) = fspace[X, q, e].JxW
 
@@ -164,17 +164,23 @@ function volume(fspace::FunctionSpace, X::NodalField)
   return v
 end
 
-function shape_function_gradient_and_volume(::ReferenceFiniteElements.ReferenceFEType, X_el, ∇N_ξ, w)
-  J    = X_el * ∇N_ξ
-  J_inv = inv(J)
-  ∇N_X = (J_inv * ∇N_ξ')'
-  return ∇N_X, JxW
-end 
+# function shape_function_gradient_and_volume(::R, X_el, ∇N_ξ, w) where R <: ReferenceFiniteElements.ReferenceFEType
+#   # J = (X_el * ∇N_ξ)'
+#   # J_inv = inv(J)
+#   # ∇N_X = (J_inv * ∇N_ξ')'
+#   # JxW = det(J) * w
+#   # return ∇N_X, JxW
+# end 
 
 function shape_function_gradient_and_volume(ref_fe::ReferenceFE, X_el, q::Int)
-  ∇N_ξ = shape_function_gradients(ref_fe, q)
-  w    = quadrature_weights(ref_fe, q)
-  return shape_function_gradient_and_volume(ref_fe.ref_fe_type, X_el, ∇N_ξ, w)
+  ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
+  w    = ReferenceFiniteElements.quadrature_weights(ref_fe, q)
+  # return shape_function_gradient_and_volume(ref_fe.ref_fe_type, X_el, ∇N_ξ, w)
+  J = (X_el * ∇N_ξ)'
+  J_inv = inv(J)
+  ∇N_X = (J_inv * ∇N_ξ')'
+  JxW = det(J) * w
+  return ∇N_X, JxW
 end
 
 ##############################################################################
