@@ -1,8 +1,13 @@
 module FiniteElementContainersExodusExt
 
+using DocStringExtensions
 using Exodus
 using FiniteElementContainers
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 function FiniteElementContainers.FileMesh(type::Type{<:ExodusDatabase}, file_name::String)
   exo = type(file_name, "r")
   return FileMesh{typeof(exo)}(file_name, exo)
@@ -20,18 +25,30 @@ function FiniteElementContainers.num_nodes(
   return mesh.mesh_obj.init.num_nodes
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function FiniteElementContainers.element_block_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, Block)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function FiniteElementContainers.nodeset_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, NodeSet)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function FiniteElementContainers.sideset_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, SideSet)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function FiniteElementContainers.coordinates(mesh::FileMesh{ExodusDatabase{M, I, B, F}})::Matrix{F} where {M, I, B, F} 
   coords = Exodus.read_coordinates(mesh.mesh_obj)
   return coords

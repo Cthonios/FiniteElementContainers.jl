@@ -1,0 +1,169 @@
+include("Utils.jl")
+
+#####################################################
+
+"""
+$(TYPEDEF)
+"""
+abstract type FunctionSpace{NDof, RefFE, Conn} end
+"""
+$(TYPEDSIGNATURES)
+"""
+connectivity(fspace::FunctionSpace)             = fspace.conn
+"""
+$(TYPEDSIGNATURES)
+"""
+connectivity(fspace::FunctionSpace, e::Int)     = connectivity(fspace.conn, e)
+"""
+$(TYPEDSIGNATURES)
+"""
+dof_connectivity(fspace::FunctionSpace)         = fspace.dof_conn
+"""
+$(TYPEDSIGNATURES)
+"""
+dof_connectivity(fspace::FunctionSpace, e::Int) = connectivity(fspace.dof_conn, e)
+"""
+$(TYPEDSIGNATURES)
+"""
+reference_element(fspace::FunctionSpace)        = fspace.ref_fe
+"""
+$(TYPEDSIGNATURES)
+"""
+num_dimensions(fspace::FunctionSpace)           = ReferenceFiniteElements.num_dimensions(fspace.ref_fe.ref_fe_type)
+"""
+$(TYPEDSIGNATURES)
+"""
+num_elements(fspace::FunctionSpace)             = num_elements(fspace.conn)
+"""
+$(TYPEDSIGNATURES)
+"""
+num_nodes_per_element(fspace::FunctionSpace)    = ReferenceFiniteElements.num_nodes_per_element(fspace.ref_fe)
+"""
+$(TYPEDSIGNATURES)
+"""
+num_q_points(fspace::FunctionSpace)             = ReferenceFiniteElements.num_q_points(fspace.ref_fe)
+"""
+$(TYPEDSIGNATURES)
+"""
+num_dofs_per_node(::FunctionSpace{ND, RefFE, Conn}) where {ND, RefFE, Conn} = ND
+
+#####################################################
+"""
+$(TYPEDSIGNATURES)
+"""
+quadrature_points(fspace::FunctionSpace, q::Int) =
+ReferenceFiniteElements.quadrature_points(fspace.ref_fe, q)
+"""
+$(TYPEDSIGNATURES)
+"""
+quadrature_weights(fspace::FunctionSpace, q::Int) = 
+ReferenceFiniteElements.quadrature_weights(fspace.ref_fe, q)
+"""
+$(TYPEDSIGNATURES)
+"""
+shape_function_values(fspace::FunctionSpace, q::Int) = 
+ReferenceFiniteElements.shape_function_values(fspace.ref_fe, q) 
+"""
+$(TYPEDSIGNATURES)
+"""
+shape_function_gradients(fspace::FunctionSpace, q::Int) = 
+ReferenceFiniteElements.shape_function_gradients(fspace.ref_fe, q)
+
+#####################################################
+"""
+$(TYPEDSIGNATURES)
+"""
+function element_level_fields(fspace::FunctionSpace, u::NodalField)
+  u_el = element_level_fields_reinterpret(fspace, u)
+  NN, NE = num_nodes_per_element(fspace), num_elements(fspace)
+  u_el_ret = ElementField{NN, NE, StructArray, eltype(u_el)}(undef)
+  u_el_ret .= u_el
+end
+"""
+$(TYPEDSIGNATURES)
+"""
+function element_level_fields(fspace::FunctionSpace, u, e::Int)
+  NF, NN = num_fields(u), num_nodes_per_element(fspace)
+  u_el = SMatrix{NF, NN, eltype(u), NF * NN}(@views vec(u[:, connectivity(fspace, e)]))
+  return u_el
+end
+"""
+$(TYPEDSIGNATURES)
+"""
+function element_level_fields_reinterpret(fspace::FunctionSpace, u::NodalField)
+  NF, NN = num_fields(u), num_nodes_per_element(fspace)
+  u_el = reinterpret(SMatrix{NF, NN, eltype(u), NF * NN}, @views vec(u[:, connectivity(fspace)]))
+  return u_el
+end
+"""
+$(TYPEDSIGNATURES)
+"""
+function element_level_fields_reinterpret(fspace::FunctionSpace, u::NodalField, e::Int)
+  NF, NN = num_fields(u), num_nodes_per_element(fspace)
+  u_el = reinterpret(SMatrix{NF, NN, eltype(u), NF * NN}, @views vec(u[:, connectivity(fspace, e)]))
+  return u_el
+end
+"""
+$(TYPEDSIGNATURES)
+"""
+function quadrature_level_field_values(fspace::FunctionSpace, ::NodalField, u::NodalField, q::Int, e::Int)
+  u_el = element_level_fields(fspace, u, e)
+  N_q  = shape_function_values(fspace, q)
+  return u_el * N_q
+end
+"""
+$(TYPEDSIGNATURES)
+"""
+function quadrature_level_field_gradients(fspace::FunctionSpace, X::NodalField, u::NodalField, q::Int, e::Int)
+  X_el = element_level_fields(fspace, X, e)
+  u_el = element_level_fields(fspace, u, e)
+  ∇N_ξ = shape_function_gradients(fspace, q)
+  ∇N_X = map_shape_function_gradients(X_el, ∇N_ξ)
+  return u_el * ∇N_X
+end
+"""
+$(TYPEDSIGNATURES)
+"""
+volume(fspace::FunctionSpace, X::NodalField, q::Int, e::Int) = fspace[X, q, e].JxW
+"""
+$(TYPEDSIGNATURES)
+"""
+function volume(fspace::FunctionSpace, X::NodalField, e::Int)
+  v = 0.0 # TODO place for unitful to not work
+  for q in 1:num_q_points(fspace)
+    v = v + volume(fspace, X, q, e)
+  end
+  return v
+end
+"""
+$(TYPEDSIGNATURES)
+"""
+function volume(fspace::FunctionSpace, X::NodalField)
+  v = 0.0
+  for e in 1:num_elements(fspace)
+    for q in 1:num_q_points(fspace)
+      v = v + volume(fspace, X, q, e)
+    end
+  end
+  return v
+end
+
+##############################################################################
+
+# TODO better type this guy
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
+struct Interpolants{A1, A2, A3, A4}
+  X_q::A1
+  N::A2
+  ∇N_X::A3
+  JxW::A4
+end
+
+# Implementations
+include("NonAllocatedFunctionSpace.jl")
+include("VectorizedPreAllocatedFunctionSpace.jl")
+
+
