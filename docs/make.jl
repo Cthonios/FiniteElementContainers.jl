@@ -1,4 +1,4 @@
-push!(LOAD_PATH, "../src/")
+# push!(LOAD_PATH, "../src/")
 using Documenter
 using Exodus
 using FiniteElementContainers
@@ -35,7 +35,7 @@ makedocs(;
     checkdocs=:none
 )
 
-# deploydocs(;
-#     repo="github.com/Cthonios/FiniteElementContainers.jl",
-#     devbranch="main",
-# )
+deploydocs(;
+    repo="github.com/Cthonios/FiniteElementContainers.jl",
+    devbranch="main",
+)
