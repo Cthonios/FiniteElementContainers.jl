@@ -3,7 +3,7 @@ using Documenter
 using Exodus
 using FiniteElementContainers
 
-# DocMeta.setdocmeta!(FiniteElementContainers, :DocTestSetup, :(using FiniteElementContainers); recursive=true)
+DocMeta.setdocmeta!(FiniteElementContainers, :DocTestSetup, :(using FiniteElementContainers); recursive=true)
 
 makedocs(;
     modules=[
