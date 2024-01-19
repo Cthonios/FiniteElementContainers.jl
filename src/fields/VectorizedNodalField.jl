@@ -1,3 +1,6 @@
+"""
+$(TYPEDEF)
+"""
 struct VectorizedNodalField{
   T, N, NF, NN, Vals <: AbstractArray{T, 1}
 } <: NodalField{T, N, NF, NN, Vals}
@@ -24,56 +27,85 @@ Base.size(::VectorizedNodalField{T, 1, NF, NN, V}) where {T, NF, NN, V <: DenseA
 Base.size(::VectorizedNodalField{T, 2, NF, NN, V}) where {T, NF, NN, V <: DenseArray} = (NF, NN)
 Base.size(::VectorizedNodalField{T, N, NF, NN, V}) where {T, N, NF, NN, V <: StructArray}   = (NN,)
 
+"""
+```VectorizedNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 1}}```
+"""
 function VectorizedNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 1}}
   @assert length(vals) == NF * NN
   VectorizedNodalField{eltype(vals), 2, NF, NN, typeof(vals)}(vals)
 end
 
+"""
+```VectorizedNodalField{NF, NN}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 2}}```
+"""
 function VectorizedNodalField{NF, NN}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 2}}
   @assert size(vals) == (NF, NN)
   new_vals = vec(vals)
   VectorizedNodalField{eltype(new_vals), 2, NF, NN, typeof(new_vals)}(new_vals)
 end
 
+"""
+```VectorizedNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:AbstractArray, 1}}```
+"""
 function VectorizedNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:AbstractArray, 1}}
   @assert length(eltype(V)) == NF
   @assert size(vals) == (NN,)
   VectorizedNodalField{eltype(vals), 1, NF, NN, typeof(vals)}(vals)
 end
 
+"""
+```VectorizedNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T <: Number}```
+"""
 function VectorizedNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T <: Number}
   vals = Vector{T}(undef, NF * NN)
   return VectorizedNodalField{T, 2, NF, NN, typeof(vals)}(vals)
 end
 
+"""
+```VectorizedNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T <: AbstractArray}```
+"""
 function VectorizedNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T <: AbstractArray}
   @assert length(T) == NF
   vals = Vector{T}(undef, NN)
   return VectorizedNodalField{T, 1, NF, NN, typeof(vals)}(vals)
 end
 
+"""
+```VectorizedNodalField{NF, NN, StructArray, T}(::UndefInitializer) where {NF, NN, T}```
+"""
 function VectorizedNodalField{NF, NN, StructArray, T}(::UndefInitializer) where {NF, NN, T}
   @assert length(T) == NF
   vals = StructArray{T}(undef, NN)
   return VectorizedNodalField{T, 1, length(T), NN, typeof(vals)}(vals)
 end
 
+"""
+"""
 function Base.similar(field::VectorizedNodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals}
   vals = similar(field.vals)
   return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.zero(::Type{VectorizedNodalField{T, N, NF, NN, Vals}}) where {T, N, NF, NN, Vals <: AbstractVector}
   vals = zeros(T, NF * NN)
   return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.zero(::Type{VectorizedNodalField{T, N, NF, NN, Vals}}) where {T, N, NF, NN, Vals <: StructVector}
   vals = StructVector{T}(undef, NN)
   vals .= zero(T)
   return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.zero(field::VectorizedNodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals}
   vals = zero(field.vals)
   return VectorizedNodalField{T, N, NF, NN, Vals}(vals)

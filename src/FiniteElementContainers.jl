@@ -64,18 +64,18 @@ using StructArrays
 using Tensors
 
 # for docs
-@template (FUNCTIONS, METHODS, MACROS) =
-"""
-$(TYPEDSIGNATURES)
-$(DOCSTRING)
-$(METHODLIST)
-"""
+# @template (FUNCTIONS, METHODS, MACROS) =
+# """
+# $(TYPEDSIGNATURES)
+# $(DOCSTRING)
+# $(METHODLIST)
+# """
 
-@template (TYPES) =
-"""
-$(TYPEDFIELDS)
-$(DOCSTRING)
-"""
+# @template (TYPES) =
+# """
+# $(TYPEDFIELDS)
+# $(DOCSTRING)
+# """
 
 abstract type FEMContainer end
 

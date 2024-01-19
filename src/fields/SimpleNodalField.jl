@@ -1,4 +1,5 @@
 """
+$(TYPEDEF)
 """
 struct SimpleNodalField{
   T, N, NF, NN, Vals <: AbstractArray{T, 2}
@@ -14,6 +15,7 @@ Base.setindex!(field::SimpleNodalField, v, n::Int) = setindex!(field.vals, v, n)
 Base.size(::SimpleNodalField{T, N, NF, NN, V}) where {T, N, NF, NN, V} = (NF, NN)
 
 """
+```SimpleNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 2}}```
 """
 function SimpleNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 2}}
   @assert size(vals) == (NF, NN) "NF = $NF, NN = $NN"
@@ -21,6 +23,7 @@ function SimpleNodalField{NF, NN}(vals::V) where {NF, NN, V <: AbstractArray{<:N
 end
 
 """
+```SimpleNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T}```
 """
 function SimpleNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T}
   vals = Matrix{T}(undef, NF, NN)
@@ -28,6 +31,7 @@ function SimpleNodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T}
 end
 
 """
+$(TYPEDSIGNATURES)
 """
 function Base.similar(field::SimpleNodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals}
   vals = similar(field.vals)
@@ -35,6 +39,7 @@ function Base.similar(field::SimpleNodalField{T, N, NF, NN, Vals}) where {T, N, 
 end
 
 """
+$(TYPEDSIGNATURES)
 """
 function Base.zero(::Type{SimpleNodalField{T, N, NF, NN, Vals}}) where {T, N, NF, NN, Vals}
   vals = zeros(T, NF, NN)
@@ -42,6 +47,7 @@ function Base.zero(::Type{SimpleNodalField{T, N, NF, NN, Vals}}) where {T, N, NF
 end
 
 """
+$(TYPEDSIGNATURES)
 """
 function Base.zero(::SimpleNodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals}
   vals = zeros(T, NF, NN)

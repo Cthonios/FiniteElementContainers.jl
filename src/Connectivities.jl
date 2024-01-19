@@ -1,5 +1,14 @@
+"""
+$(TYPEDEF)
+"""
 const Connectivity{T, N, NN, NE, Vals}           = ElementField{T, N, NN, NE, Vals}
+"""
+$(TYPEDEF)
+"""
 const SimpleConnectivity{T, N, NN, NE, Vals}     = SimpleElementField{T, N, NN, NE, Vals}
+"""
+$(TYPEDEF)
+"""
 const VectorizedConnectivity{T, N, NN, NE, Vals} = VectorizedElementField{T, N, NN, NE, Vals}
 
 function SimpleConnectivity{NN, NE}(vals::M) where {NN, NE, M <: AbstractArray{<:Integer, 2}}
@@ -12,7 +21,13 @@ function SimpleConnectivity{NN, NE, Matrix, T}(::UndefInitializer) where {NN, NE
   return SimpleConnectivity{T, 2, NN, NE, typeof(vals)}(vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 connectivity(conn::SimpleConnectivity) = conn.vals
+"""
+$(TYPEDSIGNATURES)
+"""
 connectivity(conn::SimpleConnectivity, e::Int) = @views conn.vals[:, e] # TODO maybe a duplicate view here in some cases
 
 ###################################################################################
@@ -39,8 +54,17 @@ function VectorizedConnectivity{NN, NE, StructArray, SVector}(vals::M) where {NN
   return VectorizedConnectivity{eltype(new_vals), 1, NN, NE, typeof(new_vals)}(new_vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 connectivity(conn::VectorizedConnectivity) = conn.vals
+"""
+$(TYPEDSIGNATURES)
+"""
 connectivity(conn::VectorizedConnectivity{T, 1, NN, NE, Vals}, e::Int) where {T, NN, NE, Vals} = conn[e]
+"""
+$(TYPEDSIGNATURES)
+"""
 connectivity(conn::VectorizedConnectivity{T, 2, NN, NE, Vals}, e::Int) where {T, NN, NE, Vals} = @views conn[:, e] # TODO maybe a duplicate view here in some cases
 
 ###################################################################################

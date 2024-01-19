@@ -1,3 +1,6 @@
+"""
+$(TYPEDEF)
+"""
 struct VectorizedElementField{
   T, N, NN, NE, Vals <: AbstractArray{T, 1}
 } <: ElementField{T, N, NN, NE, Vals}
@@ -25,50 +28,77 @@ Base.size(::VectorizedElementField{T, 1, NN, NE, V}) where {T, NN, NE, V <: Dens
 Base.size(::VectorizedElementField{T, 2, NN, NE, V}) where {T, NN, NE, V <: DenseArray} = (NN, NE)
 Base.size(::VectorizedElementField{T, N, NN, NE, V}) where {T, N, NN, NE, V <: StructArray} = (NE,)
 
+"""
+```VectorizedElementField{NN, NE}(vals::Matrix{<:Number}) where {NN, NE}```
+"""
 function VectorizedElementField{NN, NE}(vals::Matrix{<:Number}) where {NN, NE}
   @assert size(vals) == (NN, NE)
   new_vals = vec(vals)
   VectorizedElementField{eltype(new_vals), 2, NN, NE, typeof(new_vals)}(new_vals)
 end
 
+"""
+```VectorizedElementField{NN, NE}(vals::V) where {NN, NE, V <: AbstractArray{<:Number, 1}}```
+"""
 function VectorizedElementField{NN, NE}(vals::V) where {NN, NE, V <: AbstractArray{<:Number, 1}}
   @assert length(vals) == NN * NE
   VectorizedElementField{eltype(vals), 2, NN, NE, typeof(vals)}(vals)
 end
 
+"""
+```VectorizedElementField{NN, NE}(vals::V) where {NN, NE, V <: AbstractArray{<:AbstractArray, 1}}```
+"""
 function VectorizedElementField{NN, NE}(vals::V) where {NN, NE, V <: AbstractArray{<:AbstractArray, 1}}
   @assert length(eltype(V)) == NN
   @assert size(vals) == (NE,)
   VectorizedElementField{eltype(vals), 1, NN, NE, typeof(vals)}(vals)
 end
 
+"""
+```VectorizedElementField{NN, NE, T}(::UndefInitializer) where {NN, NE, T <: Number}```
+"""
 function VectorizedElementField{NN, NE, T}(::UndefInitializer) where {NN, NE, T <: Number}
   vals = Vector{T}(undef, NN * NE)
   return VectorizedElementField{T, 2, NN, NE, typeof(vals)}(vals)
 end
 
+"""
+```VectorizedElementField{NN, NE, T}(::UndefInitializer) where {NN, NE, T <: AbstractArray}```
+"""
 function VectorizedElementField{NN, NE, T}(::UndefInitializer) where {NN, NE, T <: AbstractArray}
   @assert length(T) == NN
   vals = Vector{T}(undef, NE)
   return VectorizedElementField{T, 1, NN, NE, typeof(vals)}(vals)
 end
 
+"""
+```VectorizedElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T}```
+"""
 function VectorizedElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T}
   @assert length(T) == NN
   vals = StructArray{T}(undef, NE)
   return VectorizedElementField{T, 1, length(T), NE, typeof(vals)}(vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.similar(field::VectorizedElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals}
   vals = similar(field.vals)
   return VectorizedElementField{T, N, NN, NE, Vals}(vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.zero(::Type{VectorizedElementField{T, N, NN, NE, Vals}}) where {T, N, NN, NE, Vals <: AbstractVector}
   vals = zeros(T, NN * NE)
   return VectorizedElementField{T, N, NN, NE, Vals}(vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.zero(field::VectorizedElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals}
   vals = zero(field.vals)
   return VectorizedElementField{T, N, NN, NE, Vals}(vals)
