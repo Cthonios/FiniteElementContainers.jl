@@ -1,15 +1,45 @@
+"""
+"""
 abstract type AbstractField{T, N, NF, Vals} <: AbstractArray{T, N} end
+
+"""
+"""
 abstract type ElementField{T, N, NN, NE, Vals} <: AbstractField{T, N, NN, Vals} end
+
+"""
+"""
 abstract type NodalField{T, N, NF, NN, Vals} <: AbstractField{T, N, NF, Vals} end
+
+"""
+"""
 abstract type QuadratureField{T, N, NF, NQ, NE, Vals} <: AbstractField{T, N, NF, Vals} end
 
+"""
+"""
 Base.eltype(::Type{AbstractField{T, N, NF, Vals}}) where {T, N, NF, Vals} = T
+
+"""
+"""
 num_fields(::AbstractField{T, N, NF, Vals}) where {T, N, NF, Vals} = NF
 
+"""
+"""
 num_elements(::ElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals} = NE
+
+"""
+"""
 num_elements(::QuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals} = NE
+
+"""
+"""
 num_nodes(::NodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals} = NN
+
+"""
+"""
 num_nodes_per_element(field::ElementField) = num_fields(field)
+
+"""
+"""
 num_q_points(::QuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals} = NQ
 
 ###############################################
