@@ -1,14 +1,5 @@
 ```@meta
 CurrentModule = FiniteElementContainers
 ```
-
 # FiniteElementContainers
-
-Documentation for [FiniteElementContainers](https://github.com/cmhamel/FiniteElementContainers.jl).
-
-```@index
-```
-
-```@autodocs
-Modules = [FiniteElementContainers]
-```
+A set of containers to help in the setup of FEM codes.

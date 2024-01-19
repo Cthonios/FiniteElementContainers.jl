@@ -1,17 +1,21 @@
 """
+$(TYPEDEF)
 """
 abstract type Assembler{Rtype, Itype} end
 
 """
+$(TYPEDSIGNATURES)
 """
 int_type(::Assembler{R, I}) where {R, I} = I
 
 """
+$(TYPEDSIGNATURES)
 """
 float_type(::Assembler{R, I}) where {R, I} = R
 
 
 """
+$(TYPEDSIGNATURES)
 assembly method for just a residual vector
 
 TODO need to add an Atomix lock here
@@ -28,6 +32,7 @@ function assemble!(
 end
 
 """
+$(TYPEDSIGNATURES)
 method that assumes first dof
 TODO move sorting of nodes up stream
 TODO remove other scratch unknowns and unknown_dofs arrays

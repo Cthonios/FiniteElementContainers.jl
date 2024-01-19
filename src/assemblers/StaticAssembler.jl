@@ -1,4 +1,6 @@
 """
+$(TYPEDEF)
+$(TYPEDFIELDS)
 Assembler for static or quasistatic problems where
 only a stiffness matrix is necessary
 """
@@ -106,6 +108,7 @@ function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
 end
 
 """
+$(TYPEDSIGNATURES)
 """
 function SparseArrays.sparse(assembler::StaticAssembler)
   ids = assembler.unknown_dofs
@@ -113,6 +116,7 @@ function SparseArrays.sparse(assembler::StaticAssembler)
 end
 
 """
+$(TYPEDSIGNATURES)
 """
 function SparseArrays.sparse!(assembler::StaticAssembler)
   ids = assembler.unknown_dofs
@@ -125,6 +129,7 @@ function SparseArrays.sparse!(assembler::StaticAssembler)
 end
 
 """
+$(TYPEDSIGNATURES)
 assembly for stiffness matrix
 """
 function assemble!(
@@ -143,6 +148,7 @@ function assemble!(
 end
 
 """
+$(TYPEDSIGNATURES)
 Simple method for assembling in serial
 """
 function assemble!(
@@ -180,6 +186,7 @@ function assemble!(
 end
 
 """
+$(TYPEDSIGNATURES)
 Top level method using methods
 """
 function assemble!(
@@ -198,5 +205,3 @@ function assemble!(
   end
 
 end
-
-

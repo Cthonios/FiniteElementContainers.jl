@@ -2,11 +2,18 @@
 CurrentModule = FiniteElementContainers
 ```
 
-# Meshes
+# Assemblers
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = [
-  "Meshes.jl"
-]
+Pages = ["assemblers/Assemblers.jl"]
 Order = [:type, :function]
+```
+
+```@docs
+DynamicAssembler
+StaticAssembler
+```
+
+```@docs
+assemble!
 ```

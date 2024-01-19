@@ -40,7 +40,6 @@ export update_fields!
 export update_unknown_dofs!
 
 # FunctionSpaces
-# export AbstractFunctionSpace
 export AbstractMechanicsFormulation
 export FunctionSpace
 export NonAllocatedFunctionSpace
@@ -64,28 +63,28 @@ using StructArrays
 using Tensors
 
 # for docs
-@template (FUNCTIONS, METHODS, MACROS) =
-"""
-$(TYPEDSIGNATURES)
-$(DOCSTRING)
-$(METHODLIST)
-"""
+# @template (FUNCTIONS, METHODS, MACROS) =
+# """
+# $(TYPEDSIGNATURES)
+# $(DOCSTRING)
+# $(METHODLIST)
+# """
 
-@template (TYPES) =
-"""
-$(TYPEDFIELDS)
-$(DOCSTRING)
-"""
+# @template (TYPES) =
+# """
+# $(TYPEDFIELDS)
+# $(DOCSTRING)
+# """
 
 abstract type FEMContainer end
 
 include("fields/Fields.jl")
 include("Connectivities.jl")
 include("Meshes.jl")
-
 include("DofManagers.jl")
-include("FunctionSpaces.jl")
-# include("Assemblers.jl")
+include("function_spaces/FunctionSpaces.jl")
+
+include("formulations/Formulations.jl")
 include("assemblers/Assemblers.jl")
 
 end # module

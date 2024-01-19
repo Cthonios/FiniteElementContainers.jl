@@ -1,4 +1,6 @@
 """
+$(TYPEDEF)
+$(TYPEDFIELDS)
 Assembler for dynamic problems without damping
 
 Provides both a mass and stiffness matrix
@@ -110,6 +112,7 @@ function DynamicAssembler(dof::DofManager, fspaces::Fs) where Fs
 end
 
 """
+$(TYPEDSIGNATURES)
 """
 function SparseArrays.sparse(assembler::DynamicAssembler)
   ids = assembler.unknown_dofs
@@ -119,6 +122,7 @@ function SparseArrays.sparse(assembler::DynamicAssembler)
 end
 
 """
+$(TYPEDSIGNATURES)
 """
 function SparseArrays.sparse!(assembler::DynamicAssembler)
   ids = assembler.unknown_dofs
@@ -138,6 +142,7 @@ function SparseArrays.sparse!(assembler::DynamicAssembler)
 end
 
 """
+$(TYPEDSIGNATURES)
 assembly for stiffness matrix
 """
 function assemble!(
@@ -157,6 +162,7 @@ function assemble!(
 end
 
 """
+$(TYPEDSIGNATURES)
 Simple method for assembling in serial
 """
 function assemble!(
@@ -195,6 +201,9 @@ function assemble!(
 
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function assemble!(
   assembler::DynamicAssembler,
   dof::DofManager,
@@ -211,5 +220,3 @@ function assemble!(
   end
 
 end
-
-
