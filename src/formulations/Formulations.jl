@@ -14,17 +14,7 @@ include("ThreeDimensional.jl")
 """
 $(TYPEDSIGNATURES)
 """
-function discrete_gradient(fspace::FunctionSpace, type::Type{<:AbstractMechanicsFormulation}, X, q, e)
-  D = num_dimensions(fspace)
-
-  if type <: PlaneStrain
-    @assert D == 2
-  elseif type <: ThreeDimensional
-    @assert D == 3
-  else
-    @assert false
-  end
-
+function discrete_gradient(fspace::FunctionSpace, type::T, X, q, e) where T <: AbstractMechanicsFormulation
   X_el = element_level_fields(fspace, X, e)
   ∇N_X = map_shape_function_gradients(X_el, shape_function_gradients(fspace, q))
   G    = discrete_gradient(type, ∇N_X)
@@ -34,18 +24,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function discrete_symmetric_gradient(fspace, type::Type{<:AbstractMechanicsFormulation}, X, q, e)
-  D = num_dimensions(fspace)
-
-  # @assert D == 2
-  if type <: PlaneStrain
-    @assert D == 2
-  elseif type <: ThreeDimensional
-    @assert D == 3
-  else
-    @assert false
-  end
-
+function discrete_symmetric_gradient(fspace, type::T, X, q, e) where T <: AbstractMechanicsFormulation
   X_el = element_level_fields(fspace, X, e)
   ∇N_X = map_shape_function_gradients(X_el, shape_function_gradients(fspace, q))
   G    = discrete_symmetric_gradient(type, ∇N_X)

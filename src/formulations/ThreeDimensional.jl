@@ -67,7 +67,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function discrete_symmetric_gradient(::Type{ThreeDimensional}, ∇N_X)
+function discrete_symmetric_gradient(::ThreeDimensional, ∇N_X)
   N   = size(∇N_X, 1)
   tup = ntuple(i -> 0.0, Val(6 * 3 * N))
 

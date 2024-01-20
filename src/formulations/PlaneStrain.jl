@@ -36,7 +36,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function discrete_symmetric_gradient(::Type{PlaneStrain}, ∇N_X)
+function discrete_symmetric_gradient(::PlaneStrain, ∇N_X)
   N   = size(∇N_X, 1)
   tup = ntuple(i -> 0.0, Val(3 * 2 * N))
 
