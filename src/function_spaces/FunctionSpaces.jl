@@ -126,20 +126,15 @@ function quadrature_level_field_gradients(fspace::FunctionSpace, X::NodalField, 
   ∇N_X = map_shape_function_gradients(X_el, ∇N_ξ)
   return u_el * ∇N_X
 end
+
+# all ```volume``` methods below are incorrect
+# use shape_function_gradient_and_volume instead
 """
 $(TYPEDSIGNATURES)
 """
 volume(fspace::FunctionSpace, ::ReferenceFiniteElements.ReferenceFEType, X::NodalField, q::Int, e::Int) =
 fspace[X, q, e].JxW
 # volume(fspace::FunctionSpace, X::NodalField, q::Int, e::Int) = fspace[X, q, e].JxW
-
-function volume(fspace::FunctionSpace, ::R, X::NodalField, q::Int, e::Int) where R <: Tri3
-  @show "here"
-  X_el = element_level_fields(fspace, X, e)
-  w    = quadrature_weights(fspace, q)
-  vol  = w * cross(X_el[:, 1] - X_el[:, 2], X_el[:, 3] - X_el[:, 1])
-  return vol
-end
 
 """
 $(TYPEDSIGNATURES)
@@ -163,14 +158,6 @@ function volume(fspace::FunctionSpace, X::NodalField)
   end
   return v
 end
-
-# function shape_function_gradient_and_volume(::R, X_el, ∇N_ξ, w) where R <: ReferenceFiniteElements.ReferenceFEType
-#   # J = (X_el * ∇N_ξ)'
-#   # J_inv = inv(J)
-#   # ∇N_X = (J_inv * ∇N_ξ')'
-#   # JxW = det(J) * w
-#   # return ∇N_X, JxW
-# end 
 
 function shape_function_gradient_and_volume(ref_fe::ReferenceFE, X_el, q::Int)
   ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
@@ -200,5 +187,3 @@ end
 # Implementations
 include("NonAllocatedFunctionSpace.jl")
 include("VectorizedPreAllocatedFunctionSpace.jl")
-
-

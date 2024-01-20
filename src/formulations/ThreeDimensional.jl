@@ -106,10 +106,16 @@ function discrete_symmetric_gradient(::Type{ThreeDimensional}, ∇N_X)
   return SMatrix{3 * N, 6, eltype(∇N_X), 3 * N * 6}(tup)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function modify_field_gradients(::ThreeDimensional, ∇u_q, ::Type{<:SArray})
   return ∇u_q
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function modify_field_gradients(::ThreeDimensional, ∇u_q, ::Type{<:Tensor})
   return Tensor{2, 3, eltype(∇u_q), 9}(∇u_q)
   # return Tensor{2, 3, eltype(∇u_q), 9}((
@@ -119,11 +125,16 @@ function modify_field_gradients(::ThreeDimensional, ∇u_q, ::Type{<:Tensor})
   # ))
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 modify_field_gradients(form::ThreeDimensional, ∇u_q, type = Tensor) =
 modify_field_gradients(form, ∇u_q, type)
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function extract_stress(::ThreeDimensional, P::Tensor{2, 3, T, 9}) where T <: Number
-  # return tovoigt(SVector, P)
   P_vec = tovoigt(SVector, P)
   return SVector{9, T}((
     P_vec[1], P_vec[9], P_vec[8],
@@ -132,6 +143,9 @@ function extract_stress(::ThreeDimensional, P::Tensor{2, 3, T, 9}) where T <: Nu
   ))
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function extract_stiffness(::ThreeDimensional, A_in::Tensor{4, 3, T, 81}) where T <: Number
   A = tovoigt(SMatrix, A_in)
   return SMatrix{9, 9, T, 81}((

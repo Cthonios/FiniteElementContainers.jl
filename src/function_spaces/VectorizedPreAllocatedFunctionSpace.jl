@@ -35,7 +35,7 @@ function setup_shape_function_gradients!(∇N_Xs, Xs, conn, ref_fe)
     X = Xs[:, conn[e]]
     for q in axes(∇N_Xs, 1)
       ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
-      J     = X * ∇N_ξ
+      J     = (X * ∇N_ξ)'
       J_inv = inv(J)
       ∇N_Xs[q, e]  = (J_inv * ∇N_ξ')'
     end
@@ -48,7 +48,7 @@ function setup_shape_function_JxWs!(JxWs, Xs, conn, ref_fe)
     X = Xs[:, conn[e]]
     for q in axes(JxWs, 1)
       ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
-      J     = X * ∇N_ξ
+      J     = (X * ∇N_ξ)'
       JxWs[q, e] = det(J) * ReferenceFiniteElements.quadrature_weights(ref_fe, q)
     end
   end

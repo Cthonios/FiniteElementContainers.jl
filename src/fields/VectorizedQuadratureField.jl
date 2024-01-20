@@ -56,17 +56,17 @@ function VectorizedQuadratureField{NF, NQ, NE, Vector, T}(::UndefInitializer) wh
   return VectorizedQuadratureField{T, 2, NF, NQ, NE, typeof(vals)}(vals)
 end
 
-"""
-```VectorizedQuadratureField{1, NQ, NE, Vector, T}(::UndefInitializer) where {NQ, NE, T <: AbstractArray}```
-"""
+# """
+# ```VectorizedQuadratureField{1, NQ, NE, Vector, T}(::UndefInitializer) where {NQ, NE, T <: AbstractArray}```
+# """
 function VectorizedQuadratureField{1, NQ, NE, Vector, T}(::UndefInitializer) where {NQ, NE, T <: AbstractArray}
   vals = Vector{T}(undef, NQ * NE)
   return VectorizedQuadratureField{T, 2, length(T), NQ, NE, typeof(vals)}(vals)
 end
 
-"""
-```VectorizedQuadratureField{NF, NQ, NE, StructVector, T}(::UndefInitializer) where {NF, NQ, NE, T}```
-"""
+# """
+# ```VectorizedQuadratureField{NF, NQ, NE, StructVector, T}(::UndefInitializer) where {NF, NQ, NE, T}```
+# """
 function VectorizedQuadratureField{NF, NQ, NE, StructVector, T}(::UndefInitializer) where {NF, NQ, NE, T}
   @assert length(T) == NF
   vals = StructVector{T}(undef, NQ * NE)
