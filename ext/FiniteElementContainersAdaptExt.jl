@@ -56,7 +56,7 @@ function Adapt.adapt_structure(to, fspace::FiniteElementContainers.NonAllocatedF
 end
 
 # Assemblers
-function Adapt.adapt_structure(to, asm::FiniteElementContainers.DynamicAssembler)
+function Adapt.adapt_structure(to, asm::DynamicAssembler)
   I = FiniteElementContainers.int_type(assembler)
   F = FiniteElementContainers.float_type(assembler)
 
@@ -69,15 +69,36 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.DynamicAssembler
   stiffnesses = Adapt.adapt_structure(to, asm.stiffnesses)
   masses = Adapt.adapt_structure(to, asm.masses)
 
-  return FiniteElementContainers.StaticAssembler{
+  # cache arrays
+  klasttouch = Adapt.adapt_structure(to, asm.klasttouch)
+  csrrowptr  = Adapt.adapt_structure(to, asm.csrrowptr)
+  csrcolval  = Adapt.adapt_structure(to, asm.csrcolval)
+  csrnzval   = Adapt.adapt_structure(to, asm.csrnzval)
+
+  # additional cache arrays
+  csccolptr  = Adapt.adapt_structure(to, asm.csccolptr)
+  cscrowval  = Adapt.adapt_structure(to, asm.cscrowval)
+  cscnzval   = Adapt.adapt_structure(to, asm.cscnzval)
+
+  return DynamicAssembler{
     F, I,
     typeof(Is), typeof(Js), 
     typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
-    typeof(residuals), tyepof(stiffnesses), typeof(masses)
-  }(Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses, masses)
+    typeof(residuals), tyepof(stiffnesses), typeof(masses),
+    # cache arrays
+    typeof(klasttouch), typeof(csrrowptr), typeof(csrcolval), typeof(csrnzval),
+    # additional cache arrays
+    typeof(csccolptr), typeof(cscrowval), typeof(cscnzval)
+  }(
+    Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses, masses,
+    # cache arrays
+    klasttouch, csrrowptr, csrcolval, csrnzval,
+    # additional cache arrays
+    csccolptr, cscrowval, cscnzval
+  )
 end
 
-function Adapt.adapt_structure(to, asm::FiniteElementContainers.StaticAssembler)
+function Adapt.adapt_structure(to, asm::StaticAssembler)
   I = FiniteElementContainers.int_type(assembler)
   F = FiniteElementContainers.float_type(assembler)
 
@@ -89,12 +110,33 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.StaticAssembler)
   residuals = Adapt.adapt_structure(to, asm.residuals)
   stiffnesses = Adapt.adapt_structure(to, asm.stiffnesses)
 
-  return FiniteElementContainers.StaticAssembler{
+  # cache arrays
+  klasttouch = Adapt.adapt_structure(to, asm.klasttouch)
+  csrrowptr  = Adapt.adapt_structure(to, asm.csrrowptr)
+  csrcolval  = Adapt.adapt_structure(to, asm.csrcolval)
+  csrnzval   = Adapt.adapt_structure(to, asm.csrnzval)
+
+  # additional cache arrays
+  csccolptr  = Adapt.adapt_structure(to, asm.csccolptr)
+  cscrowval  = Adapt.adapt_structure(to, asm.cscrowval)
+  cscnzval   = Adapt.adapt_structure(to, asm.cscnzval)
+
+  return StaticAssembler{
     F, I,
     typeof(Is), typeof(Js), 
     typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
-    typeof(residuals), tyepof(stiffnesses)
-  }(Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses)
+    typeof(residuals), tyepof(stiffnesses),
+    # cache arrays
+    typeof(klasttouch), typeof(csrrowptr), typeof(csrcolval), typeof(csrnzval),
+    # additional cache arrays
+    typeof(csccolptr), typeof(cscrowval), typeof(cscnzval)
+  }(
+    Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses,
+    # cache arrays
+    klasttouch, csrrowptr, csrcolval, csrnzval,
+    # additional cache arrays
+    csccolptr, cscrowval, cscnzval
+  )
 end 
 
  

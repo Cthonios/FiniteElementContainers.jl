@@ -30,18 +30,18 @@ function SimpleElementField{NN, NE, Matrix, T}(::UndefInitializer) where {NN, NE
   return SimpleElementField{T, 2, NN, NE, typeof(vals)}(vals)
 end
 
-"""
-```SimpleElementField{NN, NE, StructVector, T}(::UndefInitializer) where {NN, NE, T}```
-"""
+# """
+# ```SimpleElementField{NN, NE, StructVector, T}(::UndefInitializer) where {NN, NE, T}```
+# """
 function SimpleElementField{NN, NE, StructVector, T}(::UndefInitializer) where {NN, NE, T}
   # @assert length(T) == NN
   vals = StructVector{T}(undef, NE)
   return SimpleElementField{T, 1, NN, NE, typeof(vals)}(vals)
 end
 
-"""
-```SimpleElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T}```
-"""
+# """
+# ```SimpleElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T}```
+# """
 function SimpleElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T}
   vals = StructArray{T}(undef, NN, NE)
   return SimpleElementField{T, 2, NN, NE, typeof(vals)}(vals)

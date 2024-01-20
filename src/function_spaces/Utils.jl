@@ -15,7 +15,7 @@ elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.ReferenceFEType}}(
 #####################################################
 
 function volume(X, ∇N_ξ)
-  J = X * ∇N_ξ
+  J = (X * ∇N_ξ)'
   return det(J)
 end
 

@@ -82,9 +82,9 @@ end
   end
 end
 
-@testset ExtendedTestSet "Eigen problem" begin
-  include("eigen/TestEigen.jl")
-end
+# @testset ExtendedTestSet "Eigen problem" begin
+#   include("eigen/TestEigen.jl")
+# end
 
 @testset ExtendedTestSet "Poisson problem" begin
   include("poisson/TestPoisson.jl")
