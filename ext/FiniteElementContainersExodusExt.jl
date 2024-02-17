@@ -16,13 +16,13 @@ end
 function FiniteElementContainers.num_dimensions(
   mesh::FileMesh{<:ExodusDatabase}
 )::Int32
-  return mesh.mesh_obj.init.num_dim
+  return Exodus.num_dimensions(mesh.mesh_obj.init)
 end
 
 function FiniteElementContainers.num_nodes(
   mesh::FileMesh{<:ExodusDatabase}
 )::Int32
-  return mesh.mesh_obj.init.num_nodes
+  return Exodus.num_nodes(mesh.mesh_obj.init)
 end
 
 """
