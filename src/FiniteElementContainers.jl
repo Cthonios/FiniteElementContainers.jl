@@ -50,10 +50,12 @@ export num_q_points
 # Assemblers
 export Assembler
 export DynamicAssembler
+export MatrixFreeAssembler
 export StaticAssembler
 export assemble!
 
 # dependencies
+using Atomix
 using DocStringExtensions
 using LinearAlgebra
 using ReferenceFiniteElements

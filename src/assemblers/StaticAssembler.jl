@@ -149,6 +149,28 @@ end
 
 """
 $(TYPEDSIGNATURES)
+assembly for stiffness matrix
+"""
+function assemble_atomic!(
+  assembler::StaticAssembler,
+  K_el::M, block_id::Int, el_id::Int
+) where M <: AbstractMatrix
+
+  # first get mapping from block and element id to ids in assembler.stiffnesses
+  start_id = (block_id - 1) * assembler.block_sizes[block_id] + 
+             (el_id - 1) * assembler.block_offsets[block_id] + 1
+  end_id = start_id + assembler.block_offsets[block_id] - 1
+  ids = start_id:end_id
+
+  # now assemble into stiffnesses
+  # Atomix.@atomic assembler.stiffnesses[ids] = K_el
+  for (n, id) in enumerate(ids)
+    Atomix.@atomic assembler.stiffnesses[id] = K_el[n]
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
 Simple method for assembling in serial
 """
 function assemble!(
