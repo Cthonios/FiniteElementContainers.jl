@@ -33,6 +33,23 @@ end
 
 """
 $(TYPEDSIGNATURES)
+assembly method for just a residual vector
+
+TODO need to add an Atomix lock here
+TODO add block_id to fspace or something like that
+"""
+function assemble_atomic!(
+  assembler::Assembler,
+  R_el::V1, conn::V2
+) where {V1 <: AbstractVector{<:Number}, V2 <: AbstractVector{<:Integer}}
+
+  for i in axes(conn, 1)
+    Atomix.@atomic assembler.residuals.vals[conn[i]] += R_el[i]
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
 method that assumes first dof
 TODO move sorting of nodes up stream
 TODO remove other scratch unknowns and unknown_dofs arrays
@@ -80,4 +97,5 @@ end
 
 # implementations
 include("DynamicAssemblers.jl")
+include("MatrixFreeAssembler.jl")
 include("StaticAssembler.jl")
