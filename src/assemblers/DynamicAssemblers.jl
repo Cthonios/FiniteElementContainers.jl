@@ -12,7 +12,6 @@ struct DynamicAssembler{
   U       <: AbstractArray{Itype, 1},
   Sizes   <: AbstractArray{Itype, 1},
   Offsets <: AbstractArray{Itype, 1},
-  R       <: AbstractArray{Rtype}, # can maybe be a nodalfield depending upon what the user wants
   K       <: AbstractArray{Rtype, 1}, # should always be a vector type thing
   M       <: AbstractArray{Rtype, 1},
   # cache types
@@ -25,7 +24,6 @@ struct DynamicAssembler{
   unknown_dofs::U
   block_sizes::Sizes
   block_offsets::Offsets
-  residuals::R
   stiffnesses::K
   masses::M
   # cache arrays
@@ -80,7 +78,6 @@ function DynamicAssembler(dof::DofManager, fspaces::Fs) where Fs
     end
   end
 
-  residuals = create_fields(dof)
   stiffnesses = zeros(Float64, size(Is))
   masses = zeros(Float64, size(Is))
 
@@ -97,13 +94,13 @@ function DynamicAssembler(dof::DofManager, fspaces::Fs) where Fs
   return DynamicAssembler{
     Float64, Int64, 
     typeof(Is), typeof(Js), typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
-    typeof(residuals), typeof(stiffnesses), typeof(masses),
+    typeof(stiffnesses), typeof(masses),
     # cache arrays
     typeof(klasttouch), typeof(csrrowptr), typeof(csrcolval), typeof(csrnzval),
     # additional cache arrays
     typeof(csccolptr), typeof(cscrowval), typeof(cscnzval)
   }(
-    Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses, masses,
+    Is, Js, unknown_dofs, block_sizes, block_offsets, stiffnesses, masses,
     # cache arrays
     klasttouch, csrrowptr, csrcolval, csrnzval,
     # additional cache arrays
@@ -166,6 +163,7 @@ $(TYPEDSIGNATURES)
 Simple method for assembling in serial
 """
 function assemble!(
+  R,
   assembler::DynamicAssembler,
   dof::DofManager,
   fspace::FunctionSpace,
@@ -193,7 +191,7 @@ function assemble!(
 
     # assemble residual using connectivity here
     conn = dof_connectivity(fspace, e)
-    assemble!(assembler, R_el, conn)
+    assemble!(R, R_el, conn)
 
     # assemble stiffness and mass
     assemble!(assembler, K_el, M_el, block_id, e)
@@ -205,6 +203,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble!(
+  R,
   assembler::DynamicAssembler,
   dof::DofManager,
   fspaces, X, U,
@@ -212,11 +211,11 @@ function assemble!(
 )
 
   # reset in some way
-  assembler.residuals .= 0.
-  assembler.stiffnesses .= 0.
+  R .= zero(eltype(R))
+  assembler.stiffnesses .= zero(eltype(assembler.stiffnesses))
 
   for (block_id, fspace) in enumerate(fspaces)
-    assemble!(assembler, dof, fspace, X, U, block_id, residual_func, tangent_func, mass_func)
+    assemble!(R, assembler, dof, fspace, X, U, block_id, residual_func, tangent_func, mass_func)
   end
 
 end

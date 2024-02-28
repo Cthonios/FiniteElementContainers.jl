@@ -50,7 +50,7 @@ export num_q_points
 # Assemblers
 export Assembler
 export DynamicAssembler
-export MatrixFreeAssembler
+export MatrixFreeStaticAssembler
 export StaticAssembler
 export assemble!
 

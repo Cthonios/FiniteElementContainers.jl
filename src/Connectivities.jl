@@ -47,6 +47,12 @@ function VectorizedConnectivity{NN, NE, Vector, SVector}(vals::M) where {NN, NE,
   return VectorizedConnectivity{eltype(new_vals), 1, NN, NE, typeof(new_vals)}(new_vals)
 end
 
+function VectorizedConnectivity{NN, NE, Vector, SVector}(vals::V) where {NN, NE, V <: Vector{<:Integer}}
+  @assert size(vals) == (NN * NE,)
+  new_vals = reinterpret(SVector{NN, eltype(vals)}, vals) |> collect
+  return VectorizedConnectivity{eltype(new_vals), 1, NN, NE, typeof(new_vals)}(new_vals)
+end
+
 function VectorizedConnectivity{NN, NE, StructArray, SVector}(vals::M) where {NN, NE, M <: Matrix{<:Integer}}
   @assert size(vals) == (NN, NE)
   new_vals = reinterpret(SVector{NN, eltype(vals)}, vec(vals)) |> collect
@@ -73,6 +79,7 @@ Connectivity{NN, NE, Matrix, T}(vals::Matrix{T}) where {NN, NE, T <: Integer} = 
 Connectivity{NN, NE, Vector, T}(vals::Matrix{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE}(vals)
 Connectivity{NN, NE, Vector, T}(vals::Vector{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE}(vals)
 Connectivity{NN, NE, Vector, SVector}(vals::Matrix{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE, Vector, SVector}(vals)
+Connectivity{NN, NE, Vector, SVector}(vals::Vector{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE, Vector, SVector}(vals)
 Connectivity{NN, NE, StructArray, SVector}(vals::Matrix{T}) where {NN, NE, T <: Integer} = VectorizedConnectivity{NN, NE, StructArray, SVector}(vals)
 
 ###################################################################################

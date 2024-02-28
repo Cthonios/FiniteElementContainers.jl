@@ -11,7 +11,6 @@ struct StaticAssembler{
   U       <: AbstractArray{Itype, 1},
   Sizes   <: AbstractArray{Itype, 1},
   Offsets <: AbstractArray{Itype, 1},
-  R       <: AbstractArray{Rtype}, # can maybe be a nodalfield depending upon what the user wants
   K       <: AbstractArray{Rtype, 1}, # should always be a vector type thing
   # cache types
   C1, C2, C3, C4,
@@ -23,7 +22,6 @@ struct StaticAssembler{
   unknown_dofs::U
   block_sizes::Sizes
   block_offsets::Offsets
-  residuals::R
   stiffnesses::K
   # cache arrays
   klasttouch::C1
@@ -53,9 +51,17 @@ function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
   block_offsets = Vector{Int64}(undef, length(fspaces))
   for (n, fspace) in enumerate(fspaces)
     conn = dof_connectivity(fspace)
-    n_entries += size(conn, 1)^2 * size(conn, 2)
-    block_sizes[n] = size(conn, 2)
-    block_offsets[n] = size(conn, 1)^2
+
+    # hacky for now
+    if eltype(conn) <: SVector
+      n_entries += length(conn[1])^2 * length(conn)
+      block_sizes[n] = length(conn)
+      block_offsets[n] = length(conn[1])^2
+    else
+      n_entries += size(conn, 1)^2 * size(conn, 2)
+      block_sizes[n] = size(conn, 2)
+      block_offsets[n] = size(conn, 1)^2
+    end
   end
 
   # setup pre-allocated arrays based on number of entries found above
@@ -77,7 +83,7 @@ function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
     end
   end
 
-  residuals = create_fields(dof)
+  # residuals = create_fields(dof)
   stiffnesses = zeros(Float64, size(Is))
 
   # create caches
@@ -93,13 +99,13 @@ function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
   return StaticAssembler{
     Float64, Int64, 
     typeof(Is), typeof(Js), typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
-    typeof(residuals), typeof(stiffnesses),
+    typeof(stiffnesses),
     # cache arrays
     typeof(klasttouch), typeof(csrrowptr), typeof(csrcolval), typeof(csrnzval),
     # additional cache arrays
     typeof(csccolptr), typeof(cscrowval), typeof(cscnzval)
   }(
-    Is, Js, unknown_dofs, block_sizes, block_offsets, residuals, stiffnesses,
+    Is, Js, unknown_dofs, block_sizes, block_offsets, stiffnesses,
     # cache arrays
     klasttouch, csrrowptr, csrcolval, csrnzval,
     # additional cache arrays
@@ -173,7 +179,9 @@ end
 $(TYPEDSIGNATURES)
 Simple method for assembling in serial
 """
+# TODO figure this one out
 function assemble!(
+  R,
   assembler::StaticAssembler,
   dof::DofManager,
   fspace::FunctionSpace,
@@ -199,7 +207,7 @@ function assemble!(
 
     # assemble residual using connectivity here
     conn = dof_connectivity(fspace, e)
-    assemble!(assembler, R_el, conn)
+    assemble!(R, R_el, conn)
 
     # assemble stiffness
     assemble!(assembler, K_el, block_id, e)
@@ -211,7 +219,9 @@ end
 $(TYPEDSIGNATURES)
 Top level method using methods
 """
+# TODO figure this one out
 function assemble!(
+  R, 
   assembler::StaticAssembler,
   dof::DofManager,
   fspaces, X, U,
@@ -219,11 +229,63 @@ function assemble!(
 )
 
   # reset in some way
-  assembler.residuals .= 0.
-  assembler.stiffnesses .= 0.
+  # assembler.residuals .= 0.
+  R .= zero(eltype(R))
+  assembler.stiffnesses .= zero(eltype(assembler.stiffnesses))
 
   for (block_id, fspace) in enumerate(fspaces)
-    assemble!(assembler, dof, fspace, X, U, block_id, residual_func, tangent_func)
+    assemble!(R, assembler, dof, fspace, X, U, block_id, residual_func, tangent_func)
   end
 
+end
+
+"""
+$(TYPEDSIGNATURES)
+method that assumes first dof
+TODO move sorting of nodes up stream
+TODO remove other scratch unknowns and unknown_dofs arrays
+"""
+function update_unknown_dofs!(
+  assembler::StaticAssembler,
+  dof,
+  fspaces, 
+  nodes_in::V
+) where V <: AbstractVector{<:Integer}
+
+  # make this an assumption of the method
+  nodes = sort(nodes_in)
+
+  n_total_dofs = num_dofs_per_node(dof) * num_nodes(dof) - length(nodes)
+
+  # TODO change to a good sizehint!
+  resize!(assembler.Is, 0)
+  resize!(assembler.Js, 0)
+  resize!(assembler.unknown_dofs, 0)
+
+  n = 1
+  for fspace in fspaces
+    for e in 1:num_elements(fspace)
+      conn = dof_connectivity(fspace, e)
+      for temp in Iterators.product(conn, conn)
+        if insorted(temp[1], nodes) || insorted(temp[2], nodes)
+          # really do nothing here
+        else
+          push!(assembler.Is, temp[1] - count(x -> x < temp[1], nodes))
+          push!(assembler.Js, temp[2] - count(x -> x < temp[2], nodes))
+          push!(assembler.unknown_dofs, n)
+        end
+        n += 1
+      end
+    end
+  end
+
+  # resize cache arrays
+  resize!(assembler.klasttouch, n_total_dofs)
+  resize!(assembler.csrrowptr, n_total_dofs + 1)
+  resize!(assembler.csrcolval, length(assembler.Is))
+  resize!(assembler.csrnzval, length(assembler.Is))
+
+  # resize!(assembler.stiffnesses, length(assembler.Is))
+
+  return nothing
 end
