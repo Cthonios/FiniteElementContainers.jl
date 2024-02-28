@@ -59,13 +59,17 @@ num_nodes(::DofManager{T, ND, NN, A, V}) where {T, ND, NN, A, V} = NN
 """
 $(TYPEDSIGNATURES)
 """
-create_fields(::DofManager{T, ND, NN, Matrix{R}, V}) where {T, ND, NN, R, V} = 
-zero(SimpleNodalField{R, 2, ND, NN, Matrix{R}})
+# create_fields(::DofManager{T, ND, NN, Matrix{R}, V}) where {T, ND, NN, R, V} = 
+# zero(SimpleNodalField{R, 2, ND, NN, Matrix{R}})
 """
 $(TYPEDSIGNATURES)
 """
-create_fields(::DofManager{T, ND, NN, Vector{R}, V}) where {T, ND, NN, R, V} = 
-zero(VectorizedNodalField{R, 2, ND, NN, Vector{R}})
+# create_fields(::DofManager{T, ND, NN, Vector{R}, V}) where {T, ND, NN, R, V} = 
+# zero(VectorizedNodalField{R, 2, ND, NN, Vector{R}})
+create_fields(::DofManager{T, ND, NN, A, V}) where {T, ND, NN, A <: AbstractArray{<:Number, 1}, V} = 
+zero(VectorizedNodalField{eltype(A), 2, ND, NN, A})
+create_fields(::DofManager{T, ND, NN, A, V}) where {T, ND, NN, A <: AbstractArray{<:Number, 2}, V} = 
+zero(SimpleNodalField{eltype(A), 2, ND, NN, A})
 """
 $(TYPEDSIGNATURES)
 """

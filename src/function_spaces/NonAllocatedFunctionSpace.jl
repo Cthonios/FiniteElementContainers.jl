@@ -55,6 +55,11 @@ function NonAllocatedFunctionSpace(
   temp     = reshape(ids[:, conn], ND * NN, NE)
   dof_conn = Connectivity{ND * NN, NE, Vector, eltype(temp)}(vec(temp))
   ref_fe   = ReferenceFE(elem_type(Val(q_degree)))
+
+  # new addition, may not be general enough
+  # conn = Connectivity{NN, NE, Vector, SVector}(conn.vals)
+  # dof_conn = Connectivity{ND * NN, NE, Vector, SVector}(dof_conn.vals)
+
   return NonAllocatedFunctionSpace{ND, typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
     conn, dof_conn, ref_fe
   )

@@ -99,8 +99,8 @@ function Adapt.adapt_structure(to, asm::DynamicAssembler)
 end
 
 function Adapt.adapt_structure(to, asm::StaticAssembler)
-  I = FiniteElementContainers.int_type(assembler)
-  F = FiniteElementContainers.float_type(assembler)
+  I = FiniteElementContainers.int_type(asm)
+  F = FiniteElementContainers.float_type(asm)
 
   Is = Adapt.adapt_structure(to, asm.Is)
   Js = Adapt.adapt_structure(to, asm.Js)
@@ -125,7 +125,7 @@ function Adapt.adapt_structure(to, asm::StaticAssembler)
     F, I,
     typeof(Is), typeof(Js), 
     typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
-    typeof(residuals), tyepof(stiffnesses),
+    typeof(residuals), typeof(stiffnesses),
     # cache arrays
     typeof(klasttouch), typeof(csrrowptr), typeof(csrcolval), typeof(csrnzval),
     # additional cache arrays

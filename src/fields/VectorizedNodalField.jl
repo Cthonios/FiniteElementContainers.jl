@@ -89,7 +89,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function Base.zero(::Type{VectorizedNodalField{T, N, NF, NN, Vals}}) where {T, N, NF, NN, Vals <: AbstractVector}
+function Base.zero(::Type{VectorizedNodalField{T, N, NF, NN, Vals}}) where {T, N, NF, NN, Vals <: AbstractArray{<:Number, 1}}
   vals = zeros(T, NF * NN)
   return VectorizedNodalField{T, N, NF, NN, Vals}(vals)
 end

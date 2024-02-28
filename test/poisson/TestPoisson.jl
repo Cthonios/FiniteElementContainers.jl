@@ -50,6 +50,7 @@ for type in types
 
   # now pre-allocate arrays
   U   = create_fields(dof)
+  R   = create_fields(dof)
   Uu  = create_unknowns(dof)
   ΔUu = create_unknowns(dof)
   Uu  .= 1.0
@@ -57,12 +58,13 @@ for type in types
   function solve(asm, dof, fspaces, X, U, Uu)
     for n in 1:10
       update_fields!(U, dof, Uu)
-      assemble!(asm, dof, fspaces, X, U, residual, tangent)
-      R = asm.residuals[dof.unknown_dofs]
+      assemble!(R, asm, dof, fspaces, X, U, residual, tangent)
+      # R = asm.residuals[dof.unknown_dofs]
+      R_view = @views R[dof.unknown_dofs]
       K = sparse(asm)
-      cg!(ΔUu, -K, R)
-      @show norm(ΔUu) norm(R)
-      if norm(R) < 1e-12
+      cg!(ΔUu, -K, R_view)
+      @show norm(ΔUu) norm(R_view)
+      if norm(R_view) < 1e-12
         println("Converged")
         break
       end
