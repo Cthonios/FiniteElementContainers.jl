@@ -49,7 +49,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.coordinates(mesh::FileMesh{ExodusDatabase{M, I, B, F}})::Matrix{F} where {M, I, B, F} 
+function FiniteElementContainers.coordinates(mesh::FileMesh{ExodusDatabase{M, I, B, F, Init}})::Matrix{F} where {M, I, B, F, Init} 
   coords = Exodus.read_coordinates(mesh.mesh_obj)
   return coords
 end
