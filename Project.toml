@@ -1,7 +1,7 @@
 name = "FiniteElementContainers"
 uuid = "d08262e4-672f-4e7f-a976-f2cea5767631"
 authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
-version = "0.5.1"
+version = "0.5.2"
 
 [deps]
 Atomix = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
@@ -28,7 +28,7 @@ Adapt = "3"
 Aqua = "0.8"
 Atomix = "0.1.0"
 DocStringExtensions = "0.9"
-Exodus = "0.12"
+Exodus = "0.13"
 IterativeSolvers = "0.9"
 JET = "0.8"
 KernelAbstractions = "0.9"

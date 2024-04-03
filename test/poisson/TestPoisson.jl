@@ -58,9 +58,10 @@ for type in types
   function solve(asm, dof, fspaces, X, U, Uu)
     for n in 1:10
       update_fields!(U, dof, Uu)
-      assemble!(R, asm, dof, fspaces, X, U, residual, tangent)
+      # assemble!(R, asm, dof, fspaces, X, U, residual, tangent)
+      assemble!(asm, dof, fspaces, X, U, residual, tangent)
       # R = asm.residuals[dof.unknown_dofs]
-      R_view = @views R[dof.unknown_dofs]
+      R_view = @views asm.residuals[dof.unknown_dofs]
       K = sparse(asm)
       cg!(ΔUu, -K, R_view)
       @show norm(ΔUu) norm(R_view)
