@@ -223,7 +223,7 @@ function assemble!(
   assembler.stiffnesses .= zero(eltype(assembler.stiffnesses))
 
   for (block_id, fspace) in enumerate(fspaces)
-    assemble!(R, assembler, dof, fspace, X, U, block_id, residual_func, tangent_func, mass_func)
+    assemble!(assembler, dof, fspace, X, U, block_id, residual_func, tangent_func, mass_func)
   end
 
 end
