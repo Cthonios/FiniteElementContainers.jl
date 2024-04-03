@@ -11,6 +11,7 @@ struct StaticAssembler{
   U       <: AbstractArray{Itype, 1},
   Sizes   <: AbstractArray{Itype, 1},
   Offsets <: AbstractArray{Itype, 1},
+  R       <: NodalField,
   K       <: AbstractArray{Rtype, 1}, # should always be a vector type thing
   # cache types
   C1, C2, C3, C4,
@@ -22,6 +23,7 @@ struct StaticAssembler{
   unknown_dofs::U
   block_sizes::Sizes
   block_offsets::Offsets
+  residuals::R
   stiffnesses::K
   # cache arrays
   klasttouch::C1
@@ -83,7 +85,7 @@ function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
     end
   end
 
-  # residuals = create_fields(dof)
+  residuals = create_fields(dof) #|> vec
   stiffnesses = zeros(Float64, size(Is))
 
   # create caches
@@ -99,13 +101,15 @@ function StaticAssembler(dof::DofManager, fspaces::Fs) where Fs
   return StaticAssembler{
     Float64, Int64, 
     typeof(Is), typeof(Js), typeof(unknown_dofs), typeof(block_sizes), typeof(block_offsets),
-    typeof(stiffnesses),
+    typeof(residuals), typeof(stiffnesses),
     # cache arrays
     typeof(klasttouch), typeof(csrrowptr), typeof(csrcolval), typeof(csrnzval),
     # additional cache arrays
     typeof(csccolptr), typeof(cscrowval), typeof(cscnzval)
   }(
-    Is, Js, unknown_dofs, block_sizes, block_offsets, stiffnesses,
+    Is, Js, unknown_dofs, block_sizes, block_offsets, 
+    # fields
+    residuals, stiffnesses,
     # cache arrays
     klasttouch, csrrowptr, csrcolval, csrnzval,
     # additional cache arrays
@@ -193,6 +197,8 @@ function assemble!(
   N    = num_nodes_per_element(fspace)
   NxNDof = N * NDof
 
+  R = assembler.residuals
+
   for e in 1:num_elements(fspace)
     U_el = element_level_fields(fspace, U, e)
     R_el = zeros(SVector{NxNDof, Float64})
@@ -221,7 +227,7 @@ Top level method using methods
 """
 # TODO figure this one out
 function assemble!(
-  R, 
+  # R, 
   assembler::StaticAssembler,
   dof::DofManager,
   fspaces, X, U,
@@ -230,6 +236,7 @@ function assemble!(
 
   # reset in some way
   # assembler.residuals .= 0.
+  R = assembler.residuals
   R .= zero(eltype(R))
   assembler.stiffnesses .= zero(eltype(assembler.stiffnesses))
 
@@ -239,53 +246,53 @@ function assemble!(
 
 end
 
-"""
-$(TYPEDSIGNATURES)
-method that assumes first dof
-TODO move sorting of nodes up stream
-TODO remove other scratch unknowns and unknown_dofs arrays
-"""
-function update_unknown_dofs!(
-  assembler::StaticAssembler,
-  dof,
-  fspaces, 
-  nodes_in::V
-) where V <: AbstractVector{<:Integer}
+# """
+# $(TYPEDSIGNATURES)
+# method that assumes first dof
+# TODO move sorting of nodes up stream
+# TODO remove other scratch unknowns and unknown_dofs arrays
+# """
+# function update_unknown_dofs!(
+#   assembler::StaticAssembler,
+#   dof,
+#   fspaces, 
+#   nodes_in::V
+# ) where V <: AbstractVector{<:Integer}
 
-  # make this an assumption of the method
-  nodes = sort(nodes_in)
+#   # make this an assumption of the method
+#   nodes = sort(nodes_in)
 
-  n_total_dofs = num_dofs_per_node(dof) * num_nodes(dof) - length(nodes)
+#   n_total_dofs = num_dofs_per_node(dof) * num_nodes(dof) - length(nodes)
 
-  # TODO change to a good sizehint!
-  resize!(assembler.Is, 0)
-  resize!(assembler.Js, 0)
-  resize!(assembler.unknown_dofs, 0)
+#   # TODO change to a good sizehint!
+#   resize!(assembler.Is, 0)
+#   resize!(assembler.Js, 0)
+#   resize!(assembler.unknown_dofs, 0)
 
-  n = 1
-  for fspace in fspaces
-    for e in 1:num_elements(fspace)
-      conn = dof_connectivity(fspace, e)
-      for temp in Iterators.product(conn, conn)
-        if insorted(temp[1], nodes) || insorted(temp[2], nodes)
-          # really do nothing here
-        else
-          push!(assembler.Is, temp[1] - count(x -> x < temp[1], nodes))
-          push!(assembler.Js, temp[2] - count(x -> x < temp[2], nodes))
-          push!(assembler.unknown_dofs, n)
-        end
-        n += 1
-      end
-    end
-  end
+#   n = 1
+#   for fspace in fspaces
+#     for e in 1:num_elements(fspace)
+#       conn = dof_connectivity(fspace, e)
+#       for temp in Iterators.product(conn, conn)
+#         if insorted(temp[1], nodes) || insorted(temp[2], nodes)
+#           # really do nothing here
+#         else
+#           push!(assembler.Is, temp[1] - count(x -> x < temp[1], nodes))
+#           push!(assembler.Js, temp[2] - count(x -> x < temp[2], nodes))
+#           push!(assembler.unknown_dofs, n)
+#         end
+#         n += 1
+#       end
+#     end
+#   end
 
-  # resize cache arrays
-  resize!(assembler.klasttouch, n_total_dofs)
-  resize!(assembler.csrrowptr, n_total_dofs + 1)
-  resize!(assembler.csrcolval, length(assembler.Is))
-  resize!(assembler.csrnzval, length(assembler.Is))
+#   # resize cache arrays
+#   resize!(assembler.klasttouch, n_total_dofs)
+#   resize!(assembler.csrrowptr, n_total_dofs + 1)
+#   resize!(assembler.csrcolval, length(assembler.Is))
+#   resize!(assembler.csrnzval, length(assembler.Is))
 
-  # resize!(assembler.stiffnesses, length(assembler.Is))
+#   # resize!(assembler.stiffnesses, length(assembler.Is))
 
-  return nothing
-end
+#   return nothing
+# end
