@@ -24,7 +24,7 @@ FiniteElementContainersExodusExt = "Exodus"
 FiniteElementContainersKernelAbstractionsExt = "KernelAbstractions"
 
 [compat]
-Adapt = "3"
+Adapt = "3, 4"
 Aqua = "0.8"
 Atomix = "0.1.0"
 DocStringExtensions = "0.9"
