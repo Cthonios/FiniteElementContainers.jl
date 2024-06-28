@@ -16,6 +16,10 @@
   field = FiniteElementContainers.SimpleElementField{4, 10, Matrix, Float64}(undef)
   field = zero(typeof(field))
   field = ElementField{4, 10, Vector, Float64}(undef)
+  field[1, 4] = 4.0
+  @test field[1, 4] ≈ 4.0
+  field = similar(field)
+  field = zero(typeof(field))
   field = ElementField{4, 10, Matrix, Float64}(undef)
   field = similar(field)
   field = zero(field)
@@ -29,6 +33,7 @@
   field = zero(typeof(field))
   field = FiniteElementContainers.SimpleElementField{4, 10, StructArray, SVector{4, Int64}}(undef)
   field = zero(typeof(field))
+  # @test size(field) == (10,)
 end
 
 @testset ExtendedTestSet "Nodal Field" begin
