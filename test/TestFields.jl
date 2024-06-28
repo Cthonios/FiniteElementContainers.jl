@@ -11,6 +11,13 @@
     @test vals[n] == field_1[n]
     @test vals[n] == field_2[n]
   end
+
+  # some constructor tests
+  field = ElementField{4, 10, Vector, Float64}(undef)
+  field = ElementField{4, 10, Matrix, Float64}(undef)
+  field = ElementField{(4, 10), Matrix, Float64}(undef)
+  field = ElementField{4, 10, Vector}(vec(field) |> collect)
+  field = ElementField{4, 10, StructArray, SVector{4, Int64}}(undef)
 end
 
 @testset ExtendedTestSet "Nodal Field" begin
@@ -73,15 +80,23 @@ end
   end
 
   # some constructor tests
+  field = NodalField{1, 10, Vector, Float64}(undef)
+  # @show size(field)
+  # @test size(field) == (10,)
   field = NodalField{2, 10, Vector, Float64}(undef)
   field = NodalField{2, 10, Vector}(vec(field) |> collect)
   field = similar(field)
   field = zero(field)
+  field = zero(typeof(field))
+  field = FiniteElementContainers.VectorizedNodalField{2, 10, Float64}(undef)
+  field = FiniteElementContainers.VectorizedNodalField{2, 10}(vec(field) |> collect)
+  @test size(field) == (2, 10)
   field = NodalField{2, 10, Matrix, Float64}(undef)
   field = NodalField{(2, 10), Matrix, Float64}(undef)
   field = similar(field)
   field = zero(field)
   field = NodalField{2, 10, StructArray, SVector{2, Float64}}(undef)
+  @test size(field) == (10,)
 
   # # some constructor tests
   # field = FiniteElementContainers.SimpleNodalField{2, 10, Float64}(undef)
