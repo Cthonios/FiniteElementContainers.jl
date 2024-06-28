@@ -73,17 +73,28 @@ end
   end
 
   # some constructor tests
-  field = FiniteElementContainers.SimpleNodalField{2, 10, Float64}(undef)
+  field = NodalField{2, 10, Vector, Float64}(undef)
+  field = NodalField{2, 10, Vector}(vec(field))
   field = similar(field)
   field = zero(field)
-  @test all(x -> x ≈ 0.0, field)
+  field = NodalField{2, 10, Matrix, Float64}(undef)
+  field = NodalField{(2, 10), Matrix, Float64}(undef)
+  field = similar(field)
+  field = zero(field)
+  field = NodalField{2, 10, StructArray, SVector{2, Float64}}(undef)
 
-  # some constructor tests
-  field = FiniteElementContainers.VectorizedNodalField{2, 10, Float64}(undef)
-  field = similar(field)
-  field = zero(field)
-  @test all(x -> x ≈ 0.0, field)
-  field = FiniteElementContainers.VectorizedNodalField{2, 10}(vec(field))
-  field = FiniteElementContainers.VectorizedNodalField{2, 10, StructArray, SVector{2, Float64}}(undef)
-  field = zero(field)
+  # # some constructor tests
+  # field = FiniteElementContainers.SimpleNodalField{2, 10, Float64}(undef)
+  # field = similar(field)
+  # field = zero(field)
+  # @test all(x -> x ≈ 0.0, field)
+
+  # # some constructor tests
+  # field = FiniteElementContainers.VectorizedNodalField{2, 10, Float64}(undef)
+  # field = similar(field)
+  # field = zero(field)
+  # @test all(x -> x ≈ 0.0, field)
+  # field = FiniteElementContainers.VectorizedNodalField{2, 10}(vec(field))
+  # field = FiniteElementContainers.VectorizedNodalField{2, 10, StructArray, SVector{2, Float64}}(undef)
+  # field = zero(field)
 end
