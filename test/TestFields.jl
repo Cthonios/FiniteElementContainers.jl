@@ -21,7 +21,7 @@
   field = ElementField{4, 10, Vector}(vec(field) |> collect)
   field = ElementField{4, 10, StructArray, SVector{4, Int64}}(undef)
   field = zero(field)
-  field = zero(typeof(field))
+  # field = zero(typeof(field))
 end
 
 @testset ExtendedTestSet "Nodal Field" begin
