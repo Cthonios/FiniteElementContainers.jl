@@ -42,6 +42,15 @@ end
 """
 DofManager{ND, NN, ArrType}() where {ND, NN, ArrType} = DofManager{ND, NN, Int64, ArrType}()
 
+"""
+Default constructor from a mesh
+"""
+function DofManager(mesh::FileMesh, n_dofs::Int)
+  NNodes = FiniteElementContainers.num_nodes(mesh) |> Int64
+  dof = DofManager{n_dofs, NNodes, Vector{Float64}}()
+  return dof
+end
+
 Base.show(io::IO, dof::DofManager) = 
 print(io, "DofManager\n", 
           "  Number of nodes         = $(num_nodes(dof))\n",

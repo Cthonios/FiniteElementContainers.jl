@@ -54,6 +54,10 @@ export MatrixFreeStaticAssembler
 export StaticAssembler
 export assemble!
 
+# Formulations
+export PlaneStrain
+export ThreeDimensional
+
 # dependencies
 using Atomix
 using DocStringExtensions

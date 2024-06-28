@@ -140,6 +140,33 @@ end
 
 """
 $(TYPEDSIGNATURES)
+"""
+function Base.similar(asm::StaticAssembler)
+  residuals = similar(asm.residuals)
+  stiffnesses = similar(asm.stiffnesses)
+  # TODO should probably remove below lines
+  residuals .= zero(eltype(residuals))
+  stiffnesses .= zero(eltype(stiffnesses))
+  StaticAssembler{
+    eltype(residuals), Int64,
+    typeof(asm.Is), typeof(asm.Js), typeof(asm.unknown_dofs), 
+    typeof(asm.block_sizes), typeof(asm.block_offsets),
+    typeof(asm.residuals), typeof(asm.stiffnesses),
+    typeof(asm.klasttouch), typeof(asm.csrrowptr), 
+    typeof(asm.csrcolval), typeof(asm.csrnzval),
+    typeof(asm.csccolptr), typeof(asm.cscrowval), typeof(asm.cscnzval)
+  }(
+    copy(asm.Is), copy(asm.Js), copy(asm.unknown_dofs),
+    copy(asm.block_sizes), copy(asm.block_offsets),
+    residuals, stiffnesses,
+    copy(asm.klasttouch), copy(asm.csrrowptr),
+    copy(asm.csrcolval), copy(asm.csrnzval),
+    copy(asm.csccolptr), copy(asm.cscrowval), copy(asm.cscnzval)
+  )
+end
+
+"""
+$(TYPEDSIGNATURES)
 assembly for stiffness matrix
 """
 function assemble!(
