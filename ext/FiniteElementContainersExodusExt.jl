@@ -63,11 +63,29 @@ function FiniteElementContainers.element_connectivity(
   return block.conn
 end
 
+function FiniteElementContainers.element_connectivity(
+  mesh::FileMesh{<:ExodusDatabase},
+  name::String
+) 
+
+  block = read_block(mesh.mesh_obj, name)
+  return block.conn
+end
+
+
 function FiniteElementContainers.element_type(
   mesh::FileMesh{<:ExodusDatabase},
   id::Integer
 ) 
   block = read_block(mesh.mesh_obj, id)
+  return block.elem_type
+end
+
+function FiniteElementContainers.element_type(
+  mesh::FileMesh{<:ExodusDatabase},
+  name::String
+) 
+  block = read_block(mesh.mesh_obj, name)
   return block.elem_type
 end
 
