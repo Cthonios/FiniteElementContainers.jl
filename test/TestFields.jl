@@ -74,7 +74,7 @@ end
 
   # some constructor tests
   field = NodalField{2, 10, Vector, Float64}(undef)
-  field = NodalField{2, 10, Vector}(vec(field))
+  field = NodalField{2, 10, Vector}(vec(field) |> collect)
   field = similar(field)
   field = zero(field)
   field = NodalField{2, 10, Matrix, Float64}(undef)
