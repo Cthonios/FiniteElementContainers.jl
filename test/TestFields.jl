@@ -15,9 +15,13 @@
   # some constructor tests
   field = ElementField{4, 10, Vector, Float64}(undef)
   field = ElementField{4, 10, Matrix, Float64}(undef)
+  field = similar(field)
+  field = zero(field)
   field = ElementField{(4, 10), Matrix, Float64}(undef)
   field = ElementField{4, 10, Vector}(vec(field) |> collect)
   field = ElementField{4, 10, StructArray, SVector{4, Int64}}(undef)
+  field = zero(field)
+  field = zero(typeof(field))
 end
 
 @testset ExtendedTestSet "Nodal Field" begin
