@@ -9,6 +9,7 @@ using StructArrays
 using Test
 using TestSetExtensions
 
+include("TestDofManagers.jl")
 include("TestFields.jl")
 
 # @testset ExtendedTestSet "Eigen problem" begin
