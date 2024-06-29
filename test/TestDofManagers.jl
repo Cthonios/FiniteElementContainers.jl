@@ -67,11 +67,11 @@ function test_update_unknown_dofs(mesh)
 end
 
 function test_dof_correctness()
-  dof = DofManager{Vector}(2, 10)
+  dof = DofManager{Vector{Float64}}(2, 10)
   update_unknown_dofs!(dof)
   update_unknown_dofs!(dof, [2, 4, 8, 11, 13])
   Uu = create_unknowns(dof)
-  @test size(Uu) = (15,)
+  @test size(Uu) == (15,)
   U = create_fields(dof)
   @test size(U) == (2, 10)
   Uu .= rand(Float64, size(Uu))
@@ -88,6 +88,7 @@ end
   test_dof_methods()
   test_bc_ids(mesh)
   test_update_unknown_dofs(mesh)
+  test_dof_correctness()
 end
 # bcs = [
   
