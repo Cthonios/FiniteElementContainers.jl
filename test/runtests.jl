@@ -9,6 +9,7 @@ using StructArrays
 using Test
 using TestSetExtensions
 
+include("TestConnectivities.jl")
 include("TestDofManagers.jl")
 include("TestFields.jl")
 
