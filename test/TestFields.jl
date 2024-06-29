@@ -34,6 +34,15 @@
   field = FiniteElementContainers.SimpleElementField{4, 10, StructArray, SVector{4, Int64}}(undef)
   field = zero(typeof(field))
   # @test size(field) == (10,)
+  field = FiniteElementContainers.VectorizedElementField{4, 4}(
+    [
+      SVector{4, Int64}([1, 2, 3, 4]),
+      SVector{4, Int64}([5, 6, 7, 8]),
+      SVector{4, Int64}([9, 10, 11, 12]),
+      SVector{4, Int64}([13, 14, 15, 16])
+    ]
+  )
+  field = FiniteElementContainers.VectorizedElementField{4, 10, SVector{4, Int64}}(undef)
 end
 
 @testset ExtendedTestSet "Nodal Field" begin
