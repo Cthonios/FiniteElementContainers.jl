@@ -16,7 +16,8 @@ Constructors\n
 ```DofManager{ND, NN, ArrType}()    where {ND, NN, ArrType}```
 
 """
-struct DofManager{T, ND, NN, ArrType, V <: AbstractArray{T, 1}}
+# struct DofManager{T, ND, NN, ArrType, V <: AbstractArray{T, 1}}
+struct DofManager{T, ND, NN, ArrType, V <: AbstractArray{T}}
   unknown_dofs::V
 end
 
@@ -25,9 +26,7 @@ end
 """
 function DofManager{A}(ND::Int, NN::Int) where A
   unknown_dofs = 1:ND * NN |> collect
-  @show A
   if A == Matrix
-    @show "here"
     unknown_dofs = reshape(unknown_dofs, ND, NN)
   end
   return DofManager{Int64, ND, NN, A, typeof(unknown_dofs)}(unknown_dofs)
@@ -37,7 +36,6 @@ end
 ```DofManager{ND, NN, I, ArrType}() where {ND, NN, I, ArrType}```
 """
 function DofManager{ND, NN, I, ArrType}() where {ND, NN, I, ArrType}
-  # unknown_dofs = Vector{Int64}(undef, 0)
   unknown_dofs = 1:ND * NN |> collect
   return DofManager{I, ND, NN, ArrType, typeof(unknown_dofs)}(unknown_dofs)
 end
@@ -69,6 +67,10 @@ Base.size(::DofManager{T, ND, NN, A, V}, ::Val{2}) where {T, ND, NN, A, V} = NN
 Base.size(dof::DofManager, n::Int) = size(dof, Val(n))
 num_dofs_per_node(::DofManager{T, ND, NN, A, V}) where {T, ND, NN, A, V} = ND
 num_nodes(::DofManager{T, ND, NN, A, V}) where {T, ND, NN, A, V} = NN
+
+num_unknowns(dof::DofManager) = length(dof.unknown_dofs)
+num_bcs(dof::DofManager) = (num_dofs_per_node(dof) * num_nodes(dof) - num_unknowns(dof))
+
 
 """
 $(TYPEDSIGNATURES)
@@ -108,7 +110,7 @@ $(TYPEDSIGNATURES)
 function update_unknown_dofs!(dof::DofManager{T, ND, NN, A, V}) where {T, ND, NN, A, V}
   resize!(dof.unknown_dofs, ND * NN)
   dof.unknown_dofs .= dof_ids(dof)
-  nothing
+  return nothing
 end
 
 """
@@ -125,7 +127,7 @@ function update_unknown_dofs!(dof_manager::DofManager, dofs::V) where V <: Abstr
   resize!(dof_manager.unknown_dofs, ND * NN)
   dof_manager.unknown_dofs .= 1:ND * NN
   deleteat!(dof_manager.unknown_dofs, dofs)
-  nothing
+  return nothing
 end
 
 # """
@@ -152,6 +154,7 @@ function bc_ids(dof_manager::DofManager, nsets::NSets, dofs::Dofs) where {NSets,
   sort!(unique!(bc_nodes))
 end
 
+# TODO is this deprecated?
 # """
 # $(TYPEDSIGNATURES)
 # """
