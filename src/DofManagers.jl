@@ -26,9 +26,6 @@ end
 """
 function DofManager{A}(ND::Int, NN::Int) where A
   unknown_dofs = 1:ND * NN |> collect
-  if A == Matrix
-    unknown_dofs = reshape(unknown_dofs, ND, NN)
-  end
   return DofManager{Int64, ND, NN, A, typeof(unknown_dofs)}(unknown_dofs)
 end
 
