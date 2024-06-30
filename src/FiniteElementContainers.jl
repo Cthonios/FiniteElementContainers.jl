@@ -61,6 +61,11 @@ export assemble!
 # Formulations
 export PlaneStrain
 export ThreeDimensional
+export discrete_gradient
+export discrete_symmetric_gradient
+export extract_stress
+export extract_stiffness
+export modify_field_gradients
 
 # dependencies
 using Atomix
