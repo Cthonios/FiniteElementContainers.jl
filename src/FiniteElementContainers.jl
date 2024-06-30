@@ -44,8 +44,12 @@ export AbstractMechanicsFormulation
 export FunctionSpace
 export NonAllocatedFunctionSpace
 export VectorizedPreAllocatedFunctionSpace
+export element_level_coordinates
+export element_level_fields
 export num_elements
 export num_q_points
+export quadrature_level_field_gradients
+export quadrature_level_field_values
 
 # Assemblers
 export Assembler
