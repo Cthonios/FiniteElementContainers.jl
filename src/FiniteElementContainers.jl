@@ -59,6 +59,7 @@ export StaticAssembler
 export assemble!
 
 # Formulations
+export IncompressiblePlaneStress
 export PlaneStrain
 export ThreeDimensional
 export discrete_gradient
