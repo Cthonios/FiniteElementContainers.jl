@@ -1,0 +1,3 @@
+struct IncompressiblePlaneStress <: AbstractMechanicsFormulation
+end
+

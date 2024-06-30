@@ -80,6 +80,7 @@ function modify_field_gradients(::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}, ::Ty
 end
 
 """
+To deprecate or not to deprecate?
 $(TYPEDSIGNATURES)
 """
 modify_field_gradients(form::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}; type = Tensor) where T <: Number =

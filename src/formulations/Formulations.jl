@@ -8,6 +8,7 @@ abstract type AbstractMechanicsFormulation end
   Expr(:tuple, (:(ifelse($j == i, x, t[$j])) for j in 1:N)...)
 end
 
+include("IncompressiblePlaneStress.jl")
 include("PlaneStrain.jl")
 include("ThreeDimensional.jl")
 
