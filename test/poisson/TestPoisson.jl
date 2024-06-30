@@ -32,7 +32,7 @@ for type in types
   coords  = NodalField{size(coords), type}(coords)
   conn    = element_connectivity(mesh_new, 1)
   conn    = ElementField{size(conn), type}(convert.(Int64, conn))
-  elem    = element_type(mesh_new, 1)
+  elem    = FiniteElementContainers.element_type(mesh_new, 1)
   nsets   = nodeset.((mesh_new,), [1, 2, 3, 4])
   nsets   = map(nset -> convert.(Int64, nset), nsets)
   dof     = DofManager{1, size(coords, 2), type{Float64}}()

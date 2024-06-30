@@ -26,6 +26,7 @@ function map_shape_function_gradients(X, ∇N_ξ)
   return ∇N_X
 end
 
+# TODO should we deprecate these?
 function setup_reference_element(
   type::Type{<:ReferenceFiniteElements.ReferenceFEType}, 
   q_degree

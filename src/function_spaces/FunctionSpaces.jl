@@ -78,10 +78,19 @@ ReferenceFiniteElements.shape_function_hessians(fspace.ref_fe, q)
 """
 $(TYPEDSIGNATURES)
 """
+function element_level_coordinates(fspace::FunctionSpace, x, e::Int)
+  NF, NN = num_fields(x), num_nodes_per_element(fspace)
+  u_el = SMatrix{NF, NN, eltype(x), NF * NN}(@views vec(x[:, connectivity(fspace, e)]))
+  return u_el
+end
+"""
+$(TYPEDSIGNATURES)
+"""
 function element_level_fields(fspace::FunctionSpace, u::NodalField)
   u_el = element_level_fields_reinterpret(fspace, u)
   NN, NE = num_nodes_per_element(fspace), num_elements(fspace)
-  u_el_ret = ElementField{NN, NE, StructArray, eltype(u_el)}(undef)
+  ND = num_dofs_per_node(fspace)
+  u_el_ret = ElementField{NN * ND, NE, Vector, eltype(u_el)}(undef)
   u_el_ret .= u_el
 end
 """
@@ -120,7 +129,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function quadrature_level_field_gradients(fspace::FunctionSpace, X::NodalField, u::NodalField, q::Int, e::Int)
-  X_el = element_level_fields(fspace, X, e)
+  X_el = element_level_coordinates(fspace, X, e)
   u_el = element_level_fields(fspace, u, e)
   ∇N_ξ = shape_function_gradients(fspace, q)
   ∇N_X = map_shape_function_gradients(X_el, ∇N_ξ)

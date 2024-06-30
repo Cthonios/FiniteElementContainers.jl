@@ -4,6 +4,7 @@ using FiniteElementContainers
 using JET
 using LinearAlgebra
 using Parameters
+using ReferenceFiniteElements
 using StaticArrays
 using StructArrays
 using Test
@@ -12,6 +13,8 @@ using TestSetExtensions
 include("TestConnectivities.jl")
 include("TestDofManagers.jl")
 include("TestFields.jl")
+include("TestFunctionSpaces.jl")
+include("TestMesh.jl")
 
 # @testset ExtendedTestSet "Eigen problem" begin
 #   include("eigen/TestEigen.jl")
