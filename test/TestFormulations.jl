@@ -75,6 +75,39 @@ function test_plane_strain(∇N_X, ∇u_q, A_q)
   @test G[8, 2] ≈ ∇N_X[4, 1]
   @test G[8, 3] ≈ 0.0
   @test G[8, 4] ≈ ∇N_X[4, 2]
+
+  G = discrete_symmetric_gradient(form, ∇N_X)
+  @test G[1, 1] ≈ ∇N_X[1, 1]
+  @test G[1, 2] ≈ 0.0
+  @test G[1, 3] ≈ ∇N_X[1, 2]
+  # 
+  @test G[2, 1] ≈ 0.0
+  @test G[2, 2] ≈ ∇N_X[1, 2]
+  @test G[2, 3] ≈ ∇N_X[1, 1]
+  # 
+  @test G[3, 1] ≈ ∇N_X[2, 1]
+  @test G[3, 2] ≈ 0.0
+  @test G[3, 3] ≈ ∇N_X[2, 2]
+  # 
+  @test G[4, 1] ≈ 0.0
+  @test G[4, 2] ≈ ∇N_X[2, 2]
+  @test G[4, 3] ≈ ∇N_X[2, 1]
+  #
+  @test G[5, 1] ≈ ∇N_X[3, 1]
+  @test G[5, 2] ≈ 0.0
+  @test G[5, 3] ≈ ∇N_X[3, 2]
+  # 
+  @test G[6, 1] ≈ 0.0
+  @test G[6, 2] ≈ ∇N_X[3, 2]
+  @test G[6, 3] ≈ ∇N_X[3, 1]
+  #
+  @test G[7, 1] ≈ ∇N_X[4, 1]
+  @test G[7, 2] ≈ 0.0
+  @test G[7, 3] ≈ ∇N_X[4, 2]
+  # 
+  @test G[8, 1] ≈ 0.0
+  @test G[8, 2] ≈ ∇N_X[4, 2]
+  @test G[8, 3] ≈ ∇N_X[4, 1]
 end 
 
 function test_three_dimensional(∇N_X, ∇u_q, A_q)
