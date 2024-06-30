@@ -15,12 +15,27 @@ function test_non_allocated_function_space_volume(
   # can't construct at the moment
   q_degrees = [1, 2]
   for q_degree in q_degrees
+    fspace = VectorizedPreAllocatedFunctionSpace(dof, conns, q_degree, "TRI3", coords)
     fspace = VectorizedPreAllocatedFunctionSpace(dof, conns, q_degree, ref_fe, coords)
     @show fspace
     for e in axes(conns, 2)
       @test expected_element_vol ≈ FiniteElementContainers.volume(fspace, coords, e)
     end
     @test expected_vol ≈ FiniteElementContainers.volume(fspace, coords)
+  end
+end
+
+function test_element_level_field_methods(coords, conns, dof, ref_fe)
+
+  q_degrees = [1, 2]
+  U = create_fields(dof)
+  U .= rand(Float64, size(U))
+  for q_degree in q_degrees
+    fspace = VectorizedPreAllocatedFunctionSpace(dof, conns, q_degree, ref_fe, coords)
+    U_els = element_level_fields(fspace, U)
+    for e in 1:num_elements(fspace)
+      @test U_els[e] ≈ element_level_fields(fspace, U, e)
+    end
   end
 end
 
@@ -53,10 +68,13 @@ end
   ]
   coords = NodalField{size(coords), Vector}(coords)
   conns = Connectivity{size(conns), Vector}(conns)
-  dof = DofManager{Vector}(size(coords, 1), size(coords, 2))
+  dof = DofManager{Vector{Float64}}(size(coords, 1), size(coords, 2))
   ref_fe = ReferenceFiniteElements.Tri3
   expected_vol = 1.0
   expected_element_vol = 0.5 / (6 * 6)
+  test_element_level_field_methods(
+    coords, conns, dof, ref_fe
+  )
   test_non_allocated_function_space_volume(
     coords, conns, dof, ref_fe, 
     expected_element_vol, expected_vol
