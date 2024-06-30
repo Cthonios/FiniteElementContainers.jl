@@ -7,12 +7,14 @@ using Parameters
 using ReferenceFiniteElements
 using StaticArrays
 using StructArrays
+using Tensors
 using Test
 using TestSetExtensions
 
 include("TestConnectivities.jl")
 include("TestDofManagers.jl")
 include("TestFields.jl")
+include("TestFormulations.jl")
 include("TestFunctionSpaces.jl")
 include("TestMesh.jl")
 

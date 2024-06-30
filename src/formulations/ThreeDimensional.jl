@@ -118,11 +118,6 @@ $(TYPEDSIGNATURES)
 """
 function modify_field_gradients(::ThreeDimensional, ∇u_q, ::Type{<:Tensor})
   return Tensor{2, 3, eltype(∇u_q), 9}(∇u_q)
-  # return Tensor{2, 3, eltype(∇u_q), 9}((
-  #   ∇u_q[1, 1], ∇u_q[2, 1], ∇u_q[3, 1],
-  #   ∇u_q[1, 2], ∇u_q[2, 2], ∇u_q[3, 2],
-  #   ∇u_q[1, 3], ∇u_q[2, 3], ∇u_q[3, 3],
-  # ))
 end
 
 """
