@@ -20,7 +20,7 @@ function volume(X, ∇N_ξ)
 end
 
 function map_shape_function_gradients(X, ∇N_ξ)
-  J     = X * ∇N_ξ
+  J     = (X * ∇N_ξ)'
   J_inv = inv(J)
   ∇N_X  = (J_inv * ∇N_ξ')'
   return ∇N_X
