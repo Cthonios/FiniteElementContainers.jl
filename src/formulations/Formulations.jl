@@ -3,6 +3,11 @@ $(TYPEDEF)
 """
 abstract type AbstractMechanicsFormulation{ND} end
 
+"""
+$(TYPEDSIGNATURES)
+"""
+num_dimensions(::AbstractMechanicsFormulation{ND}) where ND = ND
+
 # for large tuples, otherwise we get allocations
 @generated function set(t::Tuple{Vararg{Any, N}}, x, i) where {N}
   Expr(:tuple, (:(ifelse($j == i, x, t[$j])) for j in 1:N)...)
