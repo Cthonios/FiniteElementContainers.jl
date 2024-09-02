@@ -1,5 +1,6 @@
 function test_incompressible_plane_stress(∇N_X, ∇u_q, A_q)
   form = IncompressiblePlaneStress()
+  @test FiniteElementContainers.num_dimensions(form) == 2
   ∇u_sm = modify_field_gradients(form, ∇u_q, SMatrix)
   @test ∇u_sm ≈ SMatrix{3, 3, Float64, 9}((
     1., 2., 0., 3., 4., 0., 0., 0., 1. / (-2.)
@@ -112,6 +113,7 @@ end
 
 function test_plane_strain(∇N_X, ∇u_q, A_q)
   form = PlaneStrain()
+  @test FiniteElementContainers.num_dimensions(form) == 2
   ∇u_sm = modify_field_gradients(form, ∇u_q, SMatrix)
   @test ∇u_sm ≈ SMatrix{3, 3, Float64, 9}((
     1., 2., 0., 3., 4., 0., 0., 0., 0.
@@ -224,6 +226,7 @@ end
 
 function test_three_dimensional(∇N_X, ∇u_q, A_q)
   form = ThreeDimensional()
+  @test FiniteElementContainers.num_dimensions(form) == 3
   ∇u_sm = modify_field_gradients(form, ∇u_q, SMatrix)
   @test ∇u_q ≈ ∇u_sm
   ∇u_t = modify_field_gradients(form, ∇u_q, Tensor)

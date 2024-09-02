@@ -181,7 +181,9 @@ function assemble!(
   ids = start_id:end_id
 
   # now assemble into stiffnesses
-  assembler.stiffnesses[ids] = K_el
+  # old behavior that wouldn't work for seperate quadrature points sepraturely
+  # assembler.stiffnesses[ids] = K_el
+  assembler.stiffnesses[ids] += K_el[:]
 end
 
 """

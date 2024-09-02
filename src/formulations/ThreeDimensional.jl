@@ -2,7 +2,7 @@
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct ThreeDimensional <: AbstractMechanicsFormulation
+struct ThreeDimensional <: AbstractMechanicsFormulation{3}
 end
 
 """

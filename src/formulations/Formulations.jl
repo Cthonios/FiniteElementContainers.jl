@@ -1,7 +1,12 @@
 """
 $(TYPEDEF)
 """
-abstract type AbstractMechanicsFormulation end
+abstract type AbstractMechanicsFormulation{ND} end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+num_dimensions(::AbstractMechanicsFormulation{ND}) where ND = ND
 
 # for large tuples, otherwise we get allocations
 @generated function set(t::Tuple{Vararg{Any, N}}, x, i) where {N}
