@@ -2,7 +2,7 @@
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct PlaneStrain <: AbstractMechanicsFormulation
+struct PlaneStrain <: AbstractMechanicsFormulation{2}
 end
 
 """
