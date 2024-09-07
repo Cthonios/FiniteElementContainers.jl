@@ -46,7 +46,7 @@ DofManager{ND, NN, ArrType}() where {ND, NN, ArrType} = DofManager{ND, NN, Int64
 Default constructor from a mesh
 """
 function DofManager(mesh::FileMesh, n_dofs::Int)
-  NNodes = FiniteElementContainers.num_nodes(mesh) |> Int64
+  NNodes = num_nodes(mesh) |> Int64
   dof = DofManager{n_dofs, NNodes, Vector{Float64}}()
   return dof
 end
