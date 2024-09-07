@@ -188,6 +188,17 @@ end
 
 """
 $(TYPEDSIGNATURES)
+"""
+function assemble!(
+  global_val::StaticAssembler, 
+  fspace, block_num, e, local_val
+)
+  FiniteElementContainers.assemble!(global_val, local_val, block_num, e)
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
 assembly for stiffness matrix
 """
 function assemble_atomic!(

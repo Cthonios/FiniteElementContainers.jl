@@ -13,6 +13,17 @@ $(TYPEDSIGNATURES)
 """
 float_type(::Assembler{R, I}) where {R, I} = R
 
+"""
+$(TYPEDSIGNATURES)
+Assembly method for a scalar field stored as a size 1 vector
+"""
+function assemble!(
+  global_val::Vector, 
+  fspace, block_num, e, local_val
+)
+  global_val[1] += local_val
+  return nothing
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -27,6 +38,19 @@ function assemble!(
   for i in axes(conn, 1)
     R[conn[i]] += R_el[i]
   end
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+Assembly method for residuals
+"""
+function assemble!(
+  global_val::NodalField, 
+  fspace, block_num, e, local_val
+)
+  dof_conn = dof_connectivity(fspace, e)
+  FiniteElementContainers.assemble!(global_val, local_val, dof_conn)
   return nothing
 end
 
