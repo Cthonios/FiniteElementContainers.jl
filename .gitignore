@@ -6,4 +6,6 @@
 /docs/build/
 *.log
 *.e
+*.swp
 *.vtu
+

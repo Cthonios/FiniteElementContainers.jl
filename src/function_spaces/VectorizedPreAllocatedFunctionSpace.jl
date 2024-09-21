@@ -4,6 +4,7 @@ $(TYPEDFIELDS)
 """
 struct VectorizedPreAllocatedFunctionSpace{
   NDof,
+  Map,
   Conn    <: Connectivity,
   DofConn <: Connectivity,
   RefFE   <: ReferenceFE,
@@ -11,7 +12,7 @@ struct VectorizedPreAllocatedFunctionSpace{
   V2      <: QuadratureField,
   V3      <: QuadratureField
 } <: FunctionSpace{NDof, Conn, RefFE}
-
+  elem_id_map::Map
   conn::Conn
   dof_conn::DofConn
   ref_fe::RefFE
@@ -33,6 +34,7 @@ function setup_shape_function_values!(Ns, ref_fe)
   end
 end
 
+# TODO check this
 function setup_shape_function_gradients!(∇N_Xs, Xs, conn, ref_fe)
   for e in axes(∇N_Xs, 2)
     X = Xs[:, conn[:, e]] # TODO clean this up
@@ -45,6 +47,7 @@ function setup_shape_function_gradients!(∇N_Xs, Xs, conn, ref_fe)
   end
 end
 
+# TODO check this
 function setup_shape_function_JxWs!(JxWs, Xs, conn, ref_fe)
   for e in axes(JxWs, 2)
     X = Xs[:, conn[:, e]] # TODO clean this up
@@ -58,6 +61,7 @@ end
 
 function VectorizedPreAllocatedFunctionSpace(
   dof_manager::DofManager,
+  elem_id_map,
   conn,
   q_degree::Int, 
   elem_type::Type{<:ReferenceFiniteElements.ReferenceFEType},
@@ -81,12 +85,12 @@ function VectorizedPreAllocatedFunctionSpace(
   setup_shape_function_JxWs!(JxWs, coords, conn, ref_fe)
 
   return VectorizedPreAllocatedFunctionSpace{
-    ND, typeof(conn), typeof(dof_conn), typeof(ref_fe), typeof(Ns), typeof(∇N_Xs), typeof(JxWs)
-  }(conn, dof_conn, ref_fe, Ns, ∇N_Xs, JxWs)
+    ND, typeof(elem_id_map), typeof(conn), typeof(dof_conn), typeof(ref_fe), typeof(Ns), typeof(∇N_Xs), typeof(JxWs)
+  }(elem_id_map, conn, dof_conn, ref_fe, Ns, ∇N_Xs, JxWs)
 end
 
-VectorizedPreAllocatedFunctionSpace(dof::DofManager, conn, q_degree::Int, elem_type::String, coords) =
-VectorizedPreAllocatedFunctionSpace(dof, conn, q_degree, elem_type_map[elem_type], coords)
+VectorizedPreAllocatedFunctionSpace(dof::DofManager, elem_id_map, conn, q_degree::Int, elem_type::String, coords) =
+VectorizedPreAllocatedFunctionSpace(dof, elem_id_map, conn, q_degree, elem_type_map[elem_type], coords)
 
 # TODO try to move this to an abstract method
 function Base.getindex(fspace::VectorizedPreAllocatedFunctionSpace, X::NodalField, q::Int, e::Int)
