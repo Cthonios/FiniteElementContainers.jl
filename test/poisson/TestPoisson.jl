@@ -27,17 +27,18 @@ types = [Matrix, Vector]
 
 for type in types
 
-  mesh_new = FileMesh(ExodusDatabase, "./poisson/poisson.g")
-  coords  = coordinates(mesh_new)
-  coords  = NodalField{size(coords), type}(coords)
-  conn    = element_connectivity(mesh_new, 1)
-  conn    = ElementField{size(conn), type}(convert.(Int64, conn))
-  elem    = FiniteElementContainers.element_type(mesh_new, 1)
-  nsets   = nodeset.((mesh_new,), [1, 2, 3, 4])
-  nsets   = map(nset -> convert.(Int64, nset), nsets)
-  dof     = DofManager{1, size(coords, 2), type{Float64}}()
-  fspaces = NonAllocatedFunctionSpace[
-    NonAllocatedFunctionSpace(dof, conn, 2, elem)
+  mesh_new    = FileMesh(ExodusDatabase, "./poisson/poisson.g")
+  coords      = coordinates(mesh_new)
+  coords      = NodalField{size(coords), type}(coords)
+  elem_id_map = read_block_id_map(mesh_new.mesh_obj, 1)
+  conn        = element_connectivity(mesh_new, 1)
+  conn        = ElementField{size(conn), type}(convert.(Int64, conn))
+  elem        = FiniteElementContainers.element_type(mesh_new, 1)
+  nsets       = nodeset.((mesh_new,), [1, 2, 3, 4])
+  nsets       = map(nset -> convert.(Int64, nset), nsets)
+  dof         = DofManager{1, size(coords, 2), type{Float64}}()
+  fspaces     = NonAllocatedFunctionSpace[
+    NonAllocatedFunctionSpace(dof, elem_id_map, conn, 2, elem)
   ]
   asm     = StaticAssembler(dof, fspaces)
 

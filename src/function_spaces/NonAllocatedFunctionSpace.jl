@@ -4,11 +4,12 @@ $(TYPEDFIELDS)
 """
 struct NonAllocatedFunctionSpace{
   NDof,
+  Map,
   Conn    <: Connectivity,
   DofConn <: Connectivity,
   RefFE   <: ReferenceFE
 } <: FunctionSpace{NDof, Conn, RefFE}
-
+  elem_id_map::Map
   conn::Conn
   dof_conn::DofConn
   ref_fe::RefFE
@@ -21,6 +22,7 @@ end
 
 function NonAllocatedFunctionSpace(
   dof_manager::DofManager,
+  elem_id_map,
   conn::SimpleConnectivity, 
   q_degree::Int, 
   elem_type::Type{<:ReferenceFiniteElements.ReferenceFEType}
@@ -32,13 +34,14 @@ function NonAllocatedFunctionSpace(
   temp     = reshape(ids[:, conn], ND * NN, NE)
   dof_conn = Connectivity{ND * NN, NE, Matrix, eltype(temp)}(temp)
   ref_fe   = ReferenceFE(elem_type(Val(q_degree)))
-  return NonAllocatedFunctionSpace{ND, typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
-    conn, dof_conn, ref_fe
+  return NonAllocatedFunctionSpace{ND, typeof(elem_id_map), typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
+    elem_id_map, conn, dof_conn, ref_fe
   )
 end
 
 function NonAllocatedFunctionSpace(
   dof_manager::DofManager,
+  elem_id_map,
   conn::VectorizedConnectivity, 
   q_degree::Int, 
   elem_type::Type{<:ReferenceFiniteElements.ReferenceFEType}
@@ -52,13 +55,13 @@ function NonAllocatedFunctionSpace(
   dof_conn = Connectivity{ND * NN, NE, Vector, eltype(temp)}(vec(temp))
   ref_fe   = ReferenceFE(elem_type(Val(q_degree)))
 
-  return NonAllocatedFunctionSpace{ND, typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
-    conn, dof_conn, ref_fe
+  return NonAllocatedFunctionSpace{ND, typeof(elem_id_map), typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
+    elem_id_map, conn, dof_conn, ref_fe
   )
 end
 
-NonAllocatedFunctionSpace(dof::DofManager, conn::Connectivity, q_degree::Int, elem_type::String) =
-NonAllocatedFunctionSpace(dof, conn, q_degree, elem_type_map[elem_type])
+NonAllocatedFunctionSpace(dof::DofManager, elem_id_map, conn::Connectivity, q_degree::Int, elem_type::String) =
+NonAllocatedFunctionSpace(dof, elem_id_map, conn, q_degree, elem_type_map[elem_type])
 
 # TODO try to move this to an abstract method
 function Base.getindex(fspace::NonAllocatedFunctionSpace, X::NodalField, q::Int, e::Int)
