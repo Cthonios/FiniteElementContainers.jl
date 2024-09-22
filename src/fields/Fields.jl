@@ -92,6 +92,8 @@ num_q_points(::QuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE,
 
 ###############################################
 # implementations
+include("ComponentArrayElementField.jl")
+include("ComponentArrayQuadratureField.jl")
 include("SimpleElementField.jl")
 include("SimpleNodalField.jl")
 include("SimpleQuadratureField.jl")
@@ -121,6 +123,7 @@ ElementField{NN, NE, Matrix, T}(::UndefInitializer)  where {NN, NE, T <: Number}
 ElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T} = VectorizedElementField{NN, NE, StructArray, T}(undef)
 ElementField{Tup, A, T}(::UndefInitializer) where {Tup, A, T} = ElementField{Tup[1], Tup[2], A, T}(undef)
 ElementField{Tup, A}(vals::M) where {Tup, A, M <: AbstractArray} = ElementField{Tup[1], Tup[2], A}(vals)
+ElementField{NF, NE, ComponentArray, T}(::UndefInitializer, names) where {NF, NE, T} = ComponentArrayElementField{NF, NE, T}(undef, names)
 
 ###############################################################################
 
@@ -132,3 +135,4 @@ QuadratureField{NF, NQ, NE, StructVector, T}(::UndefInitializer) where {NF, NQ, 
 QuadratureField{NF, NQ, NE, Vector, T}(::UndefInitializer)       where {NF, NQ, NE, T} = VectorizedQuadratureField{NF, NQ, NE, Vector, T}(undef)
 QuadratureField{Tup, A, T}(::UndefInitializer) where {Tup, A, T} = QuadratureField{Tup[1], Tup[2], Tup[3], A, T}(undef)
 QuadratureField{Tup, A}(vals::M) where {Tup, A, M <: AbstractArray} = QuadratureField{Tup[1], Tup[2], Tup[3], A}(vals) 
+QuadratureField{NF, NQ, NE, ComponentArray, T}(::UndefInitializer, names) where {NF, NQ, NE, T} = ComponentArrayQuadratureField{NF, NQ, NE, T}(undef, names)

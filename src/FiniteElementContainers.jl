@@ -70,6 +70,7 @@ export modify_field_gradients
 
 # dependencies
 using Atomix
+using ComponentArrays
 using DocStringExtensions
 using LinearAlgebra
 using ReferenceFiniteElements
@@ -77,20 +78,6 @@ using SparseArrays
 using StaticArrays
 using StructArrays
 using Tensors
-
-# for docs
-# @template (FUNCTIONS, METHODS, MACROS) =
-# """
-# $(TYPEDSIGNATURES)
-# $(DOCSTRING)
-# $(METHODLIST)
-# """
-
-# @template (TYPES) =
-# """
-# $(TYPEDFIELDS)
-# $(DOCSTRING)
-# """
 
 abstract type FEMContainer end
 

@@ -1,3 +1,4 @@
+# NONE OF THIS IS RIGHT
 """
 $(TYPEDEF)
 """
@@ -53,7 +54,7 @@ end
 """
 function VectorizedQuadratureField{NF, NQ, NE, Vector, T}(::UndefInitializer) where {NF, NQ, NE, T}
   vals = Vector{T}(undef, NQ * NE)
-  return VectorizedQuadratureField{T, 2, NF, NQ, NE, typeof(vals)}(vals)
+  return VectorizedQuadratureField{T, 3, NF, NQ, NE, typeof(vals)}(vals)
 end
 
 # """
