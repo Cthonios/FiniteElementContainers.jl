@@ -43,6 +43,25 @@
     ]
   )
   field = FiniteElementContainers.VectorizedElementField{4, 10, SVector{4, Int64}}(undef)
+
+  # component array
+  NFS = (1, 2, 3, 4)
+  NES = (10, 100, 1000, 10000)
+  names = (:block_1, :block_2, :block_3, :block_4)
+  field = FiniteElementContainers.ComponentArrayElementField{NFS, NES, Float64}(undef, names)
+  for i in 1:4
+    @test size(field, i) == (NFS[i], NES[i])
+    @test size(field[names[i]]) == (NFS[i], NES[i])
+
+    temp = rand(Float64, NFS[i], NES[i])
+    setindex!(field, temp, names[i], :, :)
+    @test field[names[i]] ≈ temp
+
+    # temp = rand(Float64, NFS[i], NES[i])
+    # # setindex!(field, temp, names[i], :, :)
+    # field[names[i], :, :] .= field
+    # @test field[names[i]] ≈ temp
+  end
 end
 
 @testset ExtendedTestSet "Nodal Field" begin
@@ -137,4 +156,11 @@ end
   # field = FiniteElementContainers.VectorizedNodalField{2, 10}(vec(field))
   # field = FiniteElementContainers.VectorizedNodalField{2, 10, StructArray, SVector{2, Float64}}(undef)
   # field = zero(field)
+end
+
+@testset ExtendedTestSet "Quadrature Field" begin
+  vals = rand(Float64, 4, 3, 100)
+  field = QuadratureField{(4,), (3,), (100,), ComponentArray, Float64}(undef, (:block_1,))
+  @test size(field, 1) == (4, 3, 100)
+
 end

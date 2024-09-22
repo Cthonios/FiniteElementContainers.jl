@@ -1,4 +1,5 @@
 using Aqua
+using ComponentArrays
 using Exodus
 using FiniteElementContainers
 using JET
