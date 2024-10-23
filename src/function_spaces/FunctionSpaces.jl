@@ -29,7 +29,7 @@ reference_element(fspace::FunctionSpace)        = fspace.ref_fe
 """
 $(TYPEDSIGNATURES)
 """
-num_dimensions(fspace::FunctionSpace)           = ReferenceFiniteElements.num_dimensions(fspace.ref_fe.ref_fe_type)
+num_dimensions(fspace::FunctionSpace)           = ReferenceFiniteElements.dimension(fspace.ref_fe.ref_fe_type)
 """
 $(TYPEDSIGNATURES)
 """
@@ -37,11 +37,11 @@ num_elements(fspace::FunctionSpace)             = num_elements(fspace.conn)
 """
 $(TYPEDSIGNATURES)
 """
-num_nodes_per_element(fspace::FunctionSpace)    = ReferenceFiniteElements.num_nodes_per_element(fspace.ref_fe)
+num_nodes_per_element(fspace::FunctionSpace)    = ReferenceFiniteElements.num_vertices(fspace.ref_fe)
 """
 $(TYPEDSIGNATURES)
 """
-num_q_points(fspace::FunctionSpace)             = ReferenceFiniteElements.num_q_points(fspace.ref_fe)
+num_q_points(fspace::FunctionSpace)             = ReferenceFiniteElements.num_quadrature_points(fspace.ref_fe)
 """
 $(TYPEDSIGNATURES)
 """
@@ -52,27 +52,27 @@ num_dofs_per_node(::FunctionSpace{ND, RefFE, Conn}) where {ND, RefFE, Conn} = ND
 $(TYPEDSIGNATURES)
 """
 quadrature_points(fspace::FunctionSpace, q::Int) =
-ReferenceFiniteElements.quadrature_points(fspace.ref_fe, q)
+ReferenceFiniteElements.quadrature_point(fspace.ref_fe, q)
 """
 $(TYPEDSIGNATURES)
 """
 quadrature_weights(fspace::FunctionSpace, q::Int) = 
-ReferenceFiniteElements.quadrature_weights(fspace.ref_fe, q)
+ReferenceFiniteElements.quadrature_weight(fspace.ref_fe, q)
 """
 $(TYPEDSIGNATURES)
 """
 shape_function_values(fspace::FunctionSpace, q::Int) = 
-ReferenceFiniteElements.shape_function_values(fspace.ref_fe, q) 
+ReferenceFiniteElements.shape_function_value(fspace.ref_fe, q) 
 """
 $(TYPEDSIGNATURES)
 """
 shape_function_gradients(fspace::FunctionSpace, q::Int) = 
-ReferenceFiniteElements.shape_function_gradients(fspace.ref_fe, q)
+ReferenceFiniteElements.shape_function_gradient(fspace.ref_fe, q)
 """
 $(TYPEDSIGNATURES)
 """
 shape_function_hessians(fspace::FunctionSpace, q::Int) = 
-ReferenceFiniteElements.shape_function_hessians(fspace.ref_fe, q)
+ReferenceFiniteElements.shape_function_hessian(fspace.ref_fe, q)
 
 #####################################################
 """
@@ -141,7 +141,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-volume(fspace::FunctionSpace, ::ReferenceFiniteElements.ReferenceFEType, X::NodalField, q::Int, e::Int) =
+volume(fspace::FunctionSpace, ::ReferenceFiniteElements.AbstractElementType, X::NodalField, q::Int, e::Int) =
 fspace[X, q, e].JxW
 # volume(fspace::FunctionSpace, X::NodalField, q::Int, e::Int) = fspace[X, q, e].JxW
 
@@ -151,7 +151,7 @@ $(TYPEDSIGNATURES)
 function volume(fspace::FunctionSpace, X::NodalField, e::Int)
   v = 0.0 # TODO place for unitful to not work
   for q in 1:num_q_points(fspace)
-    v = v + volume(fspace, fspace.ref_fe.ref_fe_type, X, q, e)
+    v = v + volume(fspace, fspace.ref_fe.element, X, q, e)
   end
   return v
 end
@@ -162,15 +162,15 @@ function volume(fspace::FunctionSpace, X::NodalField)
   v = 0.0
   for e in 1:num_elements(fspace)
     for q in 1:num_q_points(fspace)
-      v = v + volume(fspace, fspace.ref_fe.ref_fe_type, X, q, e)
+      v = v + volume(fspace, fspace.ref_fe.element, X, q, e)
     end
   end
   return v
 end
 
 function shape_function_gradient_and_volume(ref_fe::ReferenceFE, X_el, q::Int)
-  ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
-  w    = ReferenceFiniteElements.quadrature_weights(ref_fe, q)
+  ∇N_ξ = ReferenceFiniteElements.shape_function_gradient(ref_fe, q)
+  w    = ReferenceFiniteElements.quadrature_weight(ref_fe, q)
   # return shape_function_gradient_and_volume(ref_fe.ref_fe_type, X_el, ∇N_ξ, w)
   J = (X_el * ∇N_ξ)'
   J_inv = inv(J)
