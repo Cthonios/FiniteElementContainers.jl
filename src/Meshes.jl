@@ -56,11 +56,9 @@ function num_dimensions end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function num_nodes end
-"""
-$(TYPEDSIGNATURES)
-Dummy method to be overriden for specific mesh file format
-"""
+function num_nodes(mesh::AbstractMesh) 
+  @assert false "This method needs to overriden in extensions!"
+end
 
 """
 $(TYPEDSIGNATURES)

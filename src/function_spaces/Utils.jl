@@ -1,4 +1,4 @@
-elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.ReferenceFEType}}(
+elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.AbstractElementType}}(
   "HEX"     => Hex8,
   "HEX8"    => Hex8,
   "QUAD"    => Quad4,
@@ -28,7 +28,7 @@ end
 
 # TODO should we deprecate these?
 function setup_reference_element(
-  type::Type{<:ReferenceFiniteElements.ReferenceFEType}, 
+  type::Type{<:ReferenceFiniteElements.AbstractElementType}, 
   q_degree
 )
   ReferenceFiniteElements.ReferenceFE(type(Val(q_degree)))

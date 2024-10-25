@@ -29,7 +29,7 @@ end
 function setup_shape_function_values!(Ns, ref_fe)
   for e in axes(Ns, 2)
     for q in axes(Ns, 1)
-      Ns[q, e] = ReferenceFiniteElements.shape_function_values(ref_fe, q)
+      Ns[q, e] = ReferenceFiniteElements.shape_function_value(ref_fe, q)
     end 
   end
 end
@@ -39,7 +39,7 @@ function setup_shape_function_gradients!(∇N_Xs, Xs, conn, ref_fe)
   for e in axes(∇N_Xs, 2)
     X = Xs[:, conn[:, e]] # TODO clean this up
     for q in axes(∇N_Xs, 1)
-      ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
+      ∇N_ξ = ReferenceFiniteElements.shape_function_gradient(ref_fe, q)
       J     = (X * ∇N_ξ)'
       J_inv = inv(J)
       ∇N_Xs[q, e]  = (J_inv * ∇N_ξ')'
@@ -52,9 +52,9 @@ function setup_shape_function_JxWs!(JxWs, Xs, conn, ref_fe)
   for e in axes(JxWs, 2)
     X = Xs[:, conn[:, e]] # TODO clean this up
     for q in axes(JxWs, 1)
-      ∇N_ξ = ReferenceFiniteElements.shape_function_gradients(ref_fe, q)
+      ∇N_ξ = ReferenceFiniteElements.shape_function_gradient(ref_fe, q)
       J     = (X * ∇N_ξ)'
-      JxWs[q, e] = det(J) * ReferenceFiniteElements.quadrature_weights(ref_fe, q)
+      JxWs[q, e] = det(J) * ReferenceFiniteElements.quadrature_weight(ref_fe, q)
     end
   end
 end
@@ -64,7 +64,7 @@ function VectorizedPreAllocatedFunctionSpace(
   elem_id_map,
   conn,
   q_degree::Int, 
-  elem_type::Type{<:ReferenceFiniteElements.ReferenceFEType},
+  elem_type::Type{<:ReferenceFiniteElements.AbstractElementType},
   coords::VectorizedNodalField
 )
   
@@ -73,9 +73,10 @@ function VectorizedPreAllocatedFunctionSpace(
   ids      = reshape(dof_ids(dof_manager), ND, size(dof_manager, 2))
   temp     = reshape(ids[:, conn], ND * NN, NE)
   dof_conn = Connectivity{ND * NN, NE, Matrix, eltype(temp)}(temp)
-  ref_fe   = ReferenceFE(elem_type(q_degree))
-  D        = ReferenceFiniteElements.num_dimensions(ref_fe)
-  NQ       = ReferenceFiniteElements.num_q_points(ref_fe)
+  # ref_fe   = ReferenceFE(elem_type(q_degree))
+  ref_fe   = ReferenceFE(elem_type{Lagrange, q_degree}())
+  D        = ReferenceFiniteElements.dimension(ref_fe)
+  NQ       = ReferenceFiniteElements.num_quadrature_points(ref_fe)
   Ns       = QuadratureField{NN, NQ, NE, Vector, SVector{NN, Float64}}(undef)
   ∇N_Xs    = QuadratureField{NN * D, NQ, NE, Vector, SMatrix{NN, D, Float64, NN * D}}(undef)
   JxWs     = QuadratureField{1, NQ, NE, Vector, Float64}(undef)
