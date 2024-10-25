@@ -29,7 +29,7 @@ reference_element(fspace::FunctionSpace)        = fspace.ref_fe
 """
 $(TYPEDSIGNATURES)
 """
-num_dimensions(fspace::FunctionSpace)           = ReferenceFiniteElements.dimension(fspace.ref_fe.ref_fe_type)
+num_dimensions(fspace::FunctionSpace)           = ReferenceFiniteElements.dimension(fspace.ref_fe.element)
 """
 $(TYPEDSIGNATURES)
 """

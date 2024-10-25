@@ -32,6 +32,6 @@ end
 end
 
 # getting an error from FileMesh.num_nodes for some reason. No method
-# @testset ExtendedTestSet "JET" begin
-#   JET.test_package(FiniteElementContainers; target_defined_modules=true)
-# end
+@testset ExtendedTestSet "JET" begin
+  JET.test_package(FiniteElementContainers; target_defined_modules=true)
+end
