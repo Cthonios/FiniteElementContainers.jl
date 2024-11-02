@@ -61,9 +61,11 @@ export assemble!
 # Formulations
 export IncompressiblePlaneStress
 export PlaneStrain
+export ScalarFormulation
 export ThreeDimensional
 export discrete_gradient
 export discrete_symmetric_gradient
+export discrete_values
 export extract_stress
 export extract_stiffness
 export modify_field_gradients

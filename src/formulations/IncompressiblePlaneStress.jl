@@ -60,6 +60,24 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function discrete_values(::IncompressiblePlaneStress, N)
+  N_nodes = size(N, 1)
+  tup = ntuple(i -> 0.0, Val(2 * N_nodes))
+
+  for n in 1:N_nodes
+    tup = setindex(tup, N[n], n)
+  end
+
+  for n in 1:N_nodes
+    tup = setindex(tup, N[n], n + N_nodes)
+  end
+
+  return SVector{2 * N_nodes, eltype(N)}(tup)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function modify_field_gradients(::IncompressiblePlaneStress, ∇u_q::SMatrix{2, 2, T, 4}, ::Type{<:Tensor}) where T <: Number
   return Tensor{2, 3, T, 9}((
     ∇u_q[1, 1], ∇u_q[2, 1], 0.0,
