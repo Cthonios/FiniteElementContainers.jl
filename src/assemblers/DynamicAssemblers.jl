@@ -143,6 +143,28 @@ function SparseArrays.sparse!(assembler::DynamicAssembler)
   return K, M
 end
 
+function mass_matrix!(assembler::DynamicAssembler)
+  ids = assembler.unknown_dofs
+  M = SparseArrays.sparse!(
+    assembler.Is, assembler.Js, assembler.stiffnesses[ids],
+    length(assembler.klasttouch), length(assembler.klasttouch), +, assembler.klasttouch,
+    assembler.csrrowptr, assembler.csrcolval, assembler.csrnzval,
+    assembler.csccolptr, assembler.cscrowval, assembler.cscnzval
+  )
+  return M
+end
+
+function stiffness_matrix!(assembler::DynamicAssembler)
+  ids = assembler.unknown_dofs
+  K = SparseArrays.sparse!(
+    assembler.Is, assembler.Js, assembler.stiffnesses[ids],
+    length(assembler.klasttouch), length(assembler.klasttouch), +, assembler.klasttouch,
+    assembler.csrrowptr, assembler.csrcolval, assembler.csrnzval,
+    assembler.csccolptr, assembler.cscrowval, assembler.cscnzval
+  )
+  return K
+end
+
 """
 $(TYPEDSIGNATURES)
 assembly for stiffness matrix

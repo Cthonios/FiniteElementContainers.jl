@@ -109,6 +109,28 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function discrete_values(::ThreeDimensional, N)
+  N_nodes = size(N, 1)
+  tup = ntuple(i -> 0.0, Val(3 * N_nodes))
+
+  for n in 1:N_nodes
+    tup = setindex(tup, N[n], n)
+  end
+
+  for n in 1:N_nodes
+    tup = setindex(tup, N[n], n + N_nodes)
+  end
+
+  for n in 1:N_nodes
+    tup = setindex(tup, N[n], n + 2 * N_nodes)
+  end
+
+  return SVector{3 * N_nodes, eltype(N)}(tup)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function modify_field_gradients(::ThreeDimensional, ∇u_q, ::Type{<:SArray})
   return ∇u_q
 end

@@ -15,6 +15,7 @@ end
 
 include("IncompressiblePlaneStress.jl")
 include("PlaneStrain.jl")
+include("ScalarFormulation.jl")
 include("ThreeDimensional.jl")
 
 """
