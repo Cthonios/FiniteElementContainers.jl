@@ -1,7 +1,7 @@
 name = "FiniteElementContainers"
 uuid = "d08262e4-672f-4e7f-a976-f2cea5767631"
 authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
-version = "0.5.8"
+version = "0.5.9"
 
 [deps]
 Atomix = "a9b6321e-bd34-4604-b9c9-b65b8de01458"

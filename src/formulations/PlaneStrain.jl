@@ -10,7 +10,7 @@ $(TYPEDSIGNATURES)
 """
 function discrete_gradient(::PlaneStrain, ∇N_X)
   N   = size(∇N_X, 1)
-  tup = ntuple(i -> 0.0, Val(4 * 2 * N))
+  tup = zeros(SVector{4 * 2 * N, eltype(∇N_X)})
 
   for n in 1:N
     k = 2 * (n - 1) 
@@ -29,8 +29,7 @@ function discrete_gradient(::PlaneStrain, ∇N_X)
     tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
   end
-
-  return SMatrix{2 * N, 4, eltype(∇N_X), 2 * N * 4}(tup)
+  return SMatrix{2 * N, 4, eltype(∇N_X), 2 * N * 4}(tup.data)
 end
 
 """
@@ -38,7 +37,8 @@ $(TYPEDSIGNATURES)
 """
 function discrete_values(::PlaneStrain, N)
   N_nodes = size(N, 1)
-  tup = ntuple(i -> 0.0, Val(2 * N_nodes))
+  # tup = ntuple(i -> 0.0, Val(2 * N_nodes))
+  tup = zeros(SVector{2 * N_nodes, eltype(N)})
 
   for n in 1:N_nodes
     tup = setindex(tup, N[n], n)
@@ -48,7 +48,8 @@ function discrete_values(::PlaneStrain, N)
     tup = setindex(tup, N[n], n + N_nodes)
   end
 
-  return SVector{2 * N_nodes, eltype(N)}(tup)
+  # return SVector{2 * N_nodes, eltype(N)}(tup)
+  return tup
 end
 
 """
@@ -56,7 +57,8 @@ $(TYPEDSIGNATURES)
 """
 function discrete_symmetric_gradient(::PlaneStrain, ∇N_X)
   N   = size(∇N_X, 1)
-  tup = ntuple(i -> 0.0, Val(3 * 2 * N))
+  # tup = ntuple(i -> 0.0, Val(3 * 2 * N))
+  tup = zeros(SVector{3 * 2 * N, eltype(∇N_X)})
 
   for n in 1:N
     k = 2 * (n - 1) 
@@ -72,7 +74,7 @@ function discrete_symmetric_gradient(::PlaneStrain, ∇N_X)
     tup = setindex(tup, ∇N_X[n, 1], k + 2)
   end
 
-  return SMatrix{2 * N, 3, eltype(∇N_X), 2 * N * 3}(tup)
+  return SMatrix{2 * N, 3, eltype(∇N_X), 2 * N * 3}(tup.data)
 end
 
 """
