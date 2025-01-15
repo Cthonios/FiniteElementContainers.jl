@@ -28,6 +28,12 @@ function NodalField{NF, NN}(vals::M) where {NF, NN, M <: AbstractArray{<:Number,
   NodalField{eltype(new_vals), NF, typeof(new_vals)}(new_vals)
 end
 
+function NodalField{Tup, T}(::UndefInitializer) where {Tup, T}
+  NF, NN = Tup
+  vals = Vector{T}(undef, NF * NN)
+  return NodalField{T, NF, typeof(vals)}(vals)
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -40,6 +46,11 @@ $(TYPEDSIGNATURES)
 function Base.similar(field::NodalField{T, NF, Vals}) where {T, NF, Vals}
   vals = similar(field.vals)
   return NodalField{T, NF, Vals}(vals)
+end
+
+function Base.zero(::Type{NodalField{T, NF, Vals}}, n_nodes) where {T, NF, Vals}
+  vals = zeros(T, NF * n_nodes)
+  return NodalField{T, NF, typeof(vals)}(vals)
 end
 
 # abstract array interface
@@ -78,9 +89,4 @@ $(TYPEDSIGNATURES)
 function num_nodes(field::NodalField{T, NF, Vals}) where {T, NF, Vals} 
   NN = length(field) ÷ NF
   return NN
-end
-
-function Base.zero(::Type{NodalField{T, NF, Vals}}, n_nodes) where {T, NF, Vals}
-  vals = zeros(T, NF * n_nodes)
-  return NodalField{T, NF, typeof(vals)}(vals)
 end

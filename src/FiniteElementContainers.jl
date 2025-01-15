@@ -84,7 +84,8 @@ using Tensors
 abstract type FEMContainer end
 
 include("fields/Fields.jl")
-include("Connectivities.jl")
+# include("Connectivities.jl")
+include("Connectivity.jl")
 include("Meshes.jl")
 include("DofManagers.jl")
 include("function_spaces/FunctionSpaces.jl")

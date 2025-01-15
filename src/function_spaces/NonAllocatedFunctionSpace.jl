@@ -20,29 +20,29 @@ function Base.show(io::IO, fspace::NonAllocatedFunctionSpace)
         "  Reference finite element = $(fspace.ref_fe)\n")
 end
 
+# function NonAllocatedFunctionSpace(
+#   dof_manager::DofManager,
+#   elem_id_map,
+#   conn::SimpleConnectivity, 
+#   q_degree::Int, 
+#   elem_type::Type{<:ReferenceFiniteElements.AbstractElementType}
+# )
+
+#   ND       = num_dofs_per_node(dof_manager)
+#   NN, NE   = num_nodes_per_element(conn), num_elements(conn)
+#   ids      = reshape(dof_ids(dof_manager), ND, size(dof_manager, 2))
+#   temp     = reshape(ids[:, conn], ND * NN, NE)
+#   dof_conn = Connectivity{ND * NN, NE, Matrix, eltype(temp)}(temp)
+#   ref_fe   = ReferenceFE(elem_type{Lagrange, q_degree}())
+#   return NonAllocatedFunctionSpace{ND, typeof(elem_id_map), typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
+#     elem_id_map, conn, dof_conn, ref_fe
+#   )
+# end
+
 function NonAllocatedFunctionSpace(
   dof_manager::DofManager,
   elem_id_map,
-  conn::SimpleConnectivity, 
-  q_degree::Int, 
-  elem_type::Type{<:ReferenceFiniteElements.AbstractElementType}
-)
-
-  ND       = num_dofs_per_node(dof_manager)
-  NN, NE   = num_nodes_per_element(conn), num_elements(conn)
-  ids      = reshape(dof_ids(dof_manager), ND, size(dof_manager, 2))
-  temp     = reshape(ids[:, conn], ND * NN, NE)
-  dof_conn = Connectivity{ND * NN, NE, Matrix, eltype(temp)}(temp)
-  ref_fe   = ReferenceFE(elem_type{Lagrange, q_degree}())
-  return NonAllocatedFunctionSpace{ND, typeof(elem_id_map), typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
-    elem_id_map, conn, dof_conn, ref_fe
-  )
-end
-
-function NonAllocatedFunctionSpace(
-  dof_manager::DofManager,
-  elem_id_map,
-  conn::VectorizedConnectivity, 
+  conn::Connectivity, 
   q_degree::Int, 
   elem_type::Type{<:ReferenceFiniteElements.AbstractElementType}
 )
@@ -52,7 +52,7 @@ function NonAllocatedFunctionSpace(
   ids      = dof_ids(dof_manager)
   ids      = reshape(1:ND * num_nodes(dof_manager), ND, num_nodes(dof_manager))
   temp     = reshape(ids[:, conn], ND * NN, NE)
-  dof_conn = Connectivity{ND * NN, NE, Vector, eltype(temp)}(vec(temp))
+  dof_conn = Connectivity{ND * NN, NE}(vec(temp))
   ref_fe   = ReferenceFE(elem_type{Lagrange, q_degree}())
 
   return NonAllocatedFunctionSpace{ND, typeof(elem_id_map), typeof(conn), typeof(dof_conn), typeof(ref_fe)}(
