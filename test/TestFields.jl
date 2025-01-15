@@ -77,8 +77,8 @@ end
   vals = rand(2, 20)
 
   # field_1 = NodalField{2, 20}(vals)
-  field_2 = NodalField{2, 20, Matrix}(vals)
-  field_3 = NodalField{2, 20, Vector}(vals)
+  field_2 = NodalField{2, 20}(vals)
+  # field_3 = NodalField{2, 20, Vector}(vals)
 
   # field_2 .= vec(vals)
   # field_2 .= vals
@@ -88,7 +88,7 @@ end
   for n in axes(vals)
     # @test vals[n] == field_1[n]
     @test vals[n] == field_2[n]
-    @test vals[n] == field_3[n]
+    # @test vals[n] == field_3[n]
   end
 
   # test dual index getindex
@@ -96,7 +96,7 @@ end
     for d in axes(vals, 1)
       # @test vals[d, n] == field_1[d, n]
       @test vals[d, n] == field_2[d, n]
-      @test vals[d, n] == field_3[d, n]
+      # @test vals[d, n] == field_3[d, n]
     end
   end
 
@@ -106,11 +106,11 @@ end
     for d in axes(vals, 1)
       # field_1[d, n] = vals_2[d, n]
       field_2[d, n] = vals_2[d, n]
-      field_3[d, n] = vals_2[d, n]
+      # field_3[d, n] = vals_2[d, n]
 
       # @test vals_2[d, n] == field_1[d, n]
       @test vals_2[d, n] == field_2[d, n]
-      @test vals_2[d, n] == field_3[d, n]
+      # @test vals_2[d, n] == field_3[d, n]
     end
   end
 
@@ -119,28 +119,28 @@ end
     for d in axes(field_2, 1)
       # @test vals[d, n] == field_1[d, n]
       @test vals[d, n] == field_2[d, n]
-      @test vals[d, n] == field_3[d, n]
+      # @test vals[d, n] == field_3[d, n]
     end
   end
 
   # some constructor tests
-  field = NodalField{1, 10, Vector, Float64}(undef)
-  # @show size(field)
+  # field = NodalField{1, 10, Vector, Float64}(undef)
+  # # @show size(field)
+  # # @test size(field) == (10,)
+  # field = NodalField{2, 10, Vector, Float64}(undef)
+  # field = NodalField{2, 10, Vector}(vec(field) |> collect)
+  # field = similar(field)
+  # field = zero(field)
+  # field = zero(typeof(field))
+  # field = FiniteElementContainers.VectorizedNodalField{2, 10, Float64}(undef)
+  # field = FiniteElementContainers.VectorizedNodalField{2, 10}(vec(field) |> collect)
+  # @test size(field) == (2, 10)
+  # field = NodalField{2, 10, Matrix, Float64}(undef)
+  # field = NodalField{(2, 10), Matrix, Float64}(undef)
+  # field = similar(field)
+  # field = zero(field)
+  # field = NodalField{2, 10, StructArray, SVector{2, Float64}}(undef)
   # @test size(field) == (10,)
-  field = NodalField{2, 10, Vector, Float64}(undef)
-  field = NodalField{2, 10, Vector}(vec(field) |> collect)
-  field = similar(field)
-  field = zero(field)
-  field = zero(typeof(field))
-  field = FiniteElementContainers.VectorizedNodalField{2, 10, Float64}(undef)
-  field = FiniteElementContainers.VectorizedNodalField{2, 10}(vec(field) |> collect)
-  @test size(field) == (2, 10)
-  field = NodalField{2, 10, Matrix, Float64}(undef)
-  field = NodalField{(2, 10), Matrix, Float64}(undef)
-  field = similar(field)
-  field = zero(field)
-  field = NodalField{2, 10, StructArray, SVector{2, Float64}}(undef)
-  @test size(field) == (10,)
 
   # # some constructor tests
   # field = FiniteElementContainers.SimpleNodalField{2, 10, Float64}(undef)

@@ -22,22 +22,22 @@ Constructors\n
 """
 abstract type ElementField{T, N, NN, NE, Vals} <: AbstractField{T, N, NN, Vals} end
 
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-Abstract type for implementations of fields that live on nodes.
+# """
+# $(TYPEDEF)
+# $(TYPEDSIGNATURES)
+# Abstract type for implementations of fields that live on nodes.
 
-Constructors\n
-```NodalField{NF, NN, Vector}(vals::M)                    where {NF, NN, M <: AbstractArray{<:Number, 2}}```\n
-```NodalField{NF, NN, Matrix}(vals::M)                    where {NF, NN, M <: AbstractArray{<:Number, 2}}```\n
-```NodalField{NF, NN, Vector}(vals::V)                    where {NF, NN, V <: AbstractArray{<:Number, 1}}```\n
-```NodalField{NF, NN, Vector}(vals::V)                    where {NF, NN, V <: AbstractArray{<:Number, 1}}```\n
-```NodalField{NF, NN, Vector, T}(::UndefInitializer)      where {NF, NN, T}```\n
-```NodalField{NF, NN, Matrix, T}(::UndefInitializer)      where {NF, NN, T <: Number}```\n
-```NodalField{NF, NN, StructArray, T}(::UndefInitializer) where {NF, NN, T}```\n
-```NodalField{Tup, A, T}(::UndefInitializer)              where {Tup, A, T}```
-"""
-abstract type NodalField{T, N, NF, NN, Vals} <: AbstractField{T, N, NF, Vals} end
+# Constructors\n
+# ```NodalField{NF, NN, Vector}(vals::M)                    where {NF, NN, M <: AbstractArray{<:Number, 2}}```\n
+# ```NodalField{NF, NN, Matrix}(vals::M)                    where {NF, NN, M <: AbstractArray{<:Number, 2}}```\n
+# ```NodalField{NF, NN, Vector}(vals::V)                    where {NF, NN, V <: AbstractArray{<:Number, 1}}```\n
+# ```NodalField{NF, NN, Vector}(vals::V)                    where {NF, NN, V <: AbstractArray{<:Number, 1}}```\n
+# ```NodalField{NF, NN, Vector, T}(::UndefInitializer)      where {NF, NN, T}```\n
+# ```NodalField{NF, NN, Matrix, T}(::UndefInitializer)      where {NF, NN, T <: Number}```\n
+# ```NodalField{NF, NN, StructArray, T}(::UndefInitializer) where {NF, NN, T}```\n
+# ```NodalField{Tup, A, T}(::UndefInitializer)              where {Tup, A, T}```
+# """
+# abstract type NodalField{T, N, NF, NN, Vals} <: AbstractField{T, N, NF, Vals} end
 
 """
 $(TYPEDEF)
@@ -75,10 +75,10 @@ $(TYPEDSIGNATURES)
 """
 num_elements(::QuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals} = NE
 
-"""
-$(TYPEDSIGNATURES)
-"""
-num_nodes(::NodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals} = NN
+# """
+# $(TYPEDSIGNATURES)
+# """
+# num_nodes(::NodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals} = NN
 
 """
 $(TYPEDSIGNATURES)
@@ -95,23 +95,26 @@ num_q_points(::QuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE,
 include("ComponentArrayElementField.jl")
 include("ComponentArrayQuadratureField.jl")
 include("SimpleElementField.jl")
-include("SimpleNodalField.jl")
+# include("SimpleNodalField.jl")
 include("SimpleQuadratureField.jl")
 include("VectorizedElementField.jl")
-include("VectorizedNodalField.jl")
+# include("VectorizedNodalField.jl")
 include("VectorizedQuadratureField.jl")
 #
+
+include("NodalField.jl")
+
 ###############################################################################
 
 # Interfaces
-NodalField{NF, NN, Vector}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 2}} = VectorizedNodalField{NF, NN}(vals)
-NodalField{NF, NN, Matrix}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 2}} = SimpleNodalField{NF, NN}(vals)
-NodalField{NF, NN, Vector}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 1}} = VectorizedNodalField{NF, NN}(vals)
-NodalField{NF, NN, Vector, T}(::UndefInitializer)  where {NF, NN, T} = VectorizedNodalField{NF, NN, T}(undef)
-NodalField{NF, NN, Matrix, T}(::UndefInitializer)  where {NF, NN, T <: Number} = SimpleNodalField{NF, NN, T}(undef)
-NodalField{NF, NN, StructArray, T}(::UndefInitializer) where {NF, NN, T} = VectorizedNodalField{NF, NN, StructArray, T}(undef)
-NodalField{Tup, A, T}(::UndefInitializer) where {Tup, A, T} = NodalField{Tup[1], Tup[2], A, T}(undef)
-NodalField{Tup, A}(vals::M) where {Tup, A, M <: AbstractArray} = NodalField{Tup[1], Tup[2], A}(vals)
+# NodalField{NF, NN, Vector}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 2}} = VectorizedNodalField{NF, NN}(vals)
+# NodalField{NF, NN, Matrix}(vals::M) where {NF, NN, M <: AbstractArray{<:Number, 2}} = SimpleNodalField{NF, NN}(vals)
+# NodalField{NF, NN, Vector}(vals::V) where {NF, NN, V <: AbstractArray{<:Number, 1}} = VectorizedNodalField{NF, NN}(vals)
+# NodalField{NF, NN, Vector, T}(::UndefInitializer)  where {NF, NN, T} = VectorizedNodalField{NF, NN, T}(undef)
+# NodalField{NF, NN, Matrix, T}(::UndefInitializer)  where {NF, NN, T <: Number} = SimpleNodalField{NF, NN, T}(undef)
+# NodalField{NF, NN, StructArray, T}(::UndefInitializer) where {NF, NN, T} = VectorizedNodalField{NF, NN, StructArray, T}(undef)
+# NodalField{Tup, A, T}(::UndefInitializer) where {Tup, A, T} = NodalField{Tup[1], Tup[2], A, T}(undef)
+# NodalField{Tup, A}(vals::M) where {Tup, A, M <: AbstractArray} = NodalField{Tup[1], Tup[2], A}(vals)
 
 ##########################################################################################
 

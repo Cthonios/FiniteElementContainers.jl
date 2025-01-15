@@ -65,7 +65,8 @@ function VectorizedPreAllocatedFunctionSpace(
   conn,
   q_degree::Int, 
   elem_type::Type{<:ReferenceFiniteElements.AbstractElementType},
-  coords::VectorizedNodalField
+  # coords::VectorizedNodalField
+  coords::NodalField
 )
   
   ND       = num_dofs_per_node(dof_manager)

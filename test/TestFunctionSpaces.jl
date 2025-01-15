@@ -66,7 +66,7 @@ end
     0.1 0.4;
     -0.2 -0.1
   ]
-  coords = NodalField{size(coords), Vector}(coords)
+  coords = NodalField{size(coords)}(coords)
   elem_id_map = Dict{Int, Int}(zip(1:size(conns, 2), 1:size(conns, 2)))
   conns = Connectivity{size(conns), Vector}(conns)
   dof = DofManager{Vector{Float64}}(size(coords, 1), size(coords, 2))

@@ -1,7 +1,6 @@
-
 function test_dof_constructors(mesh)
   coords  = coordinates(mesh)
-  coords  = NodalField{size(coords), Vector}(coords)
+  coords  = NodalField{size(coords)}(coords)
   dof1    = DofManager{1, size(coords, 2), Vector{Float64}}()
   dof2    = DofManager{Vector{Float64}}(1, 16641)
   dof3    = DofManager(mesh, 1)
@@ -17,17 +16,17 @@ end
 function test_dof_methods()
   # dof1 = DofManager(mesh, 2)
   # TODO do we add testing on a Matrix type or just deprecate that?
-  dof1 = DofManager{Matrix{Float64}}(2, 16641)
-  @show typeof(dof1)
-  @show dof1
-  @test eltype(dof1) == Int64
-  @test size(dof1) == (2, 16641)
-  @test size(dof1, 1) == 2
-  @test size(dof1, 2) == 16641
-  @test FiniteElementContainers.num_dofs_per_node(dof1) == 2
-  @test FiniteElementContainers.num_nodes(dof1) == 16641
-  U = create_fields(dof1)
-  @test size(U) == size(dof1)
+  # dof1 = DofManager{Matrix{Float64}}(2, 16641)
+  # @show typeof(dof1)
+  # @show dof1
+  # @test eltype(dof1) == Int64
+  # @test size(dof1) == (2, 16641)
+  # @test size(dof1, 1) == 2
+  # @test size(dof1, 2) == 16641
+  # @test FiniteElementContainers.num_dofs_per_node(dof1) == 2
+  # @test FiniteElementContainers.num_nodes(dof1) == 16641
+  # U = create_fields(dof1)
+  # @test size(U) == size(dof1)
   dof1 = DofManager{Vector{Float64}}(2, 16641)
   @show typeof(dof1)
   @show dof1

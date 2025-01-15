@@ -4,14 +4,19 @@ using Adapt
 using FiniteElementContainers
 
 # Nodal fields
-function Adapt.adapt_structure(to, field::FiniteElementContainers.SimpleNodalField)
-  NF, NN = num_fields(field), num_nodes(field)
-  return FiniteElementContainers.SimpleNodalField{NF, NN}(Adapt.adapt_structure(to, field.vals))
-end
+# function Adapt.adapt_structure(to, field::FiniteElementContainers.SimpleNodalField)
+#   NF, NN = num_fields(field), num_nodes(field)
+#   return FiniteElementContainers.SimpleNodalField{NF, NN}(Adapt.adapt_structure(to, field.vals))
+# end
 
-function Adapt.adapt_structure(to, field::FiniteElementContainers.VectorizedNodalField)
+# function Adapt.adapt_structure(to, field::FiniteElementContainers.VectorizedNodalField)
+#   NF, NN = num_fields(field), num_nodes(field)
+#   return FiniteElementContainers.VectorizedNodalField{NF, NN}(Adapt.adapt_structure(to, field.vals))
+# end
+
+function Adapt.adapt_structure(to, field::FiniteElementContainersAdaptExt.NodalField)
   NF, NN = num_fields(field), num_nodes(field)
-  return FiniteElementContainers.VectorizedNodalField{NF, NN}(Adapt.adapt_structure(to, field.vals))
+  return FiniteElementContainers.NodalField{NF, NN}(Adapt.adapt_structure(to, field.vals))
 end
 
 # Element fields

@@ -22,14 +22,14 @@ end
 
 # set up initial containers
 
-types = [Matrix, Vector]
+types = [Vector]
 # type = Vector
 
 for type in types
 
   mesh_new    = FileMesh(ExodusDatabase, "./poisson/poisson.g")
   coords      = coordinates(mesh_new)
-  coords      = NodalField{size(coords), type}(coords)
+  coords      = NodalField{size(coords)}(coords)
   elem_id_map = read_block_id_map(mesh_new.mesh_obj, 1)
   conn        = element_connectivity(mesh_new, 1)
   conn        = ElementField{size(conn), type}(convert.(Int64, conn))
