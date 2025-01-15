@@ -28,19 +28,10 @@ function NodalField{NF, NN}(vals::M) where {NF, NN, M <: AbstractArray{<:Number,
   NodalField{eltype(new_vals), NF, typeof(new_vals)}(new_vals)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 NodalField{Tup}(vals) where Tup = NodalField{Tup[1], Tup[2]}(vals)
-
-# """
-# $(TYPEDSIGNATURES)
-# ```NodalField{NF, NN, T}(::UndefInitializer) where {NF, NN, T <: Number}```
-# """
-# function NodalField{NF, NN, A, T}(::UndefInitializer) where {NF, NN, A, T <: Number}
-#   # NF, NN = Tup
-#   vals = A{T}(undef, NF * NN)
-#   # return NodalField{T, NF, typeof(vals)}(vals)
-# end
-
-# NodalField{Tup, T}(::UndefInitializer) where {Tup <: Tuple, T} = NodalField{Tup[1], Tup[2], T}(undef)
 
 # general base methods
 """
@@ -50,14 +41,6 @@ function Base.similar(field::NodalField{T, NF, Vals}) where {T, NF, Vals}
   vals = similar(field.vals)
   return NodalField{T, NF, Vals}(vals)
 end
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# function Base.zero(::Type{NodalField{T, NF, Vals}}) where {T, NF, Vals <: AbstractArray{<:Number, 1}}
-#   vals = zeros(T, NF * NN)
-#   return NodalField{T, N, NF, NN, Vals}(vals)
-# end
 
 # abstract array interface
 Base.IndexStyle(::Type{<:NodalField}) = IndexLinear()
