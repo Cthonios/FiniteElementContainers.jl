@@ -5,23 +5,6 @@ as the base ```Field``` type
 """
 abstract type AbstractField{T, N, NF, Vals} <: AbstractArray{T, N} end
 
-# """
-# $(TYPEDEF)
-# $(TYPEDSIGNATURES)
-# Abstract type for implementations of fields that live on elements.
-
-# Constructors\n
-# ```ElementField{NN, NE, Vector}(vals::M)                    where {NN, NE, M <: AbstractArray{<:Number, 2}}```\n
-# ```ElementField{NN, NE, Matrix}(vals::M)                    where {NN, NE, M <: AbstractArray{<:Number, 2}}```\n
-# ```ElementField{NN, NE, Vector}(vals::V)                    where {NN, NE, V <: AbstractArray{<:Number, 1}}```\n
-# ```ElementField{NN, NE, Vector, T}(::UndefInitializer)      where {NN, NE, T}```\n
-# ```ElementField{NN, NE, Matrix, T}(::UndefInitializer)      where {NN, NE, T <: Number}```\n
-# ```ElementField{NN, NE, StructArray, T}(::UndefInitializer) where {NN, NE, T}```\n
-# ```ElementField{Tup, A, T}(::UndefInitializer)              where {Tup, A, T}```\n
-# ```ElementField{Tup, A}(vals::M)                            where {Tup, A, M <: AbstractArray}```
-# """
-# abstract type ElementField{T, N, NN, NE, Vals} <: AbstractField{T, N, NN, Vals} end
-
 """
 $(TYPEDEF)
 Abstract type for implementations of fields that live on quadrature points.
@@ -48,25 +31,10 @@ $(TYPEDSIGNATURES)
 """
 num_fields(::AbstractField{T, N, NF, Vals}) where {T, N, NF, Vals} = NF
 
-# """
-# $(TYPEDSIGNATURES)
-# """
-# num_elements(::ElementField{T, N, NN, NE, Vals}) where {T, N, NN, NE, Vals} = NE
-
 """
 $(TYPEDSIGNATURES)
 """
 num_elements(::QuadratureField{T, N, NF, NQ, NE, Vals}) where {T, N, NF, NQ, NE, Vals} = NE
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# num_nodes(::NodalField{T, N, NF, NN, Vals}) where {T, N, NF, NN, Vals} = NN
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# num_nodes_per_element(field::ElementField) = num_fields(field)
 
 """
 $(TYPEDSIGNATURES)

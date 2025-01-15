@@ -71,7 +71,6 @@ export extract_stiffness
 export modify_field_gradients
 
 # dependencies
-using Atomix
 using ComponentArrays
 using DocStringExtensions
 using LinearAlgebra
