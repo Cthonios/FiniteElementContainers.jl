@@ -73,23 +73,23 @@ function assemble!(
   return nothing
 end
 
-"""
-$(TYPEDSIGNATURES)
-assembly method for just a residual vector
+# """
+# $(TYPEDSIGNATURES)
+# assembly method for just a residual vector
 
-TODO need to add an Atomix lock here
-TODO add block_id to fspace or something like that
-"""
-function assemble_atomic!(
-  R::V1,
-  R_el::V2, conn::V3
-) where {V1 <: NodalField, V2 <: AbstractVector{<:Number}, V3 <: AbstractVector{<:Integer}}
+# TODO need to add an Atomix lock here
+# TODO add block_id to fspace or something like that
+# """
+# function assemble_atomic!(
+#   R::V1,
+#   R_el::V2, conn::V3
+# ) where {V1 <: NodalField, V2 <: AbstractVector{<:Number}, V3 <: AbstractVector{<:Integer}}
 
-  for i in axes(conn, 1)
-    Atomix.@atomic R.vals[conn[i]] += R_el[i]
-  end
-  return nothing
-end
+#   for i in axes(conn, 1)
+#     Atomix.@atomic R.vals[conn[i]] += R_el[i]
+#   end
+#   return nothing
+# end
 
 # """
 # $(TYPEDSIGNATURES)

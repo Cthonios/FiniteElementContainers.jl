@@ -65,14 +65,15 @@ function VectorizedPreAllocatedFunctionSpace(
   conn,
   q_degree::Int, 
   elem_type::Type{<:ReferenceFiniteElements.AbstractElementType},
-  coords::VectorizedNodalField
+  # coords::VectorizedNodalField
+  coords::NodalField
 )
   
   ND       = num_dofs_per_node(dof_manager)
   NN, NE   = num_nodes_per_element(conn), num_elements(conn)
   ids      = reshape(dof_ids(dof_manager), ND, size(dof_manager, 2))
   temp     = reshape(ids[:, conn], ND * NN, NE)
-  dof_conn = Connectivity{ND * NN, NE, Matrix, eltype(temp)}(temp)
+  dof_conn = Connectivity{ND * NN, NE}(temp)
   # ref_fe   = ReferenceFE(elem_type(q_degree))
   ref_fe   = ReferenceFE(elem_type{Lagrange, q_degree}())
   D        = ReferenceFiniteElements.dimension(ref_fe)

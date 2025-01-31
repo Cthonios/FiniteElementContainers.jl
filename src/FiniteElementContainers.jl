@@ -71,7 +71,6 @@ export extract_stiffness
 export modify_field_gradients
 
 # dependencies
-using Atomix
 using ComponentArrays
 using DocStringExtensions
 using LinearAlgebra
@@ -84,7 +83,8 @@ using Tensors
 abstract type FEMContainer end
 
 include("fields/Fields.jl")
-include("Connectivities.jl")
+# include("Connectivities.jl")
+include("Connectivity.jl")
 include("Meshes.jl")
 include("DofManagers.jl")
 include("function_spaces/FunctionSpaces.jl")

@@ -90,7 +90,7 @@ function element_level_fields(fspace::FunctionSpace, u::NodalField)
   u_el = element_level_fields_reinterpret(fspace, u)
   NN, NE = num_nodes_per_element(fspace), num_elements(fspace)
   ND = num_dofs_per_node(fspace)
-  u_el_ret = ElementField{NN * ND, NE, Vector, eltype(u_el)}(undef)
+  u_el_ret = ElementField{(NN * ND, NE), eltype(u_el)}(undef)
   u_el_ret .= u_el
 end
 """

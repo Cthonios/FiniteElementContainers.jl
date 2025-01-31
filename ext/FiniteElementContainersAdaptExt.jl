@@ -3,26 +3,15 @@ module FiniteElementContainersAdaptExt
 using Adapt
 using FiniteElementContainers
 
-# Nodal fields
-function Adapt.adapt_structure(to, field::FiniteElementContainers.SimpleNodalField)
+function Adapt.adapt_structure(to, field::FiniteElementContainersAdaptExt.NodalField)
   NF, NN = num_fields(field), num_nodes(field)
-  return FiniteElementContainers.SimpleNodalField{NF, NN}(Adapt.adapt_structure(to, field.vals))
-end
-
-function Adapt.adapt_structure(to, field::FiniteElementContainers.VectorizedNodalField)
-  NF, NN = num_fields(field), num_nodes(field)
-  return FiniteElementContainers.VectorizedNodalField{NF, NN}(Adapt.adapt_structure(to, field.vals))
+  return FiniteElementContainers.NodalField{NF, NN}(Adapt.adapt_structure(to, field.vals))
 end
 
 # Element fields
-function Adapt.adapt_structure(to, field::FiniteElementContainers.SimpleElementField)
+function Adapt.adapt_structure(to, field::FiniteElementContainers.ElementField)
   NN, NE = num_nodes_per_element(field), num_elements(field)
-  return FiniteElementContainers.SimpleElementField{NN, NE}(Adapt.adapt_structure(to, field.vals))
-end
-
-function Adapt.adapt_structure(to, field::FiniteElementContainers.VectorizedElementField)
-  NN, NE = num_nodes_per_element(field), num_elements(field)
-  return FiniteElementContainers.VectorizedElementField{NN, NE}(Adapt.adapt_structure(to, field.vals))
+  return FiniteElementContainers.ElementField{NN, NE}(Adapt.adapt_structure(to, field.vals))
 end
 
 # Quadrature fields
