@@ -32,10 +32,9 @@ for type in types
   coords      = NodalField{size(coords)}(coords)
   elem_id_map = read_block_id_map(mesh_new.mesh_obj, 1)
   conn        = element_connectivity(mesh_new, 1)
-  conn        = ElementField{size(conn)}(convert.(Int64, conn))
-  elem        = FiniteElementContainers.element_type(mesh_new, 1)
-  nsets       = nodeset.((mesh_new,), [1, 2, 3, 4])
-  nsets       = map(nset -> convert.(Int64, nset), nsets)
+  conn        = ElementField{size(conn)}(conn)
+  elem        = element_type(mesh_new, 1)
+  nsets       = nodesets(mesh_new, [1, 2, 3, 4])
   dof         = DofManager{1, size(coords, 2), type{Float64}}()
   fspaces     = NonAllocatedFunctionSpace[
     NonAllocatedFunctionSpace(dof, elem_id_map, conn, 2, elem)

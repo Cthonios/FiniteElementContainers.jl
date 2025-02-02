@@ -36,6 +36,12 @@ $(TYPEDSIGNATURES)
 """
 ElementField{Tup}(vals) where Tup = ElementField{Tup[1], Tup[2]}(vals)
 
+function ElementField(vals::M) where M <: AbstractMatrix
+  NN = size(vals, 1)
+  vals = vec(vals)
+  return ElementField{eltype(vals), NN, typeof(vals)}(vals)
+end
+
 # general base methods
 """
 $(TYPEDSIGNATURES)

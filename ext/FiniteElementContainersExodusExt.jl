@@ -35,6 +35,13 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function FiniteElementContainers.element_block_names(mesh::FileMesh{<:ExodusDatabase})
+  return Exodus.read_names(mesh.mesh_obj, Block)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function FiniteElementContainers.nodeset_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, NodeSet)
 end
@@ -42,8 +49,22 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function FiniteElementContainers.nodeset_names(mesh::FileMesh{<:ExodusDatabase})
+  return Exodus.read_names(mesh.mesh_obj, NodeSet)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function FiniteElementContainers.sideset_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, SideSet)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function FiniteElementContainers.sideset_names(mesh::FileMesh{<:ExodusDatabase})
+  return Exodus.read_names(mesh.mesh_obj, SideSet)
 end
 
 """
@@ -60,7 +81,7 @@ function FiniteElementContainers.element_connectivity(
 ) 
 
   block = read_block(mesh.mesh_obj, id)
-  return block.conn
+  return convert.(Int64, block.conn)
 end
 
 function FiniteElementContainers.element_connectivity(
@@ -98,7 +119,14 @@ function FiniteElementContainers.nodeset(
   id::Integer
 ) 
   nset = read_set(mesh.mesh_obj, NodeSet, id)
-  return nset.nodes
+  return convert.(Int64, nset.nodes)
+end
+
+function FiniteElementContainers.nodesets(
+  mesh::FileMesh{<:ExodusDatabase},
+  ids
+) 
+  return FiniteElementContainers.nodeset.((mesh,), ids)
 end
 
 function FiniteElementContainers.sideset(
