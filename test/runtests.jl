@@ -25,6 +25,7 @@ include("TestMesh.jl")
 
 @testset ExtendedTestSet "Poisson problem" begin
   include("poisson/TestPoisson.jl")
+  include("poisson/TestPoisson2.jl")
 end
 
 @testset ExtendedTestSet "Aqua" begin

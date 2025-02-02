@@ -34,6 +34,12 @@ function NodalField{Tup, T}(::UndefInitializer) where {Tup, T}
   return NodalField{T, NF, typeof(vals)}(vals)
 end
 
+function NodalField(vals::M) where M <: AbstractMatrix
+  NF = size(vals, 1)
+  vals = vec(vals)
+  return NodalField{eltype(vals), NF, typeof(vals)}(vals)
+end
+
 """
 $(TYPEDSIGNATURES)
 """

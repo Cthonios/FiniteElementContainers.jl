@@ -6,7 +6,9 @@ abstract type AbstractMesh <: FEMContainer end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function coordinates end
+function coordinates(::AbstractMesh) 
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
@@ -16,47 +18,91 @@ function copy_mesh end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function element_block_ids end
+function element_block_ids(::AbstractMesh) 
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function element_connectivity end
+function element_block_names(::AbstractMesh) 
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function element_type end
+function element_connectivity(::AbstractMesh) 
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function nodeset end
+function element_type(::AbstractMesh)
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function nodeset_ids end
+function nodeset(::AbstractMesh) 
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function sideset end
+function nodesets(::AbstractMesh, ids) 
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function sideset_ids end
+function nodeset_ids(::AbstractMesh) 
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function num_dimensions end
+function nodeset_names(::AbstractMesh) 
+  @assert false
+end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function num_nodes(mesh::AbstractMesh) 
+function sideset(::AbstractMesh)
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
+function sideset_ids(::AbstractMesh) 
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
+function sideset_names(::AbstractMesh) 
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
+function num_dimensions(::AbstractMesh)
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
+function num_nodes(::AbstractMesh) 
   @assert false "This method needs to overriden in extensions!"
 end
 
@@ -118,4 +164,38 @@ function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
     end
   end
   return coords, conns
+end
+
+# new stuff below
+struct UnstructuredMesh{X, ETypes, EConns, NSetNodes} <: AbstractMesh
+  nodal_coords::X
+  element_types::ETypes
+  element_conns::EConns
+  nodeset_nodes::NSetNodes
+end
+
+function UnstructuredMesh(file_type, file_name::String)
+  file = FileMesh(file_type, file_name)
+
+  # read nodal coordinates
+  nodal_coords = coordinates(file)
+
+  # read element block types, conn, etc.
+  el_block_ids = element_block_ids(file)
+  el_block_names = element_block_names(file)
+  el_block_names = Symbol.(el_block_names)
+  el_types = element_type.((file,), el_block_ids)
+  el_types = NamedTuple{tuple(el_block_names...)}(tuple(el_types...))
+  el_conns = element_connectivity.((file,), el_block_ids)
+  el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
+
+  # read nodesets
+  nsets = nodesets(file, nodeset_ids(file))
+
+  # read sidesets
+
+  # TODO
+  # write methods to create edge and face connectivity
+
+  return UnstructuredMesh(nodal_coords, el_types, el_conns, nsets)
 end

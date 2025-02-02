@@ -2,12 +2,15 @@ module FiniteElementContainers
 
 # Meshes exports
 export FileMesh
+export UnstructuredMesh
 export coordinates
 export element_block_ids
 export element_connectivity
 export element_type
 export nodeset
+export nodesets
 export nodeset_ids
+export nodeset_names
 export num_dimensions
 export num_dofs_per_node
 export num_fields
@@ -16,6 +19,7 @@ export num_nodes_per_element
 export num_q_points
 export sideset
 export sideset_ids
+export sideset_names
 
 # Fields
 export ElementField
@@ -83,7 +87,6 @@ using Tensors
 abstract type FEMContainer end
 
 include("fields/Fields.jl")
-# include("Connectivities.jl")
 include("Connectivity.jl")
 include("Meshes.jl")
 include("DofManagers.jl")
