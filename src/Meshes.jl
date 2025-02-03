@@ -188,14 +188,18 @@ function UnstructuredMesh(file_type, file_name::String)
   el_types = NamedTuple{tuple(el_block_names...)}(tuple(el_types...))
   el_conns = element_connectivity.((file,), el_block_ids)
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
+  el_conns = ComponentArray(el_conns)
 
   # read nodesets
+  nset_names = Symbol.(nodeset_names(file))
   nsets = nodesets(file, nodeset_ids(file))
+  nset_nodes = NamedTuple{tuple(nset_names...)}(tuple(nsets...))
+  nset_nodes = ComponentArray(nset_nodes)
 
   # read sidesets
 
   # TODO
   # write methods to create edge and face connectivity
 
-  return UnstructuredMesh(nodal_coords, el_types, el_conns, nsets)
+  return UnstructuredMesh(nodal_coords, el_types, el_conns, nset_nodes)
 end
