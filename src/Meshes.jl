@@ -18,6 +18,13 @@ function copy_mesh end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
+function element_block_id_map(::AbstractMesh, id) 
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
 function element_block_ids(::AbstractMesh) 
   @assert false
 end
@@ -167,10 +174,11 @@ function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
 end
 
 # new stuff below
-struct UnstructuredMesh{X, ETypes, EConns, NSetNodes} <: AbstractMesh
+struct UnstructuredMesh{X, ETypes, EConns, EMaps, NSetNodes} <: AbstractMesh
   nodal_coords::X
   element_types::ETypes
   element_conns::EConns
+  element_id_maps::EMaps
   nodeset_nodes::NSetNodes
 end
 
@@ -189,6 +197,9 @@ function UnstructuredMesh(file_type, file_name::String)
   el_conns = element_connectivity.((file,), el_block_ids)
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
   el_conns = ComponentArray(el_conns)
+  el_id_maps = element_block_id_map.((file,), el_block_ids)
+  el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
+  el_id_maps = ComponentArray(el_id_maps)
 
   # read nodesets
   nset_names = Symbol.(nodeset_names(file))
@@ -201,5 +212,5 @@ function UnstructuredMesh(file_type, file_name::String)
   # TODO
   # write methods to create edge and face connectivity
 
-  return UnstructuredMesh(nodal_coords, el_types, el_conns, nset_nodes)
+  return UnstructuredMesh(nodal_coords, el_types, el_conns, el_id_maps, nset_nodes)
 end
