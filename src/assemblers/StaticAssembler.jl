@@ -228,7 +228,7 @@ function assemble!(
   R,
   assembler::StaticAssembler,
   dof::DofManager,
-  fspace::FunctionSpace,
+  fspace::AbstractFunctionSpace,
   X, U, block_id,
   residual_func, tangent_func
 )

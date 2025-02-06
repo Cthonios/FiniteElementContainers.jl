@@ -90,7 +90,9 @@ include("fields/Fields.jl")
 include("Connectivity.jl")
 include("Meshes.jl")
 include("DofManagers.jl")
+
 include("function_spaces/FunctionSpaces.jl")
+include("function_spaces/NewFunctionSpaces.jl")
 
 include("formulations/Formulations.jl")
 include("assemblers/Assemblers.jl")

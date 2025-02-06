@@ -35,7 +35,7 @@ are provided
 function assemble!(
   assembler::MatrixFreeStaticAssembler,
   dof::DofManager,
-  fspace::FunctionSpace,
+  fspace::AbstractFunctionSpace,
   X, U, V,
   residual_func, tangent_func
 )

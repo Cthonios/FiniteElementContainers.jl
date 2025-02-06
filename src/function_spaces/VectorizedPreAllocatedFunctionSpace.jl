@@ -11,7 +11,7 @@ struct VectorizedPreAllocatedFunctionSpace{
   V1      <: QuadratureField,
   V2      <: QuadratureField,
   V3      <: QuadratureField
-} <: FunctionSpace{NDof, Conn, RefFE}
+} <: AbstractFunctionSpace{NDof, Conn, RefFE}
   elem_id_map::Map
   conn::Conn
   dof_conn::DofConn

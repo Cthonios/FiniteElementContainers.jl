@@ -21,7 +21,7 @@ include("ThreeDimensional.jl")
 """
 $(TYPEDSIGNATURES)
 """
-function discrete_gradient(fspace::FunctionSpace, type::T, X, q, e) where T <: AbstractMechanicsFormulation
+function discrete_gradient(fspace::AbstractFunctionSpace, type::T, X, q, e) where T <: AbstractMechanicsFormulation
   X_el = element_level_fields(fspace, X, e)
   ∇N_X = map_shape_function_gradients(X_el, shape_function_gradients(fspace, q))
   G    = discrete_gradient(type, ∇N_X)

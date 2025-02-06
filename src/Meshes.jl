@@ -174,8 +174,9 @@ function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
 end
 
 # new stuff below
-struct UnstructuredMesh{X, ETypes, EConns, EMaps, NSetNodes} <: AbstractMesh
+struct UnstructuredMesh{X, EBlockNames, ETypes, EConns, EMaps, NSetNodes} <: AbstractMesh
   nodal_coords::X
+  element_block_names::EBlockNames
   element_types::ETypes
   element_conns::EConns
   element_id_maps::EMaps
@@ -187,6 +188,7 @@ function UnstructuredMesh(file_type, file_name::String)
 
   # read nodal coordinates
   nodal_coords = coordinates(file)
+  nodal_coords = NodalField(nodal_coords)
 
   # read element block types, conn, etc.
   el_block_ids = element_block_ids(file)
@@ -212,5 +214,14 @@ function UnstructuredMesh(file_type, file_name::String)
   # TODO
   # write methods to create edge and face connectivity
 
-  return UnstructuredMesh(nodal_coords, el_types, el_conns, el_id_maps, nset_nodes)
+  return UnstructuredMesh(nodal_coords, el_block_names, el_types, el_conns, el_id_maps, nset_nodes)
 end
+
+# function UnstructuredMesh(file_name::String)
+#   ext = splitext(file_name)
+#   if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
+#     return UnstructuredMesh()
+#   else
+#     throw(ErrorException("Unsupported file type with extension $ext"))
+#   end
+# end
