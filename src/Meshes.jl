@@ -18,6 +18,13 @@ function copy_mesh end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
+function element_block_id_map(::AbstractMesh, id) 
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
 function element_block_ids(::AbstractMesh) 
   @assert false
 end
@@ -167,10 +174,12 @@ function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
 end
 
 # new stuff below
-struct UnstructuredMesh{X, ETypes, EConns, NSetNodes} <: AbstractMesh
+struct UnstructuredMesh{X, EBlockNames, ETypes, EConns, EMaps, NSetNodes} <: AbstractMesh
   nodal_coords::X
+  element_block_names::EBlockNames
   element_types::ETypes
   element_conns::EConns
+  element_id_maps::EMaps
   nodeset_nodes::NSetNodes
 end
 
@@ -179,6 +188,7 @@ function UnstructuredMesh(file_type, file_name::String)
 
   # read nodal coordinates
   nodal_coords = coordinates(file)
+  nodal_coords = NodalField(nodal_coords)
 
   # read element block types, conn, etc.
   el_block_ids = element_block_ids(file)
@@ -188,14 +198,30 @@ function UnstructuredMesh(file_type, file_name::String)
   el_types = NamedTuple{tuple(el_block_names...)}(tuple(el_types...))
   el_conns = element_connectivity.((file,), el_block_ids)
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
+  el_conns = ComponentArray(el_conns)
+  el_id_maps = element_block_id_map.((file,), el_block_ids)
+  el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
+  el_id_maps = ComponentArray(el_id_maps)
 
   # read nodesets
+  nset_names = Symbol.(nodeset_names(file))
   nsets = nodesets(file, nodeset_ids(file))
+  nset_nodes = NamedTuple{tuple(nset_names...)}(tuple(nsets...))
+  nset_nodes = ComponentArray(nset_nodes)
 
   # read sidesets
 
   # TODO
   # write methods to create edge and face connectivity
 
-  return UnstructuredMesh(nodal_coords, el_types, el_conns, nsets)
+  return UnstructuredMesh(nodal_coords, el_block_names, el_types, el_conns, el_id_maps, nset_nodes)
 end
+
+# function UnstructuredMesh(file_name::String)
+#   ext = splitext(file_name)
+#   if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
+#     return UnstructuredMesh()
+#   else
+#     throw(ErrorException("Unsupported file type with extension $ext"))
+#   end
+# end

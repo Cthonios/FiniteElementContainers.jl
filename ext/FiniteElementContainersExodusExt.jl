@@ -28,6 +28,13 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function FiniteElementContainers.element_block_id_map(mesh::FileMesh{<:ExodusDatabase}, id)
+  return Exodus.read_block_id_map(mesh.mesh_obj, id)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function FiniteElementContainers.element_block_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, Block)
 end

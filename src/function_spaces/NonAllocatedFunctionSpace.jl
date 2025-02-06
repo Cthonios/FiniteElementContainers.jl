@@ -8,7 +8,7 @@ struct NonAllocatedFunctionSpace{
   Conn    <: Connectivity,
   DofConn <: Connectivity,
   RefFE   <: ReferenceFE
-} <: FunctionSpace{NDof, Conn, RefFE}
+} <: AbstractFunctionSpace{NDof, Conn, RefFE}
   elem_id_map::Map
   conn::Conn
   dof_conn::DofConn

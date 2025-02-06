@@ -140,4 +140,15 @@ end
 # #   return FiniteElementContainers.StaticAssembler{I, F, typeof(R), typeof(K)}(R, K)
 # # end
 
+# meshes
+
+function Adapt.adapt_structure(to, mesh::UnstructuredMesh)
+  nodal_coords = Adapt.adapt_structure(to, mesh.nodal_coords)
+  element_types = Adapt.adapt_structure(to, mesh.element_types)
+  element_conns = Adapt.adapt_structure(to, mesh.element_conns)
+  element_id_maps = Adapt.adapt_structure(to, mesh.element_id_maps)
+  nodeset_nodes = Adapt.adapt_structure(to, mesh.nodeset_nodes)
+  return UnstructuredMesh(nodal_coords, element_types, element_conns, element_id_maps, nodeset_nodes)
+end
+
 end # module
