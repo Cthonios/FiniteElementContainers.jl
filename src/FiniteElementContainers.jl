@@ -82,7 +82,7 @@ using ReferenceFiniteElements
 using SparseArrays
 using StaticArrays
 using StructArrays
-using Tensors
+# using Tensors
 
 abstract type FEMContainer end
 

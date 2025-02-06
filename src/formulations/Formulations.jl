@@ -13,6 +13,9 @@ num_dimensions(::AbstractMechanicsFormulation{ND}) where ND = ND
   Expr(:tuple, (:(ifelse($j == i, x, t[$j])) for j in 1:N)...)
 end
 
+function extract_stiffness end
+function extract_stress end
+
 include("IncompressiblePlaneStress.jl")
 include("PlaneStrain.jl")
 include("ScalarFormulation.jl")
