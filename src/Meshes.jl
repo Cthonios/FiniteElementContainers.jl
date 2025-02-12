@@ -183,7 +183,7 @@ struct UnstructuredMesh{X, EBlockNames, ETypes, EConns, EMaps, NSetNodes} <: Abs
   nodeset_nodes::NSetNodes
 end
 
-function UnstructuredMesh(file_type, file_name::String)
+function UnstructuredMesh(file_type, file_name::String; use_component_array=false)
   file = FileMesh(file_type, file_name)
 
   # read nodal coordinates
@@ -196,26 +196,34 @@ function UnstructuredMesh(file_type, file_name::String)
   el_block_names = Symbol.(el_block_names)
   el_types = element_type.((file,), el_block_ids)
   el_types = NamedTuple{tuple(el_block_names...)}(tuple(el_types...))
-  el_conns = element_connectivity.((file,), el_block_ids)
+  el_conns = ElementField.(element_connectivity.((file,), el_block_ids))
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
-  el_conns = ComponentArray(el_conns)
   el_id_maps = element_block_id_map.((file,), el_block_ids)
   el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
-  el_id_maps = ComponentArray(el_id_maps)
 
   # read nodesets
   nset_names = Symbol.(nodeset_names(file))
   nsets = nodesets(file, nodeset_ids(file))
   nset_nodes = NamedTuple{tuple(nset_names...)}(tuple(nsets...))
-  nset_nodes = ComponentArray(nset_nodes)
 
   # read sidesets
 
   # TODO
   # write methods to create edge and face connectivity
 
+  # conversions for various backends
+  if use_component_array
+    el_conns = ComponentArray(el_conns)
+    el_id_maps = ComponentArray(el_id_maps)
+    nset_nodes = ComponentArray(nset_nodes)
+  end
+
   return UnstructuredMesh(nodal_coords, el_block_names, el_types, el_conns, el_id_maps, nset_nodes)
 end
+
+# TODO figure out how to do this
+# likely need a type in FiniteElementContainers to point to each ext
+# kind of hacky but it'll work.
 
 # function UnstructuredMesh(file_name::String)
 #   ext = splitext(file_name)
