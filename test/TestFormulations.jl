@@ -1,15 +1,7 @@
 function test_incompressible_plane_stress(∇N_X, ∇u_q, A_q)
   form = IncompressiblePlaneStress()
   @test FiniteElementContainers.num_dimensions(form) == 2
-  ∇u_sm = modify_field_gradients(form, ∇u_q, SMatrix)
-  @test ∇u_sm ≈ SMatrix{3, 3, Float64, 9}((
-    1., 2., 0., 3., 4., 0., 0., 0., 1. / (-2.)
-  ))
-  ∇u_t = modify_field_gradients(form, ∇u_q, Tensor)
-  @test ∇u_t ≈ Tensor{2, 3, Float64, 9}((
-    1., 2., 0., 3., 4., 0., 0., 0., 1. / (-2.)
-  ))
-  ∇u_t = modify_field_gradients(form, Tensor{2, 2, Float64, 4}(∇u_q), Tensor)
+  ∇u_t = modify_field_gradients(form, ∇u_q)
   @test ∇u_t ≈ Tensor{2, 3, Float64, 9}((
     1., 2., 0., 3., 4., 0., 0., 0., 1. / (-2.)
   ))
@@ -114,15 +106,7 @@ end
 function test_plane_strain(∇N_X, ∇u_q, A_q)
   form = PlaneStrain()
   @test FiniteElementContainers.num_dimensions(form) == 2
-  ∇u_sm = modify_field_gradients(form, ∇u_q, SMatrix)
-  @test ∇u_sm ≈ SMatrix{3, 3, Float64, 9}((
-    1., 2., 0., 3., 4., 0., 0., 0., 0.
-  ))
-  ∇u_t = modify_field_gradients(form, ∇u_q, Tensor)
-  @test ∇u_t ≈ Tensor{2, 3, Float64, 9}((
-    1., 2., 0., 3., 4., 0., 0., 0., 0.
-  ))
-  ∇u_t = modify_field_gradients(form, Tensor{2, 2, Float64, 4}(∇u_q), Tensor)
+  ∇u_t = modify_field_gradients(form, ∇u_q)
   @test ∇u_t ≈ Tensor{2, 3, Float64, 9}((
     1., 2., 0., 3., 4., 0., 0., 0., 0.
   ))
@@ -227,12 +211,8 @@ end
 function test_three_dimensional(∇N_X, ∇u_q, A_q)
   form = ThreeDimensional()
   @test FiniteElementContainers.num_dimensions(form) == 3
-  ∇u_sm = modify_field_gradients(form, ∇u_q, SMatrix)
-  @test ∇u_q ≈ ∇u_sm
-  ∇u_t = modify_field_gradients(form, ∇u_q, Tensor)
+  ∇u_t = modify_field_gradients(form, ∇u_q)
   @test ∇u_q ≈ ∇u_t
-  ∇u_t = modify_field_gradients(form, Tensor{2, 3, Float64, 9}(∇u_q), Tensor)
-  @test Tensor{2, 3, Float64, 9}(∇u_q) ≈ ∇u_t
   P_vec = extract_stress(form, ∇u_t)
   @test P_vec ≈ SVector{9, Float64}((1, 2, 3, 4, 5, 6, 7, 8, 9))
   #
