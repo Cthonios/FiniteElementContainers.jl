@@ -1,10 +1,12 @@
 using Exodus
 using FiniteElementContainers
+using LinearAlgebra
 using Parameters
 using ReferenceFiniteElements
+using SparseArrays
 
 # methods for a simple Poisson problem
-f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(4π * X[2])
 
 function residual(cell, u_el)
   @unpack X_q, N, ∇N_X, JxW = cell
@@ -13,59 +15,47 @@ function residual(cell, u_el)
   return JxW * R_q[:]
 end
 
-function tangent(cell, _)
+function tangent(cell, u_el)
   @unpack X_q, N, ∇N_X, JxW = cell
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q
 end
 
 # read mesh and relevant quantities
-mesh = UnstructuredMesh(ExodusDatabase, "./poisson/poisson.g")
-
-# setup function spaces
+mesh = UnstructuredMesh("./test/poisson/poisson.g")
 V = FunctionSpace(mesh, Lagrange)
+u = ScalarFunction(V, :u)
+dof = NewDofManager(u)
+asm = SparseMatrixAssembler(dof)
 
-# setup DofManager
-dof = DofManager{1, size(V.coords, 2), Vector{Float64}}()
+# setup and update bcs
+bc_nodes = sort!(unique!(vcat(values(mesh.nodeset_nodes)...)))
 
-# # setup fspace
-# fspaces = NonAllocatedFunctionSpace[
-#   NonAllocatedFunctionSpace(dof, 1:size(conn, 2) |> collect, conn, 2, mesh.element_types.block_1)
-# ]
+U = NodalField(zeros(1, length(dof)))
+R = NodalField(zeros(1, length(dof)))
 
-# # setup assembler
-# asm = StaticAssembler(dof, fspaces)
+update_dofs!(asm, bc_nodes)
+assemble!(R, asm, residual, U)
+assemble!(asm, tangent, U)
 
-# # setup and update bcs
-# bc_nodes = sort!(unique!(vcat(values(mesh.nodeset_nodes)...)))
-# update_unknown_dofs!(dof, bc_nodes)
-# update_unknown_dofs!(asm, dof, fspaces, bc_nodes)
+K = SparseArrays.sparse!(asm)
 
-# # pre-allocate some arrays
-# U   = create_fields(dof)
-# R   = create_fields(dof)
-# Uu  = create_unknowns(dof)
-# ΔUu = create_unknowns(dof)
-# Uu  .= 1.0
+for n in 1:3
+  ΔUu = -K \ R[asm.dof.unknown_dofs]
+  U[asm.dof.unknown_dofs] .=+ ΔUu
 
-# function solve(asm, dof, fspaces, X, U, Uu)
-#   for n in 1:10
-#     update_fields!(U, dof, Uu)
-#     # assemble!(R, asm, dof, fspaces, X, U, residual, tangent)
-#     assemble!(asm, dof, fspaces, X, U, residual, tangent)
-#     # R = asm.residuals[dof.unknown_dofs]
-#     R_view = @views asm.residuals[dof.unknown_dofs]
-#     K = sparse(asm)
-#     cg!(ΔUu, -K, R_view)
-#     @show norm(ΔUu) norm(R_view)
-#     if norm(R_view) < 1e-12
-#       println("Converged")
-#       break
-#     end
-#     Uu = Uu + ΔUu
-#   end
-#   return Uu
-# end
+  assemble!(R, asm, residual, U)
 
-# Uu = solve(asm, dof, fspaces, coords, U, Uu)
-# update_fields!(U, dof, Uu)
+  if norm(ΔUu) < 1e-12 || norm(R[asm.dof.unknown_dofs]) < 1e-12
+    break
+  end
+end
+
+copy_mesh("./test/poisson/poisson.g", "./test/poisson/poisson.e")
+exo = ExodusDatabase("./test/poisson/poisson.e", "rw")
+write_names(exo, NodalVariable, ["u"])
+write_time(exo, 1, 0.0)
+write_values(exo, NodalVariable, 1, "u", U[1, :])
+close(exo)
+# @test exodiff("./test/poisson/poisson.e", "./test/poisson/poisson.gold")
+# rm("./test/poisson/poisson_$type.e"; force=true)

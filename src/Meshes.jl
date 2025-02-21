@@ -141,6 +141,7 @@ end
 # dummy function to make JET happy
 # file_mesh(::Type{DummyMeshObj}, ::String) = nothing
 
+# TODO change to a type that subtypes AbstractMesh
 function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
   xs = LinRange(xExtent[1], xExtent[2], Nx)
   ys = LinRange(yExtent[1], yExtent[2], Ny)
@@ -183,7 +184,7 @@ struct UnstructuredMesh{X, EBlockNames, ETypes, EConns, EMaps, NSetNodes} <: Abs
   nodeset_nodes::NSetNodes
 end
 
-function UnstructuredMesh(file_type, file_name::String; use_component_array=false)
+function UnstructuredMesh(file_type, file_name::String, use_component_array)
   file = FileMesh(file_type, file_name)
 
   # read nodal coordinates
@@ -221,15 +222,17 @@ function UnstructuredMesh(file_type, file_name::String; use_component_array=fals
   return UnstructuredMesh(nodal_coords, el_block_names, el_types, el_conns, el_id_maps, nset_nodes)
 end
 
-# TODO figure out how to do this
-# likely need a type in FiniteElementContainers to point to each ext
-# kind of hacky but it'll work.
+# different mesh types
+abstract type AbstractMeshType end
+struct ExodusMesh <: AbstractMeshType
+end
 
-# function UnstructuredMesh(file_name::String)
-#   ext = splitext(file_name)
-#   if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
-#     return UnstructuredMesh()
-#   else
-#     throw(ErrorException("Unsupported file type with extension $ext"))
-#   end
-# end
+# dispatch based on file extension
+function UnstructuredMesh(file_name::String; use_component_array=false)
+  ext = splitext(file_name)
+  if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
+    return UnstructuredMesh(ExodusMesh, file_name, use_component_array)
+  else
+    throw(ErrorException("Unsupported file type with extension $ext"))
+  end
+end

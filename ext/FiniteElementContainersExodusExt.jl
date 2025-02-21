@@ -8,8 +8,8 @@ using FiniteElementContainers
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-function FiniteElementContainers.FileMesh(type::Type{<:ExodusDatabase}, file_name::String)
-  exo = type(file_name, "r")
+function FiniteElementContainers.FileMesh(::Type{<:FiniteElementContainers.ExodusMesh}, file_name::String)
+  exo = ExodusDatabase(file_name, "r")
   return FileMesh{typeof(exo)}(file_name, exo)
 end
 
