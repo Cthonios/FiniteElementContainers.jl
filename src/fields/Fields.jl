@@ -5,6 +5,10 @@ as the base ```Field``` type
 """
 abstract type AbstractField{T, N, NF, Vals} <: AbstractArray{T, N} end
 
+function KA.get_backend(field::AbstractField)
+  return KA.get_backend(field.vals)
+end
+
 """
 $(TYPEDEF)
 Abstract type for implementations of fields that live on quadrature points.

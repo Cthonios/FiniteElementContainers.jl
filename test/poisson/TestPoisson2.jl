@@ -22,40 +22,53 @@ function tangent(cell, u_el)
 end
 
 # read mesh and relevant quantities
-mesh = UnstructuredMesh("./test/poisson/poisson.g")
-V = FunctionSpace(mesh, Lagrange)
-u = ScalarFunction(V, :u)
-dof = NewDofManager(u)
-asm = SparseMatrixAssembler(dof)
 
-# setup and update bcs
-bc_nodes = sort!(unique!(vcat(values(mesh.nodeset_nodes)...)))
+# function poisson_v2()
+  mesh = UnstructuredMesh("./test/poisson/poisson.g")
+  V = FunctionSpace(mesh, H1, Lagrange) 
+  u = ScalarFunction(V, :u)
+  dof = NewDofManager(u)
+  asm = SparseMatrixAssembler(dof)
 
-U = NodalField(zeros(1, length(dof)))
-R = NodalField(zeros(1, length(dof)))
+  # setup and update bcs
+  bc_nodes = sort!(unique!(vcat(values(mesh.nodeset_nodes)...)))
 
-update_dofs!(asm, bc_nodes)
-assemble!(R, asm, residual, U)
-assemble!(asm, tangent, U)
+  Uu = create_unknowns(dof)
+  Ubc = zeros(length(bc_nodes))
+  U = create_field(dof, H1)
+  R = create_field(dof, H1)
 
-K = SparseArrays.sparse!(asm)
+  @time update_dofs!(asm, bc_nodes)
+  # @time update_field_bcs!(U, dof, Ubc)
+  @time update_field!(U, dof, Uu, Ubc)
+  # @time update_dofs!(asm, bc_nodes)
 
-for n in 1:3
-  ΔUu = -K \ R[asm.dof.unknown_dofs]
-  U[asm.dof.unknown_dofs] .=+ ΔUu
+  @time assemble!(R, asm, residual, U)
+  assemble!(asm, tangent, U)
 
-  assemble!(R, asm, residual, U)
+  K = SparseArrays.sparse!(asm)
 
-  if norm(ΔUu) < 1e-12 || norm(R[asm.dof.unknown_dofs]) < 1e-12
-    break
+  for n in 1:3
+    ΔUu = -K \ R[asm.dof.H1_unknown_dofs]
+    U[asm.dof.H1_unknown_dofs] .=+ ΔUu
+    # @time FiniteElementContainers.update_field_unknowns!(U, dof, )
+
+    assemble!(R, asm, residual, U)
+
+    if norm(ΔUu) < 1e-12 || norm(R[asm.dof.H1_unknown_dofs]) < 1e-12
+      break
+    end
   end
-end
 
-copy_mesh("./test/poisson/poisson.g", "./test/poisson/poisson.e")
-exo = ExodusDatabase("./test/poisson/poisson.e", "rw")
-write_names(exo, NodalVariable, ["u"])
-write_time(exo, 1, 0.0)
-write_values(exo, NodalVariable, 1, "u", U[1, :])
-close(exo)
-# @test exodiff("./test/poisson/poisson.e", "./test/poisson/poisson.gold")
-# rm("./test/poisson/poisson_$type.e"; force=true)
+  copy_mesh("./test/poisson/poisson.g", "./test/poisson/poisson.e")
+  exo = ExodusDatabase("./test/poisson/poisson.e", "rw")
+  write_names(exo, NodalVariable, ["u"])
+  write_time(exo, 1, 0.0)
+  write_values(exo, NodalVariable, 1, "u", U[1, :])
+  close(exo)
+  # @test exodiff("./test/poisson/poisson.e", "./test/poisson/poisson.gold")
+  # rm("./test/poisson/poisson_$type.e"; force=true)
+# end
+
+# poisson_v2()
+# poisson_v2()

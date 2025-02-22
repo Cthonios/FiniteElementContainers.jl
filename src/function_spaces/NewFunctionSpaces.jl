@@ -117,6 +117,7 @@ function Base.length(::AbstractFunction{S, F}) where {S, F}
     return length(S)
   end
 end
+Base.names(::AbstractFunction{S, F}) where {S, F} = S
 
 struct ScalarFunction{S, F} <: AbstractFunction{S, F}
   fspace::F

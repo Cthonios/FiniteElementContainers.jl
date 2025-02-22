@@ -37,10 +37,14 @@ export element_level_fields
 
 # DofManager
 export DofManager
+export create_field
 export create_fields
 export create_unknowns
 export dof_connectivity
 export update_dofs!
+export update_field_bcs!
+export update_field_unknowns!
+export update_field!
 export update_fields!
 export update_unknown_dofs!
 
@@ -91,6 +95,9 @@ export extract_stiffness
 export modify_field_gradients
 
 # dependencies
+import AcceleratedKernels as AK
+import KernelAbstractions as KA
+using Atomix
 using ComponentArrays
 using DocStringExtensions
 using LinearAlgebra
@@ -106,10 +113,11 @@ include("fields/Fields.jl")
 include("Connectivity.jl")
 include("Meshes.jl")
 include("DofManagers.jl")
+include("function_spaces/NewFunctionSpaces.jl")
 include("NewDofManagers.jl")
 
 include("function_spaces/FunctionSpaces.jl")
-include("function_spaces/NewFunctionSpaces.jl")
+# include("function_spaces/NewFunctionSpaces.jl")
 
 include("formulations/Formulations.jl")
 include("assemblers/Assemblers.jl")

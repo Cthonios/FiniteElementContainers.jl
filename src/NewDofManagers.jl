@@ -70,6 +70,24 @@ Base.length(dof::NewDofManager) = length(dof.H1_bc_dofs) + length(dof.H1_unknown
                                   length(dof.Hcurl_bc_dofs) + length(dof.Hcurl_unknown_dofs) +
                                   length(dof.Hdiv_bc_dofs) + length(dof.Hdiv_unknown_dofs)
 
+KA.get_backend(dof::NewDofManager) = KA.get_backend(dof.H1_unknown_dofs)
+
+function create_field(dof::NewDofManager, ::Type{H1})
+  backend = KA.get_backend(dof.H1_bc_dofs)
+  NF, NN = num_dofs_per_node(dof), num_nodes(dof)
+  field = KA.zeros(backend, Float64, NF, NN)
+  return NodalField(field)
+end
+
+function create_unknowns(dof::NewDofManager)
+  n_unknowns = length(dof.H1_unknown_dofs) + 
+               length(dof.Hcurl_unknown_dofs) + 
+               length(dof.Hdiv_unknown_dofs)
+
+  # return typeof(dof.vars[1].fspace.coords.vals)
+  return KA.zeros(KA.get_backend(dof), Float64, n_unknowns)
+end
+
 num_dofs_per_edge(::NewDofManager{T, NH1, NHcurl, NHdiv, IDs, Vars}) where {T, NH1, NHcurl, NHdiv, IDs, Vars} = NHcurl
 num_dofs_per_face(::NewDofManager{T, NH1, NHcurl, NHdiv, IDs, Vars}) where {T, NH1, NHcurl, NHdiv, IDs, Vars} = NHdiv
 num_dofs_per_node(::NewDofManager{T, NH1, NHcurl, NHdiv, IDs, Vars}) where {T, NH1, NHcurl, NHdiv, IDs, Vars} = NH1
@@ -98,6 +116,8 @@ function num_nodes(dof::NewDofManager{T, NH1, NHcurl, NHdiv, IDs, Vars}) where {
   end
 end
 
+num_unknowns(dof::NewDofManager) = length(dof.H1_unknown_dofs) + length(dof.Hcurl_unknown_dofs) + length(dof.Hdiv_unknown_dofs)
+
 # TODO need to update to include H(div)/H(curl) spaces
 function update_dofs!(dof::NewDofManager, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
   ND, NN = num_dofs_per_node(dof), num_nodes(dof)
@@ -105,7 +125,11 @@ function update_dofs!(dof::NewDofManager, dirichlet_dofs::T) where T <: Abstract
   resize!(dof.H1_unknown_dofs, ND * NN)
 
   # checking dirichlet dofs make sense for this dof manager
-  for d in dirichlet_dofs
+  # for d in dirichlet_dofs
+  #   @assert d >= 1 && d <= ND * NN
+  # end
+  AK.foreachindex(dirichlet_dofs) do i
+    d = dirichlet_dofs[i]
     @assert d >= 1 && d <= ND * NN
   end
 
@@ -115,6 +139,26 @@ function update_dofs!(dof::NewDofManager, dirichlet_dofs::T) where T <: Abstract
 
   # checking things are re-sized appropriately at the end
   @assert length(dof.H1_bc_dofs) + length(dof.H1_unknown_dofs) == ND * NN
+  return nothing
+end
+
+function update_field_bcs!(U::NodalField, dof::NewDofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
+  AK.foreachindex(dof.H1_bc_dofs) do n
+    U[dof.H1_bc_dofs[n]] = Ubc[n]
+  end
+  return nothing
+end
+
+function update_field_unknowns!(U::NodalField, dof::NewDofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
+  AK.foreachindex(dof.H1_unknown_dofs) do n
+    U[dof.H1_unknown_dofs[n]] = Uu[n]
+  end
+  return nothing
+end
+
+function update_field!(U::NodalField, dof::NewDofManager, Uu::T, Ubc::T) where T <: AbstractArray{<:Number, 1}
+  update_field_bcs!(U, dof, Ubc)
+  update_field_unknowns!(U, dof, Uu)
   return nothing
 end
 
