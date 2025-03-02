@@ -29,7 +29,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function FiniteElementContainers.element_block_id_map(mesh::FileMesh{<:ExodusDatabase}, id)
-  return Exodus.read_block_id_map(mesh.mesh_obj, id)
+  return convert.(Int64, Exodus.read_block_id_map(mesh.mesh_obj, id))
 end
 
 """
@@ -126,7 +126,7 @@ function FiniteElementContainers.nodeset(
   id::Integer
 ) 
   nset = read_set(mesh.mesh_obj, NodeSet, id)
-  return convert.(Int64, nset.nodes)
+  return sort!(convert.(Int64, nset.nodes))
 end
 
 function FiniteElementContainers.nodesets(
@@ -141,7 +141,19 @@ function FiniteElementContainers.sideset(
   id::Integer
 ) 
   sset = read_set(mesh.mesh_obj, SideSet, id)
-  return sset.elements, sset.sides
+  elems = convert.(Int64, sset.elements)
+  sides = convert.(Int64, sset.sides)
+  nodes = convert.(Int64, Exodus.read_side_set_node_list(mesh.mesh_obj, id)[2])
+  unique!(sort!(nodes))
+  perm = sortperm(elems)
+  return elems[perm], nodes, sides[perm]
+end
+
+function FiniteElementContainers.sidesets(
+  mesh::FileMesh{<:ExodusDatabase},
+  ids
+) 
+  return FiniteElementContainers.sideset.((mesh,), ids)
 end
 
 end # module

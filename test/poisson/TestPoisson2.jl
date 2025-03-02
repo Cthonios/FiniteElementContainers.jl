@@ -1,12 +1,11 @@
 using Exodus
 using FiniteElementContainers
-using LinearAlgebra
 using Parameters
-using ReferenceFiniteElements
-using SparseArrays
 
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(4π * X[2])
+
+bc_func(_, _) = 0.
 
 function residual(cell, u_el)
   @unpack X_q, N, ∇N_X, JxW = cell
@@ -23,27 +22,30 @@ end
 
 # read mesh and relevant quantities
 
-# function poisson_v2()
+function poisson_v2()
   mesh = UnstructuredMesh("./test/poisson/poisson.g")
   V = FunctionSpace(mesh, H1, Lagrange) 
   u = ScalarFunction(V, :u)
-  dof = NewDofManager(u)
-  asm = SparseMatrixAssembler(dof)
+  asm = SparseMatrixAssembler(u)
 
   # setup and update bcs
-  bc_nodes = sort!(unique!(vcat(values(mesh.nodeset_nodes)...)))
+  dbcs = DirichletBC[
+    DirichletBC(asm.dof, :u, :sset_1, bc_func),
+    DirichletBC(asm.dof, :u, :sset_2, bc_func),
+    DirichletBC(asm.dof, :u, :sset_3, bc_func),
+    DirichletBC(asm.dof, :u, :sset_4, bc_func),
+  ]
+  update_dofs!(asm, dbcs)
 
-  Uu = create_unknowns(dof)
-  Ubc = zeros(length(bc_nodes))
-  U = create_field(dof, H1)
-  R = create_field(dof, H1)
+  # pre-setup some scratch arrays
+  Uu = create_unknowns(asm)
+  Ubc = zeros(length(asm.dof.H1_bc_dofs))
+  U = create_field(asm, H1)
+  R = create_field(asm, H1)
 
-  @time update_dofs!(asm, bc_nodes)
-  # @time update_field_bcs!(U, dof, Ubc)
-  @time update_field!(U, dof, Uu, Ubc)
-  # @time update_dofs!(asm, bc_nodes)
+  update_field!(U, asm, Uu, Ubc)
 
-  @time assemble!(R, asm, residual, U)
+  assemble!(R, asm, residual, U)
   assemble!(asm, tangent, U)
 
   K = SparseArrays.sparse!(asm)
@@ -51,9 +53,8 @@ end
   for n in 1:3
     ΔUu = -K \ R[asm.dof.H1_unknown_dofs]
     U[asm.dof.H1_unknown_dofs] .=+ ΔUu
-    # @time FiniteElementContainers.update_field_unknowns!(U, dof, )
 
-    assemble!(R, asm, residual, U)
+    @time assemble!(R, asm, residual, U)
 
     if norm(ΔUu) < 1e-12 || norm(R[asm.dof.H1_unknown_dofs]) < 1e-12
       break
@@ -68,7 +69,7 @@ end
   close(exo)
   # @test exodiff("./test/poisson/poisson.e", "./test/poisson/poisson.gold")
   # rm("./test/poisson/poisson_$type.e"; force=true)
-# end
+end
 
-# poisson_v2()
-# poisson_v2()
+poisson_v2()
+poisson_v2()

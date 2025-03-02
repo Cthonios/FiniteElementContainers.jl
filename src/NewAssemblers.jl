@@ -25,7 +25,7 @@ function SparsityPattern(dof)
   ND, NN = num_dofs_per_node(dof), num_nodes(dof)
   n_total_dofs = NN * ND
 
-  n_blocks = length(dof.vars[1].fspace.ref_fes)
+  n_blocks = length(dof.H1_vars[1].fspace.ref_fes)
 
   # first get total number of entries in a stupid matter
   n_entries = 0
@@ -37,7 +37,7 @@ function SparsityPattern(dof)
   #   ids = reshape(1:n_total_dofs, ND, NN)
   #   conn = getproperty(dof.vars[1].fspace.elem_conns, block)
   #   conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
-  for (n, conn) in enumerate(values(dof.vars[1].fspace.elem_conns))
+  for (n, conn) in enumerate(values(dof.H1_vars[1].fspace.elem_conns))
     ids = reshape(1:n_total_dofs, ND, NN)
     # conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
     # display(block)
@@ -64,7 +64,7 @@ function SparsityPattern(dof)
   n = 1
   # for fspace in fspaces
   # for block in valkeys(dof.vars[1].fspace.elem_conns)
-  for conn in values(dof.vars[1].fspace.elem_conns)
+  for conn in values(dof.H1_vars[1].fspace.elem_conns)
     ids = reshape(1:n_total_dofs, ND, NN)
     # conn = getproperty(dof.vars[1].fspace.elem_conns, block)
     block_conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
@@ -126,13 +126,18 @@ struct SparseMatrixAssembler{Dof, Pattern, Storage <: AbstractArray{<:Number}}
   stiffness_storage::Storage
 end
 
-function SparseMatrixAssembler(dof)
+function SparseMatrixAssembler(dof::NewDofManager)
   pattern = SparsityPattern(dof)
   constraint_storage = zeros(length(dof))
   constraint_storage[dof.H1_bc_dofs] .= 1.
   stiffness_storage = zeros(num_entries(pattern))
   return SparseMatrixAssembler(dof, pattern, constraint_storage, stiffness_storage)
 end
+
+function SparseMatrixAssembler(vars...)
+  dof = NewDofManager(vars...)
+  return SparseMatrixAssembler(dof)
+end 
 
 function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "SparseMatrixAssembler")
@@ -170,6 +175,22 @@ function SparseArrays.spdiagm(assembler::SparseMatrixAssembler)
   return SparseArrays.spdiagm(assembler.constraint_storage)
 end
 
+"""
+$(TYPEDSIGNATURES)
+generic assembly method that directly goes into a vector
+"""
+function assemble!(
+  R::V1, R_el::V2, conn::V3
+) where {V1 <: AbstractArray{<:Number}, 
+         V2 <: AbstractArray{<:Number},
+         V3 <: AbstractArray{<:Integer}}
+
+  for i in axes(conn, 1)
+    R[conn[i]] += R_el[i]
+  end
+  return nothing
+end
+
 function assemble!(asm::SparseMatrixAssembler, K_el::SMatrix, el_id::Int, block_id::Int)
   start_id = (block_id - 1) * asm.pattern.block_sizes[block_id] + 
              (el_id - 1) * asm.pattern.block_offsets[block_id] + 1
@@ -179,6 +200,7 @@ function assemble!(asm::SparseMatrixAssembler, K_el::SMatrix, el_id::Int, block_
   return nothing
 end
 
+# TODO hardcoded for H1
 function assemble!(
   R,
   assembler::SparseMatrixAssembler,
@@ -188,7 +210,7 @@ function assemble!(
 
   R .= zero(eltype(R))
 
-  vars = assembler.dof.vars
+  vars = assembler.dof.H1_vars
 
   if length(vars) != 1
     @assert false "multiple fspace not supported yet"
@@ -262,15 +284,9 @@ function assemble!(
     R_el = zeros(SVector{NxNDof, Float64})
 
     for q in 1:num_quadrature_points(ref_fe)
-      N = ReferenceFiniteElements.shape_function_value(ref_fe, q)
-      ∇N_ξ = ReferenceFiniteElements.shape_function_gradient(ref_fe, q)
-      ∇N_X = map_shape_function_gradients(x_el, ∇N_ξ)
-      JxW  = volume(x_el, ∇N_ξ) * quadrature_weight(ref_fe, q)
-      x_q = x_el * N
-      interps = Interpolants(x_q, N, ∇N_X, JxW)
-      
+      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
       R_q = residual_func(interps, u_el)
-      R_el = R_el + JxW * R_q
+      R_el = R_el + R_q
     end
 
     # assemble!(assembler, R_el, e, block_id)
@@ -280,6 +296,7 @@ function assemble!(
 end
 
 # for sparse matrix
+# TODO hardcoded for H1
 function assemble!(
   assembler::SparseMatrixAssembler, 
   tangent_func,
@@ -287,7 +304,7 @@ function assemble!(
   U::T
 ) where T <: AbstractArray
 
-  vars = assembler.dof.vars
+  vars = assembler.dof.H1_vars
 
   if length(vars) != 1
     @assert false "multiple fspace not supported yet"
@@ -313,15 +330,9 @@ function assemble!(
       K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
 
       for q in 1:num_quadrature_points(ref_fe)
-        N = ReferenceFiniteElements.shape_function_value(ref_fe, q)
-        ∇N_ξ = ReferenceFiniteElements.shape_function_gradient(ref_fe, q)
-        ∇N_X = map_shape_function_gradients(x_el, ∇N_ξ)
-        JxW  = volume(x_el, ∇N_ξ) * quadrature_weight(ref_fe, q)
-        x_q = x_el * N
-        interps = Interpolants(x_q, N, ∇N_X, JxW)
-        
+        interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
         K_q = tangent_func(interps, u_el)
-        K_el = K_el + JxW * K_q
+        K_el = K_el + K_q
       end
 
       assemble!(assembler, K_el, e, block_id)
@@ -334,14 +345,18 @@ create_unknowns(asm::SparseMatrixAssembler) = create_unknowns(asm.dof)
 
 # this thing should probably always be done on the CPU
 # and then moved to the GPU
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs)
-  vars = assembler.dof.vars
+# TODO hardcoded for H1 fields
+function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs)
+  vars = assembler.dof.H1_vars
 
   if length(vars) != 1
     @assert false "multiple fspace not supported yet"
   end
 
   fspace = vars[1].fspace
+
+  # make this more efficient
+  dirichlet_dofs = unique!(sort!(vcat(map(x -> x.bookkeeping.dofs, dirichlet_bcs)...)))
 
   update_dofs!(assembler.dof, dirichlet_dofs)
 
@@ -383,5 +398,10 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs)
   resize!(assembler.pattern.csrcolval, length(assembler.pattern.Is))
   resize!(assembler.pattern.csrnzval, length(assembler.pattern.Is))
 
+  return nothing
+end
+
+function update_field!(U, asm::SparseMatrixAssembler, Uu, Ubc)
+  update_field!(U, asm.dof, Uu, Ubc)
   return nothing
 end

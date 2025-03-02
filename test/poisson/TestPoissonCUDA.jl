@@ -48,4 +48,4 @@ Ubc = KA.zeros(KA.get_backend(Uu), Float64, length(bc_nodes))
 U = create_field(asm_gpu, H1)
 R = create_field(asm_gpu, H1)
 
-@time update_field!(U, asm_gpu.dof, Uu, Ubc)
+update_field!(U, asm_gpu.dof, Uu, Ubc)

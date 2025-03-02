@@ -88,6 +88,13 @@ end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
+function sidesets(::AbstractMesh, ids) 
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
 function sideset_ids(::AbstractMesh) 
   @assert false
 end
@@ -175,21 +182,37 @@ function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
 end
 
 # new stuff below
-struct UnstructuredMesh{X, EBlockNames, ETypes, EConns, EMaps, NSetNodes} <: AbstractMesh
+struct UnstructuredMesh{
+  X, 
+  EBlockNames, ETypes, EConns, EMaps, 
+  NSetNodes,
+  SSetElems, SSetNodes, SSetSides
+} <: AbstractMesh
   nodal_coords::X
   element_block_names::EBlockNames
   element_types::ETypes
   element_conns::EConns
   element_id_maps::EMaps
-  nodeset_nodes::NSetNodes
+  nodeset_nodes::NSetNodes # TODO, we can remove this since we're using sidesets now.
+  sideset_elems::SSetElems
+  sideset_nodes::SSetNodes
+  sideset_sides::SSetSides
 end
 
-function UnstructuredMesh(file_type, file_name::String, use_component_array)
+function UnstructuredMesh(file_type, file_name::String)
   file = FileMesh(file_type, file_name)
 
   # read nodal coordinates
+  if num_dimensions(file) == 2
+    coord_syms = (:X, :Y)
+  elseif num_dimensions(file) == 3
+    coord_syms = (:X, :Y, :Z)
+  else
+    @assert false "Bad number of dimensions $(num_dimensions(file))"
+  end
+
   nodal_coords = coordinates(file)
-  nodal_coords = NodalField(nodal_coords)
+  nodal_coords = NodalField(nodal_coords, coord_syms)
 
   # read element block types, conn, etc.
   el_block_ids = element_block_ids(file)
@@ -197,7 +220,8 @@ function UnstructuredMesh(file_type, file_name::String, use_component_array)
   el_block_names = Symbol.(el_block_names)
   el_types = element_type.((file,), el_block_ids)
   el_types = NamedTuple{tuple(el_block_names...)}(tuple(el_types...))
-  el_conns = ElementField.(element_connectivity.((file,), el_block_ids))
+  el_conns = element_connectivity.((file,), el_block_ids)
+  el_conns = map(x -> Connectivity{size(x)}(x), el_conns)
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
   el_id_maps = element_block_id_map.((file,), el_block_ids)
   el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
@@ -208,18 +232,22 @@ function UnstructuredMesh(file_type, file_name::String, use_component_array)
   nset_nodes = NamedTuple{tuple(nset_names...)}(tuple(nsets...))
 
   # read sidesets
+  sset_names = Symbol.(sideset_names(file))
+  ssets = sidesets(file, sideset_ids(file))
+
+  sset_elems = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[1], ssets)...))
+  sset_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[2], ssets)...))
+  sset_sides = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[3], ssets)...))
 
   # TODO
   # write methods to create edge and face connectivity
 
-  # conversions for various backends
-  if use_component_array
-    el_conns = ComponentArray(el_conns)
-    el_id_maps = ComponentArray(el_id_maps)
-    nset_nodes = ComponentArray(nset_nodes)
-  end
-
-  return UnstructuredMesh(nodal_coords, el_block_names, el_types, el_conns, el_id_maps, nset_nodes)
+  return UnstructuredMesh(
+    nodal_coords, 
+    el_block_names, el_types, el_conns, el_id_maps, 
+    nset_nodes,
+    sset_elems, sset_nodes, sset_sides
+  )
 end
 
 # different mesh types
@@ -228,10 +256,10 @@ struct ExodusMesh <: AbstractMeshType
 end
 
 # dispatch based on file extension
-function UnstructuredMesh(file_name::String; use_component_array=false)
+function UnstructuredMesh(file_name::String)
   ext = splitext(file_name)
   if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
-    return UnstructuredMesh(ExodusMesh, file_name, use_component_array)
+    return UnstructuredMesh(ExodusMesh, file_name)
   else
     throw(ErrorException("Unsupported file type with extension $ext"))
   end

@@ -1,17 +1,21 @@
 """
 $(TYPEDEF)
 """
-const Connectivity{T, NN, Vals} = ElementField{T, NN, Vals}
+const Connectivity{T, NN, Vals, SymIDMap} = ElementField{T, NN, Vals, SymIDMap}
 
 function Connectivity{NN, NE}(vals::M) where {NN, NE, M <: AbstractArray{<:Integer, 2}}
   @assert size(vals) == (NN, NE)
   new_vals = vec(vals)
-  return Connectivity{eltype(M), NN, typeof(new_vals)}(new_vals)
+  syms = map(x -> Symbol(:node_, x), 1:NN)
+  nt = NamedTuple{tuple(syms...)}(1:NN)
+  return Connectivity{eltype(M), NN, typeof(new_vals), nt}(new_vals)
 end
 
 function Connectivity{NN, NE}(vals::V) where {NN, NE, V <: AbstractArray{<:Integer, 1}}
   @assert size(vals) == (NN * NE,)
-  return Connectivity{eltype(V), NN, typeof(vals)}(vals)
+  syms = map(x -> Symbol(:node_, x), 1:NN)
+  nt = NamedTuple{tuple(syms...)}(1:NN)
+  return Connectivity{eltype(V), NN, typeof(vals), nt}(vals)
 end
 
 """
@@ -22,7 +26,9 @@ Connectivity{Tup}(vals) where Tup = Connectivity{Tup[1], Tup[2]}(vals)
 function Connectivity{Tup, T}(::UndefInitializer) where {Tup, T}
   NN, NE = Tup
   vals = Vector{T}(undef, NN * NE)
-  return Connectivity{T, NN, typeof(vals)}(vals)
+  syms = map(x -> Symbol(:node_, x), 1:NN)
+  nt = NamedTuple{syms}(1:NN)
+  return Connectivity{T, NN, typeof(vals), nt}(vals)
 end
 
 """

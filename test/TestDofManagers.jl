@@ -81,7 +81,7 @@ function test_dof_correctness()
 end
 
 @testset ExtendedTestSet "DofManager" begin
-  mesh = FileMesh(ExodusDatabase, "./poisson/poisson.g")
+  mesh = FileMesh(FiniteElementContainers.ExodusMesh, "./poisson/poisson.g")
 
   test_dof_constructors(mesh)
   test_dof_methods()

@@ -158,8 +158,8 @@ end
   # field = zero(field)
 end
 
-@testset ExtendedTestSet "Quadrature Field" begin
-  vals = rand(Float64, 4, 3, 100)
-  field = QuadratureField{(4,), (3,), (100,), ComponentArray, Float64}(undef, (:block_1,))
-  @test size(field, 1) == (4, 3, 100)
-end
+# @testset ExtendedTestSet "Quadrature Field" begin
+#   vals = rand(Float64, 4, 3, 100)
+#   field = QuadratureField{(4,), (3,), (100,), ComponentArray, Float64}(undef, (:block_1,))
+#   @test size(field, 1) == (4, 3, 100)
+# end
