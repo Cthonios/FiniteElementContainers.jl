@@ -1,7 +1,7 @@
 """
 $(TYPEDEF)
 """
-const Connectivity{T, NN, Vals, SymIDMap} = ElementField{T, NN, Vals, SymIDMap}
+const Connectivity{T, NN, Vals, SymIDMap} = L2ElementField{T, NN, Vals, SymIDMap}
 
 function Connectivity{NN, NE}(vals::M) where {NN, NE, M <: AbstractArray{<:Integer, 2}}
   @assert size(vals) == (NN, NE)

@@ -29,8 +29,9 @@ _sym_id_map(::AbstractField{T, N, NF, Vals, SymIDMap}, sym::Symbol) where {T, N,
 
 
 # actual implementations
-include("ElementField.jl")
-include("NodalField.jl")
+# include("ElementField.jl")
+include("H1Field.jl")
+include("L2ElementField.jl")
 # include("QuadratureField.jl")
 
 # some specialization
