@@ -1,3 +1,17 @@
+elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.AbstractElementType}}(
+  "HEX"     => Hex8,
+  "HEX8"    => Hex8,
+  "QUAD"    => Quad4,
+  "QUAD4"   => Quad4,
+  "QUAD9"   => Quad9,
+  "TRI"     => Tri3,
+  "TRI3"    => Tri3,
+  "TRI6"    => Tri6,
+  "TET"     => Tet4,
+  "TETRA4"  => Tet4,
+  "TETRA10" => Tet10
+)
+
 """
 $(TYPEDEF)
 """

@@ -32,7 +32,7 @@ _sym_id_map(::AbstractField{T, N, NF, Vals, SymIDMap}, sym::Symbol) where {T, N,
 # include("ElementField.jl")
 include("H1Field.jl")
 include("L2ElementField.jl")
-# include("QuadratureField.jl")
+include("L2QuadratureField.jl")
 
 # some specialization
 include("Connectivity.jl")

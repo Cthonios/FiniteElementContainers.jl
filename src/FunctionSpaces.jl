@@ -118,3 +118,10 @@ function coordinates(fspace::FunctionSpace, e, block)
   conn = _connectivity(fspace, e, block)
   return @views fspace.coords[:, conn]
 end
+
+function map_shape_function_gradients(X, ∇N_ξ)
+  J     = (X * ∇N_ξ)'
+  J_inv = inv(J)
+  ∇N_X  = (J_inv * ∇N_ξ')'
+  return ∇N_X
+end

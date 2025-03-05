@@ -3,7 +3,7 @@ using FiniteElementContainers
 using Parameters
 
 # methods for a simple Poisson problem
-f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(4π * X[2])
+f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 
 bc_func(_, _) = 0.
 
@@ -23,7 +23,7 @@ end
 # read mesh and relevant quantities
 
 function poisson_v2()
-  mesh = UnstructuredMesh("./test/poisson/poisson.g")
+  mesh = UnstructuredMesh("./poisson/poisson.g")
   V = FunctionSpace(mesh, H1, Lagrange) 
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u)
@@ -61,14 +61,14 @@ function poisson_v2()
     end
   end
 
-  copy_mesh("./test/poisson/poisson.g", "./test/poisson/poisson.e")
-  exo = ExodusDatabase("./test/poisson/poisson.e", "rw")
+  copy_mesh("./poisson/poisson.g", "./poisson/poisson.e")
+  exo = ExodusDatabase("./poisson/poisson.e", "rw")
   write_names(exo, NodalVariable, ["u"])
   write_time(exo, 1, 0.0)
   write_values(exo, NodalVariable, 1, "u", U[1, :])
   close(exo)
-  # @test exodiff("./test/poisson/poisson.e", "./test/poisson/poisson.gold")
-  # rm("./test/poisson/poisson_$type.e"; force=true)
+  @test exodiff("./poisson/poisson.e", "./poisson/poisson.gold")
+  rm("./poisson/poisson.e"; force=true)
 end
 
 poisson_v2()
