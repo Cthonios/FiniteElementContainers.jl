@@ -3,7 +3,12 @@
 # bcs or unknowns
 #
 # deliniate between different var types e.g. H1, Hdiv, etc.
-
+#
+# TODO
+# Should we create a small DofManager for single functions spaces
+# and one for mixed function spaces for an easier interface? Yes.
+# what would be the container though? A namedtuple? Or just a general
+# one?
 struct NewDofManager{
   T, IDs <: AbstractArray{T, 1}, 
   H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
@@ -32,6 +37,7 @@ end
 # or
 # cell, face, edge, node
 # some differences in 2D vs. 3D as well
+# TODO change this so it reads the fspace type off of some method
 function NewDofManager(vars...)
 
   H1_vars = ()
@@ -57,31 +63,35 @@ function NewDofManager(vars...)
 
   # maybe there's a cleaner way?
   if length(H1_vars) > 0
-    n_H1_dofs = mapreduce(x -> length(x), sum, H1_vars)
+    n_H1_dofs = sum(length.(H1_vars))
   else
     n_H1_dofs = 0
   end
 
   if length(Hcurl_vars) > 0
-    n_Hcurl_dofs = mapreduce(x -> length(x), sum, Hcurl_vars)
+    # n_Hcurl_dofs = mapreduce(x -> length(x), sum, Hcurl_vars)
+    n_Hcurl_dofs = sum(length.(Hcurl_vars))
   else
     n_Hcurl_dofs = 0
   end
 
   if length(Hdiv_vars) > 0
-    n_Hdiv_dofs = mapreduce(x -> length(x), sum, Hdiv_dofs)
+    # n_Hdiv_dofs = mapreduce(x -> length(x), sum, Hdiv_dofs)
+    n_Hdiv_dofs = sum(length.(Hdiv_vars))
   else
     n_Hdiv_dofs = 0
   end
 
   if length(L2_element_vars) > 0
-    n_L2_element_dofs = mapreduce(x -> length(x), sum, L2_element_vars)
+    # n_L2_element_dofs = mapreduce(x -> length(x), sum, L2_element_vars)
+    n_L2_element_dofs = sum(length.(L2_element_vars))
   else
     n_L2_element_dofs = 0
   end
 
   if length(L2_quadrature_vars) > 0
-    n_L2_quadrature_dofs = mapreduce(x -> length(x), sum, L2_quadrature_vars)
+    # n_L2_quadrature_dofs = mapreduce(x -> length(x), sum, L2_quadrature_vars)
+    n_L2_quadrature_dofs = sum(length.(L2_quadrature_vars))
   else
     n_L2_quadrature_dofs = 0
   end
@@ -145,7 +155,7 @@ function create_field(dof::NewDofManager, ::Type{H1})
   field = KA.zeros(backend, Float64, NF, NN)
   syms = mapreduce(x -> names(x), sum, dof.H1_vars)
   # nt = NamedTuple{syms}(1:length(syms))
-  return NodalField(field, syms)
+  return H1Field(field, syms)
 end
 
 function create_unknowns(dof::NewDofManager)
@@ -216,21 +226,21 @@ function update_dofs!(dof::NewDofManager, dirichlet_dofs::T) where T <: Abstract
   return nothing
 end
 
-function update_field_bcs!(U::NodalField, dof::NewDofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
+function update_field_bcs!(U::H1Field, dof::NewDofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
   AK.foreachindex(dof.H1_bc_dofs) do n
     U[dof.H1_bc_dofs[n]] = Ubc[n]
   end
   return nothing
 end
 
-function update_field_unknowns!(U::NodalField, dof::NewDofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
+function update_field_unknowns!(U::H1Field, dof::NewDofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
   AK.foreachindex(dof.H1_unknown_dofs) do n
     U[dof.H1_unknown_dofs[n]] = Uu[n]
   end
   return nothing
 end
 
-function update_field!(U::NodalField, dof::NewDofManager, Uu::T, Ubc::T) where T <: AbstractArray{<:Number, 1}
+function update_field!(U::H1Field, dof::NewDofManager, Uu::T, Ubc::T) where T <: AbstractArray{<:Number, 1}
   update_field_bcs!(U, dof, Ubc)
   update_field_unknowns!(U, dof, Uu)
   return nothing

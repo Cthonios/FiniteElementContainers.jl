@@ -18,9 +18,9 @@ export NeumannBC
 export Connectivity
 
 # Fields
-export ElementField
-export NodalField
-export QuadratureField
+export H1Field
+export L2ElementField
+# export QuadratureField
 # export field_names
 
 # Meshes exports
@@ -81,11 +81,9 @@ export FunctionSpace
 export NonAllocatedFunctionSpace
 export VectorizedPreAllocatedFunctionSpace
 
+# TODO eventually remove these
 export H1
-export Hcurl
-export Hdiv
 export L2Element
-export L2Quadrature
 
 export element_level_coordinates
 export element_level_fields
@@ -131,7 +129,7 @@ include("NewDofManagers.jl")
 #
 include("bcs/BoundaryConditions.jl")
 include("formulations/Formulations.jl")
-# include("assemblers/Assemblers.jl")
+# # include("assemblers/Assemblers.jl")
 
 #
 include("NewAssemblers.jl")

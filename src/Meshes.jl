@@ -181,12 +181,61 @@ function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
   return coords, conns
 end
 
+function _create_edges!(all_edges, block_edges, el_to_nodes, ref_fe)
+  local_edge_to_nodes = ref_fe.edge_nodes
+
+  # loop over all elements connectivity
+  for e in axes(el_to_nodes, 2)
+    el_nodes = el_to_nodes[:, e]
+    el_edges = map(x -> el_nodes[x], local_edge_to_nodes)
+    # loop over edges
+    local_edges = ()
+    for edge in el_edges
+      sorted_edge = sort(edge).data
+      if !haskey(all_edges, sorted_edge)
+        all_edges[sorted_edge] = length(all_edges) + 1
+        local_edges = (local_edges..., length(all_edges) + 1)
+      else
+        local_edges = (local_edges..., all_edges[sorted_edge])
+      end
+    end
+    push!(block_edges, local_edges)
+  end
+  return nothing
+end
+
+# this one isn't quite working
+# function _create_faces!(all_faces, block_faces, el_to_nodes, ref_fe)
+#   local_face_to_nodes = ref_fe.face_nodes
+#   # display(local_face_to_nodes)
+#   # loop over all elements connectivity
+#   for e in axes(el_to_nodes, 2)
+#     el_nodes = el_to_nodes[:, e]
+#     el_faces = map(x -> el_nodes[x], local_face_to_nodes)
+#     # display(el_faces)
+#     # loop over faces
+#     local_faces = ()
+#     for face in el_faces
+#       sorted_face = sort(face).data
+#       if !haskey(all_faces, sorted_face)
+#         all_faces[sorted_face] = length(all_faces)
+#         local_faces = (local_faces..., length(all_faces))
+#       else
+#         local_faces = (local_faces..., all_faces[sorted_face])
+#       end
+#     end
+#     push!(block_faces, local_faces)
+#   end
+#   return nothing
+# end
+
 # new stuff below
 struct UnstructuredMesh{
   X, 
   EBlockNames, ETypes, EConns, EMaps, 
   NSetNodes,
-  SSetElems, SSetNodes, SSetSides
+  SSetElems, SSetNodes, SSetSides,
+  EdgeConns, FaceConns
 } <: AbstractMesh
   nodal_coords::X
   element_block_names::EBlockNames
@@ -197,9 +246,12 @@ struct UnstructuredMesh{
   sideset_elems::SSetElems
   sideset_nodes::SSetNodes
   sideset_sides::SSetSides
+  # new additions
+  edge_conns::EdgeConns
+  face_conns::FaceConns
 end
 
-function UnstructuredMesh(file_type, file_name::String)
+function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, create_faces::Bool)
   file = FileMesh(file_type, file_name)
 
   # read nodal coordinates
@@ -212,7 +264,7 @@ function UnstructuredMesh(file_type, file_name::String)
   end
 
   nodal_coords = coordinates(file)
-  nodal_coords = NodalField(nodal_coords, coord_syms)
+  nodal_coords = H1Field(nodal_coords, coord_syms)
 
   # read element block types, conn, etc.
   el_block_ids = element_block_ids(file)
@@ -238,15 +290,57 @@ function UnstructuredMesh(file_type, file_name::String)
   sset_elems = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[1], ssets)...))
   sset_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[2], ssets)...))
   sset_sides = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[3], ssets)...))
+  # TODO also add edges/faces for sidesets, this may be tricky...
 
   # TODO
   # write methods to create edge and face connectivity
+  # hack for now since we need a ref fe for this stuff
+  #
+  # TODO maybe move this into function space...
+
+  if create_edges
+    edges = ()
+    all_edges = Dict{Tuple{Vararg{Int}}, Int}()
+
+    for n in 1:length(el_types)
+      ref_fe = ReferenceFE(elem_type_map[el_types[n]]{Lagrange, 1}())
+      block_edges = Vector{SVector{length(ref_fe.edge_nodes), Int}}(undef, 0)
+      _create_edges!(all_edges, block_edges, values(el_conns)[n], ref_fe)
+      edges = (edges..., Connectivity{length(block_edges[1]), length(block_edges)}(reduce(vcat, block_edges)))
+      # TODO need to create an id map
+    end
+
+    edges = NamedTuple{keys(el_conns)}(edges)
+  else
+    edges = nothing
+  end
+
+  # TODO need to finish this up
+  if create_faces
+    @assert num_dimensions(file) > 2 "Faces require a 3D mesh"
+    @assert false "Need to fix this..."
+    # faces = ()
+    # all_faces = Dict{Tuple{Vararg{Int}}, Int}()
+
+    # for n in 1:length(el_types)
+    #   ref_fe = ReferenceFE(elem_type_map[el_types[n]]{Lagrange, 1}())
+    #   block_faces = Vector{SVector{length(ref_fe.face_nodes), Int}}(undef, 0)
+    #   _create_faces!(all_faces, block_faces, values(el_conns)[n], ref_fe)
+    #   faces = (faces..., block_faces)
+    #   # TODO need to create an id map
+    # end
+    # @show length(all_faces)
+    # faces = NamedTuple{keys(el_conns)}(faces)
+  else
+    faces = nothing
+  end
 
   return UnstructuredMesh(
     nodal_coords, 
     el_block_names, el_types, el_conns, el_id_maps, 
     nset_nodes,
-    sset_elems, sset_nodes, sset_sides
+    sset_elems, sset_nodes, sset_sides,
+    edges, faces
   )
 end
 
@@ -256,11 +350,13 @@ struct ExodusMesh <: AbstractMeshType
 end
 
 # dispatch based on file extension
-function UnstructuredMesh(file_name::String)
+function UnstructuredMesh(file_name::String; create_edges=false, create_faces=false)
   ext = splitext(file_name)
   if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
-    return UnstructuredMesh(ExodusMesh, file_name)
+    return UnstructuredMesh(ExodusMesh, file_name, create_edges, create_faces)
   else
     throw(ErrorException("Unsupported file type with extension $ext"))
   end
 end
+
+# TODO write a show method

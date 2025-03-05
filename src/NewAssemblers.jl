@@ -118,6 +118,15 @@ end
 
 num_entries(s::SparsityPattern) = length(s.Is)
 
+# TODO should we add different field type
+# residual storage?
+# Also, how should we set up a general mixed field
+# sparse assembler... using blockarrays of sparsearrays?
+# or just one big complex sparse array?
+#
+# similar to FunctionSpace, we can likely initialize
+# SparseMatrixAssembler based on a provided field type
+#
 struct SparseMatrixAssembler{Dof, Pattern, Storage <: AbstractArray{<:Number}}
   # n_dofs::Int
   dof::Dof

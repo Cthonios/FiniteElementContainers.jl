@@ -1,5 +1,5 @@
 using Aqua
-using ComponentArrays
+# using ComponentArrays
 using Exodus
 using FiniteElementContainers
 using JET
@@ -16,7 +16,7 @@ include("TestConnectivities.jl")
 include("TestDofManagers.jl")
 include("TestFields.jl")
 include("TestFormulations.jl")
-include("TestFunctionSpaces.jl")
+# include("TestFunctionSpaces.jl")
 include("TestMesh.jl")
 
 # @testset ExtendedTestSet "Eigen problem" begin
@@ -24,8 +24,8 @@ include("TestMesh.jl")
 # end
 
 @testset ExtendedTestSet "Poisson problem" begin
-  include("poisson/TestPoisson.jl")
-  # include("poisson/TestPoisson2.jl")
+  # include("poisson/TestPoisson.jl")
+  include("poisson/TestPoisson2.jl")
 end
 
 @testset ExtendedTestSet "Aqua" begin

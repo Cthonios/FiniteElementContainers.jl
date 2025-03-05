@@ -1,3 +1,9 @@
+# TODO remove these H1, etc. types since now fields
+# are appropriately called these
+# 
+# we can read the fspace type off of coords if
+# we appropriately make that coords for e.g. H1, L2, etc.
+#
 abstract type AbstractFunctionSpaceType end
 
 struct H1 <: AbstractFunctionSpaceType
@@ -71,7 +77,7 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{L2Element}, interp_type)
   ref_fes = NamedTuple{tuple(block_names...)}(tuple(ref_fes...))
 
   # TODO need to map nodal coordinates from mesh to element centroids
-
+  @assert false "Unfinished method"
 
 end
 
