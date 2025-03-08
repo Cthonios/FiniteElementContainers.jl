@@ -36,7 +36,15 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
 end
 
 # DofManagers
-function Adapt.adapt_structure(to, dof::NewDofManager{T, IDs, H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars}) where {T, IDs, H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars}
+function Adapt.adapt_structure(to, dof::DofManager{
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+}) where {
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+}
   H1_bc_dofs = Adapt.adapt_structure(to, dof.H1_bc_dofs)
   H1_unknown_dofs = Adapt.adapt_structure(to, dof.H1_unknown_dofs)
   Hcurl_bc_dofs = Adapt.adapt_structure(to, dof.Hcurl_bc_dofs)
@@ -50,7 +58,11 @@ function Adapt.adapt_structure(to, dof::NewDofManager{T, IDs, H1Vars, HcurlVars,
   Hdiv_vars = Adapt.adapt_structure(to, dof.Hdiv_vars)
   L2_element_vars = Adapt.adapt_structure(to, dof.L2_element_vars)
   L2_quadrature_vars = Adapt.adapt_structure(to, dof.L2_quadrature_vars)
-  return NewDofManager{T, NH1, NHcurl, NHdiv, typeof(H1_bc_dofs), typeof(vars)}(
+  return DofManager{
+    T, typeof(H1_bc_dofs), 
+    NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+    typeof(H1_vars), typeof(Hcurl_vars), typeof(Hdiv_vars), typeof(L2_element_vars), typeof(L2_quadrature_vars)  
+  }(
     H1_bc_dofs, H1_unknown_dofs,
     Hcurl_bc_dofs, Hcurl_unknown_dofs,
     Hdiv_bc_dofs, Hdiv_unknown_dofs,
@@ -75,7 +87,6 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
   coords = Adapt.adapt_structure(to, fspace.coords)
   elem_conns = Adapt.adapt_structure(to, fspace.elem_conns)
   elem_id_maps = Adapt.adapt_structure(to, fspace.elem_id_maps)
-  fspace_type = Adapt.adapt_structure(to, fspace.fspace_type)
   ref_fes = Adapt.adapt_structure(to, fspace.ref_fes)
   sideset_elems = Adapt.adapt_structure(to, fspace.sideset_elems)
   sideset_nodes = Adapt.adapt_structure(to, fspace.sideset_nodes)
@@ -83,7 +94,6 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
   return FunctionSpace(
     coords, 
     elem_conns, elem_id_maps, 
-    fspace_type, 
     ref_fes,
     sideset_elems, sideset_nodes, sideset_sides
   )

@@ -244,13 +244,20 @@ end
 # end
 
 # new stuff below
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
 struct UnstructuredMesh{
+  MeshObj,
   X, 
   EBlockNames, ETypes, EConns, EMaps, 
   NSetNodes,
   SSetElems, SSetNodes, SSetSides,
   EdgeConns, FaceConns
 } <: AbstractMesh
+  mesh_obj::MeshObj
   nodal_coords::X
   element_block_names::EBlockNames
   element_types::ETypes
@@ -265,6 +272,9 @@ struct UnstructuredMesh{
   face_conns::FaceConns
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, create_faces::Bool)
   file = FileMesh(file_type, file_name)
 
@@ -350,6 +360,7 @@ function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, crea
   end
 
   return UnstructuredMesh(
+    file,
     nodal_coords, 
     el_block_names, el_types, el_conns, el_id_maps, 
     nset_nodes,
@@ -363,7 +374,18 @@ abstract type AbstractMeshType end
 struct ExodusMesh <: AbstractMeshType
 end
 
+function FileMesh(::Type{AbstractMeshType}, file_name::String)
+  @assert false "You need to load a mesh backend package such as Exodus"
+end
+
+function UnstructuredMesh(::Type{AbstractMeshType}, file_name::String, create_edges, create_faces)
+  @assert false "You need to load a mesh backend package such as Exodus"
+end
+
 # dispatch based on file extension
+"""
+$(TYPEDSIGNATURES)
+"""
 function UnstructuredMesh(file_name::String; create_edges=false, create_faces=false)
   ext = splitext(file_name)
   if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"

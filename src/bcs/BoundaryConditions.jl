@@ -12,7 +12,7 @@ end
 
 # TODO also need to adapt this to differ on what var_name we look for based on build_dofs_array
 # e.g. if it's neumann and a vector look for :u but if it's dirichlet and a vector look for :u_x
-function BCBookKeeping(dof::NewDofManager, var_name::Symbol, sset_name::Symbol; build_dofs_array=false)
+function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; build_dofs_array=false)
   # need to extract the var from dof based on teh symbol name
   var_index = 0
   dof_index = 0
@@ -79,7 +79,7 @@ struct DirichletBC{S, B, F, V} <: AbstractBC{S, B, F, V}
   vals::V
 end
 
-function DirichletBC(dof::NewDofManager, var_name::Symbol, sset_name::Symbol, func::Function)
+function DirichletBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func::Function)
   bookkeeping = BCBookKeeping(dof, var_name, sset_name; build_dofs_array=true)
   vals = zeros(Float64, length(bookkeeping.nodes))
   sym = Symbol(var_name, :_, sset_name)
@@ -93,7 +93,7 @@ struct NeumannBC{S, B, F, V} <: AbstractBC{S, B, F, V}
 end
 
 # TODO need to hack the var_name thing
-function NeumannBC(dof::NewDofManager, var_name::Symbol, sset_name::Symbol, func::Function)
+function NeumannBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func::Function)
   bookkeeping = BCBookKeeping(dof, var_name, sset_name)
   vals = zeros(Float64, length(bookkeeping.elements))
   sym = Symbol(var_name, :_, sset_name) # TODO maybe add func name?

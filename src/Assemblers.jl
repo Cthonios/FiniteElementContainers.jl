@@ -118,6 +118,8 @@ end
 
 num_entries(s::SparsityPattern) = length(s.Is)
 
+abstract type AbstractAssembler{Dof} end
+
 # TODO should we add different field type
 # residual storage?
 # Also, how should we set up a general mixed field
@@ -127,24 +129,35 @@ num_entries(s::SparsityPattern) = length(s.Is)
 # similar to FunctionSpace, we can likely initialize
 # SparseMatrixAssembler based on a provided field type
 #
-struct SparseMatrixAssembler{Dof, Pattern, Storage <: AbstractArray{<:Number}}
-  # n_dofs::Int
+# need to figure out how to handle mixed spaces
+#
+struct SparseMatrixAssembler{
+  Dof, Pattern, 
+  Storage1 <: AbstractArray{<:Number},
+  Storage2 <: H1Field
+} <: AbstractAssembler{Dof}
   dof::Dof
   pattern::Pattern
-  constraint_storage::Storage
-  stiffness_storage::Storage
+  constraint_storage::Storage1
+  residual_storage::Storage2
+  stiffness_storage::Storage1
 end
 
-function SparseMatrixAssembler(dof::NewDofManager)
+function SparseMatrixAssembler(dof::DofManager)
   pattern = SparsityPattern(dof)
   constraint_storage = zeros(length(dof))
   constraint_storage[dof.H1_bc_dofs] .= 1.
+  # residual_storage = zeros(length(dof))
+  residual_storage = create_field(dof, H1Field)
   stiffness_storage = zeros(num_entries(pattern))
-  return SparseMatrixAssembler(dof, pattern, constraint_storage, stiffness_storage)
+  return SparseMatrixAssembler(
+    dof, pattern, 
+    constraint_storage, residual_storage, stiffness_storage
+  )
 end
 
 function SparseMatrixAssembler(vars...)
-  dof = NewDofManager(vars...)
+  dof = DofManager(vars...)
   return SparseMatrixAssembler(dof)
 end 
 
@@ -186,6 +199,20 @@ end
 
 """
 $(TYPEDSIGNATURES)
+Assembly method for a scalar field stored as a size 1 vector
+"""
+function assemble!(
+  global_val::Vector, 
+  # block_num, e, local_val
+  local_val, 
+  fspace, dof_conn, e, block_num
+)
+  global_val[1] += local_val
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
 generic assembly method that directly goes into a vector
 """
 function assemble!(
@@ -200,7 +227,27 @@ function assemble!(
   return nothing
 end
 
-function assemble!(asm::SparseMatrixAssembler, K_el::SMatrix, el_id::Int, block_id::Int)
+"""
+$(TYPEDSIGNATURES)
+Assembly method for residuals
+TODO this will likely break on mixed space problems
+"""
+function assemble!(
+  global_val::H1Field, 
+  # block_num, e, local_val
+  local_val, 
+  fspace, dof_conn, e, block_num
+)
+  # dof_conn = dof_connectivity(fspace, e)
+  # dof_conn = @views dof_connectivity(fspace, e, block_num, size(global_val, 1))
+  FiniteElementContainers.assemble!(global_val, local_val, dof_conn)
+  return nothing
+end
+
+function assemble!(
+  asm::SparseMatrixAssembler, K_el::SMatrix, 
+  fspace, dof_conn, el_id::Int, block_id::Int
+)
   start_id = (block_id - 1) * asm.pattern.block_sizes[block_id] + 
              (el_id - 1) * asm.pattern.block_offsets[block_id] + 1
   end_id = start_id + asm.pattern.block_offsets[block_id] - 1
@@ -344,7 +391,7 @@ function assemble!(
         K_el = K_el + K_q
       end
 
-      assemble!(assembler, K_el, e, block_id)
+      assemble!(assembler, K_el, dof_conns[:, e], fspace, e, block_id)
     end
   end
 end
@@ -355,18 +402,24 @@ create_unknowns(asm::SparseMatrixAssembler) = create_unknowns(asm.dof)
 # this thing should probably always be done on the CPU
 # and then moved to the GPU
 # TODO hardcoded for H1 fields
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs)
+function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T) where T <: AbstractArray{DirichletBC}
   vars = assembler.dof.H1_vars
 
   if length(vars) != 1
     @assert false "multiple fspace not supported yet"
   end
 
-  fspace = vars[1].fspace
+  # fspace = vars[1].fspace
 
   # make this more efficient
   dirichlet_dofs = unique!(sort!(vcat(map(x -> x.bookkeeping.dofs, dirichlet_bcs)...)))
+  update_dofs!(assembler, dirichlet_dofs)
+  return nothing
+end
 
+function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1} 
+  dirichlet_dofs = copy(dirichlet_dofs)
+  unique!(sort!(dirichlet_dofs))
   update_dofs!(assembler.dof, dirichlet_dofs)
 
   n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
@@ -378,6 +431,10 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs)
 
   ND, NN = num_dofs_per_node(assembler.dof), num_nodes(assembler.dof)
   ids = reshape(1:length(assembler.dof), ND, NN)
+
+  # TODO
+  vars = assembler.dof.H1_vars
+  fspace = vars[1].fspace
 
   n = 1
   # for fspace in fspaces

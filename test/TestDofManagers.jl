@@ -14,11 +14,11 @@ function test_dof_constructors(fspace)
   u = ScalarFunction(fspace, :u)
   v = ScalarFunction(fspace, :v)
   w = VectorFunction(fspace, :w)
-  dof = NewDofManager(u)
+  dof = DofManager(u)
 
-  dof = NewDofManager(u, v)
+  dof = DofManager(u, v)
 
-  dof = NewDofManager(u, v, w)
+  dof = DofManager(u, v, w)
 end
 
 function test_dof_methods()
@@ -91,7 +91,7 @@ end
 @testset ExtendedTestSet "DofManager" begin
   # mesh = FileMesh(FiniteElementContainers.ExodusMesh, "./poisson/poisson.g")
   mesh = UnstructuredMesh("./poisson/poisson.g")
-  fspace = FunctionSpace(mesh, H1, Lagrange)
+  fspace = FunctionSpace(mesh, H1Field, Lagrange)
 
   test_dof_constructors(fspace)
   # test_dof_methods()

@@ -31,7 +31,7 @@ export num_dofs_per_node
 export num_fields
 export num_nodes
 export num_nodes_per_element
-# export num_q_points
+export num_q_points
 export sideset
 export sideset_ids
 export sideset_names
@@ -40,7 +40,7 @@ export sideset_names
 export connectivity
 
 # DofManager
-export NewDofManager
+export DofManager
 export create_field
 export create_unknowns
 export update_dofs!
@@ -63,10 +63,6 @@ export modify_field_gradients
 # FunctionSpaces
 export AbstractMechanicsFormulation
 export FunctionSpace
-
-# TODO eventually remove these
-export H1
-export L2Element
 
 export num_elements
 # export num_q_points

@@ -24,7 +24,7 @@ end
 
 function poisson_v2()
   mesh = UnstructuredMesh("./poisson/poisson.g")
-  V = FunctionSpace(mesh, H1, Lagrange) 
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u)
 
@@ -40,8 +40,8 @@ function poisson_v2()
   # pre-setup some scratch arrays
   Uu = create_unknowns(asm)
   Ubc = zeros(length(asm.dof.H1_bc_dofs))
-  U = create_field(asm, H1)
-  R = create_field(asm, H1)
+  U = create_field(asm, H1Field)
+  R = create_field(asm, H1Field)
 
   update_field!(U, asm, Uu, Ubc)
 

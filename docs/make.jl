@@ -20,9 +20,9 @@ makedocs(;
     pages=[
         "Home"            => "index.md",
         "Assemblers"      => "assemblers.md",
-        "Connectivities"  => "connectivities.md",
         "DofManager"      => "dof_manager.md",
         "Fields"          => "fields.md",
+        "Formulations"    => "formulations.md",
         "Function spaces" => "function_spaces.md",
         "Meshes"          => "meshes.md"
     ],
