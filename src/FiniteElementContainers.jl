@@ -1,5 +1,20 @@
 module FiniteElementContainers
 
+# Assemblers
+export SparseMatrixAssembler
+export assemble!
+
+# BCs
+export DirichletBC
+export NeumannBC
+
+# Connectivities
+export Connectivity
+
+# Fields
+export H1Field
+export L2ElementField
+
 # Meshes exports
 export FileMesh
 export UnstructuredMesh
@@ -21,46 +36,17 @@ export sideset
 export sideset_ids
 export sideset_names
 
-# Fields
-export ElementField
-export NodalField
-export QuadratureField
-# export field_names
-
-# Connectivities
-export Connectivity
-
 # Methods
 export connectivity
-export element_level_fields
-# export element_level_fields!
 
 # DofManager
 export DofManager
-export create_fields
+export create_field
 export create_unknowns
-export dof_connectivity
-export update_fields!
-export update_unknown_dofs!
-
-# FunctionSpaces
-export AbstractMechanicsFormulation
-export FunctionSpace
-export NonAllocatedFunctionSpace
-export VectorizedPreAllocatedFunctionSpace
-export element_level_coordinates
-export element_level_fields
-export num_elements
-export num_q_points
-export quadrature_level_field_gradients
-export quadrature_level_field_values
-
-# Assemblers
-export Assembler
-export DynamicAssembler
-export MatrixFreeStaticAssembler
-export StaticAssembler
-export assemble!
+export update_dofs!
+export update_field_bcs!
+export update_field_unknowns!
+export update_field!
 
 # Formulations
 export IncompressiblePlaneStress
@@ -74,27 +60,46 @@ export extract_stress
 export extract_stiffness
 export modify_field_gradients
 
+# FunctionSpaces
+export AbstractMechanicsFormulation
+export FunctionSpace
+
+export num_elements
+# export num_q_points
+
+export ScalarFunction
+export SymmetricTensorFunction
+export TensorFunction
+export VectorFunction
+
 # dependencies
-using ComponentArrays
+import AcceleratedKernels as AK
+import KernelAbstractions as KA
+import Reexport: @reexport
+using Atomix
 using DocStringExtensions
-using LinearAlgebra
-using ReferenceFiniteElements
-using SparseArrays
+@reexport using LinearAlgebra
+@reexport using ReferenceFiniteElements
+@reexport using SparseArrays
 using StaticArrays
 using StructArrays
-# using Tensors
+using Tensors
 
 abstract type FEMContainer end
 
+# basic stuff
 include("fields/Fields.jl")
-include("Connectivity.jl")
 include("Meshes.jl")
+
+# clean this up
+# include("function_spaces/Utils.jl")
+
+
+include("FunctionSpaces.jl")
+include("Functions.jl")
 include("DofManagers.jl")
-
-include("function_spaces/FunctionSpaces.jl")
-include("function_spaces/NewFunctionSpaces.jl")
-
+include("bcs/BoundaryConditions.jl")
 include("formulations/Formulations.jl")
-include("assemblers/Assemblers.jl")
+include("Assemblers.jl")
 
 end # module

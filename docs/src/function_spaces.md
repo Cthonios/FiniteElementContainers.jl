@@ -1,32 +1,14 @@
-```@meta
-CurrentModule = FiniteElementContainers
+# FunctionSpace
+
+```@repl fspace
+using Exodus, FiniteElementContainers
+mesh = UnstructuredMesh("../../test/poisson/poisson.g")
+V = FunctionSpace(mesh, H1Field, Lagrange)
 ```
 
-# Function spaces
-```@docs
-FunctionSpace
-```
-
-# Implementations
+## API
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["./function_spaces/NonAllocatedFunctionSpace.jl"]
-Order = [:type, :function, :constant, :macro]
-```
-
-```@autodocs
-Modules = [FiniteElementContainers]
-Pages = ["./function_spaces/VectorizedPreAllocatedFunctionSpace.jl"]
-Order = [:type, :function, :constant, :macro]
-```
-
-## Useful methods
-```@docs
-dof_connectivity
-element_level_fields
-element_level_fields_reinterpret
-reference_element
-quadrature_level_field_values
-quadrature_level_field_gradients
-volume
+Pages = ["FunctionSpaces.jl"]
+Order = [:type, :function]
 ```

@@ -1,8 +1,8 @@
-@testset ExtendedTestSet "Element Field" begin
+@testset ExtendedTestSet "L2 Element Field" begin
   vals = rand(2, 20)
 
-  field_1 = ElementField{2, 20}(vals)
-  field_2 = ElementField{2, 20}(vals |> vec)
+  field_1 = L2ElementField{2, 20}(vals, (:node_1, :node_2))
+  field_2 = L2ElementField{2, 20}(vals |> vec, (:node_1, :node_2))
 
   @test size(vals) == size(field_1)
   @test size(vals) == size(field_2)
@@ -64,7 +64,7 @@
   # end
 end
 
-@testset ExtendedTestSet "Nodal Field" begin
+@testset ExtendedTestSet "H1 Field" begin
   # vals = rand(2, 20)
   # field = NodalField{2, 20}(vals, :vals)
   # @test size(vals) == size(field)
@@ -77,8 +77,8 @@ end
   vals = rand(2, 20)
 
   # field_1 = NodalField{2, 20}(vals)
-  field_2 = NodalField{2, 20}(vals)
-  field_3 = NodalField{2, 20}(vals |> vec)
+  field_2 = H1Field{2, 20}(vals, (:u, :v))
+  field_3 = H1Field{2, 20}(vals |> vec, (:u, :v))
 
   # field_2 .= vec(vals)
   # field_2 .= vals
@@ -158,8 +158,8 @@ end
   # field = zero(field)
 end
 
-@testset ExtendedTestSet "Quadrature Field" begin
-  vals = rand(Float64, 4, 3, 100)
-  field = QuadratureField{(4,), (3,), (100,), ComponentArray, Float64}(undef, (:block_1,))
-  @test size(field, 1) == (4, 3, 100)
-end
+# @testset ExtendedTestSet "Quadrature Field" begin
+#   vals = rand(Float64, 4, 3, 100)
+#   field = QuadratureField{(4,), (3,), (100,), ComponentArray, Float64}(undef, (:block_1,))
+#   @test size(field, 1) == (4, 3, 100)
+# end

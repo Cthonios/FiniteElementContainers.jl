@@ -5,15 +5,6 @@ CurrentModule = FiniteElementContainers
 # Assemblers
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["assemblers/Assemblers.jl"]
+Pages = ["Assemblers.jl"]
 Order = [:type, :function]
-```
-
-```@docs
-DynamicAssembler
-StaticAssembler
-```
-
-```@docs
-assemble!
 ```

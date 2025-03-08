@@ -1,16 +1,24 @@
-function test_dof_constructors(mesh)
-  coords  = coordinates(mesh)
-  coords  = NodalField{size(coords)}(coords)
-  dof1    = DofManager{1, size(coords, 2), Vector{Float64}}()
-  dof2    = DofManager{Vector{Float64}}(1, 16641)
-  dof3    = DofManager(mesh, 1)
-  @test dof1.unknown_dofs ≈ dof2.unknown_dofs
-  @test dof1.unknown_dofs ≈ dof3.unknown_dofs
-  dof1    = DofManager{2, size(coords, 2), Vector{Float64}}()
-  dof2    = DofManager{Vector{Float64}}(2, 16641)
-  dof3    = DofManager(mesh, 2)
-  @test dof1.unknown_dofs ≈ dof2.unknown_dofs
-  @test dof1.unknown_dofs ≈ dof3.unknown_dofs
+function test_dof_constructors(fspace)
+  # coords  = coordinates(mesh)
+  # coords  = H1Field{size(coords)}(coords, (:x, :y))
+  # dof1    = DofManager{1, size(coords, 2), Vector{Float64}}()
+  # dof2    = DofManager{Vector{Float64}}(1, 16641)
+  # dof3    = DofManager(mesh, 1)
+  # @test dof1.unknown_dofs ≈ dof2.unknown_dofs
+  # @test dof1.unknown_dofs ≈ dof3.unknown_dofs
+  # dof1    = DofManager{2, size(coords, 2), Vector{Float64}}()
+  # dof2    = DofManager{Vector{Float64}}(2, 16641)
+  # dof3    = DofManager(mesh, 2)
+  # @test dof1.unknown_dofs ≈ dof2.unknown_dofs
+  # @test dof1.unknown_dofs ≈ dof3.unknown_dofs
+  u = ScalarFunction(fspace, :u)
+  v = ScalarFunction(fspace, :v)
+  w = VectorFunction(fspace, :w)
+  dof = DofManager(u)
+
+  dof = DofManager(u, v)
+
+  dof = DofManager(u, v, w)
 end
 
 function test_dof_methods()
@@ -81,13 +89,15 @@ function test_dof_correctness()
 end
 
 @testset ExtendedTestSet "DofManager" begin
-  mesh = FileMesh(ExodusDatabase, "./poisson/poisson.g")
+  # mesh = FileMesh(FiniteElementContainers.ExodusMesh, "./poisson/poisson.g")
+  mesh = UnstructuredMesh("./poisson/poisson.g")
+  fspace = FunctionSpace(mesh, H1Field, Lagrange)
 
-  test_dof_constructors(mesh)
-  test_dof_methods()
-  test_bc_ids(mesh)
-  test_update_unknown_dofs(mesh)
-  test_dof_correctness()
+  test_dof_constructors(fspace)
+  # test_dof_methods()
+  # test_bc_ids(mesh)
+  # test_update_unknown_dofs(mesh)
+  # test_dof_correctness()
 end
 # bcs = [
   

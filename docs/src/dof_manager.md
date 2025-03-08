@@ -8,122 +8,41 @@ DocTestFilters = [
 ```
 
 # DofManager
-The ```DofManager``` is a simple lightweight struct that keeps track of which dofs are unknown or constrained.
+The ```DofManager``` is a struct that keeps track of which dofs are unknown or constrained. This can work with simple or mixed finite element spaces of various types. It is a glorified book keeper.
 
-```@docs
-DofManager
+A ```DofManager``` can be created as follows. First we must create functions for our variables of interest from their associated function spaces.
+
+```@repl dof
+using Exodus, FiniteElementContainers
+mesh = UnstructuredMesh("../../test/poisson/poisson.g")
+V = FunctionSpace(mesh, H1Field, Lagrange)
+u = VectorFunction(V, :u)
+t = ScalarFunction(V, :t)
+```
+Now we can supply these variables to the ```DofManager``` which takes varargs as inputs
+```@repl dof
+dof = DofManager(u, t)
+```
+The print methods for this struct show simple metadata about the current dofs for each possible function space.
+
+A set of unknowns can be set up as follows
+```@repl dof
+field = create_unknowns(dof)
 ```
 
-A ```DofManager``` can be create as follows using a simple non-vectorized storage for fields it will create
+We can create fields of the right size from the ```DofManager``` with the following methods
 
-```jldoctest dof
-julia> using FiniteElementContainers
-
-julia> dof = DofManager{2, 10, Matrix{Float64}}()
-DofManager
-  Number of nodes         = 10
-  Number of dofs per node = 2
-  Storage type            = Vector{Int64}
-
+```@repl dof
+field = create_field(dof, H1Field)
 ```
 
-We can then set some nodes as boundary condition degrees of freedom. Let's pick the following nodes ```[1, 2]``` with dofs ```[1, 1]``` fixed. This works out to global dofs ```[1, 3]```. We can then update the ```DofManager``` with a call to ```update_unknown_dofs!``` as follows.
+These methods take the backed of ```dof``` into account to ensure that the fields or unknowns produced are on the same device, e.g. CPU/GPU if ```dof``` is on the CPU/GPU.
 
-```jldoctest dof
-julia> bc_dofs = [1, 3]
-2-element Vector{Int64}:
- 1
- 3
+This struct is created with all dofs initially set as unknown. To modify the unknowns we can do the following
 
-julia> update_unknown_dofs!(dof, bc_dofs)
-
+## API
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["DofManagers.jl"]
+Order = [:type, :function]
 ```
-
-Now the ```DofManager``` has its dofs properly set and we can create properly sized unknown vectors. This is done with a call to ```create_unknowns```.
-
-```jldoctest dof
-julia> Uu = create_unknowns(dof)
-18-element Vector{Float64}:
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
-
-```
-
-This is useful for creating zero arrays that are properly sized to the current number of total unknown degrees of freedom. 
-
-We can also create properly sized ```NodalField```s with a ```DofManager``` with a call to ```create_fields```.
-
-```jldoctest dof
-julia> U = create_fields(dof)
-2×10 FiniteElementContainers.SimpleNodalField{Float64, 2, 2, 10, Matrix{Float64}}:
- 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
- 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-
-```
-
-This creates a ```NodalField``` (specifically a ```SimpleNodalField``` since we initialized the ```DofManager``` with ```Matrix{Float64}``` as the storage type) with all zero entries that is sized for the maximum number of possible unknowns, e.g. no fixed Dirichlet BCs.
-
-If we look at the internal storage of ```U```
-```jldoctest dof
-julia> U.vals
-2×10 Matrix{Float64}:
- 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
- 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-
-```
-we can see that ```SimpleNodalField``` is simply acting as a wrapper around ```Matrix{Float64}``` with some additional meta-data. If on the other hand we initialize the ```DofManager``` with ```Vector{Float64}``` as the internal storage type we see the following
-
-```jldoctest dof
-julia> dof = DofManager{2, 10, Vector{Float64}}()
-DofManager
-  Number of nodes         = 10
-  Number of dofs per node = 2
-  Storage type            = Vector{Int64}
-
-julia> U = create_fields(dof)
-2×10 FiniteElementContainers.VectorizedNodalField{Float64, 2, 2, 10, Vector{Float64}}:
- 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
- 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-```
-
-```julia
-julia> U.vals
-20-element Vector{Float64}:
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- ⋮
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
- 0.0
-
-```
-
-As you can see this stored as a long vector of numbers rather than a matrix.

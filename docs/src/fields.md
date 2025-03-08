@@ -3,108 +3,84 @@ CurrentModule = FiniteElementContainers
 ```
 
 # Fields
-Fields serve as loose wrappers around ```AbstractArray``` subtypes such that the size of the array is known at compile time. Although this introduces a type-instability, the idea is to do this at the top most level (mainly at setup time of a FEM simulation). By introducing this type instability, we can gain information about the field type that is used in methods downstream to construct ```StaticArray```s of ```view```s of field types.
+Fields serve as loose wrappers around ```AbstractArray``` subtypes such that the size of array slices are known at compile time. Although this introduces a type-instability, the idea is to do this at the top most level (mainly at setup time of a FEM simulation). By introducing this type instability, we can gain information about the field type that is used in methods downstream to construct ```StaticArray```s of ```view```s of field types.
 
-## Example - NodalField
-We can set up a ```NodalField``` in one of two ways. The simplest constructor form can be used as follows
-```julia
-julia> vals = rand(2, 10)
-2×10 Matrix{Float64}:
- 0.671652  0.163963  0.538689  0.480536  0.833398  0.551275  0.790613  0.609717  0.383385  0.0387093
- 0.074336  0.963916  0.658381  0.902902  0.642238  0.617257  0.566368  0.71399   0.493144  0.153415
-
-julia> field = NodalField{2, 10, Matrix}(vals)
-2×10 FiniteElementContainers.SimpleNodalField{Float64, 2, 2, 10, Matrix{Float64}}:
- 0.671652  0.163963  0.538689  0.480536  0.833398  0.551275  0.790613  0.609717  0.383385  0.0387093
- 0.074336  0.963916  0.658381  0.902902  0.642238  0.617257  0.566368  0.71399   0.493144  0.153415
-
-julia> field.vals
-2×10 Matrix{Float64}:
- 0.671652  0.163963  0.538689  0.480536  0.833398  0.551275  0.790613  0.609717  0.383385  0.0387093
- 0.074336  0.963916  0.658381  0.902902  0.642238  0.617257  0.566368  0.71399   0.493144  0.153415
-
-```
-
-We could also store this in vectorized format as follows
-
-```julia
-julia> vals = rand(2, 10)
-2×10 Matrix{Float64}:
- 0.80535   0.730575  0.712725  0.474454  0.0892281  0.156759  0.0425675  0.864044  0.538667  0.377565
- 0.348685  0.852966  0.531284  0.34784   0.133556   0.483717  0.280693   0.155209  0.827217  0.532938
-
-julia> field = NodalField{2, 10, Vector}(vals)
-2×10 FiniteElementContainers.VectorizedNodalField{Float64, 2, 2, 10, Vector{Float64}}:
- 0.80535   0.730575  0.712725  0.474454  0.0892281  0.156759  0.0425675  0.864044  0.538667  0.377565
- 0.348685  0.852966  0.531284  0.34784   0.133556   0.483717  0.280693   0.155209  0.827217  0.532938
-
-julia> field.vals
-20-element Vector{Float64}:
- 0.805349766666621
- 0.34868545083892455
- 0.7305749598014636
- 0.8529660539980414
- 0.7127252744440836
- 0.5312840325763362
- 0.47445360786490387
- 0.34784023927079855
- 0.08922808334086696
- ⋮
- 0.04256750367757933
- 0.28069295436131725
- 0.864043693939776
- 0.15520937344242647
- 0.5386666785752343
- 0.8272174353577112
- 0.3775645360156227
- 0.532938439960596
-
-```
-
-## Implementation
-The base type for fields is the ```AbstractField``` abstract type. 
-
-```@docs
+All fields are subtypes of the abstract type ```AbstractField```
+```@repl
+using FiniteElementContainers
 AbstractField
 ```
 
-Any new field added to ```FiniteElementContainers``` should be a subtype of this type.
+## Example - H1Field a.k.a. NodalField
+We can set up a ```H1Field``` in one of two ways. The simplest constructor form can be used as follows
+```@repl h1field
+using FiniteElementContainers
+field = H1Field(rand(2, 10), (:field_1, :field_2))
+```
+This is stored in a vectorized way as can be seen above
+```@repl h1field
+field.vals
+```
+Fields can be indexed like regular arrays, e.g.
+```@repl h1field
+field[1, 1]
+```
+```@repl h1field
+field[1, :]
+```
+etc.
 
-The existing direct subtypes of ```AbstractField``` are the following
-
-```@docs
-ElementField
-NodalField
-QuadratureField
+But they can also be indexed by the symbols provided during construction
+```@repl h1field
+field[:field_1]
 ```
 
-## Types
-There's several different implementations currently for different field types.
+## Abstract type
+The base type for fields is the ```AbstractField``` abstract type. 
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["fields/Fields.jl"]
+Order = [:type]
+```
+Any new field added to ```FiniteElementContainers``` should be a subtype of this type.
 
-## Methods on ```AbstractField```
+## Methods for ```AbstractField```
 ```@autodocs
 Modules = [FiniteElementContainers]
 Pages = ["fields/Fields.jl"]
 Order = [:function]
 ```
 
-## Internal constructors for ```ElementField```s
+## Implementations
+The existing direct subtypes of ```AbstractField``` are the following
+
+### Connectivity
+The connectivity type is a simple alias for ```L2ElementField``` defined below
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["fields/SimpleElementField.jl", "fields/VectorizedElementField.jl"]
-Order = [:type]
+Pages = ["fields/Connectivity.jl"]
+Order = [:type, :function]
 ```
 
-## Internal constructors for ```NodalField```s
+### H1 field
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["fields/SimpleNodalField.jl", "fields/VectorizedNodalField.jl"]
-Order = [:type]
+Pages = ["fields/H1Field.jl"]
+Order = [:type, :function]
 ```
 
-## Internal constructors for ```QuadratureField```s
+### L2Element field
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["fields/SimpleQuadratureField.jl", "fields/VectorizedQuadratureField.jl"]
-Order = [:type]
+Pages = ["fields/L2ElementField.jl"]
+Order = [:type, :function]
 ```
+
+### L2Quadrature field
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["fields/L2QuadratureField.jl"]
+Order = [:type, :function]
+```
+
+There are plans to add ```HcurlField``` and ```HdivField``` types as well

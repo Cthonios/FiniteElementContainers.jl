@@ -27,7 +27,7 @@ types = [Vector]
 
 for type in types
 
-  mesh_new    = FileMesh(ExodusDatabase, "./poisson/poisson.g")
+  mesh_new    = FileMesh(FiniteElementContainers.ExodusMesh, "./poisson/poisson.g")
   coords      = coordinates(mesh_new)
   coords      = NodalField{size(coords)}(coords)
   elem_id_map = read_block_id_map(mesh_new.mesh_obj, 1)

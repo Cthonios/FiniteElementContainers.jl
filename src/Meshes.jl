@@ -1,3 +1,17 @@
+elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.AbstractElementType}}(
+  "HEX"     => Hex8,
+  "HEX8"    => Hex8,
+  "QUAD"    => Quad4,
+  "QUAD4"   => Quad4,
+  "QUAD9"   => Quad9,
+  "TRI"     => Tri3,
+  "TRI3"    => Tri3,
+  "TRI6"    => Tri6,
+  "TET"     => Tet4,
+  "TETRA4"  => Tet4,
+  "TETRA10" => Tet10
+)
+
 """
 $(TYPEDEF)
 """
@@ -88,6 +102,13 @@ end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
+function sidesets(::AbstractMesh, ids) 
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
 function sideset_ids(::AbstractMesh) 
   @assert false
 end
@@ -141,6 +162,7 @@ end
 # dummy function to make JET happy
 # file_mesh(::Type{DummyMeshObj}, ::String) = nothing
 
+# TODO change to a type that subtypes AbstractMesh
 function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
   xs = LinRange(xExtent[1], xExtent[2], Nx)
   ys = LinRange(yExtent[1], yExtent[2], Ny)
@@ -173,22 +195,100 @@ function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
   return coords, conns
 end
 
+function _create_edges!(all_edges, block_edges, el_to_nodes, ref_fe)
+  local_edge_to_nodes = ref_fe.edge_nodes
+
+  # loop over all elements connectivity
+  for e in axes(el_to_nodes, 2)
+    el_nodes = el_to_nodes[:, e]
+    el_edges = map(x -> el_nodes[x], local_edge_to_nodes)
+    # loop over edges
+    local_edges = ()
+    for edge in el_edges
+      sorted_edge = sort(edge).data
+      if !haskey(all_edges, sorted_edge)
+        all_edges[sorted_edge] = length(all_edges) + 1
+        local_edges = (local_edges..., length(all_edges) + 1)
+      else
+        local_edges = (local_edges..., all_edges[sorted_edge])
+      end
+    end
+    push!(block_edges, local_edges)
+  end
+  return nothing
+end
+
+# this one isn't quite working
+# function _create_faces!(all_faces, block_faces, el_to_nodes, ref_fe)
+#   local_face_to_nodes = ref_fe.face_nodes
+#   # display(local_face_to_nodes)
+#   # loop over all elements connectivity
+#   for e in axes(el_to_nodes, 2)
+#     el_nodes = el_to_nodes[:, e]
+#     el_faces = map(x -> el_nodes[x], local_face_to_nodes)
+#     # display(el_faces)
+#     # loop over faces
+#     local_faces = ()
+#     for face in el_faces
+#       sorted_face = sort(face).data
+#       if !haskey(all_faces, sorted_face)
+#         all_faces[sorted_face] = length(all_faces)
+#         local_faces = (local_faces..., length(all_faces))
+#       else
+#         local_faces = (local_faces..., all_faces[sorted_face])
+#       end
+#     end
+#     push!(block_faces, local_faces)
+#   end
+#   return nothing
+# end
+
 # new stuff below
-struct UnstructuredMesh{X, EBlockNames, ETypes, EConns, EMaps, NSetNodes} <: AbstractMesh
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+struct UnstructuredMesh{
+  MeshObj,
+  X, 
+  EBlockNames, ETypes, EConns, EMaps, 
+  NSetNodes,
+  SSetElems, SSetNodes, SSetSides,
+  EdgeConns, FaceConns
+} <: AbstractMesh
+  mesh_obj::MeshObj
   nodal_coords::X
   element_block_names::EBlockNames
   element_types::ETypes
   element_conns::EConns
   element_id_maps::EMaps
-  nodeset_nodes::NSetNodes
+  nodeset_nodes::NSetNodes # TODO, we can remove this since we're using sidesets now.
+  sideset_elems::SSetElems
+  sideset_nodes::SSetNodes
+  sideset_sides::SSetSides
+  # new additions
+  edge_conns::EdgeConns
+  face_conns::FaceConns
 end
 
-function UnstructuredMesh(file_type, file_name::String)
+"""
+$(TYPEDSIGNATURES)
+"""
+function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, create_faces::Bool)
   file = FileMesh(file_type, file_name)
 
   # read nodal coordinates
+  if num_dimensions(file) == 2
+    coord_syms = (:X, :Y)
+  elseif num_dimensions(file) == 3
+    coord_syms = (:X, :Y, :Z)
+  else
+    @assert false "Bad number of dimensions $(num_dimensions(file))"
+  end
+
   nodal_coords = coordinates(file)
-  nodal_coords = NodalField(nodal_coords)
+  nodal_coords = H1Field(nodal_coords, coord_syms)
 
   # read element block types, conn, etc.
   el_block_ids = element_block_ids(file)
@@ -197,31 +297,102 @@ function UnstructuredMesh(file_type, file_name::String)
   el_types = element_type.((file,), el_block_ids)
   el_types = NamedTuple{tuple(el_block_names...)}(tuple(el_types...))
   el_conns = element_connectivity.((file,), el_block_ids)
+  el_conns = map(x -> Connectivity{size(x)}(x), el_conns)
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
-  el_conns = ComponentArray(el_conns)
   el_id_maps = element_block_id_map.((file,), el_block_ids)
   el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
-  el_id_maps = ComponentArray(el_id_maps)
 
   # read nodesets
   nset_names = Symbol.(nodeset_names(file))
   nsets = nodesets(file, nodeset_ids(file))
   nset_nodes = NamedTuple{tuple(nset_names...)}(tuple(nsets...))
-  nset_nodes = ComponentArray(nset_nodes)
 
   # read sidesets
+  sset_names = Symbol.(sideset_names(file))
+  ssets = sidesets(file, sideset_ids(file))
+
+  sset_elems = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[1], ssets)...))
+  sset_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[2], ssets)...))
+  sset_sides = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[3], ssets)...))
+  # TODO also add edges/faces for sidesets, this may be tricky...
 
   # TODO
   # write methods to create edge and face connectivity
+  # hack for now since we need a ref fe for this stuff
+  #
+  # TODO maybe move this into function space...
 
-  return UnstructuredMesh(nodal_coords, el_block_names, el_types, el_conns, el_id_maps, nset_nodes)
+  if create_edges
+    edges = ()
+    all_edges = Dict{Tuple{Vararg{Int}}, Int}()
+
+    for n in 1:length(el_types)
+      ref_fe = ReferenceFE(elem_type_map[el_types[n]]{Lagrange, 1}())
+      block_edges = Vector{SVector{length(ref_fe.edge_nodes), Int}}(undef, 0)
+      _create_edges!(all_edges, block_edges, values(el_conns)[n], ref_fe)
+      edges = (edges..., Connectivity{length(block_edges[1]), length(block_edges)}(reduce(vcat, block_edges)))
+      # TODO need to create an id map
+    end
+
+    edges = NamedTuple{keys(el_conns)}(edges)
+  else
+    edges = nothing
+  end
+
+  # TODO need to finish this up
+  if create_faces
+    @assert num_dimensions(file) > 2 "Faces require a 3D mesh"
+    @assert false "Need to fix this..."
+    # faces = ()
+    # all_faces = Dict{Tuple{Vararg{Int}}, Int}()
+
+    # for n in 1:length(el_types)
+    #   ref_fe = ReferenceFE(elem_type_map[el_types[n]]{Lagrange, 1}())
+    #   block_faces = Vector{SVector{length(ref_fe.face_nodes), Int}}(undef, 0)
+    #   _create_faces!(all_faces, block_faces, values(el_conns)[n], ref_fe)
+    #   faces = (faces..., block_faces)
+    #   # TODO need to create an id map
+    # end
+    # @show length(all_faces)
+    # faces = NamedTuple{keys(el_conns)}(faces)
+  else
+    faces = nothing
+  end
+
+  return UnstructuredMesh(
+    file,
+    nodal_coords, 
+    el_block_names, el_types, el_conns, el_id_maps, 
+    nset_nodes,
+    sset_elems, sset_nodes, sset_sides,
+    edges, faces
+  )
 end
 
-# function UnstructuredMesh(file_name::String)
-#   ext = splitext(file_name)
-#   if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
-#     return UnstructuredMesh()
-#   else
-#     throw(ErrorException("Unsupported file type with extension $ext"))
-#   end
-# end
+# different mesh types
+abstract type AbstractMeshType end
+struct ExodusMesh <: AbstractMeshType
+end
+
+function FileMesh(::Type{AbstractMeshType}, file_name::String)
+  @assert false "You need to load a mesh backend package such as Exodus"
+end
+
+function UnstructuredMesh(::Type{AbstractMeshType}, file_name::String, create_edges, create_faces)
+  @assert false "You need to load a mesh backend package such as Exodus"
+end
+
+# dispatch based on file extension
+"""
+$(TYPEDSIGNATURES)
+"""
+function UnstructuredMesh(file_name::String; create_edges=false, create_faces=false)
+  ext = splitext(file_name)
+  if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
+    return UnstructuredMesh(ExodusMesh, file_name, create_edges, create_faces)
+  else
+    throw(ErrorException("Unsupported file type with extension $ext"))
+  end
+end
+
+# TODO write a show method

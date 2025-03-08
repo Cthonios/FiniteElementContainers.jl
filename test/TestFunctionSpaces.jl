@@ -13,16 +13,16 @@ function test_non_allocated_function_space_volume(
   end
 
   # can't construct at the moment
-  q_degrees = [1, 2]
-  for q_degree in q_degrees
-    fspace = VectorizedPreAllocatedFunctionSpace(dof, elem_id_map, conns, q_degree, "TRI3", coords)
-    fspace = VectorizedPreAllocatedFunctionSpace(dof, elem_id_map, conns, q_degree, ref_fe, coords)
-    @show fspace
-    for e in axes(conns, 2)
-      @test expected_element_vol ≈ FiniteElementContainers.volume(fspace, coords, e)
-    end
-    @test expected_vol ≈ FiniteElementContainers.volume(fspace, coords)
-  end
+  # q_degrees = [1, 2]
+  # for q_degree in q_degrees
+  #   fspace = VectorizedPreAllocatedFunctionSpace(dof, elem_id_map, conns, q_degree, "TRI3", coords)
+  #   fspace = VectorizedPreAllocatedFunctionSpace(dof, elem_id_map, conns, q_degree, ref_fe, coords)
+  #   @show fspace
+  #   for e in axes(conns, 2)
+  #     @test expected_element_vol ≈ FiniteElementContainers.volume(fspace, coords, e)
+  #   end
+  #   @test expected_vol ≈ FiniteElementContainers.volume(fspace, coords)
+  # end
 end
 
 # function test_element_level_field_methods(coords, elem_id_map, conns, dof, ref_fe)
