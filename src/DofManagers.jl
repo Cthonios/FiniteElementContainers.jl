@@ -57,47 +57,15 @@ function DofManager(vars...)
   L2_element_vars = _filter_field_type(vars, L2ElementField)
   L2_quadrature_vars = _filter_field_type(vars, L2QuadratureField)
   
-  # maybe there's a cleaner way?
-  if length(H1_vars) > 0
-    n_H1_dofs = sum(length.(values(H1_vars)))
-  else
-    n_H1_dofs = 0
-    # H1_vars = nothing
-  end
-
-  if length(Hcurl_vars) > 0
-    # n_Hcurl_dofs = mapreduce(x -> length(x), sum, Hcurl_vars)
-    n_Hcurl_dofs = sum(length.(Hcurl_vars))
-  else
-    n_Hcurl_dofs = 0
-    # Hcurl_vars = nothing
-  end
-
-  if length(Hdiv_vars) > 0
-    # n_Hdiv_dofs = mapreduce(x -> length(x), sum, Hdiv_dofs)
-    n_Hdiv_dofs = sum(length.(Hdiv_vars))
-  else
-    n_Hdiv_dofs = 0
-    # Hdiv_vars = nothing
-  end
-
-  if length(L2_element_vars) > 0
-    # n_L2_element_dofs = mapreduce(x -> length(x), sum, L2_element_vars)
-    n_L2_element_dofs = sum(length.(L2_element_vars))
-  else
-    n_L2_element_dofs = 0
-    # L2_element_vars = nothing
-  end
-
-  if length(L2_quadrature_vars) > 0
-    # n_L2_quadrature_dofs = mapreduce(x -> length(x), sum, L2_quadrature_vars)
-    n_L2_quadrature_dofs = sum(length.(L2_quadrature_vars))
-  else
-    n_L2_quadrature_dofs = 0
-    # L2_quadrature_vars = nothing
-  end
+  # get number of dofs
+  n_H1_dofs = _n_dofs_from_vars(H1_vars)
+  n_Hcurl_dofs = _n_dofs_from_vars(Hcurl_vars)
+  n_Hdiv_dofs = _n_dofs_from_vars(Hdiv_vars)
+  n_L2_element_dofs = _n_dofs_from_vars(L2_element_vars)
+  n_L2_quadrature_dofs = _n_dofs_from_vars(L2_quadrature_vars)
 
   # hack for now
+  # TODO remove this warning
   if length(vars) > 1
     @warn "Using multiple variables require they share FunctionSpaces currently. Checking this is satisfied..."
     for var in vars
@@ -152,6 +120,15 @@ function _filter_field_type(vars, T)
   vars = filter(x -> isa(x.fspace.coords, T), vars)
   syms = map(_dof_manager_sym_name, vars)
   return NamedTuple{syms}(vars)
+end
+
+function _n_dofs_from_vars(vars)
+  if length(vars) > 0
+    n_dofs = sum(length.(values(vars)))
+  else
+    n_dofs = 0
+  end
+  return n_dofs
 end
 
 function _vector_to_scalars(u::ScalarFunction)
@@ -299,6 +276,16 @@ num_unknowns(dof::DofManager) = length(dof.H1_unknown_dofs) + length(dof.Hcurl_u
 # TODO need to update to include H(div)/H(curl) spaces
 """
 $(TYPEDSIGNATURES)
+Currently not GPU compatable.
+
+This is only an issue if dofs that correspond to Dirichlet BCs
+will change often. Otherwise, setup can be achieved on the CPU
+and transferred to the GPU.
+
+TODO this method need to look at the dirichlet dofs
+to see what type of variable is there. That way the 
+appropriate function space book keepers can be updated.
+Currently this only works with H1 spaces.
 """
 function update_dofs!(dof::DofManager, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
   ND, NN = num_dofs_per_node(dof), num_nodes(dof)
@@ -323,27 +310,54 @@ function update_dofs!(dof::DofManager, dirichlet_dofs::T) where T <: AbstractArr
   return nothing
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
-  # AK.foreachindex(dof.H1_bc_dofs) do n
-  #   U[dof.H1_bc_dofs[n]] = Ubc[n]
-  #   return nothing
-  # end
+KA.@kernel function _update_field_bcs_kernel!(U::H1Field, dof::DofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
+  N = KA.@index(Global)
+  @inbounds U[dof.H1_bc_dofs[N]] = Ubc[N]
+end
+
+function _update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T, backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
+  kernel! = _update_field_bcs_kernel!(backend)
+  kernel!(U, dof, Ubc, ndrange = length(Ubc))
+  return nothing
+end
+
+function _update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T, ::KA.CPU) where T <: AbstractArray{<:Number, 1}
   U[dof.H1_bc_dofs] .= Ubc
   return nothing
 end
 
 """
 $(TYPEDSIGNATURES)
+Does a simple copy on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
+"""
+function update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
+  _update_field_bcs!(U, dof, Ubc, KA.get_backend(dof))
+  return nothing
+end
+
+KA.@kernel function _update_field_unknowns_kernel!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
+  N = KA.@index(Global)
+  @inbounds U[dof.H1_unknown_dofs[N]] = Uu[N]
+end
+
+function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
+  kernel! = _update_field_unknowns_kernel!(backend)
+  kernel!(U, dof, Uu, ndrange = length(Uu))
+  return nothing
+end
+
+# Need a seperate CPU method since CPU is basically busted in KA
+function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::KA.CPU) where T <: AbstractArray{<:Number, 1}
+  U[dof.H1_unknown_dofs] .= Uu
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+Does a simple copy on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
 """
 function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
-  # AK.foreachindex(dof.H1_unknown_dofs) do n
-  #   U[dof.H1_unknown_dofs[n]] = Uu[n]
-  #   return nothing # needed so enzyme doesn't choke
-  # end
-  U[dof.H1_unknown_dofs] .= Uu
+  _update_field_unknowns!(U, dof, Uu, KA.get_backend(dof))
   return nothing
 end
 
