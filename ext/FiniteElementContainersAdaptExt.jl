@@ -3,6 +3,8 @@ module FiniteElementContainersAdaptExt
 using Adapt
 using FiniteElementContainers
 
+FiniteElementContainersAdaptExt.cpu(x) = Adapt.adapt_structure(Array, x)
+
 # Assemblers
 function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
   dof = Adapt.adapt_structure(to, asm.dof)

@@ -23,7 +23,7 @@ Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 
 [extensions]
 FiniteElementContainersAdaptExt = "Adapt"
-FiniteElementContainersCUDAExt = "CUDA"
+FiniteElementContainersCUDAExt = ["Adapt", "CUDA"]
 FiniteElementContainersExodusExt = "Exodus"
 
 [compat]

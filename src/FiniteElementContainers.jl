@@ -1,5 +1,9 @@
 module FiniteElementContainers
 
+# general
+export cpu
+export gpu
+
 # Assemblers
 export SparseMatrixAssembler
 export assemble!
@@ -41,6 +45,7 @@ export connectivity
 
 # DofManager
 export DofManager
+export create_bcs
 export create_field
 export create_unknowns
 export update_dofs!
@@ -86,6 +91,9 @@ using StructArrays
 using Tensors
 
 abstract type FEMContainer end
+
+function cpu end
+function gpu end
 
 # basic stuff
 include("fields/Fields.jl")
