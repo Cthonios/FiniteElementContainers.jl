@@ -170,6 +170,14 @@ KA.get_backend(dof::DofManager) = KA.get_backend(dof.H1_unknown_dofs)
 """
 $(TYPEDSIGNATURES)
 """
+function create_bcs(dof::DofManager, ::Type{H1Field})
+  backend = KA.get_backend(dof.H1_bc_dofs)
+  return KA.zeros(backend, Float64, length(dof.H1_bc_dofs))
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function create_field(dof::DofManager, ::Type{H1Field})
   backend = KA.get_backend(dof.H1_bc_dofs)
   NF, NN = num_dofs_per_node(dof), num_nodes(dof)
