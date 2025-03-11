@@ -39,7 +39,7 @@ function poisson_v2()
 
   # pre-setup some scratch arrays
   Uu = create_unknowns(asm)
-  Ubc = zeros(length(asm.dof.H1_bc_dofs))
+  Ubc = create_bcs(asm.dof, H1Field)
   U = create_field(asm, H1Field)
   R = create_field(asm, H1Field)
 
