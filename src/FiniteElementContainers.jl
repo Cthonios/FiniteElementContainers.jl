@@ -7,6 +7,8 @@ export gpu
 # Assemblers
 export SparseMatrixAssembler
 export assemble!
+export residual
+export stiffness
 
 # BCs
 export DirichletBC
@@ -108,6 +110,9 @@ include("Functions.jl")
 include("DofManagers.jl")
 include("bcs/BoundaryConditions.jl")
 include("formulations/Formulations.jl")
-include("Assemblers.jl")
+# include("Assemblers.jl")
+include("assemblers/Assemblers.jl")
+
+include("physics/Physics.jl")
 
 end # module

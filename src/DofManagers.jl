@@ -116,6 +116,10 @@ function _dof_manager_sym_name(u::VectorFunction)
   return Symbol(split(String(names(u)[1]), ['_'])[1])
 end
 
+function _dof_manager_vars(dof::DofManager, ::Type{<:H1Field})
+  return dof.H1_vars
+end
+
 function _filter_field_type(vars, T)
   vars = filter(x -> isa(x.fspace.coords, T), vars)
   syms = map(_dof_manager_sym_name, vars)
@@ -366,6 +370,33 @@ Does a simple copy on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
 """
 function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
   _update_field_unknowns!(U, dof, Uu, KA.get_backend(dof))
+  return nothing
+end
+
+KA.@kernel function _update_field_unknowns_kernel_plus!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
+  N = KA.@index(Global)
+  @inbounds U[dof.H1_unknown_dofs[N]] += Uu[N]
+end
+
+function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+), backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
+  kernel! = _update_field_unknowns_kernel_plus!(backend)
+  kernel!(U, dof, Uu, ndrange = length(Uu))
+  return nothing
+end
+
+function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+), ::KA.CPU) where T <: AbstractArray{<:Number, 1}
+  for (n, d) in enumerate(dof.H1_unknown_dofs)
+    U[d] += Uu[n]
+  end
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+Does a simple addition on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
+"""
+function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+)) where T <: AbstractArray{<:Number, 1}
+  _update_field_unknowns!(U, dof, Uu, +, KA.get_backend(dof))
   return nothing
 end
 

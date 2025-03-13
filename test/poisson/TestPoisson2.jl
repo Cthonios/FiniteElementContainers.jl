@@ -1,20 +1,25 @@
+using BenchmarkTools
 using Exodus
 using FiniteElementContainers
+using Krylov
 using Parameters
 
 # methods for a simple Poisson problem
-f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 
 bc_func(_, _) = 0.
 
-function residual(cell, u_el)
+struct Poisson <: FiniteElementContainers.AbstractPhysics
+end
+
+function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)
   @unpack X_q, N, ∇N_X, JxW = cell
   ∇u_q = u_el * ∇N_X
   R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
   return JxW * R_q[:]
 end
 
-function tangent(cell, u_el)
+function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
   @unpack X_q, N, ∇N_X, JxW = cell
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q
@@ -23,10 +28,12 @@ end
 # read mesh and relevant quantities
 
 function poisson_v2()
-  mesh = UnstructuredMesh("./poisson/poisson.g")
+  mesh = UnstructuredMesh("./test/poisson/poisson.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson()
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u)
+  dof = DofManager(u)
+  asm = SparseMatrixAssembler(dof, H1Field)
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -39,37 +46,39 @@ function poisson_v2()
 
   # pre-setup some scratch arrays
   Uu = create_unknowns(asm)
-  Ubc = create_bcs(asm.dof, H1Field)
+  Ubc = create_bcs(asm, H1Field)
   U = create_field(asm, H1Field)
-  R = create_field(asm, H1Field)
 
   update_field!(U, asm, Uu, Ubc)
+  assemble!(asm, physics, U, :residual_and_stiffness)
+  K = stiffness(asm)
 
-  assemble!(R, asm, residual, U)
-  assemble!(asm, tangent, U)
+  for n in 1:5
+    Ru = residual(asm)
+    # ΔUu = -K \ Ru
+    ΔUu, stat = cg(-K, Ru)
+    update_field_unknowns!(U, asm.dof, ΔUu, +)
+    assemble!(asm, physics, U, :residual)
 
-  K = SparseArrays.sparse!(asm)
+    @show norm(ΔUu) norm(Ru)
 
-  for n in 1:3
-    ΔUu = -K \ R[asm.dof.H1_unknown_dofs]
-    U[asm.dof.H1_unknown_dofs] .=+ ΔUu
-
-    @time assemble!(R, asm, residual, U)
-
-    if norm(ΔUu) < 1e-12 || norm(R[asm.dof.H1_unknown_dofs]) < 1e-12
+    if norm(ΔUu) < 1e-12 || norm(Ru) < 1e-12
       break
     end
   end
 
-  copy_mesh("./poisson/poisson.g", "./poisson/poisson.e")
-  exo = ExodusDatabase("./poisson/poisson.e", "rw")
+  @show maximum(U)
+
+  copy_mesh("./test/poisson/poisson.g", "./test/poisson/poisson.e")
+  exo = ExodusDatabase("./test/poisson/poisson.e", "rw")
   write_names(exo, NodalVariable, ["u"])
   write_time(exo, 1, 0.0)
   write_values(exo, NodalVariable, 1, "u", U[1, :])
   close(exo)
-  @test exodiff("./poisson/poisson.e", "./poisson/poisson.gold")
-  rm("./poisson/poisson.e"; force=true)
+  # @test exodiff("./poisson/poisson.e", "./poisson/poisson.gold")
+  # rm("./poisson/poisson.e"; force=true)
 end
 
-poisson_v2()
-poisson_v2()
+# @time poisson_v2()
+# @time poisson_v2()
+@benchmark poisson_v2()
