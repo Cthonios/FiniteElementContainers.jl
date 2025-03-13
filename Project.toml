@@ -36,6 +36,7 @@ DocStringExtensions = "0.9"
 Exodus = "0.13"
 IterativeSolvers = "0.9"
 JET = "0.9"
+Krylov = "0.9"
 KernelAbstractions = "0.9"
 LinearAlgebra = "1"
 Parameters = "0.12"
@@ -55,9 +56,10 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestSetExtensions = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"
 
 [targets]
-test = ["Aqua", "CUDA", "Exodus", "IterativeSolvers", "JET", "Parameters", "Test", "TestSetExtensions"]
+test = ["Aqua", "CUDA", "Exodus", "IterativeSolvers", "JET", "Krylov", "Parameters", "Test", "TestSetExtensions"]
