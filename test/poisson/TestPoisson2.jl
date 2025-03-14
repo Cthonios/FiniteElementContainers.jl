@@ -84,5 +84,5 @@ function poisson_v2()
 end
 
 poisson_v2()
-# @time poisson_v2()
+@time poisson_v2()
 # @benchmark poisson_v2()
