@@ -14,7 +14,7 @@ using SparseArrays
 f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 bc_func(_, _) = 0.
 
-struct Poisson <: FiniteElementContainers.AbstractPhysics
+struct Poisson <: AbstractPhysics{0, 0}
 end
 
 function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)
@@ -94,7 +94,7 @@ function poisson_cuda()
   close(exo)
 end
 
-# @time poisson_cuda()
-# @time poisson_cuda()
+@time poisson_cuda()
+@time poisson_cuda()
 
-@benchmark poisson_cuda()
+# @benchmark poisson_cuda()

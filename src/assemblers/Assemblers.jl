@@ -136,13 +136,11 @@ KA.@kernel function _assemble_block_stiffness_kernel!(assembler, physics, ref_fe
     K_el = K_el + K_q
   end
 
-  # start_id = (block_id - 1) * assembler.pattern.block_sizes[block_id] + 
-  #            (el_id - 1) * assembler.pattern.block_offsets[block_id] + 1
-  # end_id = start_id + assembler.pattern.block_offsets[block_id] - 1
-  # TODO patch this up for multi-block later
-  # hardcoded for single block quad4
-  start_id = (E - 1) * 16 + 1
-  end_id = start_id + 16 - 1
+  block_size = values(assembler.pattern.block_sizes)[block_id]
+  block_offset = values(assembler.pattern.block_offsets)[block_id]
+  start_id = (block_id - 1) * block_size + 
+             (E - 1) * block_offset + 1
+  end_id = start_id + block_offset - 1
   ids = start_id:end_id
   for (i, id) in enumerate(ids)
     Atomix.@atomic assembler.stiffness_storage[id] += K_el.data[i]
@@ -174,9 +172,10 @@ function assemble!(assembler, physics, U::H1Field, sym::Symbol)
   # fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
   _zero_storage(assembler, Val{sym}())
   fspace = assembler.dof.H1_vars[1].fspace
+  X = fspace.coords
   for (b, conns) in enumerate(values(fspace.elem_conns))
     ref_fe = values(fspace.ref_fes)[b]
-    _assemble_block!(assembler, physics, sym, ref_fe, U, fspace.coords, conns, b)
+    _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, b)
   end
   return nothing
 end

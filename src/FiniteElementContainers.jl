@@ -79,6 +79,11 @@ export SymmetricTensorFunction
 export TensorFunction
 export VectorFunction
 
+# Physics
+export AbstractPhysics
+export num_properties
+export num_states
+
 # dependencies
 import AcceleratedKernels as AK
 import KernelAbstractions as KA
