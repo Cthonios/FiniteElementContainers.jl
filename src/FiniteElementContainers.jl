@@ -1,8 +1,14 @@
 module FiniteElementContainers
 
+# general
+export cpu
+export gpu
+
 # Assemblers
 export SparseMatrixAssembler
 export assemble!
+export residual
+export stiffness
 
 # BCs
 export DirichletBC
@@ -41,6 +47,7 @@ export connectivity
 
 # DofManager
 export DofManager
+export create_bcs
 export create_field
 export create_unknowns
 export update_dofs!
@@ -87,6 +94,9 @@ using Tensors
 
 abstract type FEMContainer end
 
+function cpu end
+function gpu end
+
 # basic stuff
 include("fields/Fields.jl")
 include("Meshes.jl")
@@ -100,6 +110,9 @@ include("Functions.jl")
 include("DofManagers.jl")
 include("bcs/BoundaryConditions.jl")
 include("formulations/Formulations.jl")
-include("Assemblers.jl")
+# include("Assemblers.jl")
+include("assemblers/Assemblers.jl")
+
+include("physics/Physics.jl")
 
 end # module

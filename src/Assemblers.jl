@@ -256,6 +256,135 @@ function assemble!(
   return nothing
 end
 
+# wrapper
+function assemble!(
+  assembler::SparseMatrixAssembler,
+  func::F,
+  U::T,
+  sym::Symbol
+) where {F, T}
+  assemble!(assembler, func, U, Val{sym}())
+end
+
+KA.@kernel function _assemble_residual_kernel!(asm, func, U, X, conns, ref_fe, block_id)
+  E = KA.@index(Global)
+
+  # some helpers
+  NDim = size(X, 1)
+  ND, NN = num_dofs_per_node(asm.dof), num_nodes(asm.dof)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  # NDim = ReferenceFiniteElements.num_dimensions(ref_fe)
+  NxNDof = NNPE * ND
+  # IDs = reshape(1:length(asm.dof), ND, size(U, 2))
+
+  # extract element level stuff
+  u_el = @views SMatrix{ND, NNPE, Float64, NxNDof}(U[:, conns[:, E]])
+  x_el = @views SMatrix{NDim, NNPE, Float64, NDim * NNPE}(X[:, conns[:, E]])
+  # dof_conns = reshape(IDs[:, conns], ND * length(conns))
+
+  # assemble element level residual
+  R_el = zeros(SVector{NxNDof, Float64})
+  for q in 1:num_quadrature_points(ref_fe)
+    interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+
+    # dynamic method invocation isn't working here. 
+    # R_q = func(interps, u_el)
+    # R_el = R_el + R_q
+
+    X_q, N, ∇N_X, JxW = interps.X_q, interps.N, interps.∇N_X, interps.JxW
+    ∇u_q = u_el * ∇N_X
+    f = 2. * π^2 * sin(2π * X_q[1]) * sin(4π * X_q[2])
+    R_q = ∇u_q * ∇N_X' - N' * f
+    R_el = R_el + JxW * R_q[:]
+  end
+
+  # now assemble
+  # TODO won't work for problems with more than one dof...
+  # need to create dof_conns
+  for i in axes(conns, 1)
+    Atomix.@atomic asm.residual_storage.vals[conns[i]] += R_el[i]
+  end
+end
+
+KA.@kernel function _assemble_stiffness_kernel!(asm, func, U, X, conns, ref_fe, block_id)
+  E = KA.@index(Global)
+
+  # some helpers
+  NDim = size(X, 1)
+  ND, NN = num_dofs_per_node(asm.dof), num_nodes(asm.dof)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  # NDim = ReferenceFiniteElements.num_dimensions(ref_fe)
+  NxNDof = NNPE * ND
+
+  # extract element level stuff
+  u_el = @views SMatrix{ND, NNPE, Float64, NxNDof}(U[:, conns[:, E]])
+  x_el = @views SMatrix{NDim, NNPE, Float64, NDim * NNPE}(X[:, conns[:, E]])
+
+  # assemble element level residual
+  K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
+  for q in 1:num_quadrature_points(ref_fe)
+    interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+
+    # dynamic method invocation isn't working here. 
+    # R_q = func(interps, u_el)
+    # R_el = R_el + R_q
+
+    X_q, N, ∇N_X, JxW = interps.X_q, interps.N, interps.∇N_X, interps.JxW
+    K_q = ∇N_X * ∇N_X'
+    K_el = K_el + JxW * K_q
+  end
+
+  # now assemble
+  # TODO won't work for problems with more than one dof...
+  # need to create dof_conns
+  # start_id = (block_id - 1) * asm.pattern.block_sizes[block_id] + 
+  #            (el_id - 1) * asm.pattern.block_offsets[block_id] + 1
+  # end_id = start_id + asm.pattern.block_offsets[block_id] - 1
+  # ids = start_id:end_id
+  # for id in ids
+  #   Atomix.@atomic asm.stiffness_storage[id] += K_el[:]
+  # end
+end
+
+# newer method try to dispatch based on field type
+function assemble!(
+  assembler::SparseMatrixAssembler,
+  residual_func::F,
+  U::T,
+  ::Val{:residual}
+) where {F <: Function, T <: H1Field}
+  # TODO hack for now, only grabbing first var fspace
+  # fspace = getproperty(assembler.dof.H1_vars, :H1_var_1)
+  fspace = assembler.dof.H1_vars[1].fspace
+  for (block_id, conns) in enumerate(values(fspace.elem_conns))
+    ref_fe = values(fspace.ref_fes)[block_id]
+    # backend = KA.get_backend(assembler)
+    # TODO eventually dispatch on CPU vs. GPU
+    kernel! = _assemble_residual_kernel!(KA.get_backend(assembler))
+    kernel!(assembler, residual_func, U, fspace.coords, conns, ref_fe, block_id, ndrange = size(conns, 2))
+  end
+end
+
+function assemble!(
+  assembler::SparseMatrixAssembler,
+  tangent_func::F,
+  U::T,
+  ::Val{:stiffness}
+) where {F <: Function, T <: H1Field}
+  # TODO hack for now, only grabbing first var fspace
+  # fspace = getproperty(assembler.dof.H1_vars, :H1_var_1)
+  fspace = assembler.dof.H1_vars[1].fspace
+  for (block_id, conns) in enumerate(values(fspace.elem_conns))
+    ref_fe = values(fspace.ref_fes)[block_id]
+    # backend = KA.get_backend(assembler)
+    # TODO eventually dispatch on CPU vs. GPU
+
+    # TODO going to need to query the start/end ids for the block assembler
+    kernel! = _assemble_stiffness_kernel!(KA.get_backend(assembler))
+    kernel!(assembler, tangent_func, U, fspace.coords, conns, ref_fe, block_id, ndrange = size(conns, 2))
+  end
+end
+
 # TODO hardcoded for H1
 function assemble!(
   R,
@@ -265,6 +394,7 @@ function assemble!(
 ) where {F <: Function, T <: AbstractArray}
 
   R .= zero(eltype(R))
+  # fill(R.vals, zero(eltype(R)))
 
   vars = assembler.dof.H1_vars
 
@@ -274,42 +404,9 @@ function assemble!(
 
   fspace = vars[1].fspace
 
-  # NDim = size(fspace.coords, 1)
-  # ND, NN = num_dofs_per_node(assembler.dof), num_nodes(assembler.dof)
-  # ids = reshape(1:length(assembler.dof), ND, NN)
-
   for (block_id, conns) in enumerate(values(fspace.elem_conns))
     ref_fe = values(fspace.ref_fes)[block_id]
-
     assemble!(R, assembler, residual_func, U, fspace.coords, conns, ref_fe)
-    # NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-    # NxNDof = NNPE * ND
-    # dof_conns = @views reshape(ids[:, conns], ND * size(conns, 1), size(conns, 2))
-
-    # for e in 1:size(conns, 2)
-    # AK.foraxes(conns, 2) do e
-    #   u_el = @views SMatrix{ND, NNPE, Float64, NxNDof}(U[dof_conns[:, e]])
-    #   x_el = @views SMatrix{NDim, NNPE, Float64, NDim * NNPE}(fspace.coords[:, conns[:, e]])
-    #   # K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
-    #   # R_el = zeros(SMatrix{ND, NNPE, Float64, NxNDof})
-    #   R_el = zeros(SVector{NxNDof, Float64})
-
-    #   for q in 1:num_quadrature_points(ref_fe)
-    #     N = ReferenceFiniteElements.shape_function_value(ref_fe, q)
-    #     ∇N_ξ = ReferenceFiniteElements.shape_function_gradient(ref_fe, q)
-    #     ∇N_X = map_shape_function_gradients(x_el, ∇N_ξ)
-    #     JxW  = volume(x_el, ∇N_ξ) * quadrature_weight(ref_fe, q)
-    #     x_q = x_el * N
-    #     interps = Interpolants(x_q, N, ∇N_X, JxW)
-        
-    #     R_q = residual_func(interps, u_el)
-    #     R_el = R_el + JxW * R_q
-    #   end
-
-    #   # assemble!(assembler, R_el, e, block_id)
-    #   # Note this method is in old stuff TODO
-    #   @views assemble!(R, R_el, dof_conns[:, e])
-    # end
   end
 end
 
@@ -396,6 +493,7 @@ function assemble!(
   end
 end
 
+create_bcs(asm::SparseMatrixAssembler, type) = create_bcs(asm.dof, type)
 create_field(asm::SparseMatrixAssembler, type) = create_field(asm.dof, type)
 create_unknowns(asm::SparseMatrixAssembler) = create_unknowns(asm.dof)
 

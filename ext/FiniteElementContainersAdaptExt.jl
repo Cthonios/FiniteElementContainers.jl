@@ -3,16 +3,21 @@ module FiniteElementContainersAdaptExt
 using Adapt
 using FiniteElementContainers
 
+FiniteElementContainersAdaptExt.cpu(x) = Adapt.adapt_structure(Array, x)
+
 # Assemblers
 function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
   dof = Adapt.adapt_structure(to, asm.dof)
   pattern = Adapt.adapt_structure(to, asm.pattern)
   constraint_storage = Adapt.adapt_structure(to, asm.constraint_storage)
   residual_storage = Adapt.adapt_structure(to, asm.residual_storage)
+  residual_unknowns = Adapt.adapt_structure(to, asm.residual_unknowns)
   stiffness_storage = Adapt.adapt_structure(to, asm.stiffness_storage)
   return SparseMatrixAssembler(
     dof, pattern, 
-    constraint_storage, residual_storage, stiffness_storage
+    constraint_storage, 
+    residual_storage, residual_unknowns,
+    stiffness_storage
   )
 end
 
