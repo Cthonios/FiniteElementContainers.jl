@@ -45,9 +45,14 @@ function Base.show(io::IO, asm::SparseMatrixAssembler)
 end
 
 function _assemble_element!(asm::SparseMatrixAssembler, K_el::SMatrix, conn, el_id::Int, block_id::Int)
-  start_id = (block_id - 1) * asm.pattern.block_sizes[block_id] + 
-             (el_id - 1) * asm.pattern.block_offsets[block_id] + 1
-  end_id = start_id + asm.pattern.block_offsets[block_id] - 1
+  block_size = values(asm.pattern.block_sizes)[block_id]
+  block_offset = values(asm.pattern.block_offsets)[block_id]
+  # start_id = (block_id - 1) * asm.pattern.block_sizes[block_id] + 
+  #            (el_id - 1) * asm.pattern.block_offsets[block_id] + 1
+  # end_id = start_id + asm.pattern.block_offsets[block_id] - 1
+  start_id = (block_id - 1) * block_size + 
+             (el_id - 1) * block_offset + 1
+  end_id = start_id + block_offset - 1
   ids = start_id:end_id
   @views asm.stiffness_storage[ids] += K_el[:]
   return nothing

@@ -1,12 +1,13 @@
 struct SparsityPattern{
   I <: AbstractArray{Int, 1},
-  R <: AbstractArray{Float64, 1},
+  B,
+  R <: AbstractArray{Float64, 1}
 }
   Is::I
   Js::I
   unknown_dofs::I
-  block_sizes::I
-  block_offsets::I
+  block_sizes::B
+  block_offsets::B
   # cache arrays
   klasttouch::I
   csrrowptr::I
@@ -55,6 +56,11 @@ function SparsityPattern(dof, type::Type{<:AbstractField})
       block_offsets[n] = size(conn, 1)^2
     end
   end
+
+  # convert to NamedTuples so it's easy to index
+  block_syms = keys(vars[1].fspace.ref_fes)
+  block_sizes = NamedTuple{block_syms}(tuple(block_sizes)...)
+  block_offsets = NamedTuple{block_syms}(tuple(block_offsets)...)
 
   # setup pre-allocated arrays based on number of entries found above
   Is = Vector{Int64}(undef, n_entries)

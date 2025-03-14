@@ -4,9 +4,13 @@ using FiniteElementContainers
 using Krylov
 using Parameters
 
+# mesh file
+gold_file = "./poisson/poisson.gold"
+mesh_file = "./poisson/poisson.g"
+output_file = "./poisson/poisson.e"
+
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
-
 bc_func(_, _) = 0.
 
 struct Poisson <: FiniteElementContainers.AbstractPhysics
@@ -28,7 +32,7 @@ end
 # read mesh and relevant quantities
 
 function poisson_v2()
-  mesh = UnstructuredMesh("./poisson/poisson.g")
+  mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
   u = ScalarFunction(V, :u)
@@ -69,16 +73,16 @@ function poisson_v2()
 
   @show maximum(U)
 
-  copy_mesh("./poisson/poisson.g", "./poisson/poisson.e")
-  exo = ExodusDatabase("./poisson/poisson.e", "rw")
+  copy_mesh(mesh_file, output_file)
+  exo = ExodusDatabase(output_file, "rw")
   write_names(exo, NodalVariable, ["u"])
   write_time(exo, 1, 0.0)
   write_values(exo, NodalVariable, 1, "u", U[1, :])
   close(exo)
-  @test exodiff("./poisson/poisson.e", "./poisson/poisson.gold")
-  rm("./poisson/poisson.e"; force=true)
+  @test exodiff(output_file, gold_file)
+  rm(output_file; force=true)
 end
 
 poisson_v2()
-# @time poisson_v2()
+@time poisson_v2()
 # @benchmark poisson_v2()
