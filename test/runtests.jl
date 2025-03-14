@@ -18,6 +18,7 @@ include("TestFields.jl")
 include("TestFormulations.jl")
 # include("TestFunctionSpaces.jl")
 include("TestMesh.jl")
+include("TestPhysics.jl")
 
 # @testset ExtendedTestSet "Eigen problem" begin
 #   include("eigen/TestEigen.jl")
