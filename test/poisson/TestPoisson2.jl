@@ -38,6 +38,7 @@ function poisson_v2()
   u = ScalarFunction(V, :u)
   dof = DofManager(u)
   asm = SparseMatrixAssembler(dof, H1Field)
+  pp = PostProcessor(mesh, output_file, u)
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -59,7 +60,6 @@ function poisson_v2()
 
   for n in 1:5
     Ru = residual(asm)
-    # ΔUu = -K \ Ru
     ΔUu, stat = cg(-K, Ru)
     update_field_unknowns!(U, asm.dof, ΔUu, +)
     assemble!(asm, physics, U, :residual)
@@ -73,12 +73,10 @@ function poisson_v2()
 
   @show maximum(U)
 
-  copy_mesh(mesh_file, output_file)
-  exo = ExodusDatabase(output_file, "rw")
-  write_names(exo, NodalVariable, ["u"])
-  write_time(exo, 1, 0.0)
-  write_values(exo, NodalVariable, 1, "u", U[1, :])
-  close(exo)
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, U)
+  close(pp)
+
   @test exodiff(output_file, gold_file)
   rm(output_file; force=true)
 end

@@ -378,6 +378,15 @@ function FileMesh(::Type{AbstractMeshType}, file_name::String)
   @assert false "You need to load a mesh backend package such as Exodus"
 end
 
+function FileMesh(file_name::String)
+  ext = splitext(file_name)
+  if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
+    return FileMesh(ExodusMesh, file_name)
+  else
+    throw(ErrorException("Unsupported file type with extension $ext"))
+  end
+end
+
 function UnstructuredMesh(::Type{AbstractMeshType}, file_name::String, create_edges, create_faces)
   @assert false "You need to load a mesh backend package such as Exodus"
 end

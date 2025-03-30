@@ -156,4 +156,51 @@ function FiniteElementContainers.sidesets(
   return FiniteElementContainers.sideset.((mesh,), ids)
 end
 
+# PostProcessor implementations
+function FiniteElementContainers.PostProcessor(
+  ::Type{<:FiniteElementContainers.ExodusMesh},
+  file_name::String, 
+  vars...
+)
+
+  # scratch arrays for var names
+  nodal_var_names = Symbol[]
+  # element_var_names = Symbol[]
+  for var in vars
+    if isa(var.fspace.coords, H1Field)
+      append!(nodal_var_names, names(var))
+    else
+      @assert false "Unsupported variable type currently $(typeof(var.fspace.coords))"
+    end
+  end
+
+  # convert symbols to strings
+  nodal_var_names = String.(nodal_var_names)
+
+  exo = ExodusDatabase(file_name, "rw")
+
+  # TODO setup element and quadrature fields as well
+  write_names(exo, NodalVariable, nodal_var_names)
+  Exodus.write_time(exo, 1, 0.0)
+  
+  return PostProcessor(exo)
+end
+
+# function Base.write(pp::PostProcessor{<:ExodusDatabase}, time_index::Int, field::AbstractField)
+#   # check if we need to write time
+
+# end
+
+function FiniteElementContainers.write_field(pp::PostProcessor, time_index::Int, field::H1Field)
+  field_names = names(field)
+  for n in axes(field, 1)
+    name = String(field_names[n])
+    write_values(pp.field_output_db, NodalVariable, time_index, name, field[n, :])
+  end
+end
+
+function FiniteElementContainers.write_times(pp::PostProcessor, time_index::Int, time_val::Float64)
+  Exodus.write_time(pp.field_output_db, time_index, time_val)
+end
+
 end # module
