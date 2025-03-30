@@ -179,6 +179,44 @@ function create_bcs(dof::DofManager, ::Type{H1Field})
   return KA.zeros(backend, Float64, length(dof.H1_bc_dofs))
 end
 
+# this one needs some TLC
+function create_bcs(dof::DofManager, ::Type{H1Field}, dirichlet_bcs, time)
+  backend = KA.get_backend(dof.H1_bc_dofs)
+
+  X = dof.H1_vars[1].fspace.coords
+  # ND = num_dimensions(dof.H1_vars[1].fspace)
+  ND = size(X, 1) # TODO do this in a type stable way
+  # ND = num_fields(X)
+  # gather all dirichlet dofs
+  dirichlet_dofs = vcat(map(x -> x.bookkeeping.dofs, dirichlet_bcs)...)
+  dirichlet_vals = KA.zeros(backend, Float64, 0)
+
+  dirichlet_perm = sortperm(dirichlet_dofs)
+  dirichlet_dofs = dirichlet_dofs[dirichlet_perm]
+  dof_unique = unique(i -> dirichlet_dofs[i], eachindex(dirichlet_dofs))
+  dirichlet_dofs = dirichlet_dofs[dof_unique]
+
+  # dirichlet_vals = vcat(map(x -> x.func.(X[:, x.bookkeeping.nodes], (time,)), dirichlet_bcs)...)
+
+  for bc in dirichlet_bcs
+    # for node in bc.bookkeeping.nodes
+    AK.foreachindex(bc.bookkeeping.nodes) do n
+      node = bc.bookkeeping.nodes[n]
+      X_temp = SVector{ND, Float64}(@views X[:, node])
+      # @show bc.func(X_temp, time)
+      push!(dirichlet_vals, bc.func(X_temp, time))
+    end
+  end
+  # @show dirichlet_vals
+  # dirichlet_dofs
+  # need to get the coordinates and time
+  # for bc in dirichlet_bcs
+
+  # end
+  dirichlet_vals[dirichlet_perm][dof_unique]
+end
+
+
 """
 $(TYPEDSIGNATURES)
 """

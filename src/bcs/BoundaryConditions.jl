@@ -34,7 +34,9 @@ function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; bui
 
   @assert dof_index <= length(mapreduce(x -> names(x), +, dof.H1_vars)) "Found invalid dof index"
 
+  # TODO
   fspace = dof.H1_vars[var_index].fspace
+  
   elems = getproperty(fspace.sideset_elems, sset_name)
   nodes = getproperty(fspace.sideset_nodes, sset_name)
   sides = getproperty(fspace.sideset_sides, sset_name)
@@ -98,4 +100,63 @@ function NeumannBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func::F
   vals = zeros(Float64, length(bookkeeping.elements))
   sym = Symbol(var_name, :_, sset_name) # TODO maybe add func name?
   return DirichletBC{sym, typeof(bookkeeping), typeof(func), typeof(vals)}(bookkeeping, func, vals)
+end
+
+function nonunique(v)
+  sv = sort(v)
+  return unique(@view sv[[diff(sv).==0; false]])
+end
+
+struct DirichletBCCollection{Fs, IDs}
+  funcs::Fs
+  func_ids::IDs
+end
+
+# Better to iterate over functions and feed each func into a kernel
+# with the associated local to global Ubc IDs
+
+function DirichletBCCollection(dbcs)
+  # setup func nt
+  funcs = tuple(map(x -> x.func, dbcs)...)
+  func_names = tuple(map(x -> Symbol("func_$x"), 1:length(funcs))...)
+  funcs = NamedTuple{func_names}(funcs)
+
+  dofs = tuple(map(x -> x.bookkeeping.dofs, dbcs)...)
+  n_dofs = length(unique(vcat(dofs...)))
+
+  n_per_func = map(x -> length(x.bookkeeping.dofs))
+
+  # grab all dofs
+  # dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs)
+  # dofs_perm = sortperm(dofs)
+  # dofs_unique = unique(i -> dofs[i], eachindex(dofs))
+
+  # # dofs = nonunique(mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs))
+  # for dof in nonunique(dofs)
+  #   @warn "Repeated dof $dof encounted in DirichletBCCollection"
+  # end
+
+  # func_ids = zeros(Int, 0)
+  # for (n, bc) in enumerate(dbcs)
+  #   # append!(func_ids, )
+  #   append!(func_ids, fill(n, length(bc.bookkeeping.dofs)))
+  # end
+
+  
+
+  # func_ids = func_ids[dofs_perm][dofs_unique]
+  # return DirichletBCCollection(funcs, func_ids)
+end
+
+function create_bcs(dbcs::DirichletBCCollection, time)
+  backend = KA.get_backend(dbcs.func_ids)
+  vals = KA.zeros(backend, Float64, length(dbcs.func_ids))
+
+  AK.foreachindex(dbcs.func_ids) do n
+    # TODO change to coords
+    func_id = dbcs.func_ids[n]
+    func = values(dbcs.funcs)[func_id]  
+    # vals[n] = values(dbcs.funcs)[dbcs.func_ids[n]](time, time)
+  end
+  return vals
 end

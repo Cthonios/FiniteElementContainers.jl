@@ -12,7 +12,9 @@ using SparseArrays
 
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
+# f(X, _) = 0.
 bc_func(_, _) = 0.
+bc_func_2(_, _) = 0.
 
 struct Poisson <: AbstractPhysics{0, 0}
 end
@@ -43,8 +45,8 @@ function poisson_cuda()
   dbcs = DirichletBC[
     DirichletBC(asm.dof, :u, :sset_1, bc_func),
     DirichletBC(asm.dof, :u, :sset_2, bc_func),
-    DirichletBC(asm.dof, :u, :sset_3, bc_func),
-    DirichletBC(asm.dof, :u, :sset_4, bc_func),
+    DirichletBC(asm.dof, :u, :sset_3, bc_func_2),
+    DirichletBC(asm.dof, :u, :sset_4, bc_func_2),
   ]
   # TODO this one will be tough to do on the GPU
   update_dofs!(asm, dbcs)
@@ -57,9 +59,12 @@ function poisson_cuda()
 
   # device movement
   asm_gpu = asm |> gpu
+  dbcs_gpu = dbcs .|> gpu
 
   Uu = create_unknowns(asm_gpu)
   Ubc = create_bcs(asm_gpu, H1Field)
+  # Ubc = create_bcs(asm_gpu.dof, H1Field, dbcs_gpu, 0.0)
+  # Ubc = create_bcs(asm.dof, H1Field, dbcs, 0.0) |> gpu
   U = create_field(asm_gpu, H1Field)
 
   update_field!(U, asm_gpu, Uu, Ubc)

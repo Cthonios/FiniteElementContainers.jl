@@ -44,6 +44,29 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
   )
 end
 
+# Boundary Conditions
+function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{S, T, V}) where {S, T, V}
+  blocks = Adapt.adapt_structure(to, bk.blocks)
+  dofs = Adapt.adapt_structure(to, bk.dofs)
+  elements = Adapt.adapt_structure(to, bk.elements)
+  nodes = Adapt.adapt_structure(to, bk.nodes)
+  sides = Adapt.adapt_structure(to, bk.sides)
+  return FiniteElementContainers.BCBookKeeping{S, T, typeof(blocks)}(blocks, dofs, elements, nodes, sides)
+end
+
+function Adapt.adapt_structure(to, bc::DirichletBC{S, B, F, V}) where {S, B, F, V}
+  bk = Adapt.adapt_structure(to, bc.bookkeeping)
+  func = Adapt.adapt_structure(to, bc.func)
+  vals = Adapt.adapt_structure(to, bc.vals)
+  return DirichletBC{S, typeof(bk), typeof(func), typeof(vals)}(bk, func, vals)
+end
+
+# function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCCollection)
+#   funcs = Adapt.adapt_structure(to, bc.funcs)
+#   func_ids = Adapt.adapt_structure(to, bc.func_ids)
+#   return FiniteElementContainers.DirichletBCCollection(funcs, func_ids)
+# end
+
 # DofManagers
 function Adapt.adapt_structure(to, dof::DofManager{
   T, IDs, 
