@@ -16,19 +16,16 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Tensors = "48a634ad-e948-5137-8d70-aa71f2a747f4"
 
 [weakdeps]
-AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 
 [extensions]
-FiniteElementContainersAMDGPUExt = ["Adapt", "AMDGPU"]
 FiniteElementContainersAdaptExt = "Adapt"
 FiniteElementContainersCUDAExt = ["Adapt", "CUDA"]
 FiniteElementContainersExodusExt = "Exodus"
 
 [compat]
-AMDGPU = "1"
 AcceleratedKernels = "0.3"
 Adapt = "3, 4"
 Aqua = "0.8"
