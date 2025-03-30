@@ -18,25 +18,28 @@ Tensors = "48a634ad-e948-5137-8d70-aa71f2a747f4"
 
 [weakdeps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 
 [extensions]
 FiniteElementContainersAdaptExt = "Adapt"
+FiniteElementContainersAMDGPUExt = ["Adapt", "AMDGPU"]
 FiniteElementContainersCUDAExt = ["Adapt", "CUDA"]
 FiniteElementContainersExodusExt = "Exodus"
 
 [compat]
 AcceleratedKernels = "0.3"
 Adapt = "3, 4"
+AMDGPU = "1"
 Aqua = "0.8"
 Atomix = "1"
 CUDA = "5"
 DocStringExtensions = "0.9"
 Exodus = "0.13"
 JET = "0.9"
-Krylov = "0.9"
 KernelAbstractions = "0.9"
+Krylov = "0.9"
 LinearAlgebra = "1"
 Parameters = "0.12"
 Reexport = "1"
