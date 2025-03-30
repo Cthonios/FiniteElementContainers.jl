@@ -6,7 +6,6 @@ using LinearAlgebra
 using Parameters
 using ReferenceFiniteElements
 using StaticArrays
-using StructArrays
 using Tensors
 using Test
 using TestSetExtensions

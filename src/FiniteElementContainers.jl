@@ -84,6 +84,11 @@ export AbstractPhysics
 export num_properties
 export num_states
 
+# PostProcessors
+export PostProcessor
+export write_field
+export write_times
+
 # dependencies
 import AcceleratedKernels as AK
 import KernelAbstractions as KA
@@ -94,7 +99,6 @@ using DocStringExtensions
 @reexport using ReferenceFiniteElements
 @reexport using SparseArrays
 using StaticArrays
-using StructArrays
 using Tensors
 
 abstract type FEMContainer end
@@ -119,5 +123,6 @@ include("formulations/Formulations.jl")
 include("assemblers/Assemblers.jl")
 
 include("physics/Physics.jl")
+include("PostProcessors.jl")
 
 end # module
