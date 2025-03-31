@@ -13,7 +13,7 @@ FiniteElementContainers.gpu(x) = Adapt.adapt_structure(ROCArray, x)
 # AMDGPU will error out
 function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
   # Not sure if the line below is right on AMD
-  # @assert typeof(get_backend(asm)) <: AMDGPUBackend "Assembler is not on a AMDGPU device"
+  @assert typeof(get_backend(asm)) <: ROCBackend "Assembler is not on a AMDGPU device"
   @assert length(asm.pattern.cscnzval) > 0 "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
   @assert all(x -> x != zero(eltype(asm.pattern.cscnzval)), asm.pattern.cscnzval) "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
   n_dofs = FiniteElementContainers.num_unknowns(asm.dof)
