@@ -8,6 +8,8 @@ struct SparseMatrixAssembler{
   dof::Dof
   pattern::Pattern
   constraint_storage::Storage1
+  damping_storage::Storage1
+  mass_storage::Storage1
   residual_storage::Storage2
   residual_unknowns::Storage3
   stiffness_storage::Storage1
@@ -21,12 +23,15 @@ function SparseMatrixAssembler(dof::DofManager, type::Type{<:AbstractField})
   constraint_storage[dof.H1_bc_dofs] .= 1.
   # fill!(constraint_storage, )
   # residual_storage = zeros(length(dof))
+  damping_storage = zeros(num_entries(pattern))
+  mass_storage = zeros(num_entries(pattern))
   residual_storage = create_field(dof, H1Field)
   residual_unknowns = create_unknowns(dof)
   stiffness_storage = zeros(num_entries(pattern))
   return SparseMatrixAssembler(
     dof, pattern, 
     constraint_storage, 
+    damping_storage, mass_storage,
     residual_storage, residual_unknowns,
     stiffness_storage
   )
@@ -44,6 +49,7 @@ function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "  ", asm.dof)
 end
 
+# TODO add symbol to interface for name of storage array to assemble into
 function _assemble_element!(asm::SparseMatrixAssembler, K_el::SMatrix, conn, el_id::Int, block_id::Int)
   block_size = values(asm.pattern.block_sizes)[block_id]
   block_offset = values(asm.pattern.block_offsets)[block_id]
@@ -72,6 +78,7 @@ end
 
 """
 $(TYPEDSIGNATURES)
+TODO add symbol to interface
 """
 function SparseArrays.sparse!(assembler::SparseMatrixAssembler)
   # ids = pattern.unknown_dofs
