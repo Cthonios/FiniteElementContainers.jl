@@ -27,13 +27,16 @@ makedocs(;
         assets=String[],
     ),
     pages=[
-        "Home"            => "index.md",
-        "Assemblers"      => "assemblers.md",
-        "DofManager"      => "dof_manager.md",
-        "Fields"          => "fields.md",
-        "Formulations"    => "formulations.md",
-        "Function spaces" => "function_spaces.md",
-        "Meshes"          => "meshes.md"
+        "Home"                => "index.md",
+        "Assemblers"          => "assemblers.md",
+        "Boundary Conditions" => "boundary_conditions.md",
+        "DofManager"          => "dof_manager.md",
+        "Fields"              => "fields.md",
+        "Formulations"        => "formulations.md",
+        "Function spaces"     => "function_spaces.md",
+        "Functions"           => "functions.md",
+        "Meshes"              => "meshes.md",
+        "Physics"             => "physics.md"
     ],
 )
 

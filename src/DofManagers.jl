@@ -385,6 +385,26 @@ function update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T) where T <: Abstr
   return nothing
 end
 
+# # CPU only for now
+# function update_field_bcs!(U::H1Field, dof::DofManager, dbc::DirichletBC, t)
+#   X_global = dof.H1_vars[1].fspace.coords
+#   for (n, node) in enumerate(dbc.bookkeeping.nodes)
+#     X = @views X_global[:, node]
+#     dbc.vals[n] = dbc.func(X, t)
+#   end
+#   for (n, dof) in enumerate(dbc.bookkeeping.dofs)
+#     U[dof] = dbc.vals[n]
+#   end
+#   return nothing
+# end
+
+# CPU only for now, implementations in bcs folders
+function update_field_bcs!(U::H1Field, dof::DofManager, dbcs, t)
+  for bc in dbcs
+    update_field_bcs!(U, dof, bc, t)
+  end
+end
+
 KA.@kernel function _update_field_unknowns_kernel!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
   N = KA.@index(Global)
   @inbounds U[dof.H1_unknown_dofs[N]] = Uu[N]

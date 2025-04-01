@@ -34,6 +34,9 @@ struct ScalarFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function ScalarFunction(fspace::FunctionSpace, sym)
   return ScalarFunction{sym, typeof(fspace)}(fspace)
 end
@@ -51,6 +54,9 @@ struct VectorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function VectorFunction(fspace::FunctionSpace, sym)
   syms = ()
   components = [:_x, :_y, :_z]
@@ -74,6 +80,9 @@ struct TensorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function TensorFunction(fspace::FunctionSpace, sym)
   syms = ()
   if size(fspace.coords, 1) == 2
@@ -108,6 +117,9 @@ struct SymmetricTensorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function SymmetricTensorFunction(fspace::FunctionSpace, sym)
   syms = ()
   if size(fspace.coords, 1) == 2
