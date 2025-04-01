@@ -1,3 +1,9 @@
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+General sparse matrix assembler that can handle first or second order
+problems in time. 
+"""
 struct SparseMatrixAssembler{
   Dof <: DofManager, 
   Pattern <: SparsityPattern, 
@@ -16,6 +22,12 @@ struct SparseMatrixAssembler{
 end
 
 # TODO this will not work for other than single H1 spaces
+"""
+$(TYPEDSIGNATURES)
+Construct a ```SparseMatrixAssembler``` for a specific field type, 
+e.g. ```H1Field```.
+Can be used to create block arrays for mixed FEM problems.
+"""
 function SparseMatrixAssembler(dof::DofManager, type::Type{<:AbstractField})
   pattern = SparsityPattern(dof, type)
   constraint_storage = zeros(length(dof))
@@ -49,8 +61,19 @@ function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "  ", asm.dof)
 end
 
+# below methods used to make type stable dispatch for _assemble_element! resuse for
+# stiffness/mass/damping matrix value storage
+_get_storage(asm::SparseMatrixAssembler, ::Val{:damping}) = asm.damping_storage
+_get_storage(asm::SparseMatrixAssembler, ::Val{:mass}) = asm.mass_storage
+_get_storage(asm::SparseMatrixAssembler, ::Val{:stiffness}) = asm.stiffness_storage
+
 # TODO add symbol to interface for name of storage array to assemble into
-function _assemble_element!(asm::SparseMatrixAssembler, K_el::SMatrix, conn, el_id::Int, block_id::Int)
+"""
+$(TYPEDSIGNATURES)
+Specialization of of ```_assemble_element!``` for ```SparseMatrixAssembler```.
+"""
+function _assemble_element!(asm::SparseMatrixAssembler, sym, K_el::SMatrix, conn, el_id::Int, block_id::Int)
+  # figure out ids needed to update
   block_size = values(asm.pattern.block_sizes)[block_id]
   block_offset = values(asm.pattern.block_offsets)[block_id]
   # start_id = (block_id - 1) * asm.pattern.block_sizes[block_id] + 
@@ -60,11 +83,72 @@ function _assemble_element!(asm::SparseMatrixAssembler, K_el::SMatrix, conn, el_
              (el_id - 1) * block_offset + 1
   end_id = start_id + block_offset - 1
   ids = start_id:end_id
-  @views asm.stiffness_storage[ids] += K_el[:]
+
+  # get appropriate storage and update values
+  storage = _get_storage(asm, sym)
+  @views storage[ids] += K_el[:]
   return nothing
 end
 
-KA.get_backend(asm::SparseMatrixAssembler) = KA.get_backend(asm.dof)
+"""
+$(TYPEDSIGNATURES)
+Assembly method for a block labelled as block_id. This is a CPU implementation
+with no threading.
+
+TODO add state variables and physics properties
+TODO remove Float64 typing below for eventual unitful use
+"""
+function _assemble_block!(assembler, physics, ::Val{:stiffness}, ref_fe, U, X, conns, block_id, ::KA.CPU)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  for e in axes(conns, 2)
+    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    u_el = _element_level_fields(U, ref_fe, conns, e)
+    K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
+
+    for q in 1:num_quadrature_points(ref_fe)
+      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+      K_q = stiffness(physics, interps, u_el)
+      K_el = K_el + K_q
+    end
+    
+    @views _assemble_element!(assembler, Val{:stiffness}(), K_el, conns[:, e], e, block_id)
+  end
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+Assembly method for a block labelled as block_id. This is a CPU implementation
+with no threading.
+
+TODO add state variables and physics properties
+TODO remove Float64 typing below for eventual unitful use
+"""
+function _assemble_block!(assembler, physics, ::Val{:residual_and_stiffness}, ref_fe, U, X, conns, block_id, ::KA.CPU)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  for e in axes(conns, 2)
+    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    u_el = _element_level_fields(U, ref_fe, conns, e)
+    R_el = zeros(SVector{NxNDof, Float64})
+    K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
+
+    for q in 1:num_quadrature_points(ref_fe)
+      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+      R_q = residual(physics, interps, u_el)
+      K_q = stiffness(physics, interps, u_el)
+      R_el = R_el + R_q
+      K_el = K_el + K_q
+    end
+    
+    @views _assemble_element!(assembler.residual_storage, R_el, conns[:, e], e, block_id)
+    @views _assemble_element!(assembler, Val{:stiffness}(), K_el, conns[:, e], e, block_id)
+  end
+  return nothing
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -80,10 +164,11 @@ end
 $(TYPEDSIGNATURES)
 TODO add symbol to interface
 """
-function SparseArrays.sparse!(assembler::SparseMatrixAssembler)
+function SparseArrays.sparse!(assembler::SparseMatrixAssembler, sym)
   # ids = pattern.unknown_dofs
   pattern = assembler.pattern
-  storage = assembler.stiffness_storage
+  # storage = assembler.stiffness_storage
+  storage = getproperty(assembler, sym)
   return @views SparseArrays.sparse!(
     pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
     length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
@@ -97,7 +182,7 @@ function SparseArrays.spdiagm(assembler::SparseMatrixAssembler)
 end
 
 function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
-  return SparseArrays.sparse!(assembler)
+  return SparseArrays.sparse!(assembler, :stiffness_storage)
 end
 
 function stiffness(assembler::SparseMatrixAssembler)
@@ -120,6 +205,8 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T) where 
   return nothing
 end
 
+# TODO part of this method should be moved to SparsityPattern.jl
+# TODO specialize on field type
 function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1} 
   dirichlet_dofs = copy(dirichlet_dofs)
   unique!(sort!(dirichlet_dofs))

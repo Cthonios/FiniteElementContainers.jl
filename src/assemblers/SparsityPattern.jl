@@ -1,3 +1,10 @@
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+Book-keeping struct for sparse matrices in FEM settings.
+This has all the information to construct a sparse matrix for either
+case where you want to eliminate fixed-dofs or not.
+"""
 struct SparsityPattern{
   I <: AbstractArray{Int, 1},
   B,
@@ -46,6 +53,8 @@ function SparsityPattern(dof, type::Type{<:AbstractField})
     conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
 
     # hacky for now
+    # TODO remove this block of code, SVectors are not used
+    # for connectivity anymore
     if eltype(conn) <: SVector
       n_entries += length(conn[1])^2 * length(conn)
       block_sizes[n] = length(conn)

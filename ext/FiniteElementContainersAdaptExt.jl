@@ -10,12 +10,15 @@ function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
   dof = Adapt.adapt_structure(to, asm.dof)
   pattern = Adapt.adapt_structure(to, asm.pattern)
   constraint_storage = Adapt.adapt_structure(to, asm.constraint_storage)
+  damping_storage = Adapt.adapt_structure(to, asm.damping_storage)
+  mass_storage = Adapt.adapt_structure(to, asm.mass_storage)
   residual_storage = Adapt.adapt_structure(to, asm.residual_storage)
   residual_unknowns = Adapt.adapt_structure(to, asm.residual_unknowns)
   stiffness_storage = Adapt.adapt_structure(to, asm.stiffness_storage)
   return SparseMatrixAssembler(
     dof, pattern, 
     constraint_storage, 
+    damping_storage, mass_storage,
     residual_storage, residual_unknowns,
     stiffness_storage
   )
