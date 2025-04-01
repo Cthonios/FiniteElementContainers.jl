@@ -1,4 +1,11 @@
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 abstract type AbstractAssembler{Dof <: DofManager} end
+"""
+$(TYPEDSIGNATURES)
+"""
 KA.get_backend(asm::AbstractAssembler) = KA.get_backend(asm.dof)
 
 """
@@ -101,15 +108,24 @@ function _element_level_fields(U::H1Field, ref_fe, conns, e)
   return u_el
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function residual(asm::AbstractAssembler)
   return _residual(asm, KA.get_backend(asm))
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function update_field!(U, asm::AbstractAssembler, Uu, Ubc)
   update_field!(U, asm.dof, Uu, Ubc)
   return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function _zero_storage(asm::AbstractAssembler, ::Val{:residual})
   fill!(asm.residual_storage.vals, zero(eltype(asm.residual_storage.vals)))
 end
