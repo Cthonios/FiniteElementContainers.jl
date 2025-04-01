@@ -1,4 +1,12 @@
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 abstract type AbstractFunction{S, F <: FunctionSpace} end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.length(::AbstractFunction{S, F}) where {S, F}
   if typeof(S) <: Symbol
     return 1
@@ -6,6 +14,10 @@ function Base.length(::AbstractFunction{S, F}) where {S, F}
     return length(S)
   end
 end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.names(::AbstractFunction{S, F}) where {S, F}
   if typeof(S) <: Symbol
     return (S,)
@@ -14,6 +26,10 @@ function Base.names(::AbstractFunction{S, F}) where {S, F}
   end
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 struct ScalarFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
@@ -27,6 +43,10 @@ function Base.show(io::IO, ::ScalarFunction{S, F}) where {S, F}
   println(io, "  name: $S")
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 struct VectorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
@@ -46,6 +66,10 @@ function Base.show(io::IO, ::VectorFunction{S, F}) where {S, F}
   println(io, "  name: $S")
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 struct TensorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
@@ -76,6 +100,10 @@ function Base.show(io::IO, ::TensorFunction{S, F}) where {S, F}
   println(io, "  name: $S")
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 struct SymmetricTensorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
