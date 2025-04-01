@@ -77,7 +77,9 @@ function poisson_amdgpu()
   for n in 1:3
     # ΔUu = -K \ Ru
     Ru = residual(asm_gpu)
-    ΔUu, stats = cg(-K, Ru)
+    K_test = -1. * K
+    ΔUu, stats = cg(-K_test, Ru)
+    # ΔUu, stats = cg(K, Ru)
     update_field_unknowns!(U, asm_gpu.dof, ΔUu, +)
     assemble!(asm_gpu, physics, U, :residual)
 

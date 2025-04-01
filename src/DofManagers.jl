@@ -411,9 +411,20 @@ function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T) where T <: A
   return nothing
 end
 
+KA.@kernel function _update_field_unknowns_kernel_minus!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
+  N = KA.@index(Global)
+  @inbounds U[dof.H1_unknown_dofs[N]] -= Uu[N]
+end
+
 KA.@kernel function _update_field_unknowns_kernel_plus!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
   N = KA.@index(Global)
   @inbounds U[dof.H1_unknown_dofs[N]] += Uu[N]
+end
+
+function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(-), backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
+  kernel! = _update_field_unknowns_kernel_minus!(backend)
+  kernel!(U, dof, Uu, ndrange = length(Uu))
+  return nothing
 end
 
 function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+), backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
@@ -422,10 +433,26 @@ function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+)
   return nothing
 end
 
+function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(-), ::KA.CPU) where T <: AbstractArray{<:Number, 1}
+  for (n, d) in enumerate(dof.H1_unknown_dofs)
+    U[d] -= Uu[n]
+  end
+  return nothing
+end
+
 function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+), ::KA.CPU) where T <: AbstractArray{<:Number, 1}
   for (n, d) in enumerate(dof.H1_unknown_dofs)
     U[d] += Uu[n]
   end
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+Does a simple addition on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
+"""
+function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(-)) where T <: AbstractArray{<:Number, 1}
+  _update_field_unknowns!(U, dof, Uu, -, KA.get_backend(dof))
   return nothing
 end
 
