@@ -20,6 +20,7 @@ export Connectivity
 # Fields
 export H1Field
 export L2ElementField
+export L2QuadratureField
 
 # Meshes exports
 export FileMesh
@@ -74,7 +75,9 @@ export FunctionSpace
 export num_elements
 # export num_q_points
 
+# Functions
 export ScalarFunction
+export StateFunction
 export SymmetricTensorFunction
 export TensorFunction
 export VectorFunction

@@ -43,7 +43,7 @@ end
 
 function Base.show(io::IO, ::ScalarFunction{S, F}) where {S, F}
   println(io, "ScalarFunction:")
-  println(io, "  name: $S")
+  println(io, "  names: $S")
 end
 
 """
@@ -69,7 +69,7 @@ end
 
 function Base.show(io::IO, ::VectorFunction{S, F}) where {S, F}
   println(io, "VectorFunction:")
-  println(io, "  name: $S")
+  println(io, "  names: $S")
 end
 
 """
@@ -106,7 +106,7 @@ end
 
 function Base.show(io::IO, ::TensorFunction{S, F}) where {S, F}
   println(io, "TensorFunction:")
-  println(io, "  name: $S")
+  println(io, "  names: $S")
 end
 
 """
@@ -142,5 +142,31 @@ end
 
 function Base.show(io::IO, ::SymmetricTensorFunction{S, F}) where {S, F}
   println(io, "TensorFunction:")
-  println(io, "  name: $S")
+  println(io, "  names: $S")
+end
+
+
+struct StateFunction{S, F, NS, NQ} <: AbstractFunction{S, F}
+  fspace::F
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function StateFunction(fspace::FunctionSpace, sym, n_state, n_quad_pts)
+  syms = ()
+  for n in 1:n_state
+    for q in 1:n_quad_pts
+      syms = (syms..., String(sym) * String("_$(n)_$(q)"))
+    end
+  end
+  syms = Symbol.(syms)
+  return StateFunction{syms, typeof(fspace), n_state, n_quad_pts}(fspace)
+end
+
+function Base.show(io::IO, ::StateFunction{S, F, NS, NQ}) where {S, F, NS, NQ}
+  println(io, "StateFunction:")
+  println(io, "  names: $S")
+  println(io, "  number of state variables: $NS")
+  println(io, "  number of quadrature points: $NQ")
 end

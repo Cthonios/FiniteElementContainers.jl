@@ -56,28 +56,50 @@ function DofManager(vars...)
   Hdiv_vars = NamedTuple() # TODO
   L2_element_vars = _filter_field_type(vars, L2ElementField)
   L2_quadrature_vars = _filter_field_type(vars, L2QuadratureField)
-  
+  @show L2_quadrature_vars
   # get number of dofs
   n_H1_dofs = _n_dofs_from_vars(H1_vars)
   n_Hcurl_dofs = _n_dofs_from_vars(Hcurl_vars)
   n_Hdiv_dofs = _n_dofs_from_vars(Hdiv_vars)
   n_L2_element_dofs = _n_dofs_from_vars(L2_element_vars)
-  n_L2_quadrature_dofs = _n_dofs_from_vars(L2_quadrature_vars)
+  @show n_L2_quadrature_dofs = _n_dofs_from_vars(L2_quadrature_vars)
 
   # hack for now
   # TODO remove this warning
-  if length(vars) > 1
-    @warn "Using multiple variables require they share FunctionSpaces currently. Checking this is satisfied..."
-    for var in vars
-      @assert typeof(var.fspace) == typeof(vars[1].fspace)
-      @assert all(getfield(var.fspace, f) == getfield(vars[1].fspace, f) for f in fieldnames(typeof(vars[1].fspace)))
-    end
-  end
+  # if length(vars) > 1
+  #   @warn "Using multiple variables require they share FunctionSpaces currently. Checking this is satisfied..."
+  #   for var in vars
+  #     @assert typeof(var.fspace) == typeof(vars[1].fspace)
+  #     @assert all(getfield(var.fspace, f) == getfield(vars[1].fspace, f) for f in fieldnames(typeof(vars[1].fspace)))
+  #   end
+  # end
 
   # TODO fix this
-  fspace = vars[1].fspace
-  H1_unknown_dofs = 1:size(fspace.coords, 2) * n_H1_dofs |> collect
-  H1_bc_dofs = typeof(H1_unknown_dofs)(undef, 0)
+  # setting up H1 vars
+  if length(H1_vars) > 0
+    H1_unknown_dofs = 1:size(H1_vars[1].fspace.coords, 2) * n_H1_dofs |> collect
+    H1_bc_dofs = typeof(H1_unknown_dofs)(undef, 0)
+  else
+    H1_unknown_dofs = zeros(Int, 0)
+    H1_bc_dofs = zeros(Int, 0)
+  end
+
+  # TODO need coords everywhere basically, that's apparently the interace
+  # if length(L2_element_vars) > 0
+  #   L2_element_dofs = 1:size(L2_element_vars[1].fspace.coords, 2) * size(L2_element_vars[1].fspace.coords, 2) * n_L2_quadrature_dofs |> collect
+  #   @show L2_element_dofs
+  # end
+
+  if length(L2_quadrature_vars) > 0
+    # L2_quadrature_dofs = 1:size(L2_quadrature_vars[1].fspace.coords, 2) * size(L2_quadrature_vars[1].fspace.coords, 3) * n_L2_quadrature_dofs |> collect
+    n_total_elements = 0
+    for var in L2_quadrature_vars
+      n_total_elements = n_total_elements + sum(map(x -> size(x, 3), values(var.fspace.coords)))
+    end
+    L2_quadrature_dofs = 1:n_L2_quadrature_dofs * n_total_elements |> collect
+  else
+    L2_quadrature_dofs = zeros(Int, 0)
+  end
 
   # TODO
   # fill out Hcurl properly
@@ -90,7 +112,7 @@ function DofManager(vars...)
   Hdiv_bc_dofs = zeros(Int, 0)
   # L2 doesn't need to be here most likely...
   L2_element_dofs = zeros(Int, 0)
-  L2_quadrature_dofs = zeros(Int, 0)
+  # L2_quadrature_dofs = zeros(Int, 0)
 
   return DofManager{
     eltype(H1_unknown_dofs), typeof(H1_unknown_dofs),
@@ -112,6 +134,10 @@ function _dof_manager_sym_name(u::ScalarFunction)
   return names(u)[1]
 end
 
+function _dof_manager_sym_name(u::StateFunction)
+  return Symbol(split(String(names(u)[1]), ['_'])[1])
+end
+
 function _dof_manager_sym_name(u::VectorFunction)
   return Symbol(split(String(names(u)[1]), ['_'])[1])
 end
@@ -121,7 +147,24 @@ function _dof_manager_vars(dof::DofManager, ::Type{<:H1Field})
 end
 
 function _filter_field_type(vars, T)
-  vars = filter(x -> isa(x.fspace.coords, T), vars)
+  if T == L2QuadratureField
+    # vars = map(y -> isa(y, T), values(x.fspace.coords))
+    # vars = map(x -> , vars)
+    temp_vars = filter(x -> isa(x.fspace.coords, NamedTuple), vars)
+    var_syms = Symbol[]
+    var_vals = [] # TODO type this array
+    for var in temp_vars
+      if isa(values(var.fspace.coords)[1], L2QuadratureField)
+        push!(var_syms, names(var)[1])
+        push!(var_vals, var)
+      end
+    end
+    # @show vars
+    # vars = NamedTuple{tuple(var_syms...)}(tuple(var_vals...))
+    vars = tuple(var_vals...)
+  else
+    vars = filter(x -> isa(x.fspace.coords, T), vars)
+  end
   syms = map(_dof_manager_sym_name, vars)
   return NamedTuple{syms}(vars)
 end
