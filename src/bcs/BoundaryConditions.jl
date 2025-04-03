@@ -12,6 +12,7 @@ end
 
 # TODO also need to adapt this to differ on what var_name we look for based on build_dofs_array
 # e.g. if it's neumann and a vector look for :u but if it's dirichlet and a vector look for :u_x
+# this only works for H1 spaces currently
 function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; build_dofs_array=false)
   # need to extract the var from dof based on teh symbol name
   var_index = 0
@@ -57,7 +58,10 @@ function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; bui
 
   # setting up dofs for use in dirichlet bcs
   if build_dofs_array
-    all_dofs = reshape(1:length(dof), num_dofs_per_node(dof), num_nodes(dof))
+    ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+    n_total_dofs = ND * NN
+    # all_dofs = reshape(1:length(dof), num_dofs_per_node(dof), num_nodes(dof))
+    all_dofs = reshape(1:n_total_dofs, ND, NN)
     dofs = all_dofs[dof_index, nodes]
   else
     dofs = Vector{Int64}(undef, 0)

@@ -90,6 +90,11 @@ create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
 """
 $(TYPEDSIGNATURES)
 """
+create_unknowns(asm::AbstractAssembler, type::Type{<:AbstractField}) = create_unknowns(asm.dof, type)
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function _element_level_coordinates(X::H1Field, ref_fe, conns, e)
   NDim = size(X, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)

@@ -28,9 +28,12 @@ Construct a ```SparseMatrixAssembler``` for a specific field type,
 e.g. ```H1Field```.
 Can be used to create block arrays for mixed FEM problems.
 """
-function SparseMatrixAssembler(dof::DofManager, type::Type{<:AbstractField})
+function SparseMatrixAssembler(dof::DofManager, type::Type{<:H1Field})
   pattern = SparsityPattern(dof, type)
-  constraint_storage = zeros(length(dof))
+  # constraint_storage = zeros(length(dof))
+  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  n_total_dofs = ND * NN
+  constraint_storage = zeros(n_total_dofs)
   # constraint_storage = zeros(_dof_manager_vars(dof, type))
   constraint_storage[dof.H1_bc_dofs] .= 1.
   # fill!(constraint_storage, )
@@ -207,15 +210,18 @@ end
 
 # TODO part of this method should be moved to SparsityPattern.jl
 # TODO specialize on field type
+# TODO probably only works on H1 write now
 function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1} 
   dirichlet_dofs = copy(dirichlet_dofs)
   unique!(sort!(dirichlet_dofs))
   update_dofs!(assembler.dof, dirichlet_dofs)
 
   # resize the resiual unkowns
-  resize!(assembler.residual_unknowns, num_unknowns(assembler.dof))
+  n_total_H1_dofs = num_nodes(assembler.dof) * num_dofs_per_node(assembler.dof)
+  resize!(assembler.residual_unknowns, length(assembler.dof.H1_unknown_dofs))
 
-  n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
+  # n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
+  n_total_dofs = n_total_H1_dofs - length(dirichlet_dofs)
 
   # TODO change to a good sizehint!
   resize!(assembler.pattern.Is, 0)
@@ -223,7 +229,8 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where
   resize!(assembler.pattern.unknown_dofs, 0)
 
   ND, NN = num_dofs_per_node(assembler.dof), num_nodes(assembler.dof)
-  ids = reshape(1:length(assembler.dof), ND, NN)
+  # ids = reshape(1:length(assembler.dof), ND, NN)
+  ids = reshape(1:n_total_H1_dofs, ND, NN)
 
   # TODO
   vars = assembler.dof.H1_vars

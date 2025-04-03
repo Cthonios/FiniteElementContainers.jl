@@ -27,7 +27,7 @@ struct SparsityPattern{
 end
 
 # TODO won't work for H(div) or H(curl) yet
-function SparsityPattern(dof, type::Type{<:AbstractField})
+function SparsityPattern(dof, type::Type{<:H1Field})
 
   # get number of dofs for creating cache arrays
 

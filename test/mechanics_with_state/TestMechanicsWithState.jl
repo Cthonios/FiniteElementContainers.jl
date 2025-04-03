@@ -60,45 +60,53 @@ V2 = FunctionSpace(mesh, L2QuadratureField, Lagrange)
 physics = Mechanics(PlaneStrain())
 
 u = VectorFunction(V1, :displ)
-state = StateFunction(V2, :state, 7, 4)
-dof = DofManager(u, state)
+
+# this styel will only work for simple problems
+# maybe we need an "active blocks" thing
+ε_p = SymmetricTensorFunction(V2, :plastic_strain)
+eqps = ScalarFunction(V2, :eqps)
+
+dof = DofManager(u, ε_p, eqps)
+
+state = create_field(dof, L2QuadratureField)
+# state = StateFunction(V2, :state, 7, 4)
+# dof = DofManager(u, state)
 asm = SparseMatrixAssembler(dof, H1Field)
 
-# dbcs = DirichletBC[
-#   DirichletBC(asm.dof, :displ_x, :sset_3, fixed),
-#   DirichletBC(asm.dof, :displ_y, :sset_3, fixed),
-#   DirichletBC(asm.dof, :displ_x, :sset_1, fixed),
-#   DirichletBC(asm.dof, :displ_y, :sset_1, displace),
-# ]
-# update_dofs!(asm, dbcs)
+dbcs = DirichletBC[
+  DirichletBC(asm.dof, :displ_x, :sset_3, fixed),
+  DirichletBC(asm.dof, :displ_y, :sset_3, fixed),
+  DirichletBC(asm.dof, :displ_x, :sset_1, fixed),
+  DirichletBC(asm.dof, :displ_y, :sset_1, displace),
+]
+update_dofs!(asm, dbcs)
 
 # # pre-setup some scratch arrays
-# Uu = create_unknowns(asm)
-# Ubc = create_bcs(asm, H1Field)
-# U = create_field(asm, H1Field)
+Uu = create_unknowns(asm, H1Field)
+Ubc = create_bcs(asm, H1Field)
+U = create_field(asm, H1Field)
 
-# update_field!(U, asm, Uu, Ubc)
-# update_field_bcs!(U, asm.dof, dbcs, 0.)
+update_field!(U, asm, Uu, Ubc)
+update_field_bcs!(U, asm.dof, dbcs, 0.)
 
-# @time assemble!(asm, physics, U, :residual_and_stiffness)
-# K = stiffness(asm)
+@time assemble!(asm, physics, U, :residual_and_stiffness)
+K = stiffness(asm)
 
-# for n in 1:5
-#   Ru = residual(asm)
-#   # ΔUu, stat = cg(-K, Ru)
-#   ΔUu = -K \ Ru
-#   update_field_unknowns!(U, asm.dof, ΔUu, +)
-#   assemble!(asm, physics, U, :residual)
+for n in 1:5
+  Ru = residual(asm)
+  ΔUu, stat = cg(-K, Ru)
+  update_field_unknowns!(U, asm.dof, ΔUu, +)
+  assemble!(asm, physics, U, :residual)
 
-#   @show norm(ΔUu) norm(Ru)
+  @show norm(ΔUu) norm(Ru)
 
-#   # if norm(ΔUu) < 1e-12 || norm(Ru) < 1e-12
-#   if norm(Ru) < 1e-12
-#     break
-#   end
-# end
+  # if norm(ΔUu) < 1e-12 || norm(Ru) < 1e-12
+  if norm(Ru) < 1e-12
+    break
+  end
+end
 
-# pp = PostProcessor(mesh, output_file, u)
-# write_times(pp, 1, 0.0)
-# write_field(pp, 1, U)
-# close(pp)
+pp = PostProcessor(mesh, output_file, u, ε_p)
+write_times(pp, 1, 0.0)
+write_field(pp, 1, U)
+close(pp)
