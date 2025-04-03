@@ -121,6 +121,26 @@ function _assemble_block!(assembler, physics, ::Val{:stiffness}, ref_fe, U, X, c
   return nothing
 end
 
+function _assemble_block!(assembler, physics, ::Val{:mass}, ref_fe, U, X, conns, block_id, ::KA.CPU)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  for e in axes(conns, 2)
+    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    u_el = _element_level_fields(U, ref_fe, conns, e)
+    M_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
+
+    for q in 1:num_quadrature_points(ref_fe)
+      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+      M_q = mass(physics, interps, u_el)
+      M_el = M_el + M_q
+    end
+    
+    @views _assemble_element!(assembler, Val{:mass}(), M_el, conns[:, e], e, block_id)
+  end
+  return nothing
+end
+
 """
 $(TYPEDSIGNATURES)
 Assembly method for a block labelled as block_id. This is a CPU implementation
@@ -190,6 +210,14 @@ end
 
 function stiffness(assembler::SparseMatrixAssembler)
   return _stiffness(assembler, KA.get_backend(assembler))
+end
+
+function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
+  return SparseArrays.sparse!(assembler, :mass_storage)
+end
+
+function mass(assembler::SparseMatrixAssembler)
+  return _mass(assembler, KA.get_backend(assembler))
 end
 
 # TODO Need to specialize below for different field types
@@ -265,6 +293,10 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where
   resize!(assembler.pattern.csrnzval, length(assembler.pattern.Is))
 
   return nothing
+end
+
+function _zero_storage(asm::SparseMatrixAssembler, ::Val{:mass})
+  fill!(asm.mass_storage, zero(eltype(asm.mass_storage)))
 end
 
 function _zero_storage(asm::SparseMatrixAssembler, ::Val{:stiffness})

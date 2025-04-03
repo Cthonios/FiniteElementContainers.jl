@@ -283,6 +283,17 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function create_field(dof::DofManager, ::Type{H1Field}, syms)
+  backend = KA.get_backend(dof.H1_bc_dofs)
+  NF, NN = num_dofs_per_node(dof), num_nodes(dof)
+  field = KA.zeros(backend, Float64, NF, NN)
+  @assert NF == length(syms)
+  return H1Field(field, syms)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function create_field(dof::DofManager, ::Type{L2QuadratureField})
   backend = KA.get_backend(dof.L2_quadrature_dofs)
   fspace = dof.L2_quadrature_vars[1].fspace

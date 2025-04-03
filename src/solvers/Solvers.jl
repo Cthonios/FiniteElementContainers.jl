@@ -12,3 +12,7 @@ function tangent end
 function gradient end
 function hessian end
 function value end
+
+# struct NewtonSolver <: AbstractNonLinearSolver
+
+# end
