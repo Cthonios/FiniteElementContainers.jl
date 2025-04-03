@@ -77,7 +77,9 @@ function poisson_v2()
   write_field(pp, 1, U)
   close(pp)
 
-  @test exodiff(output_file, gold_file)
+  if !Sys.iswindows()
+    @test exodiff(output_file, gold_file)
+  end
   rm(output_file; force=true)
 end
 

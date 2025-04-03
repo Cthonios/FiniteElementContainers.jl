@@ -56,13 +56,12 @@ function DofManager(vars...)
   Hdiv_vars = NamedTuple() # TODO
   L2_element_vars = _filter_field_type(vars, L2ElementField)
   L2_quadrature_vars = _filter_field_type(vars, L2QuadratureField)
-  @show L2_quadrature_vars
   # get number of dofs
   n_H1_dofs = _n_dofs_from_vars(H1_vars)
   n_Hcurl_dofs = _n_dofs_from_vars(Hcurl_vars)
   n_Hdiv_dofs = _n_dofs_from_vars(Hdiv_vars)
   n_L2_element_dofs = _n_dofs_from_vars(L2_element_vars)
-  @show n_L2_quadrature_dofs = _n_dofs_from_vars(L2_quadrature_vars)
+  n_L2_quadrature_dofs = _n_dofs_from_vars(L2_quadrature_vars)
 
   # hack for now
   # TODO remove this warning
