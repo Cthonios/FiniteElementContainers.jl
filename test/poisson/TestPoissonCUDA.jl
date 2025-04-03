@@ -16,7 +16,7 @@ f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 bc_func(_, _) = 0.
 bc_func_2(_, _) = 0.
 
-struct Poisson <: AbstractPhysics{0, 0}
+struct Poisson <: AbstractPhysics{1, 0, 0}
 end
 
 function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)

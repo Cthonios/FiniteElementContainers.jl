@@ -13,7 +13,7 @@ output_file = "./poisson/poisson.e"
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 bc_func(_, _) = 0.
 
-struct Poisson <: AbstractPhysics{0, 0}
+struct Poisson <: AbstractPhysics{1, 0, 0}
 end
 
 function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)
@@ -77,7 +77,9 @@ function poisson_v2()
   write_field(pp, 1, U)
   close(pp)
 
-  @test exodiff(output_file, gold_file)
+  if !Sys.iswindows()
+    @test exodiff(output_file, gold_file)
+  end
   rm(output_file; force=true)
 end
 

@@ -1,4 +1,12 @@
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 abstract type AbstractFunction{S, F <: FunctionSpace} end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.length(::AbstractFunction{S, F}) where {S, F}
   if typeof(S) <: Symbol
     return 1
@@ -6,6 +14,10 @@ function Base.length(::AbstractFunction{S, F}) where {S, F}
     return length(S)
   end
 end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function Base.names(::AbstractFunction{S, F}) where {S, F}
   if typeof(S) <: Symbol
     return (S,)
@@ -14,23 +26,37 @@ function Base.names(::AbstractFunction{S, F}) where {S, F}
   end
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 struct ScalarFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function ScalarFunction(fspace::FunctionSpace, sym)
   return ScalarFunction{sym, typeof(fspace)}(fspace)
 end
 
 function Base.show(io::IO, ::ScalarFunction{S, F}) where {S, F}
   println(io, "ScalarFunction:")
-  println(io, "  name: $S")
+  println(io, "  names: $S")
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 struct VectorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function VectorFunction(fspace::FunctionSpace, sym)
   syms = ()
   components = [:_x, :_y, :_z]
@@ -43,13 +69,20 @@ end
 
 function Base.show(io::IO, ::VectorFunction{S, F}) where {S, F}
   println(io, "VectorFunction:")
-  println(io, "  name: $S")
+  println(io, "  names: $S")
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 struct TensorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function TensorFunction(fspace::FunctionSpace, sym)
   syms = ()
   if size(fspace.coords, 1) == 2
@@ -73,13 +106,20 @@ end
 
 function Base.show(io::IO, ::TensorFunction{S, F}) where {S, F}
   println(io, "TensorFunction:")
-  println(io, "  name: $S")
+  println(io, "  names: $S")
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 struct SymmetricTensorFunction{S, F} <: AbstractFunction{S, F}
   fspace::F
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function SymmetricTensorFunction(fspace::FunctionSpace, sym)
   syms = ()
   if size(fspace.coords, 1) == 2
@@ -102,5 +142,31 @@ end
 
 function Base.show(io::IO, ::SymmetricTensorFunction{S, F}) where {S, F}
   println(io, "TensorFunction:")
-  println(io, "  name: $S")
+  println(io, "  names: $S")
+end
+
+
+struct StateFunction{S, F, NS, NQ} <: AbstractFunction{S, F}
+  fspace::F
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function StateFunction(fspace::FunctionSpace, sym, n_state, n_quad_pts)
+  syms = ()
+  for n in 1:n_state
+    for q in 1:n_quad_pts
+      syms = (syms..., String(sym) * String("_$(n)_$(q)"))
+    end
+  end
+  syms = Symbol.(syms)
+  return StateFunction{syms, typeof(fspace), n_state, n_quad_pts}(fspace)
+end
+
+function Base.show(io::IO, ::StateFunction{S, F, NS, NQ}) where {S, F, NS, NQ}
+  println(io, "StateFunction:")
+  println(io, "  names: $S")
+  println(io, "  number of state variables: $NS")
+  println(io, "  number of quadrature points: $NQ")
 end

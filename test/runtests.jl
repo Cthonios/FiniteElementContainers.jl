@@ -27,6 +27,10 @@ include("TestPhysics.jl")
   include("poisson/TestPoisson2.jl")
 end
 
+@testset ExtendedTestSet "Mechanics Problem" begin
+  include("mechanics/TestMechanics.jl")
+end
+
 @testset ExtendedTestSet "Aqua" begin
   Aqua.test_all(FiniteElementContainers; ambiguities=false)
 end

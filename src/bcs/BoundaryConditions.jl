@@ -160,3 +160,16 @@ function create_bcs(dbcs::DirichletBCCollection, time)
   end
   return vals
 end
+
+# CPU only for now
+function update_field_bcs!(U::H1Field, dof::DofManager, dbc::DirichletBC, t)
+  X_global = dof.H1_vars[1].fspace.coords
+  for (n, node) in enumerate(dbc.bookkeeping.nodes)
+    X = @views X_global[:, node]
+    dbc.vals[n] = dbc.func(X, t)
+  end
+  for (n, dof) in enumerate(dbc.bookkeeping.dofs)
+    U[dof] = dbc.vals[n]
+  end
+  return nothing
+end
