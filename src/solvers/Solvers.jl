@@ -31,3 +31,7 @@ function DenseLinearSolver(assembler::SparseMatrixAssembler)
   fill!(ΔUu, zero(eltype(ΔUu)))
   return DenseLinearSolver(assembler, preconditioner, ΔUu)
 end 
+
+function solve!(solver::DenseLinearSolver, Uu, p)
+
+end

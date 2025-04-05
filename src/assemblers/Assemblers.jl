@@ -90,6 +90,15 @@ function assemble!(assembler, physics, U::H1Field, sym)
   end
 end
 
+# wrapper that uses Uu and p
+# TODO only works on H1 fields right now
+function assemble!(assembler, physics, Uu, p, sym)
+  update_field_bcs!(p.h1_field, assembler.dof, p.h1_bcs, p.t)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  assemble!(assembler, physics, p.h1_field, sym)
+  return nothing
+end
+
 """
 $(TYPEDSIGNATURES)
 """
