@@ -52,17 +52,10 @@ function SparseMatrixAssembler(dof::DofManager, type::Type{<:H1Field})
   )
 end
 
-function SparseMatrixAssembler(type::Type{<:H1Field}, vars...)
+function SparseMatrixAssembler(::Type{<:H1Field}, vars...)
   dof = DofManager(vars...)
   return SparseMatrixAssembler(dof, H1Field)
 end
-
-# TODO how best to do this?
-# Should probably be a block array maybe?
-# function SparseMatrixAssembler(vars...)
-#   dof = DofManager(vars...)
-#   return SparseMatrixAssembler(dof)
-# end 
 
 function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "SparseMatrixAssembler")
@@ -152,7 +145,6 @@ function _assemble_block_stiffness!(assembler, physics, ref_fe, U, X, conns, blo
   return nothing
 end
 
-
 """
 $(TYPEDSIGNATURES)
 Assembly method for a block labelled as block_id. This is a CPU implementation
@@ -216,20 +208,20 @@ function SparseArrays.spdiagm(assembler::SparseMatrixAssembler)
   return SparseArrays.spdiagm(assembler.constraint_storage)
 end
 
-function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
-  return SparseArrays.sparse!(assembler, :stiffness_storage)
-end
-
-function stiffness(assembler::SparseMatrixAssembler)
-  return _stiffness(assembler, KA.get_backend(assembler))
-end
-
 function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
   return SparseArrays.sparse!(assembler, :mass_storage)
 end
 
 function mass(assembler::SparseMatrixAssembler)
   return _mass(assembler, KA.get_backend(assembler))
+end
+
+function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
+  return SparseArrays.sparse!(assembler, :stiffness_storage)
+end
+
+function stiffness(assembler::SparseMatrixAssembler)
+  return _stiffness(assembler, KA.get_backend(assembler))
 end
 
 # TODO Need to specialize below for different field types
@@ -311,11 +303,11 @@ function _zero_storage(asm::SparseMatrixAssembler, ::Val{:mass})
   fill!(asm.mass_storage, zero(eltype(asm.mass_storage)))
 end
 
-function _zero_storage(asm::SparseMatrixAssembler, ::Val{:stiffness})
+function _zero_storage(asm::SparseMatrixAssembler, ::Val{:residual_and_stiffness})
+  _zero_storage(asm, Val{:residual}())
   fill!(asm.stiffness_storage, zero(eltype(asm.stiffness_storage)))
 end
 
-function _zero_storage(asm::SparseMatrixAssembler, ::Val{:residual_and_stiffness})
-  _zero_storage(asm, Val{:residual}())
+function _zero_storage(asm::SparseMatrixAssembler, ::Val{:stiffness})
   fill!(asm.stiffness_storage, zero(eltype(asm.stiffness_storage)))
 end
