@@ -1,93 +1,85 @@
+# using BenchmarkTools
 using Exodus
 using FiniteElementContainers
-using IterativeSolvers
-using LinearAlgebra
+using Krylov
 using Parameters
-using SparseArrays
 
+# mesh file
+gold_file = "./poisson/poisson.gold"
+mesh_file = "./poisson/poisson.g"
+output_file = "./poisson/poisson.e"
+
+# methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+bc_func(_, _) = 0.
 
-function residual(cell, u_el)
+struct Poisson <: AbstractPhysics{1, 0, 0}
+end
+
+function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)
   @unpack X_q, N, ∇N_X, JxW = cell
   ∇u_q = u_el * ∇N_X
   R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
   return JxW * R_q[:]
 end
 
-function tangent(cell, _)
+function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
   @unpack X_q, N, ∇N_X, JxW = cell
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q
 end
 
-# set up initial containers
+# read mesh and relevant quantities
 
-types = [Vector]
-# type = Vector
+function poisson_v2()
+  mesh = UnstructuredMesh(mesh_file)
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson()
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(H1Field, u)
+  pp = PostProcessor(mesh, output_file, u)
 
-for type in types
-
-  mesh_new    = FileMesh(FiniteElementContainers.ExodusMesh, "./poisson/poisson.g")
-  coords      = coordinates(mesh_new)
-  coords      = NodalField{size(coords)}(coords)
-  elem_id_map = read_block_id_map(mesh_new.mesh_obj, 1)
-  conn        = element_connectivity(mesh_new, 1)
-  conn        = ElementField{size(conn)}(conn)
-  elem        = element_type(mesh_new, 1)
-  nsets       = nodesets(mesh_new, [1, 2, 3, 4])
-  dof         = DofManager{1, size(coords, 2), type{Float64}}()
-  fspaces     = NonAllocatedFunctionSpace[
-    NonAllocatedFunctionSpace(dof, elem_id_map, conn, 2, elem)
+  # setup and update bcs
+  dbcs = DirichletBC[
+    DirichletBC(asm.dof, :u, :sset_1, bc_func),
+    DirichletBC(asm.dof, :u, :sset_2, bc_func),
+    DirichletBC(asm.dof, :u, :sset_3, bc_func),
+    DirichletBC(asm.dof, :u, :sset_4, bc_func),
   ]
-  asm     = StaticAssembler(dof, fspaces)
+  update_dofs!(asm, dbcs)
 
-  # set up bcs
-  # update_unknown_ids!(dof, nsets, [1, 1, 1, 1])
-  bc_nodes = sort!(unique!(vcat(nsets...)))
-  update_unknown_dofs!(dof, bc_nodes)
-  update_unknown_dofs!(asm, dof, fspaces, bc_nodes)
+  # pre-setup some scratch arrays
+  Uu = create_unknowns(asm)
+  Ubc = create_bcs(asm, H1Field)
+  U = create_field(asm, H1Field)
 
+  update_field!(U, asm, Uu, Ubc)
+  assemble!(asm, physics, U, :residual_and_stiffness)
+  K = stiffness(asm)
 
-  # now pre-allocate arrays
-  U   = create_fields(dof)
-  R   = create_fields(dof)
-  Uu  = create_unknowns(dof)
-  ΔUu = create_unknowns(dof)
-  Uu  .= 1.0
+  for n in 1:5
+    R = residual(asm)
+    ΔUu, stat = cg(-K, R)
+    update_field_unknowns!(U, asm.dof, ΔUu, +)
+    assemble!(asm, physics, U, :residual)
 
-  function solve(asm, dof, fspaces, X, U, Uu)
-    for n in 1:10
-      update_fields!(U, dof, Uu)
-      # assemble!(R, asm, dof, fspaces, X, U, residual, tangent)
-      assemble!(asm, dof, fspaces, X, U, residual, tangent)
-      # R = asm.residuals[dof.unknown_dofs]
-      R_view = @views asm.residuals[dof.unknown_dofs]
-      K = sparse(asm)
-      cg!(ΔUu, -K, R_view)
-      @show norm(ΔUu) norm(R_view)
-      if norm(R_view) < 1e-12
-        println("Converged")
-        break
-      end
-      Uu = Uu + ΔUu
+    @show norm(ΔUu) norm(R)
+
+    if norm(ΔUu) < 1e-12 || norm(R) < 1e-12
+      break
     end
-    return Uu
   end
 
-  Uu = solve(asm, dof, fspaces, coords, U, Uu)
-  update_fields!(U, dof, Uu)
+  @show maximum(U)
 
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, U)
+  close(pp)
 
-  copy_mesh("./poisson/poisson.g", "./poisson/poisson_$type.e")
-  exo = ExodusDatabase("./poisson/poisson_$type.e", "rw")
-  write_names(exo, NodalVariable, ["u"])
-  write_time(exo, 1, 0.0)
-  if type == Vector
-    write_values(exo, NodalVariable, 1, "u", U.vals)
-  elseif type == Matrix
-    write_values(exo, NodalVariable, 1, "u", U.vals[1, :])
+  if !Sys.iswindows()
+    @test exodiff(output_file, gold_file)
   end
-  close(exo)
-  @test exodiff("./poisson/poisson_$type.e", "./poisson/poisson.gold")
-  rm("./poisson/poisson_$type.e"; force=true)
+  rm(output_file; force=true)
 end
+
+poisson_v2()

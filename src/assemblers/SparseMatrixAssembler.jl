@@ -52,6 +52,11 @@ function SparseMatrixAssembler(dof::DofManager, type::Type{<:H1Field})
   )
 end
 
+function SparseMatrixAssembler(type::Type{<:H1Field}, vars...)
+  dof = DofManager(vars...)
+  return SparseMatrixAssembler(dof, H1Field)
+end
+
 # TODO how best to do this?
 # Should probably be a block array maybe?
 # function SparseMatrixAssembler(vars...)
@@ -99,36 +104,15 @@ Assembly method for a block labelled as block_id. This is a CPU implementation
 with no threading.
 
 TODO add state variables and physics properties
-TODO remove Float64 typing below for eventual unitful use
 """
-function _assemble_block!(assembler, physics, ::Val{:stiffness}, ref_fe, U, X, conns, block_id, ::KA.CPU)
+function _assemble_block_mass!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
     x_el = _element_level_coordinates(X, ref_fe, conns, e)
     u_el = _element_level_fields(U, ref_fe, conns, e)
-    K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
-
-    for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-      K_q = stiffness(physics, interps, u_el)
-      K_el = K_el + K_q
-    end
-    
-    @views _assemble_element!(assembler, Val{:stiffness}(), K_el, conns[:, e], e, block_id)
-  end
-  return nothing
-end
-
-function _assemble_block!(assembler, physics, ::Val{:mass}, ref_fe, U, X, conns, block_id, ::KA.CPU)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  for e in axes(conns, 2)
-    x_el = _element_level_coordinates(X, ref_fe, conns, e)
-    u_el = _element_level_fields(U, ref_fe, conns, e)
-    M_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
+    M_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.mass_storage), NxNDof * NxNDof})
 
     for q in 1:num_quadrature_points(ref_fe)
       interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
@@ -147,17 +131,45 @@ Assembly method for a block labelled as block_id. This is a CPU implementation
 with no threading.
 
 TODO add state variables and physics properties
-TODO remove Float64 typing below for eventual unitful use
 """
-function _assemble_block!(assembler, physics, ::Val{:residual_and_stiffness}, ref_fe, U, X, conns, block_id, ::KA.CPU)
+function _assemble_block_stiffness!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
     x_el = _element_level_coordinates(X, ref_fe, conns, e)
     u_el = _element_level_fields(U, ref_fe, conns, e)
-    R_el = zeros(SVector{NxNDof, Float64})
-    K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
+    K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})
+
+    for q in 1:num_quadrature_points(ref_fe)
+      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+      K_q = stiffness(physics, interps, u_el)
+      K_el = K_el + K_q
+    end
+    
+    @views _assemble_element!(assembler, Val{:stiffness}(), K_el, conns[:, e], e, block_id)
+  end
+  return nothing
+end
+
+
+"""
+$(TYPEDSIGNATURES)
+Assembly method for a block labelled as block_id. This is a CPU implementation
+with no threading.
+
+TODO add state variables and physics properties
+TODO remove Float64 typing below for eventual unitful use
+"""
+function _assemble_block_residual_and_stiffness!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  for e in axes(conns, 2)
+    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    u_el = _element_level_fields(U, ref_fe, conns, e)
+    R_el = zeros(SVector{NxNDof, eltype(assembler.residual_storage)})
+    K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})
 
     for q in 1:num_quadrature_points(ref_fe)
       interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)

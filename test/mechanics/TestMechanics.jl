@@ -59,8 +59,7 @@ function mechanics_test()
   physics = Mechanics(PlaneStrain())
 
   u = VectorFunction(V, :displ)
-  dof = DofManager(u)
-  asm = SparseMatrixAssembler(dof, H1Field)
+  asm = SparseMatrixAssembler(H1Field, u)
 
   dbcs = DirichletBC[
     DirichletBC(asm.dof, :displ_x, :sset_3, fixed),
@@ -78,20 +77,20 @@ function mechanics_test()
   update_field!(U, asm, Uu, Ubc)
   update_field_bcs!(U, asm.dof, dbcs, 0.)
 
-  @time assemble!(asm, physics, U, :residual_and_stiffness)
+  assemble!(asm, physics, U, :residual_and_stiffness)
+  
   K = stiffness(asm)
 
   for n in 1:5
-    Ru = residual(asm)
-    # ΔUu, stat = cg(-K, Ru)
-    ΔUu = -K \ Ru
+    R = residual(asm)
+    ΔUu, stat = cg(-K, R)
     update_field_unknowns!(U, asm.dof, ΔUu, +)
     assemble!(asm, physics, U, :residual)
 
-    @show norm(ΔUu) norm(Ru)
+    @show norm(ΔUu) norm(R)
 
     # if norm(ΔUu) < 1e-12 || norm(Ru) < 1e-12
-    if norm(Ru) < 1e-12
+    if norm(R) < 1e-12
       break
     end
   end
@@ -102,9 +101,4 @@ function mechanics_test()
   close(pp)
 end
 
-@time mechanics_test()
-@time mechanics_test()
-# ∇u = zero(Tensor{2, 3, Float64, 9})
-# strain_energy(∇u)
-# gradient(strain_energy, ∇u)
-# hessian(strain_energy, ∇u)
+mechanics_test()

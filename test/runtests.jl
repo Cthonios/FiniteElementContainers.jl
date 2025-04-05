@@ -23,8 +23,7 @@ include("TestPhysics.jl")
 # end
 
 @testset ExtendedTestSet "Poisson problem" begin
-  # include("poisson/TestPoisson.jl")
-  include("poisson/TestPoisson2.jl")
+  include("poisson/TestPoisson.jl")
 end
 
 @testset ExtendedTestSet "Mechanics Problem" begin
