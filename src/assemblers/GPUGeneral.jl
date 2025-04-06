@@ -1,3 +1,5 @@
+# TODO mark this as @const where appropriate
+
 """
 $(TYPEDSIGNATURES)
 Kernel for residual block assembly
@@ -37,7 +39,6 @@ using KernelAbstractions and Atomix for eliminating race conditions
 
 TODO add state variables and physics properties
 """
-# function _assemble_block!(assembler, physics, ::Val{:residual}, ref_fe, U, X, conns, block_id, backend::KA.Backend)
 function _assemble_block_residual!(assembler, physics, ref_fe, U, X, conns, block_id, backend::KA.Backend)
   kernel! = _assemble_block_residual_kernel!(backend)
   kernel!(assembler, physics, ref_fe, U, X, conns, block_id, ndrange=size(conns, 2))
@@ -79,7 +80,6 @@ using KernelAbstractions and Atomix for eliminating race conditions
 
 TODO add state variables and physics properties
 """
-# function _assemble_block!(assembler, physics, ::Val{:stiffness}, ref_fe, U, X, conns, block_id, backend::KA.Backend)
 function _assemble_block_stiffness!(assembler, physics, ref_fe, U, X, conns, block_id, backend::KA.Backend)
   kernel! = _assemble_block_stiffness_kernel!(backend)
   kernel!(assembler, physics, ref_fe, U, X, conns, block_id, ndrange=size(conns, 2))

@@ -95,6 +95,7 @@ import AcceleratedKernels as AK
 import KernelAbstractions as KA
 using Atomix
 using DocStringExtensions
+using Krylov
 using LinearAlgebra
 using ReferenceFiniteElements
 using SparseArrays
