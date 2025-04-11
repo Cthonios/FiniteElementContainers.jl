@@ -1,7 +1,5 @@
-# using BenchmarkTools
 using Exodus
 using FiniteElementContainers
-using Krylov
 using Parameters
 
 # mesh file
@@ -50,30 +48,17 @@ function poisson_v2()
 
   # pre-setup some scratch arrays
   Uu = create_unknowns(asm)
-  Ubc = create_bcs(asm, H1Field)
-  U = create_field(asm, H1Field)
+  p = create_parameters(asm, physics, dbcs)
 
-  update_field!(U, asm, Uu, Ubc)
-  assemble!(asm, physics, U, :residual_and_stiffness)
-  K = stiffness(asm)
+  solver = NewtonSolver(DirectLinearSolver(asm))
+  update_field!(p.h1_field, solver.linear_solver.assembler.dof, Uu, p.h1_dbcs)
 
-  for n in 1:5
-    R = residual(asm)
-    ΔUu, stat = cg(-K, R)
-    update_field_unknowns!(U, asm.dof, ΔUu, +)
-    assemble!(asm, physics, U, :residual)
+  FiniteElementContainers.solve!(solver, Uu, p)
 
-    @show norm(ΔUu) norm(R)
-
-    if norm(ΔUu) < 1e-12 || norm(R) < 1e-12
-      break
-    end
-  end
-
-  @show maximum(U)
+  @show maximum(p.h1_field)
 
   write_times(pp, 1, 0.0)
-  write_field(pp, 1, U)
+  write_field(pp, 1, p.h1_field)
   close(pp)
 
   if !Sys.iswindows()

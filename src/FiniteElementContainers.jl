@@ -80,6 +80,10 @@ export sideset
 export sideset_ids
 export sideset_names
 
+# Parameters
+export Parameters
+export create_parameters
+
 # Physics
 export AbstractPhysics
 export num_properties
@@ -89,6 +93,13 @@ export num_states
 export PostProcessor
 export write_field
 export write_times
+
+# Solvers
+# export AbstractPreconditioner
+# export AbstractSolver
+export DirectLinearSolver
+export NewtonSolver
+export solve!
 
 # dependencies
 import AcceleratedKernels as AK
@@ -107,6 +118,7 @@ abstract type FEMContainer end
 function cpu end
 function gpu end
 
+# TODO clean this up, make it make sense in an ordered way
 include("fields/Fields.jl")
 include("Meshes.jl")
 include("FunctionSpaces.jl")
@@ -117,5 +129,9 @@ include("formulations/Formulations.jl")
 include("assemblers/Assemblers.jl")
 include("physics/Physics.jl")
 include("PostProcessors.jl")
+
+#
+include("Parameters.jl")
+include("solvers/Solvers.jl")
 
 end # module
