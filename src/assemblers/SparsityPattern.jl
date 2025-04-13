@@ -48,22 +48,11 @@ function SparsityPattern(dof, type::Type{<:H1Field})
   # for (n, conn) in enumerate(values(dof.H1_vars[1].fspace.elem_conns))
   for (n, conn) in enumerate(values(vars[1].fspace.elem_conns))
     ids = reshape(1:n_total_dofs, ND, NN)
-    # conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
-    # display(block)
+    # TODO do we need this operation?
     conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
-
-    # hacky for now
-    # TODO remove this block of code, SVectors are not used
-    # for connectivity anymore
-    if eltype(conn) <: SVector
-      n_entries += length(conn[1])^2 * length(conn)
-      block_sizes[n] = length(conn)
-      block_offsets[n] = length(conn[1])^2
-    else
-      n_entries += size(conn, 1)^2 * size(conn, 2)
-      block_sizes[n] = size(conn, 2)
-      block_offsets[n] = size(conn, 1)^2
-    end
+    n_entries += size(conn, 1)^2 * size(conn, 2)
+    block_sizes[n] = size(conn, 2)
+    block_offsets[n] = size(conn, 1)^2
   end
 
   # convert to NamedTuples so it's easy to index
@@ -78,17 +67,12 @@ function SparsityPattern(dof, type::Type{<:H1Field})
 
   # now loop over function spaces and elements
   n = 1
-  # for fspace in fspaces
-  # for block in valkeys(dof.vars[1].fspace.elem_conns)
-  # for conn in values(dof.H1_vars[1].fspace.elem_conns)
   for conn in values(vars[1].fspace.elem_conns)
     ids = reshape(1:n_total_dofs, ND, NN)
-    # conn = getproperty(dof.vars[1].fspace.elem_conns, block)
+    # TODO do we need this?
     block_conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
 
-    # for e in 1:num_elements(fspace)
     for e in axes(block_conn, 2)
-      # conn = dof_connectivity(fspace, e)
       conn = @views block_conn[:, e]
       for temp in Iterators.product(conn, conn)
         Is[n] = temp[1]
