@@ -1,7 +1,7 @@
 # abstract type AbstractPreconditioner end
 abstract type AbstractSolver end
 
-abstract type AbstractLinearSolver{A <: AbstractAssembler, P} <: AbstractSolver end
+abstract type AbstractLinearSolver{A <: AbstractAssembler, P, Inc} <: AbstractSolver end
 abstract type AbstractNonLinearSolver{L <: AbstractLinearSolver} <: AbstractSolver end
 
 # traditional solver interface
@@ -21,7 +21,7 @@ struct DirectLinearSolver{
   A <: SparseMatrixAssembler, 
   P, 
   Inc <: AbstractArray{<:Number, 1}
-} <: AbstractLinearSolver{A, P}
+} <: AbstractLinearSolver{A, P, Inc}
   assembler::A
   preconditioner::P
   # TODO add some tolerances
@@ -42,7 +42,42 @@ function solve!(solver::DirectLinearSolver, Uu, p)
   K = stiffness(solver.assembler)
   # TODO make a KA kernel for a copy here
   # TODO specialize to backend solvers if they exists
-  solver.ΔUu .= -K \ R
+  # solver.ΔUu .= -K \ R
+  copyto!(solver.ΔUu, -K \ R)
+  update_field_unknowns!(p.h1_field, solver.assembler.dof, solver.ΔUu, +)
+  return nothing
+end
+
+struct IterativeSolver{
+  A,
+  P,
+  Inc,
+  S
+} <: AbstractLinearSolver{A, P, Inc}
+  assembler::A
+  preconditioner::P
+  ΔUu::Inc
+  solver::S
+end
+
+function IterativeSolver(assembler::SparseMatrixAssembler, solver_sym)
+  # TODO
+  preconditioner = I
+  # ΔUu = KA.zeros(KA.get_backend)
+  ΔUu = similar(assembler.residual_unknowns)
+  fill!(ΔUu, zero(eltype(ΔUu)))
+  n = length(ΔUu)
+  solver = eval(solver_sym)(n, n, typeof(ΔUu))
+  return IterativeSolver(assembler, preconditioner, ΔUu, solver)
+end
+
+# TODO specialize for operator like assemblers
+function solve!(solver::IterativeSolver, Uu, p)
+  assemble!(solver.assembler, p.physics, p.h1_field, :residual_and_stiffness)
+  Krylov.solve!(solver.solver, stiffness(solver.assembler), residual(solver.assembler))
+  ΔUu = -Krylov.solution(solver.solver)
+  # solver.ΔUu .= ΔUu 
+  copyto!(solver.ΔUu, ΔUu)
   update_field_unknowns!(p.h1_field, solver.assembler.dof, solver.ΔUu, +)
   return nothing
 end

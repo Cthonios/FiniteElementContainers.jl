@@ -208,6 +208,11 @@ function SparseArrays.spdiagm(assembler::SparseMatrixAssembler)
   return SparseArrays.spdiagm(assembler.constraint_storage)
 end
 
+function constraint_matrix(assembler::SparseMatrixAssembler)
+  # TODO specialize to CPU/GPU
+  return SparseArrays.spdiagm(assembler)
+end
+
 function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
   return SparseArrays.sparse!(assembler, :mass_storage)
 end
@@ -225,7 +230,12 @@ function stiffness(assembler::SparseMatrixAssembler)
 end
 
 # TODO Need to specialize below for different field types
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T) where T <: AbstractArray{DirichletBC}
+# TODO make keyword use_condensed more clear
+# the use case here being to flag how to update the sparsity pattern
+# constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
+# the residual and stiffness appropriately without having to reshape, Is, Js, etc.
+# when we want to change BCs which is slow
+function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T; use_condensed=false) where T <: AbstractArray{DirichletBC}
   vars = assembler.dof.H1_vars
 
   if length(vars) != 1
@@ -236,7 +246,21 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T) where 
 
   # make this more efficient
   dirichlet_dofs = unique!(sort!(vcat(map(x -> x.bookkeeping.dofs, dirichlet_bcs)...)))
-  update_dofs!(assembler, dirichlet_dofs)
+
+  if use_condensed
+    _update_dofs_condensed!(assembler, dirichlet_dofs)
+  else
+    update_dofs!(assembler, dirichlet_dofs)
+  end
+  return nothing
+end
+
+function _update_dofs_condensed!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
+  dirichlet_dofs = copy(dirichlet_dofs)
+  unique!(sort!(dirichlet_dofs))
+  update_dofs!(assembler.dof, dirichlet_dofs)
+  assembler.constraint_storage[assembler.dof.H1_unknown_dofs] .= 1.
+  assembler.constraint_storage[assembler.dof.H1_bc_dofs] .= 0.
   return nothing
 end
 

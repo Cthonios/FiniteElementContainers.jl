@@ -7,6 +7,7 @@ export gpu
 # Assemblers
 export SparseMatrixAssembler
 export assemble!
+export constraint_matrix
 export residual
 export stiffness
 
@@ -98,8 +99,12 @@ export write_times
 # export AbstractPreconditioner
 # export AbstractSolver
 export DirectLinearSolver
+export IterativeSolver
 export NewtonSolver
 export solve!
+
+# other exports from deps
+export Lagrange
 
 # dependencies
 import AcceleratedKernels as AK
