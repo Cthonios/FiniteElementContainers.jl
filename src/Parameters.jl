@@ -77,8 +77,9 @@ function Parameters(
   state_new = nothing
 
   if dbcs !== nothing
-    syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dbcs))
-    dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
+    # syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dbcs))
+    # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
+    dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
   end
 
   if nbcs !== nothing

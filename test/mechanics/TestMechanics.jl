@@ -1,6 +1,5 @@
 using Exodus
 using FiniteElementContainers
-using Krylov
 using Tensors
 
 # mesh file
@@ -70,41 +69,17 @@ function mechanics_test()
 
   # pre-setup some scratch arrays
   Uu = create_unknowns(asm)
-  # p = create_parameters(asm, physics, dbcs)
+  p = create_parameters(asm, physics, dbcs)
 
-  # solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
-  # update_bcs!(H1Field, solver, Uu, p)
+  solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
+  update_bcs!(H1Field, solver, Uu, p)
 
-  # FiniteElementContainers.solve!(solver, Uu, p)
-
-  Ubc = create_bcs(asm, H1Field)
-  U = create_field(asm, H1Field)
-
-  update_field!(U, asm, Uu, Ubc)
-  update_field_bcs!(U, asm.dof, dbcs, 0.)
-
-  assemble!(asm, physics, U, :residual_and_stiffness)
-  
-  K = stiffness(asm)
-
-  for n in 1:5
-    R = residual(asm)
-    ΔUu, stat = cg(-K, R)
-    update_field_unknowns!(U, asm.dof, ΔUu, +)
-    assemble!(asm, physics, U, :residual)
-
-    @show norm(ΔUu) norm(R)
-
-    # if norm(ΔUu) < 1e-12 || norm(Ru) < 1e-12
-    if norm(R) < 1e-12
-      break
-    end
-  end
+  FiniteElementContainers.solve!(solver, Uu, p)
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
-  # write_field(pp, 1, p.h1_field)
-  write_field(pp, 1, U)
+  write_field(pp, 1, p.h1_field)
+  # write_field(pp, 1, U)
   close(pp)
 end
 

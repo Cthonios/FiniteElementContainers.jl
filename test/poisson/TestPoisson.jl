@@ -67,7 +67,8 @@ function poisson()
   rm(output_file; force=true)
 end
 
-poisson()
+@time poisson()
+@time poisson()
 
 # # condensed test
 # mesh = UnstructuredMesh(mesh_file)

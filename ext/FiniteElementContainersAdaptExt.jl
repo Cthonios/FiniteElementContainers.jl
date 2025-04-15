@@ -64,6 +64,15 @@ function Adapt.adapt_structure(to, bc::DirichletBC{S, B, F, V}) where {S, B, F, 
   return DirichletBC{S, typeof(bk), typeof(func), typeof(vals)}(bk, func, vals)
 end
 
+function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCContainer)
+  return FiniteElementContainers.DirichletBCContainer(
+    adapt(to, bc.bookkeeping),
+    adapt(to, bc.funcs),
+    adapt(to, bc.func_ids),
+    adapt(to, bc.vals)
+  )
+end
+
 # function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCCollection)
 #   funcs = Adapt.adapt_structure(to, bc.funcs)
 #   func_ids = Adapt.adapt_structure(to, bc.func_ids)
