@@ -1,6 +1,6 @@
-abstract type AbstractBCBookKeeping{S, T <: Integer, V <: AbstractArray{T, 1}} end
+abstract type AbstractBCBookKeeping{D, S, T <: Integer, V <: AbstractArray{T, 1}} end
 
-struct BCBookKeeping{S, T, V} <: AbstractBCBookKeeping{S, T, V}
+struct BCBookKeeping{D, S, T, V} <: AbstractBCBookKeeping{D, S, T, V}
   blocks::V
   dofs::V
   elements::V
@@ -12,6 +12,7 @@ end
 
 # TODO also need to adapt this to differ on what var_name we look for based on build_dofs_array
 # e.g. if it's neumann and a vector look for :u but if it's dirichlet and a vector look for :u_x
+# this only works for H1 spaces currently
 function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; build_dofs_array=false)
   # need to extract the var from dof based on teh symbol name
   var_index = 0
@@ -57,17 +58,37 @@ function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; bui
 
   # setting up dofs for use in dirichlet bcs
   if build_dofs_array
-    all_dofs = reshape(1:length(dof), num_dofs_per_node(dof), num_nodes(dof))
+    ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+    n_total_dofs = ND * NN
+    # all_dofs = reshape(1:length(dof), num_dofs_per_node(dof), num_nodes(dof))
+    all_dofs = reshape(1:n_total_dofs, ND, NN)
     dofs = all_dofs[dof_index, nodes]
   else
     dofs = Vector{Int64}(undef, 0)
   end
+  
+  # TODO
+  ND = size(dof.H1_vars[1].fspace.coords, 1)
+  return BCBookKeeping{ND, sset_name, Int64, typeof(blocks)}(blocks, dofs, elems, nodes, sides)
+end
 
-  return BCBookKeeping{sset_name, Int64, typeof(blocks)}(blocks, dofs, elems, nodes, sides)
+num_dimensions(::BCBookKeeping{D, S, T, V}) where {D, S, T, V} = D
+
+struct BCFunction{T}
+  func::T
+end
+
+function (bc::BCFunction{T})(x, t) where T
+  return bc.func(x, t)
 end
 
 # actual bcs
-abstract type AbstractBC{S, B <: AbstractBCBookKeeping, F <: Function, V <: AbstractArray{<:Number, 1}} end
+abstract type AbstractBC{
+  S, 
+  B <: AbstractBCBookKeeping, 
+  F <: BCFunction, 
+  V <: AbstractArray{<:Number, 1}
+} end
 name(::AbstractBC{S, B, F, V}) where {S, B, F, V} = S
 
 # function Base.NamedTuple(bcs::AbstractArray{T, 1}) where T <: AbstractBC
@@ -75,93 +96,112 @@ name(::AbstractBC{S, B, F, V}) where {S, B, F, V} = S
 #   return NamedTuple{syms}(bcs)
 # end
 
-struct DirichletBC{S, B, F, V} <: AbstractBC{S, B, F, V}
-  bookkeeping::B
-  func::F
-  vals::V
+function (bc::AbstractBC)(x, t)
+  return bc.func(x, t)
 end
 
-function DirichletBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func::Function)
-  bookkeeping = BCBookKeeping(dof, var_name, sset_name; build_dofs_array=true)
-  vals = zeros(Float64, length(bookkeeping.nodes))
-  sym = Symbol(var_name, :_, sset_name)
-  return DirichletBC{sym, typeof(bookkeeping), typeof(func), typeof(vals)}(bookkeeping, func, vals)
+KA.get_backend(x::AbstractBC) = KA.get_backend(x.vals)
+
+# need checks on if field types are compatable
+function _update_bc_values!(bc::AbstractBC, X, t, ::KA.CPU)
+  ND = num_dimensions(bc.bookkeeping)
+  # for (n, dof) in enumerate(bc.bookkeeping.dofs)
+  for (n, node) in enumerate(bc.bookkeeping.nodes)
+    X_temp = @views SVector{ND, eltype(X)}(X[:, node])
+    bc.vals[n] = bc.func(X_temp, t)
+  end
+  return nothing
 end
 
-struct NeumannBC{S, B, F, V} <: AbstractBC{S, B, F, V}
-  bookkeeping::B
-  func::F
-  vals::V
+KA.@kernel function _update_bc_values_kernel!(bc, X, t)
+  I = KA.@index(Global)
+  # ND = num_dimensions(bc)
+  # dof = bc.bookkeeping.dofs[I]
+  # X_temp = SVector{ND, eltype(X)}(X[:, dof])
+  # X_temp = X[:, bc.bookkeeping.dofs[I]]
+  # @inbounds bc.vals[I] = bc.func(X[:, bc.bookkeeping.dofs[I]], t)
+  # TODO can't get the coordinates to propagate through
+  bc.vals[I] = bc.func(0., t)
 end
 
-# TODO need to hack the var_name thing
-function NeumannBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func::Function)
-  bookkeeping = BCBookKeeping(dof, var_name, sset_name)
-  vals = zeros(Float64, length(bookkeeping.elements))
-  sym = Symbol(var_name, :_, sset_name) # TODO maybe add func name?
-  return DirichletBC{sym, typeof(bookkeeping), typeof(func), typeof(vals)}(bookkeeping, func, vals)
+function _update_bc_values!(bc::AbstractBC, X, t, backend::KA.Backend)
+  kernel! = _update_bc_values_kernel!(backend)
+  kernel!(bc, X, t, ndrange=length(bc.bookkeeping.dofs))
+  return nothing
 end
 
-function nonunique(v)
-  sv = sort(v)
-  return unique(@view sv[[diff(sv).==0; false]])
+function update_bc_values!(bc::AbstractBC, X, t)
+  backend = KA.get_backend(bc)
+  @assert backend == KA.get_backend(X)
+  _update_bc_values!(bc, X, t, backend)
+  return nothing
 end
 
-struct DirichletBCCollection{Fs, IDs}
-  funcs::Fs
-  func_ids::IDs
-end
+# function nonunique(v)
+#   sv = sort(v)
+#   return unique(@view sv[[diff(sv).==0; false]])
+# end
 
-# Better to iterate over functions and feed each func into a kernel
-# with the associated local to global Ubc IDs
+# struct DirichletBCCollection{Fs, IDs}
+#   funcs::Fs
+#   func_ids::IDs
+# end
 
-function DirichletBCCollection(dbcs)
-  # setup func nt
-  funcs = tuple(map(x -> x.func, dbcs)...)
-  func_names = tuple(map(x -> Symbol("func_$x"), 1:length(funcs))...)
-  funcs = NamedTuple{func_names}(funcs)
+# # Better to iterate over functions and feed each func into a kernel
+# # with the associated local to global Ubc IDs
 
-  dofs = tuple(map(x -> x.bookkeeping.dofs, dbcs)...)
-  n_dofs = length(unique(vcat(dofs...)))
+# function DirichletBCCollection(dbcs)
+#   # setup func nt
+#   funcs = tuple(map(x -> x.func, dbcs)...)
+#   func_names = tuple(map(x -> Symbol("func_$x"), 1:length(funcs))...)
+#   funcs = NamedTuple{func_names}(funcs)
 
-  n_per_func = map(x -> length(x.bookkeeping.dofs))
+#   dofs = tuple(map(x -> x.bookkeeping.dofs, dbcs)...)
+#   n_dofs = length(unique(vcat(dofs...)))
 
-  # grab all dofs
-  # dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs)
-  # dofs_perm = sortperm(dofs)
-  # dofs_unique = unique(i -> dofs[i], eachindex(dofs))
+#   n_per_func = map(x -> length(x.bookkeeping.dofs))
 
-  # # dofs = nonunique(mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs))
-  # for dof in nonunique(dofs)
-  #   @warn "Repeated dof $dof encounted in DirichletBCCollection"
-  # end
+#   # grab all dofs
+#   # dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs)
+#   # dofs_perm = sortperm(dofs)
+#   # dofs_unique = unique(i -> dofs[i], eachindex(dofs))
 
-  # func_ids = zeros(Int, 0)
-  # for (n, bc) in enumerate(dbcs)
-  #   # append!(func_ids, )
-  #   append!(func_ids, fill(n, length(bc.bookkeeping.dofs)))
-  # end
+#   # # dofs = nonunique(mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs))
+#   # for dof in nonunique(dofs)
+#   #   @warn "Repeated dof $dof encounted in DirichletBCCollection"
+#   # end
+
+#   # func_ids = zeros(Int, 0)
+#   # for (n, bc) in enumerate(dbcs)
+#   #   # append!(func_ids, )
+#   #   append!(func_ids, fill(n, length(bc.bookkeeping.dofs)))
+#   # end
 
   
 
-  # func_ids = func_ids[dofs_perm][dofs_unique]
-  # return DirichletBCCollection(funcs, func_ids)
-end
+#   # func_ids = func_ids[dofs_perm][dofs_unique]
+#   # return DirichletBCCollection(funcs, func_ids)
+# end
 
-function create_bcs(dbcs::DirichletBCCollection, time)
-  backend = KA.get_backend(dbcs.func_ids)
-  vals = KA.zeros(backend, Float64, length(dbcs.func_ids))
+# function create_bcs(dbcs::DirichletBCCollection, time)
+#   backend = KA.get_backend(dbcs.func_ids)
+#   vals = KA.zeros(backend, Float64, length(dbcs.func_ids))
 
-  AK.foreachindex(dbcs.func_ids) do n
-    # TODO change to coords
-    func_id = dbcs.func_ids[n]
-    func = values(dbcs.funcs)[func_id]  
-    # vals[n] = values(dbcs.funcs)[dbcs.func_ids[n]](time, time)
-  end
-  return vals
-end
+#   AK.foreachindex(dbcs.func_ids) do n
+#     # TODO change to coords
+#     func_id = dbcs.func_ids[n]
+#     func = values(dbcs.funcs)[func_id]  
+#     # vals[n] = values(dbcs.funcs)[dbcs.func_ids[n]](time, time)
+#   end
+#   return vals
+# end
+
+include("DirichletBCs.jl")
+include("NeumannBCs.jl")
 
 # CPU only for now
+# TODO remove this one eventually
+# currenlty used in a mechanics test
 function update_field_bcs!(U::H1Field, dof::DofManager, dbc::DirichletBC, t)
   X_global = dof.H1_vars[1].fspace.coords
   for (n, node) in enumerate(dbc.bookkeeping.nodes)
@@ -173,3 +213,4 @@ function update_field_bcs!(U::H1Field, dof::DofManager, dbc::DirichletBC, t)
   end
   return nothing
 end
+

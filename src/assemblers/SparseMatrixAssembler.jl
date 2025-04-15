@@ -28,9 +28,12 @@ Construct a ```SparseMatrixAssembler``` for a specific field type,
 e.g. ```H1Field```.
 Can be used to create block arrays for mixed FEM problems.
 """
-function SparseMatrixAssembler(dof::DofManager, type::Type{<:AbstractField})
+function SparseMatrixAssembler(dof::DofManager, type::Type{<:H1Field})
   pattern = SparsityPattern(dof, type)
-  constraint_storage = zeros(length(dof))
+  # constraint_storage = zeros(length(dof))
+  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  n_total_dofs = ND * NN
+  constraint_storage = zeros(n_total_dofs)
   # constraint_storage = zeros(_dof_manager_vars(dof, type))
   constraint_storage[dof.H1_bc_dofs] .= 1.
   # fill!(constraint_storage, )
@@ -49,12 +52,10 @@ function SparseMatrixAssembler(dof::DofManager, type::Type{<:AbstractField})
   )
 end
 
-# TODO how best to do this?
-# Should probably be a block array maybe?
-# function SparseMatrixAssembler(vars...)
-#   dof = DofManager(vars...)
-#   return SparseMatrixAssembler(dof)
-# end 
+function SparseMatrixAssembler(::Type{<:H1Field}, vars...)
+  dof = DofManager(vars...)
+  return SparseMatrixAssembler(dof, H1Field)
+end
 
 function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "SparseMatrixAssembler")
@@ -96,16 +97,42 @@ Assembly method for a block labelled as block_id. This is a CPU implementation
 with no threading.
 
 TODO add state variables and physics properties
-TODO remove Float64 typing below for eventual unitful use
 """
-function _assemble_block!(assembler, physics, ::Val{:stiffness}, ref_fe, U, X, conns, block_id, ::KA.CPU)
+function _assemble_block_mass!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
     x_el = _element_level_coordinates(X, ref_fe, conns, e)
     u_el = _element_level_fields(U, ref_fe, conns, e)
-    K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
+    M_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.mass_storage), NxNDof * NxNDof})
+
+    for q in 1:num_quadrature_points(ref_fe)
+      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+      M_q = mass(physics, interps, u_el)
+      M_el = M_el + M_q
+    end
+    
+    @views _assemble_element!(assembler, Val{:mass}(), M_el, conns[:, e], e, block_id)
+  end
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+Assembly method for a block labelled as block_id. This is a CPU implementation
+with no threading.
+
+TODO add state variables and physics properties
+"""
+function _assemble_block_stiffness!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  for e in axes(conns, 2)
+    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    u_el = _element_level_fields(U, ref_fe, conns, e)
+    K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})
 
     for q in 1:num_quadrature_points(ref_fe)
       interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
@@ -126,15 +153,15 @@ with no threading.
 TODO add state variables and physics properties
 TODO remove Float64 typing below for eventual unitful use
 """
-function _assemble_block!(assembler, physics, ::Val{:residual_and_stiffness}, ref_fe, U, X, conns, block_id, ::KA.CPU)
+function _assemble_block_residual_and_stiffness!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
     x_el = _element_level_coordinates(X, ref_fe, conns, e)
     u_el = _element_level_fields(U, ref_fe, conns, e)
-    R_el = zeros(SVector{NxNDof, Float64})
-    K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
+    R_el = zeros(SVector{NxNDof, eltype(assembler.residual_storage)})
+    K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})
 
     for q in 1:num_quadrature_points(ref_fe)
       interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
@@ -181,6 +208,19 @@ function SparseArrays.spdiagm(assembler::SparseMatrixAssembler)
   return SparseArrays.spdiagm(assembler.constraint_storage)
 end
 
+function constraint_matrix(assembler::SparseMatrixAssembler)
+  # TODO specialize to CPU/GPU
+  return SparseArrays.spdiagm(assembler)
+end
+
+function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
+  return SparseArrays.sparse!(assembler, :mass_storage)
+end
+
+function mass(assembler::SparseMatrixAssembler)
+  return _mass(assembler, KA.get_backend(assembler))
+end
+
 function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
   return SparseArrays.sparse!(assembler, :stiffness_storage)
 end
@@ -190,7 +230,12 @@ function stiffness(assembler::SparseMatrixAssembler)
 end
 
 # TODO Need to specialize below for different field types
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T) where T <: AbstractArray{DirichletBC}
+# TODO make keyword use_condensed more clear
+# the use case here being to flag how to update the sparsity pattern
+# constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
+# the residual and stiffness appropriately without having to reshape, Is, Js, etc.
+# when we want to change BCs which is slow
+function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T; use_condensed=false) where T <: AbstractArray{DirichletBC}
   vars = assembler.dof.H1_vars
 
   if length(vars) != 1
@@ -201,21 +246,38 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T) where 
 
   # make this more efficient
   dirichlet_dofs = unique!(sort!(vcat(map(x -> x.bookkeeping.dofs, dirichlet_bcs)...)))
-  update_dofs!(assembler, dirichlet_dofs)
+
+  if use_condensed
+    _update_dofs_condensed!(assembler, dirichlet_dofs)
+  else
+    update_dofs!(assembler, dirichlet_dofs)
+  end
+  return nothing
+end
+
+function _update_dofs_condensed!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
+  dirichlet_dofs = copy(dirichlet_dofs)
+  unique!(sort!(dirichlet_dofs))
+  update_dofs!(assembler.dof, dirichlet_dofs)
+  assembler.constraint_storage[assembler.dof.H1_unknown_dofs] .= 1.
+  assembler.constraint_storage[assembler.dof.H1_bc_dofs] .= 0.
   return nothing
 end
 
 # TODO part of this method should be moved to SparsityPattern.jl
 # TODO specialize on field type
+# TODO probably only works on H1 write now
 function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1} 
   dirichlet_dofs = copy(dirichlet_dofs)
   unique!(sort!(dirichlet_dofs))
   update_dofs!(assembler.dof, dirichlet_dofs)
 
   # resize the resiual unkowns
-  resize!(assembler.residual_unknowns, num_unknowns(assembler.dof))
+  n_total_H1_dofs = num_nodes(assembler.dof) * num_dofs_per_node(assembler.dof)
+  resize!(assembler.residual_unknowns, length(assembler.dof.H1_unknown_dofs))
 
-  n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
+  # n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
+  n_total_dofs = n_total_H1_dofs - length(dirichlet_dofs)
 
   # TODO change to a good sizehint!
   resize!(assembler.pattern.Is, 0)
@@ -223,7 +285,8 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where
   resize!(assembler.pattern.unknown_dofs, 0)
 
   ND, NN = num_dofs_per_node(assembler.dof), num_nodes(assembler.dof)
-  ids = reshape(1:length(assembler.dof), ND, NN)
+  # ids = reshape(1:length(assembler.dof), ND, NN)
+  ids = reshape(1:n_total_H1_dofs, ND, NN)
 
   # TODO
   vars = assembler.dof.H1_vars
@@ -260,11 +323,15 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where
   return nothing
 end
 
-function _zero_storage(asm::SparseMatrixAssembler, ::Val{:stiffness})
-  fill!(asm.stiffness_storage, zero(eltype(asm.stiffness_storage)))
+function _zero_storage(asm::SparseMatrixAssembler, ::Val{:mass})
+  fill!(asm.mass_storage, zero(eltype(asm.mass_storage)))
 end
 
 function _zero_storage(asm::SparseMatrixAssembler, ::Val{:residual_and_stiffness})
   _zero_storage(asm, Val{:residual}())
+  fill!(asm.stiffness_storage, zero(eltype(asm.stiffness_storage)))
+end
+
+function _zero_storage(asm::SparseMatrixAssembler, ::Val{:stiffness})
   fill!(asm.stiffness_storage, zero(eltype(asm.stiffness_storage)))
 end

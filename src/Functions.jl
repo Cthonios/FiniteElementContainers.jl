@@ -83,20 +83,29 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function TensorFunction(fspace::FunctionSpace, sym)
-  syms = ()
-  if size(fspace.coords, 1) == 2
+function TensorFunction(fspace::FunctionSpace, sym; use_spatial_dimension=false)
+  # switch for whether to do the sensible thing for constitutive equations
+  # e.g. always use 3x3 for displacement gradient regardless of dimension
+  if use_spatial_dimension
+    ND = size(values(fspace.coords)[1], 1)
+  else
+    ND = 3
+  end
+
+  if ND == 2
     components = [
       :_xx, :_yy, 
       :_xy, :_yx
     ]
-  elseif size(fspace.coords, 1) == 3
+  elseif ND == 3
     components = [
       :_xx, :_yy, :_zz, 
       :_yz, :_xz, :_xy, 
       :_zy, :_zx, :_yx
     ]
   end
+
+  syms = ()
   for n in axes(components, 1)
     syms = (syms..., String(sym) * String(components[n]))
   end
@@ -119,25 +128,38 @@ end
 
 """
 $(TYPEDSIGNATURES)
+Uses numbering consistent with exodus output, is this the right thing to do?
+Should it be consistent with Tensors.jl
 """
-function SymmetricTensorFunction(fspace::FunctionSpace, sym)
-  syms = ()
-  if size(fspace.coords, 1) == 2
+function SymmetricTensorFunction(fspace::FunctionSpace, sym; use_spatial_dimension=false)
+  # switch for whether to do the sensible thing for constitutive equations
+  # e.g. always use 3x3 for displacement gradient regardless of dimension
+  if use_spatial_dimension
+    ND = size(values(fspace.coords)[1], 1)
+  else
+    ND = 3
+  end
+
+  # build component symbol extensions
+  if ND == 2
     components = [
       :_xx, :_yy, 
       :_xy
     ]
-  elseif size(fspace.coords, 1) == 3
+  elseif ND == 3
     components = [
       :_xx, :_yy, :_zz, 
       :_yz, :_xz, :_xy,
     ]
   end
+
+  # finally set up component symbols
+  syms = ()
   for n in axes(components, 1)
     syms = (syms..., String(sym) * String(components[n]))
   end
   syms = Symbol.(syms)
-  return TensorFunction{syms, typeof(fspace)}(fspace)
+  return SymmetricTensorFunction{syms, typeof(fspace)}(fspace)
 end
 
 function Base.show(io::IO, ::SymmetricTensorFunction{S, F}) where {S, F}

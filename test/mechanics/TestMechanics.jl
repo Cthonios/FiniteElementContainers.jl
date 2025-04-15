@@ -1,7 +1,6 @@
 using Exodus
 using FiniteElementContainers
 using Krylov
-using Parameters
 using Tensors
 
 # mesh file
@@ -24,7 +23,7 @@ function strain_energy(∇u)
 end
 
 function FiniteElementContainers.residual(physics::Mechanics, cell, u_el, args...)
-  @unpack X_q, N, ∇N_X, JxW = cell
+  (; X_q, N, ∇N_X, JxW) = cell
 
   # kinematics
   ∇u_q = u_el * ∇N_X
@@ -35,12 +34,12 @@ function FiniteElementContainers.residual(physics::Mechanics, cell, u_el, args..
   P_q = extract_stress(physics.formulation, P_q)
   G_q = discrete_gradient(physics.formulation, ∇N_X)
   f_q = G_q * P_q
-  return f_q[:]
+  return JxW * f_q[:]
   # return f_q
 end
 
 function FiniteElementContainers.stiffness(physics::Mechanics, cell, u_el, args...)
-  @unpack X_q, N, ∇N_X, JxW = cell
+  (; X_q, N, ∇N_X, JxW) = cell
 
   # kinematics
   ∇u_q = u_el * ∇N_X
@@ -50,7 +49,7 @@ function FiniteElementContainers.stiffness(physics::Mechanics, cell, u_el, args.
   # turn into voigt notation
   K_q = extract_stiffness(physics.formulation, K_q)
   G_q = discrete_gradient(physics.formulation, ∇N_X)
-  return G_q * K_q * G_q'
+  return JxW * G_q * K_q * G_q'
 end
 
 function mechanics_test()
@@ -59,8 +58,7 @@ function mechanics_test()
   physics = Mechanics(PlaneStrain())
 
   u = VectorFunction(V, :displ)
-  dof = DofManager(u)
-  asm = SparseMatrixAssembler(dof, H1Field)
+  asm = SparseMatrixAssembler(H1Field, u)
 
   dbcs = DirichletBC[
     DirichletBC(asm.dof, :displ_x, :sset_3, fixed),
@@ -72,39 +70,42 @@ function mechanics_test()
 
   # pre-setup some scratch arrays
   Uu = create_unknowns(asm)
+  # p = create_parameters(asm, physics, dbcs)
+
+  # solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
+  # update_bcs!(H1Field, solver, Uu, p)
+
+  # FiniteElementContainers.solve!(solver, Uu, p)
+
   Ubc = create_bcs(asm, H1Field)
   U = create_field(asm, H1Field)
 
   update_field!(U, asm, Uu, Ubc)
   update_field_bcs!(U, asm.dof, dbcs, 0.)
 
-  @time assemble!(asm, physics, U, :residual_and_stiffness)
+  assemble!(asm, physics, U, :residual_and_stiffness)
+  
   K = stiffness(asm)
 
   for n in 1:5
-    Ru = residual(asm)
-    # ΔUu, stat = cg(-K, Ru)
-    ΔUu = -K \ Ru
+    R = residual(asm)
+    ΔUu, stat = cg(-K, R)
     update_field_unknowns!(U, asm.dof, ΔUu, +)
     assemble!(asm, physics, U, :residual)
 
-    @show norm(ΔUu) norm(Ru)
+    @show norm(ΔUu) norm(R)
 
     # if norm(ΔUu) < 1e-12 || norm(Ru) < 1e-12
-    if norm(Ru) < 1e-12
+    if norm(R) < 1e-12
       break
     end
   end
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
+  # write_field(pp, 1, p.h1_field)
   write_field(pp, 1, U)
   close(pp)
 end
 
-@time mechanics_test()
-@time mechanics_test()
-# ∇u = zero(Tensor{2, 3, Float64, 9})
-# strain_energy(∇u)
-# gradient(strain_energy, ∇u)
-# hessian(strain_energy, ∇u)
+mechanics_test()

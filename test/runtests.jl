@@ -1,9 +1,8 @@
 using Aqua
 using Exodus
 using FiniteElementContainers
-using JET
+# using JET
 using LinearAlgebra
-using Parameters
 using ReferenceFiniteElements
 using StaticArrays
 using Tensors
@@ -23,8 +22,7 @@ include("TestPhysics.jl")
 # end
 
 @testset ExtendedTestSet "Poisson problem" begin
-  # include("poisson/TestPoisson.jl")
-  include("poisson/TestPoisson2.jl")
+  include("poisson/TestPoisson.jl")
 end
 
 @testset ExtendedTestSet "Mechanics Problem" begin

@@ -38,24 +38,38 @@ function _assemble_element!(global_val::H1Field, local_val, conn, e, b)
   return nothing
 end
 
-"""
-$(TYPEDSIGNATURES)
-Assembly method for a block labelled as block_id.
+# """
+# $(TYPEDSIGNATURES)
+# Assembly method for a block labelled as block_id.
 
-This is a top level method that simply dispatches to CPU/GPU specializations
-based on the backend of assembler and also checks for consistent backends.
+# This is a top level method that simply dispatches to CPU/GPU specializations
+# based on the backend of assembler and also checks for consistent backends.
 
-This method is common acroos all value types, e.g. energy, residual, stiffness, etc.
-to maintain a common method call syntax. The difference in dispatch is handled by the 
-sym argument. 
-"""
-function _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, block_id)
+# This method is common acroos all value types, e.g. energy, residual, stiffness, etc.
+# to maintain a common method call syntax. The difference in dispatch is handled by the 
+# sym argument. 
+# """
+# function _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, block_id)
+#   backend = KA.get_backend(assembler)
+#   # TODO add get_backend method of ref_fe
+#   @assert backend == KA.get_backend(U)
+#   @assert backend == KA.get_backend(X)
+#   @assert backend == KA.get_backend(conns)
+#   _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, block_id, backend)
+# end
+
+_assemble_block_method_from_sym(::Val{:mass}) = _assemble_block_mass!
+_assemble_block_method_from_sym(::Val{:residual}) = _assemble_block_residual!
+_assemble_block_method_from_sym(::Val{:residual_and_stiffness}) = _assemble_block_residual_and_stiffness!
+_assemble_block_method_from_sym(::Val{:stiffness}) = _assemble_block_stiffness!
+
+function _check_backends(assembler, U, X, conns)
   backend = KA.get_backend(assembler)
   # TODO add get_backend method of ref_fe
   @assert backend == KA.get_backend(U)
   @assert backend == KA.get_backend(X)
   @assert backend == KA.get_backend(conns)
-  _assemble_block!(assembler, physics, Val{sym}(), ref_fe, U, X, conns, block_id, backend)
+  return backend
 end
 
 """
@@ -63,14 +77,25 @@ $(TYPEDSIGNATURES)
 Top level assembly method for ```H1Field``` that loops over blocks and dispatches
 to appropriate kernels based on sym.
 """
-function assemble!(assembler, physics, U::H1Field, sym::Symbol)
-  _zero_storage(assembler, Val{sym}())
+function assemble!(assembler, physics, U::H1Field, sym)
+  val_sym = Val{sym}()
+  _assemble_block_method! = _assemble_block_method_from_sym(val_sym)
+  _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
   X = fspace.coords
   for (b, conns) in enumerate(values(fspace.elem_conns))
     ref_fe = values(fspace.ref_fes)[b]
-    _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, b)
+    backend = _check_backends(assembler, U, X, conns)
+    _assemble_block_method!(assembler, physics, ref_fe, U, X, conns, b, backend)
   end
+end
+
+# wrapper that uses Uu and p
+# TODO only works on H1 fields right now
+function assemble!(assembler, physics, Uu, p, sym)
+  update_field_bcs!(p.h1_field, assembler.dof, p.h1_bcs, p.t)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  assemble!(assembler, physics, p.h1_field, sym)
   return nothing
 end
 
@@ -86,6 +111,11 @@ create_field(asm::AbstractAssembler, type) = create_field(asm.dof, type)
 $(TYPEDSIGNATURES)
 """
 create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
+
+"""
+$(TYPEDSIGNATURES)
+"""
+create_unknowns(asm::AbstractAssembler, type::Type{<:AbstractField}) = create_unknowns(asm.dof, type)
 
 """
 $(TYPEDSIGNATURES)

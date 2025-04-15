@@ -48,13 +48,13 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
 end
 
 # Boundary Conditions
-function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{S, T, V}) where {S, T, V}
+function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{D, S, T, V}) where {D, S, T, V}
   blocks = Adapt.adapt_structure(to, bk.blocks)
   dofs = Adapt.adapt_structure(to, bk.dofs)
   elements = Adapt.adapt_structure(to, bk.elements)
   nodes = Adapt.adapt_structure(to, bk.nodes)
   sides = Adapt.adapt_structure(to, bk.sides)
-  return FiniteElementContainers.BCBookKeeping{S, T, typeof(blocks)}(blocks, dofs, elements, nodes, sides)
+  return FiniteElementContainers.BCBookKeeping{D, S, T, typeof(blocks)}(blocks, dofs, elements, nodes, sides)
 end
 
 function Adapt.adapt_structure(to, bc::DirichletBC{S, B, F, V}) where {S, B, F, V}
@@ -149,7 +149,7 @@ end
 # #   )
 # # end
 
-# # Variables
+# # Functions
 function Adapt.adapt_structure(to, var::ScalarFunction)
   syms = names(var)
   fspace = Adapt.adapt_structure(to, var.fspace)
@@ -174,6 +174,29 @@ function Adapt.adapt_structure(to, var::VectorFunction)
   return VectorFunction{syms, typeof(fspace)}(fspace)
 end
  
+function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
+  return FiniteElementContainers.Parameters(
+    Adapt.adapt_structure(to, p.dirichlet_bcs),
+    Adapt.adapt_structure(to, p.neumann_bcs),
+    Adapt.adapt_structure(to, p.times),
+    Adapt.adapt_structure(to, p.physics),
+    Adapt.adapt_structure(to, p.properties),
+    Adapt.adapt_structure(to, p.state_old),
+    Adapt.adapt_structure(to, p.state_new),
+    Adapt.adapt_structure(to, p.h1_dbcs),
+    Adapt.adapt_structure(to, p.h1_field)
+  )
+end
+
+function Adapt.adapt_structure(to, p::FiniteElementContainers.TimeStepper)
+  return FiniteElementContainers.TimeStepper(
+    Adapt.adapt_structure(to, p.time_start),
+    Adapt.adapt_structure(to, p.time_end),
+    Adapt.adapt_structure(to, p.time_current),
+    Adapt.adapt_structure(to, p.Δt)
+  )
+end
+
 # # # # """
 # # # # Need to use SparseArrays.allowscalar(false)
 # # # # """

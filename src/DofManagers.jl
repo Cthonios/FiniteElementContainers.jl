@@ -1,14 +1,11 @@
 # TODO
-# need to add L2 element and L2 quadrature dofs. They don't need to deliniate between
-# bcs or unknowns
-#
-# deliniate between different var types e.g. H1, Hdiv, etc.
-#
-# TODO
 # Should we create a small DofManager for single functions spaces
-# and one for mixed function spaces for an easier interface? Yes.
+# and one for mixed function spaces for an easier interface? Maybe.
 # what would be the container though? A namedtuple? Or just a general
 # one?
+# TODO need to make NL2EDofs and NL2QDofs namedtuples Otherwise
+# all blocks need have the same number of vars there
+# which will not be the case for properties and state variables
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -26,9 +23,10 @@ struct DofManager{
   Hcurl_unknown_dofs::IDs
   Hdiv_bc_dofs::IDs
   Hdiv_unknown_dofs::IDs
+  # we can save space by having the below two fields be ranges
   L2_element_dofs::IDs
   L2_quadrature_dofs::IDs
-  # TODO make bins of vars
+  # bins of vars
   H1_vars::H1Vars
   Hcurl_vars::HcurlVars
   Hdiv_vars::HdivVars
@@ -133,7 +131,15 @@ function _dof_manager_sym_name(u::ScalarFunction)
   return names(u)[1]
 end
 
+function _dof_manager_sym_name(u::SymmetricTensorFunction)
+  return Symbol(split(String(names(u)[1]), ['_'])[1])
+end
+
 function _dof_manager_sym_name(u::StateFunction)
+  return Symbol(split(String(names(u)[1]), ['_'])[1])
+end
+
+function _dof_manager_sym_name(u::TensorFunction)
   return Symbol(split(String(names(u)[1]), ['_'])[1])
 end
 
@@ -277,6 +283,31 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function create_field(dof::DofManager, ::Type{H1Field}, syms)
+  backend = KA.get_backend(dof.H1_bc_dofs)
+  NF, NN = num_dofs_per_node(dof), num_nodes(dof)
+  field = KA.zeros(backend, Float64, NF, NN)
+  @assert NF == length(syms)
+  return H1Field(field, syms)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function create_field(dof::DofManager, ::Type{L2QuadratureField})
+  backend = KA.get_backend(dof.L2_quadrature_dofs)
+  fspace = dof.L2_quadrature_vars[1].fspace
+  # NS = 
+  for ref_fe in fspace.ref_fes
+    @show ref_fe
+    NQ = num_quadrature_points(ref_fe)
+
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function create_unknowns(dof::DofManager)
   n_unknowns = length(dof.H1_unknown_dofs) + 
                length(dof.Hcurl_unknown_dofs) + 
@@ -285,6 +316,11 @@ function create_unknowns(dof::DofManager)
                length(dof.L2_quadrature_dofs)
 
   # return typeof(dof.vars[1].fspace.coords.vals)
+  return KA.zeros(KA.get_backend(dof), Float64, n_unknowns)
+end
+
+function create_unknowns(dof::DofManager, ::Type{<:H1Field})
+  n_unknowns = length(dof.H1_unknown_dofs)
   return KA.zeros(KA.get_backend(dof), Float64, n_unknowns)
 end
 
@@ -300,6 +336,19 @@ num_dofs_per_edge(::DofManager{
   NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
   H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
 } = NHcurlDofs
+
+"""
+$(TYPEDSIGNATURES)
+"""
+num_dofs_per_element(::DofManager{
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+}) where {
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+} = NL2EDofs
 
 """
 $(TYPEDSIGNATURES)
@@ -326,6 +375,19 @@ num_dofs_per_node(::DofManager{
   NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
   H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
 } = NH1Dofs
+
+"""
+$(TYPEDSIGNATURES)
+"""
+num_dofs_per_quadrature_point(::DofManager{
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+}) where {
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+} = NL2QDofs
 
 """
 $(TYPEDSIGNATURES)
