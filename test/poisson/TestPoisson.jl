@@ -1,7 +1,5 @@
 using Exodus
 using FiniteElementContainers
-using LinearAlgebra
-using Parameters
 
 # mesh file
 gold_file = "./poisson/poisson.gold"
@@ -16,14 +14,14 @@ struct Poisson <: AbstractPhysics{1, 0, 0}
 end
 
 function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)
-  @unpack X_q, N, ∇N_X, JxW = cell
+  (; X_q, N, ∇N_X, JxW) = cell
   ∇u_q = u_el * ∇N_X
   R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
   return JxW * R_q[:]
 end
 
 function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
-  @unpack X_q, N, ∇N_X, JxW = cell
+  (; X_q, N, ∇N_X, JxW) = cell
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q
 end
@@ -53,7 +51,9 @@ function poisson()
 
   # solver = NewtonSolver(DirectLinearSolver(asm))
   solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
-  update_field!(p.h1_field, solver.linear_solver.assembler.dof, Uu, p.h1_dbcs)
+  # this call below updates the BCs...
+  # maybe we should change that name?
+  update_bcs!(H1Field, solver, Uu, p)
 
   FiniteElementContainers.solve!(solver, Uu, p)
 

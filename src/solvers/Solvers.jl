@@ -10,6 +10,32 @@ function residual end
 function tangent end
 function update_preconditioner! end
 
+function update_bcs!(::Type{H1Field}, solver::AbstractLinearSolver, Uu, p)
+  X = solver.assembler.dof.H1_vars[1].fspace.coords
+  t = current_time(p.times)
+
+  # rework this maybe so it's not resized?
+  resize!(p.h1_dbcs, 0)
+
+  for bc in values(p.dirichlet_bcs)
+    update_bc_values!(bc, X, t)
+    append!(p.h1_dbcs, bc.vals)
+  end
+  # remove me once you add error checking on dofs
+  if length(p.h1_dbcs) != length(solver.assembler.dof.H1_bc_dofs)
+    @warn "You may have a BC dof that is repeated. Beware!"
+    resize!(p.h1_dbcs, length(solver.assembler.dof.H1_bc_dofs))
+  end
+
+  update_field!(p.h1_field, solver.assembler.dof, Uu, p.h1_dbcs)
+  return nothing
+end
+
+function update_bcs!(::Type{H1Field}, solver::AbstractNonLinearSolver, Uu, p)
+  update_bcs!(H1Field, solver.linear_solver, Uu, p)
+  return nothing
+end
+
 # optimization based solver interface
 function gradient end
 function hessian end
@@ -73,7 +99,9 @@ end
 
 # TODO specialize for operator like assemblers
 function solve!(solver::IterativeSolver, Uu, p)
-  assemble!(solver.assembler, p.physics, p.h1_field, :residual_and_stiffness)
+  # assemble!(solver.assembler, p.physics, p.h1_field, :residual_and_stiffness)
+  assemble!(solver.assembler, p.physics, p.h1_field, :residual)
+  assemble!(solver.assembler, p.physics, p.h1_field, :stiffness)
   Krylov.solve!(solver.solver, stiffness(solver.assembler), residual(solver.assembler))
   ΔUu = -Krylov.solution(solver.solver)
   # solver.ΔUu .= ΔUu 

@@ -4,6 +4,7 @@ using CUDA
 using Exodus
 using FiniteElementContainers
 using Krylov
+using LinearAlgebra
 using Parameters
 
 # mesh file
@@ -50,6 +51,10 @@ function poisson_cuda()
   # TODO this one will be tough to do on the GPU
   update_dofs!(asm, dbcs)
 
+  # create parameters on CPU
+  # TODO make a better constructor
+  p = create_parameters(asm, physics, dbcs)
+
   # need to assemble once before moving to GPU
   # TODO try to wrap this in the |> gpu call
   U = create_field(asm, H1Field)
@@ -57,38 +62,17 @@ function poisson_cuda()
   K = stiffness(asm)
 
   # device movement
+  p = p |> gpu
   asm_gpu = asm |> gpu
-  dbcs_gpu = dbcs .|> gpu
 
+  solver = NewtonSolver(IterativeSolver(asm_gpu, :CgSolver))
   Uu = create_unknowns(asm_gpu)
-  Ubc = create_bcs(asm_gpu, H1Field)
-  # Ubc = create_bcs(asm_gpu.dof, H1Field, dbcs_gpu, 0.0)
-  # Ubc = create_bcs(asm.dof, H1Field, dbcs, 0.0) |> gpu
-  U = create_field(asm_gpu, H1Field)
+  update_bcs!(H1Field, solver, Uu, p)
+  FiniteElementContainers.solve!(solver, Uu, p)
 
-  update_field!(U, asm_gpu, Uu, Ubc)
-  assemble!(asm_gpu, physics, U, :residual)
-  assemble!(asm_gpu, physics, U, :stiffness)
-
-  # Ru = residual(asm_gpu)
-  K = stiffness(asm_gpu)
-
-  for n in 1:3
-    # ΔUu = -K \ Ru
-    Ru = residual(asm_gpu)
-    ΔUu, stats = cg(-K, Ru)
-    update_field_unknowns!(U, asm_gpu.dof, ΔUu, +)
-    assemble!(asm_gpu, physics, U, :residual)
-
-    @show norm(ΔUu) norm(Ru)
-
-    if norm(ΔUu) < 1e-12 || norm(Ru) < 1e-12
-      break
-    end
-  end
-
-  # update_field!(U, asm_gpu, Uu, Ubc)
-  U = U |> cpu
+  # transfer to cpu to post-process
+  p = p |> cpu
+  U = p.h1_field
 
   write_times(pp, 1, 0.0)
   write_field(pp, 1, U)
@@ -97,5 +81,3 @@ end
 
 @time poisson_cuda()
 @time poisson_cuda()
-
-# @benchmark poisson_cuda()

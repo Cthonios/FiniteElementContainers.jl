@@ -3,7 +3,6 @@ using Exodus
 using FiniteElementContainers
 # using JET
 using LinearAlgebra
-using Parameters
 using ReferenceFiniteElements
 using StaticArrays
 using Tensors

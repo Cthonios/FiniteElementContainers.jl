@@ -1,7 +1,6 @@
 using Exodus
 using FiniteElementContainers
 using Krylov
-using Parameters
 using Tensors
 
 # mesh file
@@ -24,7 +23,7 @@ function strain_energy(∇u)
 end
 
 function FiniteElementContainers.residual(physics::Mechanics, cell, u_el, args...)
-  @unpack X_q, N, ∇N_X, JxW = cell
+  (; X_q, N, ∇N_X, JxW) = cell
 
   # kinematics
   ∇u_q = u_el * ∇N_X
@@ -35,12 +34,12 @@ function FiniteElementContainers.residual(physics::Mechanics, cell, u_el, args..
   P_q = extract_stress(physics.formulation, P_q)
   G_q = discrete_gradient(physics.formulation, ∇N_X)
   f_q = G_q * P_q
-  return f_q[:]
+  return JxW * f_q[:]
   # return f_q
 end
 
 function FiniteElementContainers.stiffness(physics::Mechanics, cell, u_el, args...)
-  @unpack X_q, N, ∇N_X, JxW = cell
+  (; X_q, N, ∇N_X, JxW) = cell
 
   # kinematics
   ∇u_q = u_el * ∇N_X
@@ -50,7 +49,7 @@ function FiniteElementContainers.stiffness(physics::Mechanics, cell, u_el, args.
   # turn into voigt notation
   K_q = extract_stiffness(physics.formulation, K_q)
   G_q = discrete_gradient(physics.formulation, ∇N_X)
-  return G_q * K_q * G_q'
+  return JxW * G_q * K_q * G_q'
 end
 
 function mechanics_test()
@@ -71,6 +70,13 @@ function mechanics_test()
 
   # pre-setup some scratch arrays
   Uu = create_unknowns(asm)
+  # p = create_parameters(asm, physics, dbcs)
+
+  # solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
+  # update_bcs!(H1Field, solver, Uu, p)
+
+  # FiniteElementContainers.solve!(solver, Uu, p)
+
   Ubc = create_bcs(asm, H1Field)
   U = create_field(asm, H1Field)
 
@@ -97,6 +103,7 @@ function mechanics_test()
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
+  # write_field(pp, 1, p.h1_field)
   write_field(pp, 1, U)
   close(pp)
 end
