@@ -72,6 +72,7 @@ function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; bui
   return BCBookKeeping{ND, sset_name, Int64, typeof(blocks)}(blocks, dofs, elems, nodes, sides)
 end
 
+KA.get_backend(bk::BCBookKeeping) = KA.get_backend(bk.blocks)
 num_dimensions(::BCBookKeeping{D, S, T, V}) where {D, S, T, V} = D
 
 struct BCFunction{T}
@@ -103,12 +104,14 @@ end
 KA.get_backend(x::AbstractBC) = KA.get_backend(x.vals)
 
 # need checks on if field types are compatable
-function _update_bc_values!(bc::AbstractBC, X, t, ::KA.CPU)
+function _update_bc_values!(bc, X, t, ::KA.CPU)
   ND = num_dimensions(bc.bookkeeping)
   # for (n, dof) in enumerate(bc.bookkeeping.dofs)
   for (n, node) in enumerate(bc.bookkeeping.nodes)
     X_temp = @views SVector{ND, eltype(X)}(X[:, node])
-    bc.vals[n] = bc.func(X_temp, t)
+    # bc.vals[n] = bc.func(X_temp, t)
+    func_id = bc.func_ids[n]
+    bc.vals[n] = values(bc.funcs)[func_id](X_temp, t)
   end
   return nothing
 end
@@ -121,16 +124,18 @@ KA.@kernel function _update_bc_values_kernel!(bc, X, t)
   # X_temp = X[:, bc.bookkeeping.dofs[I]]
   # @inbounds bc.vals[I] = bc.func(X[:, bc.bookkeeping.dofs[I]], t)
   # TODO can't get the coordinates to propagate through
-  bc.vals[I] = bc.func(0., t)
+  # bc.vals[I] = bc.func(0., t)
+  func_id = bc.func_ids[I]
+  bc.vals[I] = values(bc.funcs)[func_id](0., t)
 end
 
-function _update_bc_values!(bc::AbstractBC, X, t, backend::KA.Backend)
+function _update_bc_values!(bc, X, t, backend::KA.Backend)
   kernel! = _update_bc_values_kernel!(backend)
   kernel!(bc, X, t, ndrange=length(bc.bookkeeping.dofs))
   return nothing
 end
 
-function update_bc_values!(bc::AbstractBC, X, t)
+function update_bc_values!(bc, X, t)
   backend = KA.get_backend(bc)
   @assert backend == KA.get_backend(X)
   _update_bc_values!(bc, X, t, backend)

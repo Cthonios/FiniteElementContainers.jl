@@ -5,7 +5,6 @@ using Exodus
 using FiniteElementContainers
 using Krylov
 using LinearAlgebra
-using Parameters
 
 # mesh file
 gold_file = "./test/poisson/poisson.gold"
@@ -20,14 +19,14 @@ struct Poisson <: AbstractPhysics{1, 0, 0}
 end
 
 function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)
-  @unpack X_q, N, ∇N_X, JxW = cell
+  (; X_q, N, ∇N_X, JxW) = cell
   ∇u_q = u_el * ∇N_X
   R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
   return JxW * R_q[:]
 end
 
 function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
-  @unpack X_q, N, ∇N_X, JxW = cell
+  (; X_q, N, ∇N_X, JxW) = cell
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q
 end
@@ -58,7 +57,7 @@ function poisson_cuda()
   # need to assemble once before moving to GPU
   # TODO try to wrap this in the |> gpu call
   U = create_field(asm, H1Field)
-  assemble!(asm, physics, U, :stiffness)
+  @time assemble!(asm, physics, U, :stiffness)
   K = stiffness(asm)
 
   # device movement

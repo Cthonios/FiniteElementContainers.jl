@@ -14,19 +14,8 @@ function update_bcs!(::Type{H1Field}, solver::AbstractLinearSolver, Uu, p)
   X = solver.assembler.dof.H1_vars[1].fspace.coords
   t = current_time(p.times)
 
-  # rework this maybe so it's not resized?
-  resize!(p.h1_dbcs, 0)
-
-  for bc in values(p.dirichlet_bcs)
-    update_bc_values!(bc, X, t)
-    append!(p.h1_dbcs, bc.vals)
-  end
-  # remove me once you add error checking on dofs
-  if length(p.h1_dbcs) != length(solver.assembler.dof.H1_bc_dofs)
-    @warn "You may have a BC dof that is repeated. Beware!"
-    resize!(p.h1_dbcs, length(solver.assembler.dof.H1_bc_dofs))
-  end
-
+  update_bc_values!(p.dirichlet_bcs, X, t)
+  copyto!(p.h1_dbcs, p.dirichlet_bcs.vals)
   update_field!(p.h1_field, solver.assembler.dof, Uu, p.h1_dbcs)
   return nothing
 end
