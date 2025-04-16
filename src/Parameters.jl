@@ -106,3 +106,7 @@ function create_parameters(assembler, physics, dbcs=nothing, nbcs=nothing)
   return Parameters(assembler, physics, dbcs, nbcs)
 end
 
+function update_dofs!(asm::SparseMatrixAssembler, p::Parameters)
+  update_dofs!(asm, p.dirichlet_bcs)
+  Base.resize!(p.h1_dbcs, length(asm.dof.H1_bc_dofs))
+end

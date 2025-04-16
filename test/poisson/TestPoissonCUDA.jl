@@ -31,7 +31,7 @@ function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
   return JxW * K_q
 end
 
-function poisson_cuda()
+# function poisson_cuda()
   # do all setup on CPU
   # the mesh for instance is not gpu compatable
   mesh = UnstructuredMesh(mesh_file)
@@ -48,12 +48,12 @@ function poisson_cuda()
     DirichletBC(asm.dof, :u, :sset_4, bc_func),
   ]
   # TODO this one will be tough to do on the GPU
-  update_dofs!(asm, dbcs)
+  # update_dofs!(asm, dbcs)
 
   # create parameters on CPU
   # TODO make a better constructor
   p = create_parameters(asm, physics, dbcs)
-
+  update_dofs!(asm, p)
   # need to assemble once before moving to GPU
   # TODO try to wrap this in the |> gpu call
   U = create_field(asm, H1Field)
@@ -76,7 +76,7 @@ function poisson_cuda()
   write_times(pp, 1, 0.0)
   write_field(pp, 1, U)
   close(pp)
-end
+# end
 
-@time poisson_cuda()
-@time poisson_cuda()
+# @time poisson_cuda()
+# @time poisson_cuda()

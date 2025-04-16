@@ -43,11 +43,13 @@ function poisson()
     DirichletBC(asm.dof, :u, :sset_3, bc_func),
     DirichletBC(asm.dof, :u, :sset_4, bc_func),
   ]
-  update_dofs!(asm, dbcs)
+  # update_dofs!(asm, dbcs)
 
   # pre-setup some scratch arrays
-  Uu = create_unknowns(asm)
   p = create_parameters(asm, physics, dbcs)
+  # where to put below guy?
+  update_dofs!(asm, p)
+  Uu = create_unknowns(asm)
 
   # solver = NewtonSolver(DirectLinearSolver(asm))
   solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
@@ -68,7 +70,7 @@ function poisson()
 end
 
 @time poisson()
-@time poisson()
+# @time poisson()
 
 # # condensed test
 # mesh = UnstructuredMesh(mesh_file)
