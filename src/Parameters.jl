@@ -77,9 +77,16 @@ function Parameters(
   state_new = nothing
 
   if dbcs !== nothing
-    # syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dbcs))
+    syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dbcs))
     # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
-    dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
+    # dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
+    dbcs = DirichletBCContainer.((assembler.dof,), dbcs)
+    temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs)
+    temp_dofs = unique(sort(temp_dofs))
+    dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
+    # TODO eventually do something different here
+    # update_dofs!(assembler.dof, dbcs.bookkeeping.dofs)
+    update_dofs!(assembler.dof, temp_dofs)
   end
 
   if nbcs !== nothing
@@ -92,7 +99,7 @@ function Parameters(
     times = TimeStepper(0., 0., 1)
   end
 
-  return Parameters(
+  p = Parameters(
     dbcs, nbcs, 
     times,
     physics, 
@@ -100,6 +107,10 @@ function Parameters(
     state_old, state_new, 
     h1_dbcs, h1_field
   )
+
+  update_dofs!(assembler, p)
+
+  return p
 end
 
 function create_parameters(assembler, physics, dbcs=nothing, nbcs=nothing)
@@ -107,6 +118,8 @@ function create_parameters(assembler, physics, dbcs=nothing, nbcs=nothing)
 end
 
 function update_dofs!(asm::SparseMatrixAssembler, p::Parameters)
+  # temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, values(p.dirichlet_bcs))
   update_dofs!(asm, p.dirichlet_bcs)
   Base.resize!(p.h1_dbcs, length(asm.dof.H1_bc_dofs))
+  return nothing
 end
