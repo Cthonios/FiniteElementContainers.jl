@@ -57,11 +57,10 @@ function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{D, 
   return FiniteElementContainers.BCBookKeeping{D, S, T, typeof(blocks)}(blocks, dofs, elements, nodes, sides)
 end
 
-function Adapt.adapt_structure(to, bc::DirichletBC{S, B, F, V}) where {S, B, F, V}
-  bk = Adapt.adapt_structure(to, bc.bookkeeping)
-  func = Adapt.adapt_structure(to, bc.func)
-  vals = Adapt.adapt_structure(to, bc.vals)
-  return DirichletBC{S, typeof(bk), typeof(func), typeof(vals)}(bk, func, vals)
+function Adapt.adapt_structure(to, bc::DirichletBC{S, B, F}) where {S, B, F}
+  bk = adapt(to, bc.bookkeeping)
+  func = adapt(to, bc.func)
+  return DirichletBC{S, typeof(bk), typeof(func)}(bk, func)
 end
 
 function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCContainer)

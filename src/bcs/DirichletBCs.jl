@@ -1,15 +1,13 @@
-struct DirichletBC{S, B, F, V} <: AbstractBC{S, B, F, V}
+struct DirichletBC{S, B, F} <: AbstractBC{S, B, F}
   bookkeeping::B
   func::F
-  vals::V
 end
 
 function DirichletBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func::Function)
   bookkeeping = BCBookKeeping(dof, var_name, sset_name; build_dofs_array=true)
-  vals = zeros(Float64, length(bookkeeping.nodes))
   sym = Symbol(var_name, :_, sset_name)
   func = BCFunction(func)
-  return DirichletBC{sym, typeof(bookkeeping), typeof(func), typeof(vals)}(bookkeeping, func, vals)
+  return DirichletBC{sym, typeof(bookkeeping), typeof(func)}(bookkeeping, func)
 end
 
 function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
@@ -19,7 +17,7 @@ function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
   perm
 end
 
-struct DirichletBCContainer{B, F, I, V}
+struct DirichletBCContainer{B, F, I, V} <: AbstractBCContainer{B, F, I, V}
   bookkeeping::B
   funcs::F
   func_ids::I
@@ -32,8 +30,6 @@ function DirichletBCContainer(dbcs, num_dim)
   elements = mapreduce(x -> x.bookkeeping.elements, vcat, dbcs)
   nodes = mapreduce(x -> x.bookkeeping.nodes, vcat, dbcs)
   sides = mapreduce(x -> x.bookkeeping.sides, vcat, dbcs)
-  # func_ids = map((x, y) -> repeat(length(y.bookkeeping.dofs), x), 1:length(dbcs), dbcs) |> vcat
-  # func_ids = map((x, y) -> )
   func_ids = mapreduce(
     (x, y) -> fill(x, length(y.bookkeeping.dofs)), 
     vcat, 
@@ -41,13 +37,10 @@ function DirichletBCContainer(dbcs, num_dim)
   )
   vals = zeros(length(dofs))
 
-  # perm = sortperm(dofs)
   dof_perm = _unique_sort_perm(dofs)
   el_perm = _unique_sort_perm(elements)
   blocks = blocks[el_perm]
   dofs = dofs[dof_perm]
-  # @show maximum(dofs)
-  # @show length(dofs)
   elements = elements[el_perm]
   nodes = nodes[dof_perm]
   sides = sides[el_perm]
@@ -63,4 +56,5 @@ function DirichletBCContainer(dbcs, num_dim)
   return DirichletBCContainer(bk, funcs, func_ids, vals)
 end
 
+num_dimensions(bc::DirichletBCContainer) = num_dimensions(bc.bookkeeping)
 KA.get_backend(x::DirichletBCContainer) = KA.get_backend(x.bookkeeping)

@@ -31,7 +31,7 @@ function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
   return JxW * K_q
 end
 
-function poisson_cuda()
+# function poisson_cuda()
   # do all setup on CPU
   # the mesh for instance is not gpu compatable
   mesh = UnstructuredMesh(mesh_file)
@@ -76,7 +76,7 @@ function poisson_cuda()
   write_times(pp, 1, 0.0)
   write_field(pp, 1, U)
   close(pp)
-end
+# end
 
-@time poisson_cuda()
-@time poisson_cuda()
+# @time poisson_cuda()
+# @time poisson_cuda()
