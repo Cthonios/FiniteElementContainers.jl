@@ -229,36 +229,40 @@ function stiffness(assembler::SparseMatrixAssembler)
   return _stiffness(assembler, KA.get_backend(assembler))
 end
 
+# TODO probably only works for H1 fields
 # TODO Need to specialize below for different field types
 # TODO make keyword use_condensed more clear
 # the use case here being to flag how to update the sparsity pattern
 # constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::T; use_condensed=false) where T <: AbstractArray{DirichletBC}
+
+function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::DirichletBCContainer; use_condensed=false)
   vars = assembler.dof.H1_vars
 
   if length(vars) != 1
     @assert false "multiple fspace not supported yet"
   end
 
-  # fspace = vars[1].fspace
+  dirichlet_dofs = dirichlet_bcs.bookkeeping.dofs
 
-  # make this more efficient
-  dirichlet_dofs = unique!(sort!(vcat(map(x -> x.bookkeeping.dofs, dirichlet_bcs)...)))
+  update_dofs!(assembler.dof, dirichlet_dofs)
 
   if use_condensed
-    _update_dofs_condensed!(assembler, dirichlet_dofs)
+    _update_dofs_condensed!(assembler)
   else
-    update_dofs!(assembler, dirichlet_dofs)
+    _update_dofs!(assembler, dirichlet_dofs)
   end
   return nothing
 end
+# TODO Need to specialize below for different field types
+# TODO make keyword use_condensed more clear
+# the use case here being to flag how to update the sparsity pattern
+# constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
+# the residual and stiffness appropriately without having to reshape, Is, Js, etc.
+# when we want to change BCs which is slow
 
-function _update_dofs_condensed!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
-  dirichlet_dofs = copy(dirichlet_dofs)
-  unique!(sort!(dirichlet_dofs))
-  update_dofs!(assembler.dof, dirichlet_dofs)
+function _update_dofs_condensed!(assembler::SparseMatrixAssembler)
   assembler.constraint_storage[assembler.dof.H1_unknown_dofs] .= 1.
   assembler.constraint_storage[assembler.dof.H1_bc_dofs] .= 0.
   return nothing
@@ -267,10 +271,7 @@ end
 # TODO part of this method should be moved to SparsityPattern.jl
 # TODO specialize on field type
 # TODO probably only works on H1 write now
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1} 
-  dirichlet_dofs = copy(dirichlet_dofs)
-  unique!(sort!(dirichlet_dofs))
-  update_dofs!(assembler.dof, dirichlet_dofs)
+function _update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
 
   # resize the resiual unkowns
   n_total_H1_dofs = num_nodes(assembler.dof) * num_dofs_per_node(assembler.dof)
@@ -293,14 +294,10 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where
   fspace = vars[1].fspace
 
   n = 1
-  # for fspace in fspaces
   for conns in values(fspace.elem_conns)
     dof_conns = @views reshape(ids[:, conns], ND * size(conns, 1), size(conns, 2))
 
-    # for e in 1:num_elements(fspace)
     for e in 1:size(conns, 2)
-    # AK.foraxes(conns, 2) do e
-      # conn = dof_connectivity(fspace, e)
       conn = @views dof_conns[:, e]
       for temp in Iterators.product(conn, conn)
         if insorted(temp[1], dirichlet_dofs) || insorted(temp[2], dirichlet_dofs)

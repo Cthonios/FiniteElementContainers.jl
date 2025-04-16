@@ -443,8 +443,8 @@ Currently this only works with H1 spaces.
 """
 function update_dofs!(dof::DofManager, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
   ND, NN = num_dofs_per_node(dof), num_nodes(dof)
-  resize!(dof.H1_bc_dofs, length(dirichlet_dofs))
-  resize!(dof.H1_unknown_dofs, ND * NN)
+  Base.resize!(dof.H1_bc_dofs, length(dirichlet_dofs))
+  Base.resize!(dof.H1_unknown_dofs, ND * NN)
 
   # checking dirichlet dofs make sense for this dof manager
   # for d in dirichlet_dofs

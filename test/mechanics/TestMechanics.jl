@@ -65,11 +65,13 @@ function mechanics_test()
     DirichletBC(asm.dof, :displ_x, :sset_1, fixed),
     DirichletBC(asm.dof, :displ_y, :sset_1, displace),
   ]
-  update_dofs!(asm, dbcs)
+  # update_dofs!(asm, dbcs)
 
   # pre-setup some scratch arrays
-  Uu = create_unknowns(asm)
+  # Uu = create_unknowns(asm)
   p = create_parameters(asm, physics, dbcs)
+  update_dofs!(asm, p)
+  Uu = create_unknowns(asm)
 
   solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
   update_bcs!(H1Field, solver, Uu, p)

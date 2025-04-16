@@ -1,3 +1,10 @@
+function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
+  # chatgpt BS below. Make this not use a dict
+  sorted_unique = sort(unique(array))
+  id_map = Dict(x => findfirst(==(x), array) for x in sorted_unique)
+  return [id_map[x] for x in sorted_unique]
+end
+
 struct BCBookKeeping{D, S, T, V}
   blocks::V
   dofs::V

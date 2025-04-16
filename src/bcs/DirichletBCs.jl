@@ -10,13 +10,6 @@ function DirichletBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func:
   return DirichletBC{sym, typeof(bookkeeping), typeof(func)}(bookkeeping, func)
 end
 
-function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
-  ids = unique(i -> array[i], 1:length(array))
-  unique_array = array[ids]
-  perm = sortperm!(ids, unique_array)
-  perm
-end
-
 struct DirichletBCContainer{B, F, I, V} <: AbstractBCContainer{B, F, I, V}
   bookkeeping::B
   funcs::F
@@ -24,7 +17,15 @@ struct DirichletBCContainer{B, F, I, V} <: AbstractBCContainer{B, F, I, V}
   vals::V
 end
 
+# TODO modify as follows
+# 1. remove bookkeeping from bcs
+# 2. have bcs only take in a sset name, var name, and func
+# 3. create one giant bookkeeper here
 function DirichletBCContainer(dbcs, num_dim)
+
+  # quick hack fix for now
+  
+
   blocks = mapreduce(x -> repeat(x.bookkeeping.blocks, length(x.bookkeeping.elements)), vcat, dbcs)
   dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs)
   elements = mapreduce(x -> x.bookkeeping.elements, vcat, dbcs)
