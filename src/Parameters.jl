@@ -63,10 +63,10 @@ end
 # 4. add different fspace types
 # 5. convert vectors of dbcs/nbcs into namedtuples
 function Parameters(
-  assembler, physics, 
-  dbcs=nothing, 
-  nbcs=nothing, 
-  times=nothing
+  assembler, physics,
+  dirichlet_bcs, 
+  neumann_bcs, 
+  times
 )
   h1_dbcs = create_bcs(assembler, H1Field)
   h1_field = create_field(assembler, H1Field)
@@ -76,22 +76,22 @@ function Parameters(
   state_old = nothing
   state_new = nothing
 
-  if dbcs !== nothing
-    syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dbcs))
+  if dirichlet_bcs !== nothing
+    syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
     # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
     # dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
-    dbcs = DirichletBCContainer.((assembler.dof,), dbcs)
-    temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs)
+    dirichlet_bcs = DirichletBCContainer.((assembler.dof,), dirichlet_bcs)
+    temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
     temp_dofs = unique(sort(temp_dofs))
-    dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
+    dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
     # TODO eventually do something different here
     # update_dofs!(assembler.dof, dbcs.bookkeeping.dofs)
     update_dofs!(assembler.dof, temp_dofs)
   end
 
-  if nbcs !== nothing
-    syms = map(x -> Symbol("neumann_bc_$x"), 1:length(nbcs))
-    dbcs = NamedTuple{tuple(syms...)}(tuple(nbcs...))
+  if neumann_bcs !== nothing
+    syms = map(x -> Symbol("neumann_bc_$x"), 1:length(neumann_bcs))
+    neumann_bcs = NamedTuple{tuple(syms...)}(tuple(neumann_bcs...))
   end
 
   # dummy time stepper for a static problem
@@ -100,7 +100,8 @@ function Parameters(
   end
 
   p = Parameters(
-    dbcs, nbcs, 
+    dirichlet_bcs,
+    neumann_bcs, 
     times,
     physics, 
     properties, 
@@ -113,13 +114,23 @@ function Parameters(
   return p
 end
 
-function create_parameters(assembler, physics, dbcs=nothing, nbcs=nothing)
-  return Parameters(assembler, physics, dbcs, nbcs)
+function create_parameters(
+  assembler, physics; 
+  dirichlet_bcs=nothing, 
+  neumann_bcs=nothing,
+  times=nothing
+)
+  return Parameters(assembler, physics, dirichlet_bcs, neumann_bcs, times)
 end
 
 function update_dofs!(asm::SparseMatrixAssembler, p::Parameters)
   # temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, values(p.dirichlet_bcs))
   update_dofs!(asm, p.dirichlet_bcs)
   Base.resize!(p.h1_dbcs, length(asm.dof.H1_bc_dofs))
+  return nothing
+end
+
+function update_time!(p::Parameters)
+  fill!(p.times.time_current, current_time(p.times) + time_step(p.times))
   return nothing
 end

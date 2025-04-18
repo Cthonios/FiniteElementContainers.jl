@@ -8,7 +8,7 @@ mesh_file = "./mechanics/mechanics.g"
 output_file = "./mechanics/mechanics.e"
 
 fixed(_, _) = 0.
-displace(_, _) = 1.e-3
+displace(_, t) = 1.e-3 * t
 
 struct Mechanics{Form} <: AbstractPhysics{2, 0, 0}
   formulation::Form
@@ -67,13 +67,16 @@ function mechanics_test()
   ]
 
   # pre-setup some scratch arrays
-  p = create_parameters(asm, physics, dbcs)
-  Uu = create_unknowns(asm)
+  times = TimeStepper(0., 1., 1)
+  p = create_parameters(asm, physics; dirichlet_bcs=dbcs, times=times)
+  # Uu = create_unknowns(asm)
 
-  solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
-  update_bcs!(H1Field, solver, Uu, p)
+  solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p)
+  # update_bcs!(H1Field, solver, Uu, p)
 
-  FiniteElementContainers.solve!(solver, Uu, p)
+  # FiniteElementContainers.solve!(solver, Uu, p)
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)

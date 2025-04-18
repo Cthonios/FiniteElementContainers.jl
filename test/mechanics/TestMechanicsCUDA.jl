@@ -10,7 +10,7 @@ mesh_file = "./test/mechanics/mechanics.g"
 output_file = "./test/mechanics/mechanics.e"
 
 fixed(_, _) = 0.
-displace(_, _) = 1.e-3
+displace(_, t) = 1.e-3 * t
 
 struct Mechanics{Form} <: AbstractPhysics{2, 0, 0}
   formulation::Form
@@ -69,7 +69,8 @@ end
   ]
 
   # pre-setup some scratch arrays
-  p = create_parameters(asm, physics, dbcs)
+  times = TimeStepper(0., 1., 1)
+  p = create_parameters(asm, physics; dirichlet_bcs=dbcs, times=times)
 
   U = create_field(asm, H1Field)
   @time assemble!(asm, physics, U, :stiffness)
@@ -79,13 +80,15 @@ end
   p_gpu = p |> gpu
   asm_gpu = asm |> gpu
 
-  solver = NewtonSolver(IterativeSolver(asm_gpu, :CgSolver))
-  Uu = create_unknowns(asm_gpu)
+  solver = NewtonSolver(IterativeLinearSolver(asm_gpu, :CgSolver))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p_gpu)
+  # Uu = create_unknowns(asm_gpu)
 
-  update_bcs!(H1Field, solver, Uu, p_gpu)
+  # update_bcs!(H1Field, solver, Uu, p_gpu)
 
-  @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
-  @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
+  # @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
+  # @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
 
   p = p_gpu |> cpu
 

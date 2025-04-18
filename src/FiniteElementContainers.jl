@@ -61,6 +61,11 @@ export SymmetricTensorFunction
 export TensorFunction
 export VectorFunction
 
+# Integrators
+export AbstractIntegrator
+export QuasiStaticIntegrator
+export evolve!
+
 # Meshes
 export FileMesh
 export UnstructuredMesh
@@ -84,6 +89,7 @@ export sideset_names
 
 # Parameters
 export Parameters
+export TimeStepper
 export create_parameters
 
 # Physics
@@ -100,7 +106,7 @@ export write_times
 # export AbstractPreconditioner
 # export AbstractSolver
 export DirectLinearSolver
-export IterativeSolver
+export IterativeLinearSolver
 export NewtonSolver
 export solve!
 
@@ -139,5 +145,6 @@ include("PostProcessors.jl")
 #
 include("Parameters.jl")
 include("solvers/Solvers.jl")
+include("integrators/Integrators.jl")
 
 end # module

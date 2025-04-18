@@ -48,12 +48,10 @@ end
     DirichletBC(:u, :sset_3, bc_func),
     DirichletBC(:u, :sset_4, bc_func_2),
   ]
-  # TODO this one will be tough to do on the GPU
-  # update_dofs!(asm, dbcs)
 
   # create parameters on CPU
   # TODO make a better constructor
-  p = create_parameters(asm, physics, dbcs)
+  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
   # need to assemble once before moving to GPU
   # TODO try to wrap this in the |> gpu call
   U = create_field(asm, H1Field)
@@ -64,11 +62,9 @@ end
   p_gpu = p |> gpu
   asm_gpu = asm |> gpu
 
-  solver = NewtonSolver(IterativeSolver(asm_gpu, :CgSolver))
-  Uu = create_unknowns(asm_gpu)
-  update_bcs!(H1Field, solver, Uu, p_gpu)
-  @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
-  @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
+  solver = NewtonSolver(IterativeLinearSolver(asm_gpu, :CgSolver))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p_gpu)
 
   # transfer to cpu to post-process
   p = p_gpu |> cpu

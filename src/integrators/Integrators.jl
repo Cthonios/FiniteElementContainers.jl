@@ -1,6 +1,14 @@
-abstract type AbstractIntegrator{Solver} end
+abstract type AbstractIntegrator{
+  Solution <: AbstractArray{<:Number, 1},
+  Solver <: AbstractNonLinearSolver
+} end
 # abstract type AbstractFirstOrderIntegrator <: AbstractIntegrator end
 # abstract type AbstractSecondOrderIntegrator <: AbstractIntegrator end
-abstract type AbstractStaticIntegrator{Solver, Solution} <: AbstractIntegrator{Solver, Solution} end
+abstract type AbstractStaticIntegrator{
+  Solution,
+  Solver
+} <: AbstractIntegrator{Solution, Solver} end
 
-include("StaticIntegrator.jl")
+function evolve! end
+
+include("QuasiStaticIntegrator.jl")
