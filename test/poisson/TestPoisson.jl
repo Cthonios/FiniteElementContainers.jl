@@ -38,23 +38,21 @@ function poisson()
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(asm.dof, :u, :sset_1, bc_func),
-    DirichletBC(asm.dof, :u, :sset_2, bc_func),
-    DirichletBC(asm.dof, :u, :sset_3, bc_func),
-    DirichletBC(asm.dof, :u, :sset_4, bc_func),
+    DirichletBC(:u, :sset_1, bc_func),
+    DirichletBC(:u, :sset_2, bc_func),
+    DirichletBC(:u, :sset_3, bc_func),
+    DirichletBC(:u, :sset_4, bc_func),
   ]
   # update_dofs!(asm, dbcs)
 
-  # pre-setup some scratch arrays
+  # # pre-setup some scratch arrays
   p = create_parameters(asm, physics, dbcs)
-  # where to put below guy?
-  update_dofs!(asm, p)
   Uu = create_unknowns(asm)
 
-  # solver = NewtonSolver(DirectLinearSolver(asm))
+  # # # solver = NewtonSolver(DirectLinearSolver(asm))
   solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
-  # this call below updates the BCs...
-  # maybe we should change that name?
+  # # # this call below updates the BCs...
+  # # # maybe we should change that name?
   update_bcs!(H1Field, solver, Uu, p)
 
   FiniteElementContainers.solve!(solver, Uu, p)

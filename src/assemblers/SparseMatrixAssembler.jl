@@ -237,14 +237,16 @@ end
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
 
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs::DirichletBCContainer; use_condensed=false)
+function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs; use_condensed=false)
   vars = assembler.dof.H1_vars
 
   if length(vars) != 1
     @assert false "multiple fspace not supported yet"
   end
 
-  dirichlet_dofs = dirichlet_bcs.bookkeeping.dofs
+  # dirichlet_dofs = dirichlet_bcs.bookkeeping.dofs
+  dirichlet_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
+  dirichlet_dofs = unique(sort(dirichlet_dofs))
 
   update_dofs!(assembler.dof, dirichlet_dofs)
 

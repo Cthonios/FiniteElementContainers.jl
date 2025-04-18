@@ -1,11 +1,13 @@
+using Adapt
+using CUDA
 using Exodus
 using FiniteElementContainers
 using Tensors
 
 # mesh file
-gold_file = "./mechanics/mechanics.gold"
-mesh_file = "./mechanics/mechanics.g"
-output_file = "./mechanics/mechanics.e"
+gold_file = "./test/mechanics/mechanics.gold"
+mesh_file = "./test/mechanics/mechanics.g"
+output_file = "./test/mechanics/mechanics.e"
 
 fixed(_, _) = 0.
 displace(_, _) = 1.e-3
@@ -51,7 +53,7 @@ function FiniteElementContainers.stiffness(physics::Mechanics, cell, u_el, args.
   return JxW * G_q * K_q * G_q'
 end
 
-function mechanics_test()
+# function mechanics_test()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Mechanics(PlaneStrain())
@@ -68,18 +70,29 @@ function mechanics_test()
 
   # pre-setup some scratch arrays
   p = create_parameters(asm, physics, dbcs)
-  Uu = create_unknowns(asm)
 
-  solver = NewtonSolver(IterativeSolver(asm, :CgSolver))
-  update_bcs!(H1Field, solver, Uu, p)
+  U = create_field(asm, H1Field)
+  @time assemble!(asm, physics, U, :stiffness)
+  K = stiffness(asm)
 
-  FiniteElementContainers.solve!(solver, Uu, p)
+  # move to device
+  p_gpu = p |> gpu
+  asm_gpu = asm |> gpu
+
+  solver = NewtonSolver(IterativeSolver(asm_gpu, :CgSolver))
+  Uu = create_unknowns(asm_gpu)
+
+  update_bcs!(H1Field, solver, Uu, p_gpu)
+
+  @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
+  @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
+
+  p = p_gpu |> cpu
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
   write_field(pp, 1, p.h1_field)
-  # write_field(pp, 1, U)
   close(pp)
-end
+# end
 
-mechanics_test()
+# mechanics_test()

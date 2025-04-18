@@ -14,6 +14,7 @@ output_file = "./test/poisson/poisson.e"
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 bc_func(_, _) = 0.
+bc_func_2(_, _) = 0.
 
 struct Poisson <: AbstractPhysics{1, 0, 0}
 end
@@ -42,10 +43,10 @@ end
   pp = PostProcessor(mesh, output_file, u)
 
   dbcs = DirichletBC[
-    DirichletBC(asm.dof, :u, :sset_1, bc_func),
-    DirichletBC(asm.dof, :u, :sset_2, bc_func),
-    DirichletBC(asm.dof, :u, :sset_3, bc_func),
-    DirichletBC(asm.dof, :u, :sset_4, bc_func),
+    DirichletBC(:u, :sset_1, bc_func),
+    DirichletBC(:u, :sset_2, bc_func),
+    DirichletBC(:u, :sset_3, bc_func),
+    DirichletBC(:u, :sset_4, bc_func_2),
   ]
   # TODO this one will be tough to do on the GPU
   # update_dofs!(asm, dbcs)
@@ -53,7 +54,6 @@ end
   # create parameters on CPU
   # TODO make a better constructor
   p = create_parameters(asm, physics, dbcs)
-  update_dofs!(asm, p)
   # need to assemble once before moving to GPU
   # TODO try to wrap this in the |> gpu call
   U = create_field(asm, H1Field)
@@ -61,16 +61,17 @@ end
   K = stiffness(asm)
 
   # device movement
-  p = p |> gpu
+  p_gpu = p |> gpu
   asm_gpu = asm |> gpu
 
   solver = NewtonSolver(IterativeSolver(asm_gpu, :CgSolver))
   Uu = create_unknowns(asm_gpu)
-  update_bcs!(H1Field, solver, Uu, p)
-  FiniteElementContainers.solve!(solver, Uu, p)
+  update_bcs!(H1Field, solver, Uu, p_gpu)
+  @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
+  @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
 
   # transfer to cpu to post-process
-  p = p |> cpu
+  p = p_gpu |> cpu
   U = p.h1_field
 
   write_times(pp, 1, 0.0)
