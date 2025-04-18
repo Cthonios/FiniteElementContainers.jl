@@ -1,3 +1,5 @@
+using Adapt
+using CUDA
 using Exodus
 using FiniteElementContainers
 using Tensors

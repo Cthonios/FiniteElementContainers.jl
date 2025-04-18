@@ -43,9 +43,9 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
 end
 
 # Boundary Conditions
-function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{D, S, T, V}) where {D, S, T, V}
+function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{V}) where V
   blocks = adapt(to, bk.blocks)
-  return FiniteElementContainers.BCBookKeeping{D, S, T, typeof(blocks)}(
+  return FiniteElementContainers.BCBookKeeping{typeof(blocks)}(
     blocks,
     adapt(to, bk.dofs),
     adapt(to, bk.elements),

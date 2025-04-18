@@ -5,7 +5,7 @@ using CUDA
 using FiniteElementContainers
 using KernelAbstractions
 
-FiniteElementContainers.gpu(x) = Adapt.adapt(CuArray, x)
+FiniteElementContainers.gpu(x) = adapt(CuArray, x)
 
 # this method need to have the assembler initialized first
 # if the stored values in asm.pattern.cscnzval or zero

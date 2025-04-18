@@ -10,12 +10,23 @@
 #   return DirichletBC{sym, typeof(bookkeeping), typeof(func)}(bookkeeping, func)
 # end
 
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+User facing API to define a ```DirichletBC````.
+"""
 struct DirichletBC{F} <: AbstractBC{F}
   func::F
   sset_name::Symbol
   var_name::Symbol
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
 function DirichletBC(var_name::Symbol, sset_name::Symbol, func::Function)
   return DirichletBC{typeof(func)}(func, sset_name, var_name)
 end
@@ -27,6 +38,12 @@ end
 #   vals::V
 # end
 
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+Internal implementation of dirichlet BCs
+"""
 struct DirichletBCContainer{B, F, V} <: AbstractBCContainer{B, F, V}
   bookkeeping::B
   func::F

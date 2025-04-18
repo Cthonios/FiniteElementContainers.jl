@@ -5,7 +5,16 @@ function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
   return [id_map[x] for x in sorted_unique]
 end
 
-struct BCBookKeeping{D, S, T, V}
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+This struct is used to help with book keeping nodes, sides, etc.
+for all types of boundary conditions.
+
+TODO need to add a domain ID for extending to Schwarz
+"""
+struct BCBookKeeping{V <: AbstractArray{<:Integer, 1}}
   blocks::V
   dofs::V
   elements::V
@@ -78,6 +87,9 @@ end
 # end
 
 # TODO currently only works for H1 spaces
+"""
+$(TYPEDSIGNATURES)
+"""
 function BCBookKeeping(dof::DofManager, var_names::Vector{Symbol}, sset_names::Vector{Symbol})
   @assert length(var_names) == length(sset_names)
 
@@ -151,100 +163,125 @@ function BCBookKeeping(dof::DofManager, var_names::Vector{Symbol}, sset_names::V
   # nodes = nodes[dof_perm]
   # sides = sides[el_perm]
 
-  ND = size(dof.H1_vars[1].fspace.coords, 1)
+  # ND = size(dof.H1_vars[1].fspace.coords, 1)
 
-  return BCBookKeeping{ND, :dbcs, Int64, typeof(blocks)}(
+  return BCBookKeeping{typeof(blocks)}(
     blocks, dofs, elements, nodes, sides
   )
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol)
   return BCBookKeeping(dof, [var_name], [sset_name])
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 KA.get_backend(bk::BCBookKeeping) = KA.get_backend(bk.blocks)
-num_dimensions(::BCBookKeeping{D, S, T, V}) where {D, S, T, V} = D
 
-struct BCFunction{T}
-  func::T
-end
+# """
+# $(TYPEDSIGNATURES)
+# """
+# num_dimensions(::BCBookKeeping{D, V}) where {D, V} = D
 
-function (bc::BCFunction{T})(x, t) where T
-  return bc.func(x, t)
-end
+# Do we still need the BCFunction struct below?
 
-# actual bcs
-# abstract type AbstractBC{
-#   S, 
-#   # B <: BCBookKeeping, 
-#   F <: BCFunction 
-# } end
-# name(::AbstractBC{S, B, F}) where {S, B, F} = S
+# struct BCFunction{T}
+#   func::T
+# end
 
-abstract type AbstractBC{F} end
+# function (bc::BCFunction{T})(x, t) where T
+#   return bc.func(x, t)
+# end
 
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+abstract type AbstractBC{F <: Function} end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function (bc::AbstractBC)(x, t)
   return bc.func(x, t)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 KA.get_backend(x::AbstractBC) = KA.get_backend(x.vals)
 
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
 abstract type AbstractBCContainer{
   B <: BCBookKeeping,
-  F,
-  # I <: AbstractArray{<:Integer, 1},
+  F <: Function,
   V <: AbstractArray{<:Number, 1}
 } end
 
 KA.get_backend(x::AbstractBCContainer) = KA.get_backend(x.vals)
 
 # need checks on if field types are compatable
+"""
+$(TYPEDSIGNATURES)
+CPU implementation for updating stored bc values 
+based on the stored function
+"""
 function _update_bc_values!(bc, X, t, ::KA.CPU)
-  ND = num_dimensions(bc.bookkeeping)
+  ND = num_fields(X)
   for (n, node) in enumerate(bc.bookkeeping.nodes)
     X_temp = @views SVector{ND, eltype(X)}(X[:, node])
-    # func_id = bc.func_ids[n]
-    # bc.vals[n] = values(bc.funcs)[func_id](X_temp, t)
     bc.vals[n] = bc.func(X_temp, t)
   end
   return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+GPU kernel for updating stored bc values based on the stored function
+"""
 KA.@kernel function _update_bc_values_kernel!(bc, X, t)
   I = KA.@index(Global)
-  ND = num_dimensions(bc)
+  ND = num_fields(X)
   node = bc.bookkeeping.nodes[I]
 
   # hacky for now, but it works
-  # if ND == 1
-  #   X_temp = SVector{ND, eltype(X)}(X[1, node])
-  # elseif ND == 2
-  #   X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node])
-  # elseif ND == 3
-  #   X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node], X[3, node])
-  # end
-  X_temp = 0.
-  # func_id = bc.func_ids[I]
-  # # bc.vals[I] = values(bc.funcs)[func_id](X_temp, t)
-  # bc.vals[I] = getfield(bc.funcs, func_id)(X_temp, t)
+  # can't do X[:, node] on the GPU, this results in a dynamic
+  # function call
+  if ND == 1
+    X_temp = SVector{ND, eltype(X)}(X[1, node])
+  elseif ND == 2
+    X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node])
+  elseif ND == 3
+    X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node], X[3, node])
+  end
   bc.vals[I] = bc.func(X_temp, t)
 end
 
+"""
+$(TYPEDSIGNATURES)
+GPU kernel wrapper for updating bc values based on the stored function
+"""
 function _update_bc_values!(bc, X, t, backend::KA.Backend)
   kernel! = _update_bc_values_kernel!(backend)
   kernel!(bc, X, t, ndrange=length(bc.bookkeeping.dofs))
   return nothing
 end
 
-# function update_bc_values_old!(bc::AbstractBCContainer, X, t)
-#   backend = KA.get_backend(bc)
-#   # @assert backend == KA.get_backend(X)
-#   _update_bc_values!(bc, X, t, backend)
-#   return nothing
-# end
-
+"""
+$(TYPEDSIGNATURES)
+Wrapper that is generic for all architectures to
+update bc values based on the stored function
+"""
 function update_bc_values!(bcs, X, t)
-  # backend = KA.get_backend(bc)
   for bc in values(bcs)
     backend = KA.get_backend(bc)
     _update_bc_values!(bc, X, t, backend)
