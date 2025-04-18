@@ -182,21 +182,6 @@ $(TYPEDSIGNATURES)
 """
 KA.get_backend(bk::BCBookKeeping) = KA.get_backend(bk.blocks)
 
-# """
-# $(TYPEDSIGNATURES)
-# """
-# num_dimensions(::BCBookKeeping{D, V}) where {D, V} = D
-
-# Do we still need the BCFunction struct below?
-
-# struct BCFunction{T}
-#   func::T
-# end
-
-# function (bc::BCFunction{T})(x, t) where T
-#   return bc.func(x, t)
-# end
-
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
