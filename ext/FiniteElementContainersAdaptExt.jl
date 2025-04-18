@@ -152,7 +152,16 @@ function Adapt.adapt_structure(to, var::VectorFunction)
   fspace = adapt(to, var.fspace)
   return VectorFunction{syms, typeof(fspace)}(fspace)
 end
- 
+
+# Integrators
+function Adapt.adapt_structure(to, integrator::QuasiStaticIntegrator)
+  return QuasiStaticIntegrator(
+    adapt(to, integrator.solution),
+    adapt(to, integrator.solver)
+  )
+end
+
+# parameters
 function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
   return FiniteElementContainers.Parameters(
     adapt(to, p.dirichlet_bcs),
