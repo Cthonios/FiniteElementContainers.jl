@@ -16,6 +16,5 @@ function evolve!(integrator::QuasiStaticIntegrator, p)
   update_time!(p)
   update_bcs!(H1Field, integrator.solver, integrator.solution, p)
   solve!(integrator.solver, integrator.solution, p)
-  # copyto!(integrator.solution, Uu)
   return nothing
 end
