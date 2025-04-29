@@ -38,26 +38,6 @@ function _assemble_element!(global_val::H1Field, local_val, conn, e, b)
   return nothing
 end
 
-# """
-# $(TYPEDSIGNATURES)
-# Assembly method for a block labelled as block_id.
-
-# This is a top level method that simply dispatches to CPU/GPU specializations
-# based on the backend of assembler and also checks for consistent backends.
-
-# This method is common acroos all value types, e.g. energy, residual, stiffness, etc.
-# to maintain a common method call syntax. The difference in dispatch is handled by the 
-# sym argument. 
-# """
-# function _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, block_id)
-#   backend = KA.get_backend(assembler)
-#   # TODO add get_backend method of ref_fe
-#   @assert backend == KA.get_backend(U)
-#   @assert backend == KA.get_backend(X)
-#   @assert backend == KA.get_backend(conns)
-#   _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, block_id, backend)
-# end
-
 _assemble_block_method_from_sym(::Val{:mass}) = _assemble_block_mass!
 _assemble_block_method_from_sym(::Val{:residual}) = _assemble_block_residual!
 _assemble_block_method_from_sym(::Val{:residual_and_stiffness}) = _assemble_block_residual_and_stiffness!
@@ -76,6 +56,9 @@ end
 $(TYPEDSIGNATURES)
 Top level assembly method for ```H1Field``` that loops over blocks and dispatches
 to appropriate kernels based on sym.
+
+TODO need to make sure at setup time that physics and elem_conns have the same
+values order. Otherwise, shenanigans.
 """
 function assemble!(assembler, physics, U::H1Field, sym)
   val_sym = Val{sym}()
@@ -83,20 +66,11 @@ function assemble!(assembler, physics, U::H1Field, sym)
   _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
   X = fspace.coords
-  for (b, conns) in enumerate(values(fspace.elem_conns))
+  for (b, (conns, block_physics)) in enumerate(zip(values(fspace.elem_conns), values(physics)))
     ref_fe = values(fspace.ref_fes)[b]
     backend = _check_backends(assembler, U, X, conns)
-    _assemble_block_method!(assembler, physics, ref_fe, U, X, conns, b, backend)
+    _assemble_block_method!(assembler, block_physics, ref_fe, U, X, conns, b, backend)
   end
-end
-
-# wrapper that uses Uu and p
-# TODO only works on H1 fields right now
-function assemble!(assembler, physics, Uu, p, sym)
-  update_field_bcs!(p.h1_field, assembler.dof, p.h1_bcs, p.t)
-  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
-  assemble!(assembler, physics, p.h1_field, sym)
-  return nothing
 end
 
 """
@@ -116,16 +90,6 @@ create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
 $(TYPEDSIGNATURES)
 """
 create_unknowns(asm::AbstractAssembler, type::Type{<:AbstractField}) = create_unknowns(asm.dof, type)
-
-"""
-$(TYPEDSIGNATURES)
-"""
-function _element_level_coordinates(X::H1Field, ref_fe, conns, e)
-  NDim = size(X, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  x_el = @views SMatrix{NDim, NNPE, Float64, NDim * NNPE}(X[:, conns[:, e]])
-  return x_el
-end
 
 """
 $(TYPEDSIGNATURES)

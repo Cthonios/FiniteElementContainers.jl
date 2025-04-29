@@ -11,7 +11,7 @@ KA.@kernel function _assemble_block_residual_kernel!(assembler, physics, ref_fe,
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
 
-  x_el = _element_level_coordinates(X, ref_fe, conns, E)
+  x_el = _element_level_fields(X, ref_fe, conns, E)
   u_el = _element_level_fields(U, ref_fe, conns, E)
   R_el = zeros(SVector{NxNDof, Float64})
 
@@ -52,7 +52,7 @@ KA.@kernel function _assemble_block_stiffness_kernel!(assembler, physics, ref_fe
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
 
-  x_el = _element_level_coordinates(X, ref_fe, conns, E)
+  x_el = _element_level_fields(X, ref_fe, conns, E)
   u_el = _element_level_fields(U, ref_fe, conns, E)
   K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
 

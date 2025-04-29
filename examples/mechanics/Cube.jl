@@ -52,7 +52,9 @@ end
 function mechanics_test()
   mesh = UnstructuredMesh("cube.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Mechanics(ThreeDimensional())
+  physics = (;
+    cube=Mechanics(ThreeDimensional())
+  )
 
   u = VectorFunction(V, :displ)
   asm = SparseMatrixAssembler(H1Field, u)

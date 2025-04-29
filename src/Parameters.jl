@@ -1,29 +1,3 @@
-# move to a seperate file
-abstract type AbstractTimeStepper{T} end
-current_time(t::AbstractTimeStepper) = sum(t.time_current)
-time_step(t::AbstractTimeStepper) = sum(t.Δt)
-
-struct TimeStepper{T} <: AbstractTimeStepper{T}
-  time_start::T
-  time_end::T
-  time_current::T
-  Δt::T
-end
-
-function TimeStepper(time_start_in::T, time_end_in::T, n_steps::Int) where T <: Number
-  time_start = zeros(1)
-  time_end = zeros(1)
-  time_current = zeros(1)
-  Δt = zeros(1)
-  Δt = zeros(1)
-  fill!(time_start, time_start_in)
-  fill!(time_end, time_end_in)
-  fill!(time_current, time_start_in)
-  fill!(Δt, (time_end_in - time_start_in) / n_steps)
-  return TimeStepper(time_start, time_end, time_current, Δt)
-  # return TimeStepper(time_start_in, time_end_in, )
-end
-
 abstract type AbstractParameters end
 
 struct Parameters{D, N, T, Phys, Props, S, V, H1} <: AbstractParameters
@@ -42,26 +16,13 @@ struct Parameters{D, N, T, Phys, Props, S, V, H1} <: AbstractParameters
   h1_field::H1
 end
 
-# TODO only works for H1Fields currently most likely
-# function Parameters(dof::DofManager, physics::AbstractPhysics)
-#   n_props = num_properties(physics)
-#   n_state = num_states(physics)
-
-#   # TODO
-#   fspace = dof.H1_vars[1].fspace
-
-#   for (name, ref_fe) in pairs(fspace.ref_fes)
-
-#   end
-# end
-
 # TODO 
 # 1. need to loop over bcs and vars in dof
 #    to make organize different bcs based on fspace type
 # 2. group all dbcs, nbcs of similar fspaces into a single struct?
-# 3. figure out how to handle function pointers on the GPU
+# 3. figure out how to handle function pointers on the GPU - done
 # 4. add different fspace types
-# 5. convert vectors of dbcs/nbcs into namedtuples
+# 5. convert vectors of dbcs/nbcs into namedtuples - done
 function Parameters(
   assembler, physics,
   dirichlet_bcs, 
@@ -75,6 +36,16 @@ function Parameters(
   properties = nothing
   state_old = nothing
   state_new = nothing
+
+  # for mixed spaces we'll need to do this more carefully
+  if isa(physics, AbstractPhysics)
+    syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
+    physics = map(x -> physics, syms)
+    physics = NamedTuple{tuple(syms...)}(tuple(physics...))
+  else
+    @assert isa(physics, NamedTuple)
+    # TODO re-arrange physics tuple to match fspaces when appropriate
+  end
 
   if dirichlet_bcs !== nothing
     syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
