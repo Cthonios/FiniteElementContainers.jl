@@ -38,7 +38,7 @@ function _assemble_block_residual!(assembler, physics, ref_fe, U, X, conns, bloc
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
-    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    x_el = _element_level_fields(X, ref_fe, conns, e)
     u_el = _element_level_fields(U, ref_fe, conns, e)
     R_el = zeros(SVector{NxNDof, eltype(assembler.residual_storage)})
 

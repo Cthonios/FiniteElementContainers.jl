@@ -55,7 +55,7 @@ end
   # need to assemble once before moving to GPU
   # TODO try to wrap this in the |> gpu call
   U = create_field(asm, H1Field)
-  @time assemble!(asm, physics, U, :stiffness)
+  @time assemble!(asm, p.physics, U, :stiffness)
   K = stiffness(asm)
 
   # device movement

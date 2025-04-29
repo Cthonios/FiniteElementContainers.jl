@@ -23,6 +23,15 @@ end
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
+"""
+function DirichletBC(var_name::String, sset_name::String, func::Function)
+  return DirichletBC(Symbol(var_name), Symbol(sset_name), func)
+end
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
 Internal implementation of dirichlet BCs
 """
 struct DirichletBCContainer{B, F, V} <: AbstractBCContainer{B, F, V}

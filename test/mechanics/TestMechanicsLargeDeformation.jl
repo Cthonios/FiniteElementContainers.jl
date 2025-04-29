@@ -1,5 +1,3 @@
-using Adapt
-using CUDA
 using Exodus
 using FiniteElementContainers
 using Tensors
@@ -10,17 +8,22 @@ mesh_file = "./test/mechanics/mechanics.g"
 output_file = "./test/mechanics/mechanics.e"
 
 fixed(_, _) = 0.
-displace(_, t) = 1.e-3 * t
+displace(_, t) = 0.1 * t
 
 struct Mechanics{Form} <: AbstractPhysics{2, 0, 0}
   formulation::Form
 end
 
 function strain_energy(∇u)
-  K = 10.e9
-  G = 1.e9
-  ε = symmetric(∇u)
-  ψ = 0.5 * K * tr(ε)^2 + G * dcontract(dev(ε), dev(ε))
+  K = 10.e6
+  G = 1.e6
+  I = one(Tensor{2, 3, eltype(∇u), 9})
+  F = I + ∇u
+  B = dott(F)
+  J = det(F)
+  I1_bar = J^(-2. / 3.) * tr(B)
+  ψ = 0.5 * K * (0.5 * (J - 1)^2 - log(J)) + 
+      0.5 * G * (I1_bar - 3.)
 end
 
 function FiniteElementContainers.residual(physics::Mechanics, cell, u_el, args...)
@@ -69,32 +72,26 @@ end
   ]
 
   # pre-setup some scratch arrays
-  times = TimeStepper(0., 1., 1)
+  times = TimeStepper(0., 1., 100)
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs, times=times)
+  # Uu = create_unknowns(asm)
 
-  U = create_field(asm, H1Field)
-  @time assemble!(asm, p.physics, U, :stiffness)
-  K = stiffness(asm)
-
-  # move to device
-  p_gpu = p |> gpu
-  asm_gpu = asm |> gpu
-
-  solver = NewtonSolver(IterativeLinearSolver(asm_gpu, :CgSolver))
+  solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
   integrator = QuasiStaticIntegrator(solver)
-  evolve!(integrator, p_gpu)
-  # Uu = create_unknowns(asm_gpu)
-
-  # update_bcs!(H1Field, solver, Uu, p_gpu)
-
-  # @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
-  # @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
-
-  p = p_gpu |> cpu
-
   pp = PostProcessor(mesh, output_file, u)
-  write_times(pp, 1, 0.0)
-  write_field(pp, 1, p.h1_field)
+
+  for n in 1:100
+    @info "Time step $n"
+    evolve!(integrator, p)
+    write_times(pp, n, p.times.time_current[1])
+    write_field(pp, n, p.h1_field)
+  end
+  # update_bcs!(H1Field, solver, Uu, p)
+
+  # FiniteElementContainers.solve!(solver, Uu, p)
+
+  
+  # write_field(pp, 1, U)
   close(pp)
 # end
 

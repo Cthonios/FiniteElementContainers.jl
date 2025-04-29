@@ -103,7 +103,7 @@ function _assemble_block_mass!(assembler, physics, ref_fe, U, X, conns, block_id
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
-    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    x_el = _element_level_fields(X, ref_fe, conns, e)
     u_el = _element_level_fields(U, ref_fe, conns, e)
     M_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.mass_storage), NxNDof * NxNDof})
 
@@ -130,7 +130,7 @@ function _assemble_block_stiffness!(assembler, physics, ref_fe, U, X, conns, blo
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
-    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    x_el = _element_level_fields(X, ref_fe, conns, e)
     u_el = _element_level_fields(U, ref_fe, conns, e)
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})
 
@@ -158,7 +158,7 @@ function _assemble_block_residual_and_stiffness!(assembler, physics, ref_fe, U, 
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
-    x_el = _element_level_coordinates(X, ref_fe, conns, e)
+    x_el = _element_level_fields(X, ref_fe, conns, e)
     u_el = _element_level_fields(U, ref_fe, conns, e)
     R_el = zeros(SVector{NxNDof, eltype(assembler.residual_storage)})
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})

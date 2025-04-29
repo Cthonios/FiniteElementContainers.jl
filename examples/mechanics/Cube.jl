@@ -1,24 +1,20 @@
-using Adapt
-using CUDA
 using Exodus
 using FiniteElementContainers
 using Tensors
 
-# mesh file
-gold_file = "./test/mechanics/mechanics.gold"
-mesh_file = "./test/mechanics/mechanics.g"
-output_file = "./test/mechanics/mechanics.e"
-
 fixed(_, _) = 0.
-displace(_, t) = 1.e-3 * t
+displace(_, t) = 1.0 * t
 
 struct Mechanics{Form} <: AbstractPhysics{2, 0, 0}
   formulation::Form
 end
 
 function strain_energy(∇u)
-  K = 10.e9
-  G = 1.e9
+  E = 1.e9
+  ν = 0.25
+  K = E / (3. * (1. - 2. * ν))
+  G = E / (2. * (1. + ν))
+
   ε = symmetric(∇u)
   ψ = 0.5 * K * tr(ε)^2 + G * dcontract(dev(ε), dev(ε))
 end
@@ -53,49 +49,40 @@ function FiniteElementContainers.stiffness(physics::Mechanics, cell, u_el, args.
   return JxW * G_q * K_q * G_q'
 end
 
-# function mechanics_test()
-  mesh = UnstructuredMesh(mesh_file)
+function mechanics_test()
+  mesh = UnstructuredMesh("cube.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Mechanics(PlaneStrain())
+  physics = (;
+    cube=Mechanics(ThreeDimensional())
+  )
 
   u = VectorFunction(V, :displ)
   asm = SparseMatrixAssembler(H1Field, u)
 
   dbcs = DirichletBC[
-    DirichletBC(:displ_x, :sset_3, fixed),
-    DirichletBC(:displ_y, :sset_3, fixed),
-    DirichletBC(:displ_x, :sset_1, fixed),
-    DirichletBC(:displ_y, :sset_1, displace),
+    DirichletBC("displ_x", "ssx-", fixed),
+    DirichletBC("displ_y", "ssy-", fixed),
+    DirichletBC("displ_z", "ssz-", fixed),
+    DirichletBC("displ_z", "ssz+", displace),
   ]
 
   # pre-setup some scratch arrays
-  times = TimeStepper(0., 1., 1)
+  times = TimeStepper(0., 1., 10)
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs, times=times)
 
-  U = create_field(asm, H1Field)
-  @time assemble!(asm, p.physics, U, :stiffness)
-  K = stiffness(asm)
-
-  # move to device
-  p_gpu = p |> gpu
-  asm_gpu = asm |> gpu
-
-  solver = NewtonSolver(IterativeLinearSolver(asm_gpu, :CgSolver))
+  solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
   integrator = QuasiStaticIntegrator(solver)
-  evolve!(integrator, p_gpu)
-  # Uu = create_unknowns(asm_gpu)
+  pp = PostProcessor(mesh, "cube.e", u)
 
-  # update_bcs!(H1Field, solver, Uu, p_gpu)
-
-  # @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
-  # @time FiniteElementContainers.solve!(solver, Uu, p_gpu)
-
-  p = p_gpu |> cpu
-
-  pp = PostProcessor(mesh, output_file, u)
-  write_times(pp, 1, 0.0)
+  write_times(pp, 1, p.times.time_current[1])
   write_field(pp, 1, p.h1_field)
-  close(pp)
-# end
 
-# mechanics_test()
+  for n in 1:10
+    evolve!(integrator, p)
+    write_times(pp, n, p.times.time_current[1])
+    write_field(pp, n, p.h1_field)
+  end
+  close(pp)
+end
+
+mechanics_test()
