@@ -219,6 +219,8 @@ Base.length(dof::DofManager) = length(dof.H1_bc_dofs) + length(dof.H1_unknown_do
 
 KA.get_backend(dof::DofManager) = KA.get_backend(dof.H1_unknown_dofs)
 
+# is create_bcs even really needed anymore?
+
 """
 $(TYPEDSIGNATURES)
 """
