@@ -60,11 +60,13 @@ to appropriate kernels based on sym.
 TODO need to make sure at setup time that physics and elem_conns have the same
 values order. Otherwise, shenanigans.
 """
-function assemble!(assembler, physics, U::H1Field, sym)
+function assemble!(assembler, ::Type{H1Field}, p, sym)
   val_sym = Val{sym}()
   _assemble_block_method! = _assemble_block_method_from_sym(val_sym)
   _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
+  U = p.h1_field
+  physics = p.physics
   X = fspace.coords
   for (b, (conns, block_physics)) in enumerate(zip(values(fspace.elem_conns), values(physics)))
     ref_fe = values(fspace.ref_fes)[b]

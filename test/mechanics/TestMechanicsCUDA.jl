@@ -72,10 +72,6 @@ end
   times = TimeStepper(0., 1., 1)
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs, times=times)
 
-  U = create_field(asm, H1Field)
-  @time assemble!(asm, p.physics, U, :stiffness)
-  K = stiffness(asm)
-
   # move to device
   p_gpu = p |> gpu
   asm_gpu = asm |> gpu

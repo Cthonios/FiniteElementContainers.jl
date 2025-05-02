@@ -52,11 +52,6 @@ end
   # create parameters on CPU
   # TODO make a better constructor
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
-  # need to assemble once before moving to GPU
-  # TODO try to wrap this in the |> gpu call
-  U = create_field(asm, H1Field)
-  @time assemble!(asm, p.physics, U, :stiffness)
-  K = stiffness(asm)
 
   # device movement
   p_gpu = p |> gpu
