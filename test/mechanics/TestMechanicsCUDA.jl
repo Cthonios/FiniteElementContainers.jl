@@ -2,6 +2,7 @@ using Adapt
 using CUDA
 using Exodus
 using FiniteElementContainers
+using StaticArrays
 using Tensors
 
 # mesh file
@@ -12,8 +13,14 @@ output_file = "./test/mechanics/mechanics.e"
 fixed(_, _) = 0.
 displace(_, t) = 1.e-3 * t
 
-struct Mechanics{Form} <: AbstractPhysics{2, 0, 0}
+struct Mechanics{Form} <: AbstractPhysics{2, 2, 0}
   formulation::Form
+end
+
+function FiniteElementContainers.create_properties(::Mechanics)
+  K = 10.e9
+  G = 1.e9
+  return SVector{2, Float64}(K, G)
 end
 
 function strain_energy(∇u)

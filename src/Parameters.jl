@@ -1,7 +1,10 @@
 abstract type AbstractParameters end
 
 # TODO need to break up bcs to different field types
-struct Parameters{D, N, T, Phys, Props, S, V, H1} <: AbstractParameters
+struct Parameters{
+  D, N, T, Phys, Props, S, 
+  H1Coords, H1
+} <: AbstractParameters
   # actual parameter fields
   # TODO add boundary condition stuff and time stepping stuff
   dirichlet_bcs::D
@@ -13,7 +16,7 @@ struct Parameters{D, N, T, Phys, Props, S, V, H1} <: AbstractParameters
   state_old::S
   state_new::S
   # scratch fields
-  h1_dbcs::V # TODO remove this
+  h1_coords::H1Coords
   h1_field::H1
 end
 
@@ -30,7 +33,7 @@ function Parameters(
   neumann_bcs, 
   times
 )
-  h1_dbcs = create_bcs(assembler, H1Field)
+  h1_coords = assembler.dof.H1_vars[1].fspace.coords
   h1_field = create_field(assembler, H1Field)
 
   # TODO
@@ -47,8 +50,14 @@ function Parameters(
   end
 
   # state_old = Array{Float64, 3}[]
+  properties = []
   state_old = L2QuadratureField[]
   for (key, val) in pairs(physics)
+    # create properties for this block physics
+    # TODO specialize to allow for element level properties
+    push!(properties, create_properties(val))
+
+    # create state variables for this block physics
     NS = num_states(val)
     NQ = ReferenceFiniteElements.num_quadrature_points(
       getfield(values(assembler.dof.H1_vars)[1].fspace.ref_fes, key)
@@ -57,10 +66,21 @@ function Parameters(
       getfield(values(assembler.dof.H1_vars)[1].fspace.elem_conns, key),
       2
     )
+
     syms = tuple(map(x -> Symbol("state_variable_$x"), 1:NS)...)
-    state_old_temp = L2QuadratureField(zeros(NS, NQ, NE), syms)
+    state_old_temp = zeros(NS, NQ, NE)
+    for e in 1:NE
+      for q in 1:NQ
+        state_old_temp[:, q, e] = create_initial_state(val)
+      end
+    end
+    state_old_temp = L2QuadratureField(state_old_temp, syms)
+
     push!(state_old, state_old_temp)
   end
+
+  properties = NamedTuple{keys(physics)}(tuple(properties...))
+
   state_new = copy(state_old)
   state_old = NamedTuple{keys(physics)}(tuple(state_old...))
   state_new = NamedTuple{keys(physics)}(tuple(state_new...))
@@ -95,7 +115,7 @@ function Parameters(
     physics, 
     properties, 
     state_old, state_new, 
-    h1_dbcs, h1_field
+    h1_coords, h1_field
   )
 
   update_dofs!(assembler, p)
@@ -118,9 +138,7 @@ function create_parameters(
 end
 
 function update_dofs!(asm::SparseMatrixAssembler, p::Parameters)
-  # temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, values(p.dirichlet_bcs))
   update_dofs!(asm, p.dirichlet_bcs)
-  Base.resize!(p.h1_dbcs, length(asm.dof.H1_bc_dofs))
   return nothing
 end
 

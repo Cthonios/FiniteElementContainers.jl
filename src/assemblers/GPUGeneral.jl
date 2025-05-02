@@ -6,7 +6,7 @@ Kernel for residual block assembly
 """
 KA.@kernel function _assemble_block_residual_kernel!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new,
+  U, X, state_old, state_new, props,
   conns, block_id
 )
   E = KA.@index(Global)
@@ -45,7 +45,7 @@ TODO add state variables and physics properties
 """
 function _assemble_block_residual!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new,
+  U, X, state_old, state_new, props,
   conns, block_id, backend::KA.Backend
 )
   kernel! = _assemble_block_residual_kernel!(backend)
@@ -59,7 +59,7 @@ end
 
 KA.@kernel function _assemble_block_stiffness_kernel!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new,
+  U, X, state_old, state_new, props,
   conns, block_id
 )
   E = KA.@index(Global)
@@ -98,7 +98,7 @@ TODO add state variables and physics properties
 """
 function _assemble_block_stiffness!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new,
+  U, X, state_old, state_new, props,
   conns, block_id, backend::KA.Backend
 )
   kernel! = _assemble_block_stiffness_kernel!(backend)

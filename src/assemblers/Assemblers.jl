@@ -46,22 +46,25 @@ function _check_backends(assembler, U, X, state_old, state_new, conns)
   @assert backend == KA.get_backend(conns)
   @assert backend == KA.get_backend(state_old)
   @assert backend == KA.get_backend(state_new)
+  # props will be complicated...
+  # TODO
   return backend
 end
 
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:mass})
-  _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
-  for (b, (conns, block_physics, state_old, state_new)) in enumerate(zip(
+  _zero_storage(assembler, val_sym)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
-    values(p.state_old), values(p.state_new)
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, fspace.coords, state_old, state_new, conns)
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_mass!(
       assembler, block_physics, ref_fe, 
-      p.h1_field, fspace.coords, state_old, state_new,
+      p.h1_field, p.h1_coords, state_old, state_new, props,
       conns, b, 
       backend
     )
@@ -69,18 +72,19 @@ function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:mass})
 end
 
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
-  _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
-  for (b, (conns, block_physics, state_old, state_new)) in enumerate(zip(
+  _zero_storage(assembler, val_sym)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
-    values(p.state_old), values(p.state_new)
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, fspace.coords, state_old, state_new, conns)
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_residual!(
       assembler, block_physics, ref_fe, 
-      p.h1_field, fspace.coords, state_old, state_new,
+      p.h1_field, p.h1_coords, state_old, state_new, props,
       conns, b, 
       backend
     )
@@ -88,18 +92,19 @@ function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
 end
 
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual_and_stiffness})
-  _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
-  for (b, (conns, block_physics, state_old, state_new)) in enumerate(zip(
+  _zero_storage(assembler, val_sym)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
-    values(p.state_old), values(p.state_new)
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, fspace.coords, state_old, state_new, conns)
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_residual_and_stiffness!(
       assembler, block_physics, ref_fe, 
-      p.h1_field, fspace.coords, state_old, state_new,
+      p.h1_field, p.h1_coords, state_old, state_new, props,
       conns, b, 
       backend
     )
@@ -109,16 +114,17 @@ end
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:stiffness})
   _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
-  for (b, (conns, block_physics, state_old, state_new)) in enumerate(zip(
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
-    values(p.state_old), values(p.state_new)
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, fspace.coords, state_old, state_new, conns)
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_stiffness!(
       assembler, block_physics, ref_fe, 
-      p.h1_field, fspace.coords, state_old, state_new,
+      p.h1_field, p.h1_coords, state_old, state_new, props,
       conns, b, 
       backend
     )

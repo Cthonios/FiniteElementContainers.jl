@@ -14,7 +14,20 @@ end
 
 function evolve!(integrator::QuasiStaticIntegrator, p)
   update_time!(p)
-  update_bcs!(H1Field, integrator.solver, integrator.solution, p)
+  # update_bcs!(H1Field, integrator.solver, p)
+  update_bcs!(integrator, p)
   solve!(integrator.solver, integrator.solution, p)
+  return nothing
+end
+
+function update_bcs!(::QuasiStaticIntegrator, p::Parameters)
+  X = p.h1_coords # TODO won't work for mixed bcs
+  t = current_time(p.times)
+
+  update_bc_values!(p.dirichlet_bcs, X, t)
+
+  for bc in values(p.dirichlet_bcs)
+    _update_bcs!(bc, p.h1_field, KA.get_backend(bc))
+  end
   return nothing
 end
