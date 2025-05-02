@@ -98,7 +98,11 @@ with no threading.
 
 TODO add state variables and physics properties
 """
-function _assemble_block_mass!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
+function _assemble_block_mass!(
+  assembler, physics, ref_fe, 
+  U, X, state_old, state_new,
+  conns, block_id, ::KA.CPU
+)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
@@ -125,7 +129,11 @@ with no threading.
 
 TODO add state variables and physics properties
 """
-function _assemble_block_stiffness!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
+function _assemble_block_stiffness!(
+  assembler, physics, ref_fe, 
+  U, X, state_old, state_new,
+  conns, block_id, ::KA.CPU
+)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
@@ -153,7 +161,11 @@ with no threading.
 TODO add state variables and physics properties
 TODO remove Float64 typing below for eventual unitful use
 """
-function _assemble_block_residual_and_stiffness!(assembler, physics, ref_fe, U, X, conns, block_id, ::KA.CPU)
+function _assemble_block_residual_and_stiffness!(
+  assembler, physics, ref_fe, 
+  U, X, state_old, state_new,
+  conns, block_id, ::KA.CPU
+)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND

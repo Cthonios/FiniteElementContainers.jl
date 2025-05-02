@@ -106,6 +106,11 @@ function Adapt.adapt_structure(to, field::L2ElementField{T, NF, V, S}) where {T,
   return L2ElementField{T, NF, typeof(vals), S}(vals)
 end
 
+function Adapt.adapt_structure(to, field::L2QuadratureField{T, NF, NQ, V, S}) where {T, NF, NQ, V, S}
+  vals = adapt(to, field.vals)
+  return L2QuadratureField{T, NF, NQ, typeof(vals), S}(vals)
+end
+
 function Adapt.adapt_structure(to, field::H1Field{T, NF, V, S}) where {T, NF, V, S}
   vals = adapt(to, field.vals)
   return H1Field{T, NF, typeof(vals), S}(vals)

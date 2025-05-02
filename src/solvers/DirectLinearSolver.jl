@@ -19,7 +19,7 @@ end
 
 function solve!(solver::DirectLinearSolver, Uu, p)
   update_field_unknowns!(p.h1_field, solver.assembler.dof, Uu)
-  assemble!(solver.assembler, p.physics, p.h1_field, :residual_and_stiffness)
+  assemble!(solver.assembler, H1Field, p, Val{:residual_and_stiffness}())
   R = residual(solver.assembler)
   K = stiffness(solver.assembler)
   # TODO specialize to backend solvers if they exists

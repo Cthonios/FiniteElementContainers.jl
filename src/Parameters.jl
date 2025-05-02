@@ -1,5 +1,6 @@
 abstract type AbstractParameters end
 
+# TODO need to break up bcs to different field types
 struct Parameters{D, N, T, Phys, Props, S, V, H1} <: AbstractParameters
   # actual parameter fields
   # TODO add boundary condition stuff and time stepping stuff
@@ -12,7 +13,7 @@ struct Parameters{D, N, T, Phys, Props, S, V, H1} <: AbstractParameters
   state_old::S
   state_new::S
   # scratch fields
-  h1_dbcs::V
+  h1_dbcs::V # TODO remove this
   h1_field::H1
 end
 
@@ -34,8 +35,6 @@ function Parameters(
 
   # TODO
   properties = nothing
-  state_old = nothing
-  state_new = nothing
 
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
@@ -46,6 +45,25 @@ function Parameters(
     @assert isa(physics, NamedTuple)
     # TODO re-arrange physics tuple to match fspaces when appropriate
   end
+
+  # state_old = Array{Float64, 3}[]
+  state_old = L2QuadratureField[]
+  for (key, val) in pairs(physics)
+    NS = num_states(val)
+    NQ = ReferenceFiniteElements.num_quadrature_points(
+      getfield(values(assembler.dof.H1_vars)[1].fspace.ref_fes, key)
+    )
+    NE = size(
+      getfield(values(assembler.dof.H1_vars)[1].fspace.elem_conns, key),
+      2
+    )
+    syms = tuple(map(x -> Symbol("state_variable_$x"), 1:NS)...)
+    state_old_temp = L2QuadratureField(zeros(NS, NQ, NE), syms)
+    push!(state_old, state_old_temp)
+  end
+  state_new = copy(state_old)
+  state_old = NamedTuple{keys(physics)}(tuple(state_old...))
+  state_new = NamedTuple{keys(physics)}(tuple(state_new...))
 
   if dirichlet_bcs !== nothing
     syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
@@ -81,6 +99,11 @@ function Parameters(
   )
 
   update_dofs!(assembler, p)
+
+  # assemble the stiffness at least once for 
+  # making easier to use on GPU
+  assemble!(assembler, H1Field, p, :stiffness)
+  K = stiffness(assembler)
 
   return p
 end
