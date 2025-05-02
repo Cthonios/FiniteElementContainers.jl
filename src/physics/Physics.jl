@@ -4,38 +4,34 @@ num_fields(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NF
 num_properties(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NP
 num_states(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NS
 
-# this won't work
-# function create_physics(name, vars...)
-#   # @show field_vars
-#   # @show prop_vars
-#   H1_vars = _filter_field_type(vars, H1Field)
-#   # TODO setup Hdiv and Hcurl logic as well
-#   L2_element_vars = _filter_field_type(vars, L2ElementField)
-#   L2_quadrature_vars = _filter_field_type(vars, L2QuadratureField)
-  
-#   H1_var_names = ()
-#   for var in H1_vars
-#     H1_var_names = (H1_var_names..., names(var)...)
-#   end
-#   H1_var_names = NamedTuple{H1_var_names}(1:length(H1_var_names))
+function create_properties(physics::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS}
+  @assert false "You need to implement the create_properties method for physics $(physics) or 
+  type $(typeof(physics))!"
+end
 
-#   L2_element_var_names = ()
-#   for var in L2_element_vars
-#     L2_element_var_names = (L2_element_var_names..., names(var)...)
-#   end
-#   L2_element_var_names = NamedTuple{L2_element_var_names}(1:length(L2_element_var_names))
+function create_properties(::AbstractPhysics{NF, 0, NS}) where {NF, NS}
+  return SVector{0, Float64}()
+end
 
-#   L2_quadrature_var_names = ()
-#   for var in L2_quadrature_vars
-#     L2_quadrature_var_names = (L2_quadrature_var_names..., names(var)...)
-#   end
-#   L2_quadrature_var_names = NamedTuple{L2_quadrature_var_names}(1:length(L2_quadrature_var_names))
-  
-# end
+function create_initial_state(::AbstractPhysics{NF, NP, 0}) where {NF, NP}
+  return SVector{0, Float64}()
+end
 
-# function initialize_state(::AbstractPhysics{NF, NP, 0}) where {NF, NP}
-#   return 
-# end
+# Can we make something that makes interfacing with kernels easier?
+# How can we make something like this work nicely with AD?
+# struct PhysicsQuadratureState{T, ND, NN, NF, NP, NS, NDxNF, NNxND, NNxNNxND}
+#   # u::SVector{NF, T}
+#   # ∇u::SMatrix{NF, ND, T, NDxNF}
+#   # props::SVector{NP, T}
+#   # state_old::SVector{NS, T}
+#   # interpolants and gauss weight at quadrature point
+#   N::SVector{NN, T}
+#   ∇N_ξ::SMatrix{NN, ND, T, NNxND}
+#   ∇∇N_ξ::SArray{Tuple{NN, ND, ND}, T, 3, NNxNNxND}
+#   JxW::T
+#   # element level fields
+#   u_el::SMatrix{}
+# end 
 
 # physics like methods
 function damping end

@@ -100,7 +100,7 @@ TODO add state variables and physics properties
 """
 function _assemble_block_mass!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new,
+  U, X, state_old, state_new, props,
   conns, block_id, ::KA.CPU
 )
   ND = size(U, 1)
@@ -131,7 +131,7 @@ TODO add state variables and physics properties
 """
 function _assemble_block_stiffness!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new,
+  U, X, state_old, state_new, props,
   conns, block_id, ::KA.CPU
 )
   ND = size(U, 1)
@@ -163,7 +163,7 @@ TODO remove Float64 typing below for eventual unitful use
 """
 function _assemble_block_residual_and_stiffness!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new,
+  U, X, state_old, state_new, props,
   conns, block_id, ::KA.CPU
 )
   ND = size(U, 1)
