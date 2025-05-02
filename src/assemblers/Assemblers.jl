@@ -38,18 +38,91 @@ function _assemble_element!(global_val::H1Field, local_val, conn, e, b)
   return nothing
 end
 
-_assemble_block_method_from_sym(::Val{:mass}) = _assemble_block_mass!
-_assemble_block_method_from_sym(::Val{:residual}) = _assemble_block_residual!
-_assemble_block_method_from_sym(::Val{:residual_and_stiffness}) = _assemble_block_residual_and_stiffness!
-_assemble_block_method_from_sym(::Val{:stiffness}) = _assemble_block_stiffness!
-
-function _check_backends(assembler, U, X, conns)
+function _check_backends(assembler, U, X, state_old, state_new, conns)
   backend = KA.get_backend(assembler)
   # TODO add get_backend method of ref_fe
   @assert backend == KA.get_backend(U)
   @assert backend == KA.get_backend(X)
   @assert backend == KA.get_backend(conns)
+  @assert backend == KA.get_backend(state_old)
+  @assert backend == KA.get_backend(state_new)
   return backend
+end
+
+function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:mass})
+  _zero_storage(assembler, val_sym)
+  fspace = assembler.dof.H1_vars[1].fspace
+  for (b, (conns, block_physics, state_old, state_new)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, fspace.coords, state_old, state_new, conns)
+    _assemble_block_mass!(
+      assembler, block_physics, ref_fe, 
+      p.h1_field, fspace.coords, state_old, state_new,
+      conns, b, 
+      backend
+    )
+  end
+end
+
+function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
+  _zero_storage(assembler, val_sym)
+  fspace = assembler.dof.H1_vars[1].fspace
+  for (b, (conns, block_physics, state_old, state_new)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, fspace.coords, state_old, state_new, conns)
+    _assemble_block_residual!(
+      assembler, block_physics, ref_fe, 
+      p.h1_field, fspace.coords, state_old, state_new,
+      conns, b, 
+      backend
+    )
+  end
+end
+
+function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual_and_stiffness})
+  _zero_storage(assembler, val_sym)
+  fspace = assembler.dof.H1_vars[1].fspace
+  for (b, (conns, block_physics, state_old, state_new)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, fspace.coords, state_old, state_new, conns)
+    _assemble_block_residual_and_stiffness!(
+      assembler, block_physics, ref_fe, 
+      p.h1_field, fspace.coords, state_old, state_new,
+      conns, b, 
+      backend
+    )
+  end
+end
+
+function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:stiffness})
+  _zero_storage(assembler, val_sym)
+  fspace = assembler.dof.H1_vars[1].fspace
+  for (b, (conns, block_physics, state_old, state_new)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, fspace.coords, state_old, state_new, conns)
+    _assemble_block_stiffness!(
+      assembler, block_physics, ref_fe, 
+      p.h1_field, fspace.coords, state_old, state_new,
+      conns, b, 
+      backend
+    )
+  end
 end
 
 """
@@ -59,20 +132,13 @@ to appropriate kernels based on sym.
 
 TODO need to make sure at setup time that physics and elem_conns have the same
 values order. Otherwise, shenanigans.
+
+TODO figure out how to do generated functions
+
+creates one type instability from the Val
 """
-function assemble!(assembler, ::Type{H1Field}, p, sym)
-  val_sym = Val{sym}()
-  _assemble_block_method! = _assemble_block_method_from_sym(val_sym)
-  _zero_storage(assembler, val_sym)
-  fspace = assembler.dof.H1_vars[1].fspace
-  U = p.h1_field
-  physics = p.physics
-  X = fspace.coords
-  for (b, (conns, block_physics)) in enumerate(zip(values(fspace.elem_conns), values(physics)))
-    ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, U, X, conns)
-    _assemble_block_method!(assembler, block_physics, ref_fe, U, X, conns, b, backend)
-  end
+function assemble!(assembler, type::Type{H1Field}, p, sym::Symbol)
+  assemble!(assembler, type, p, Val{sym}())
 end
 
 """

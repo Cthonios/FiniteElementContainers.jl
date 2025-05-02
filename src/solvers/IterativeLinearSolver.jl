@@ -26,8 +26,8 @@ function solve!(solver::IterativeLinearSolver, Uu, p)
   # update unknown dofs
   update_field_unknowns!(p.h1_field, solver.assembler.dof, Uu)
   # assemble relevant fields
-  assemble!(solver.assembler, H1Field, p, :residual)
-  assemble!(solver.assembler, H1Field, p, :stiffness)
+  assemble!(solver.assembler, H1Field, p, Val{:residual}())
+  assemble!(solver.assembler, H1Field, p, Val{:stiffness}())
   # solve and fetch solution
   Krylov.solve!(solver.solver, stiffness(solver.assembler), residual(solver.assembler))
   ΔUu = -Krylov.solution(solver.solver)
