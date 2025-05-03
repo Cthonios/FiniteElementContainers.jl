@@ -14,7 +14,6 @@ output_file = "./test/poisson/poisson.e"
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 bc_func(_, _) = 0.
-bc_func_2(_, _) = 0.
 
 struct Poisson <: AbstractPhysics{1, 0, 0}
 end
