@@ -56,7 +56,6 @@ export num_elements
 
 # Functions
 export ScalarFunction
-export StateFunction
 export SymmetricTensorFunction
 export TensorFunction
 export VectorFunction

@@ -135,9 +135,9 @@ function _dof_manager_sym_name(u::SymmetricTensorFunction)
   return Symbol(split(String(names(u)[1]), ['_'])[1])
 end
 
-function _dof_manager_sym_name(u::StateFunction)
-  return Symbol(split(String(names(u)[1]), ['_'])[1])
-end
+# function _dof_manager_sym_name(u::StateFunction)
+#   return Symbol(split(String(names(u)[1]), ['_'])[1])
+# end
 
 function _dof_manager_sym_name(u::TensorFunction)
   return Symbol(split(String(names(u)[1]), ['_'])[1])
