@@ -1,6 +1,20 @@
-abstract type AbstractBCBookKeeping{S, T <: Integer, V <: AbstractArray{T, 1}} end
+function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
+  # chatgpt BS below. Make this not use a dict
+  sorted_unique = sort(unique(array))
+  id_map = Dict(x => findfirst(==(x), array) for x in sorted_unique)
+  return [id_map[x] for x in sorted_unique]
+end
 
-struct BCBookKeeping{S, T, V} <: AbstractBCBookKeeping{S, T, V}
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+This struct is used to help with book keeping nodes, sides, etc.
+for all types of boundary conditions.
+
+TODO need to add a domain ID for extending to Schwarz
+"""
+struct BCBookKeeping{V <: AbstractArray{<:Integer, 1}}
   blocks::V
   dofs::V
   elements::V
@@ -12,151 +26,253 @@ end
 
 # TODO also need to adapt this to differ on what var_name we look for based on build_dofs_array
 # e.g. if it's neumann and a vector look for :u but if it's dirichlet and a vector look for :u_x
-function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; build_dofs_array=false)
-  # need to extract the var from dof based on teh symbol name
-  var_index = 0
-  dof_index = 0
-  found = false
-  for (vi, var) in enumerate(dof.H1_vars)
-    for name in names(var)
-      dof_index = dof_index + 1
-      if var_name == name
-        var_index = vi
-        found = true
-        break
-      end
-    end
-  end
+# this only works for H1 spaces currently
+# function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol; build_dofs_array=false)
+#   # need to extract the var from dof based on teh symbol name
+#   var_index = 0
+#   dof_index = 0
+#   found = false
+#   for (vi, var) in enumerate(dof.H1_vars)
+#     for name in names(var)
+#       dof_index = dof_index + 1
+#       if var_name == name
+#         var_index = vi
+#         found = true
+#         break
+#       end
+#     end
+#   end
 
-  if build_dofs_array
-    @assert found == true "Failed to find variable $var_name"
-  end
+#   if build_dofs_array
+#     @assert found == true "Failed to find variable $var_name"
+#   end
 
-  @assert dof_index <= length(mapreduce(x -> names(x), +, dof.H1_vars)) "Found invalid dof index"
+#   @assert dof_index <= length(mapreduce(x -> names(x), +, dof.H1_vars)) "Found invalid dof index"
 
-  # TODO
-  fspace = dof.H1_vars[var_index].fspace
+#   # TODO
+#   fspace = dof.H1_vars[var_index].fspace
   
-  elems = getproperty(fspace.sideset_elems, sset_name)
-  nodes = getproperty(fspace.sideset_nodes, sset_name)
-  sides = getproperty(fspace.sideset_sides, sset_name)
+#   elems = getproperty(fspace.sideset_elems, sset_name)
+#   nodes = getproperty(fspace.sideset_nodes, sset_name)
+#   sides = getproperty(fspace.sideset_sides, sset_name)
 
-  blocks = Vector{Int64}(undef, 0)
+#   blocks = Vector{Int64}(undef, 0)
 
-  # gather the blocks that are present in this sideset
-  for (n, val) in enumerate(values(fspace.elem_id_maps))
-    # note these are the local elem id to the block, e.g. starting from 1.
-    indices_in_sset = indexin(val, elems)
-    filter!(x -> x !== nothing, indices_in_sset)
+#   # gather the blocks that are present in this sideset
+#   for (n, val) in enumerate(values(fspace.elem_id_maps))
+#     # note these are the local elem id to the block, e.g. starting from 1.
+#     indices_in_sset = indexin(val, elems)
+#     filter!(x -> x !== nothing, indices_in_sset)
     
-    if length(indices_in_sset) > 0
-      # add stuff to arrays
-      push!(blocks, n)
-    end
-  end
+#     if length(indices_in_sset) > 0
+#       # add stuff to arrays
+#       push!(blocks, n)
+#     end
+#   end
 
-  # setting up dofs for use in dirichlet bcs
-  if build_dofs_array
-    all_dofs = reshape(1:length(dof), num_dofs_per_node(dof), num_nodes(dof))
-    dofs = all_dofs[dof_index, nodes]
-  else
-    dofs = Vector{Int64}(undef, 0)
-  end
-
-  return BCBookKeeping{sset_name, Int64, typeof(blocks)}(blocks, dofs, elems, nodes, sides)
-end
-
-# actual bcs
-abstract type AbstractBC{S, B <: AbstractBCBookKeeping, F <: Function, V <: AbstractArray{<:Number, 1}} end
-name(::AbstractBC{S, B, F, V}) where {S, B, F, V} = S
-
-# function Base.NamedTuple(bcs::AbstractArray{T, 1}) where T <: AbstractBC
-#   syms = map(x -> name(x), bcs)
-#   return NamedTuple{syms}(bcs)
+#   # setting up dofs for use in dirichlet bcs
+#   if build_dofs_array
+#     ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+#     n_total_dofs = ND * NN
+#     # all_dofs = reshape(1:length(dof), num_dofs_per_node(dof), num_nodes(dof))
+#     all_dofs = reshape(1:n_total_dofs, ND, NN)
+#     dofs = all_dofs[dof_index, nodes]
+#   else
+#     dofs = Vector{Int64}(undef, 0)
+#   end
+  
+#   # TODO
+#   ND = size(dof.H1_vars[1].fspace.coords, 1)
+#   return BCBookKeeping{ND, sset_name, Int64, typeof(blocks)}(blocks, dofs, elems, nodes, sides)
 # end
 
-struct DirichletBC{S, B, F, V} <: AbstractBC{S, B, F, V}
-  bookkeeping::B
-  func::F
-  vals::V
-end
+# TODO currently only works for H1 spaces
+"""
+$(TYPEDSIGNATURES)
+"""
+function BCBookKeeping(dof::DofManager, var_names::Vector{Symbol}, sset_names::Vector{Symbol})
+  @assert length(var_names) == length(sset_names)
 
-function DirichletBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func::Function)
-  bookkeeping = BCBookKeeping(dof, var_name, sset_name; build_dofs_array=true)
-  vals = zeros(Float64, length(bookkeeping.nodes))
-  sym = Symbol(var_name, :_, sset_name)
-  return DirichletBC{sym, typeof(bookkeeping), typeof(func), typeof(vals)}(bookkeeping, func, vals)
-end
+  elements = Vector{Int}(undef, 0)
+  nodes = Vector{Int}(undef, 0)
+  sides = Vector{Int}(undef, 0)
+  blocks = Vector{Int}(undef, 0)
+  dofs = Vector{Int}(undef, 0)
 
-struct NeumannBC{S, B, F, V} <: AbstractBC{S, B, F, V}
-  bookkeeping::B
-  func::F
-  vals::V
-end
+  for (var_name, sset_name) in zip(var_names, sset_names)
+    # @info "Reading boundary condition data for variable $var_name on side set $sset_name"
+    # see if variable exists
+    var_index = 0
+    dof_index = 0
+    found = false
+    for (vi, var) in enumerate(dof.H1_vars)
+      for name in names(var)
+        dof_index = dof_index + 1
+        if var_name == name
+          var_index = vi
+          found = true
+          break
+        end
+      end
+    end
 
-# TODO need to hack the var_name thing
-function NeumannBC(dof::DofManager, var_name::Symbol, sset_name::Symbol, func::Function)
-  bookkeeping = BCBookKeeping(dof, var_name, sset_name)
-  vals = zeros(Float64, length(bookkeeping.elements))
-  sym = Symbol(var_name, :_, sset_name) # TODO maybe add func name?
-  return DirichletBC{sym, typeof(bookkeeping), typeof(func), typeof(vals)}(bookkeeping, func, vals)
-end
-
-function nonunique(v)
-  sv = sort(v)
-  return unique(@view sv[[diff(sv).==0; false]])
-end
-
-struct DirichletBCCollection{Fs, IDs}
-  funcs::Fs
-  func_ids::IDs
-end
-
-# Better to iterate over functions and feed each func into a kernel
-# with the associated local to global Ubc IDs
-
-function DirichletBCCollection(dbcs)
-  # setup func nt
-  funcs = tuple(map(x -> x.func, dbcs)...)
-  func_names = tuple(map(x -> Symbol("func_$x"), 1:length(funcs))...)
-  funcs = NamedTuple{func_names}(funcs)
-
-  dofs = tuple(map(x -> x.bookkeeping.dofs, dbcs)...)
-  n_dofs = length(unique(vcat(dofs...)))
-
-  n_per_func = map(x -> length(x.bookkeeping.dofs))
-
-  # grab all dofs
-  # dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs)
-  # dofs_perm = sortperm(dofs)
-  # dofs_unique = unique(i -> dofs[i], eachindex(dofs))
-
-  # # dofs = nonunique(mapreduce(x -> x.bookkeeping.dofs, vcat, dbcs))
-  # for dof in nonunique(dofs)
-  #   @warn "Repeated dof $dof encounted in DirichletBCCollection"
-  # end
-
-  # func_ids = zeros(Int, 0)
-  # for (n, bc) in enumerate(dbcs)
-  #   # append!(func_ids, )
-  #   append!(func_ids, fill(n, length(bc.bookkeeping.dofs)))
-  # end
-
+    # some error checking
+    @assert found == true "Failed to find variable $var_name"
+    @assert dof_index <= length(mapreduce(x -> names(x), +, dof.H1_vars)) "Found invalid dof index"
   
+    # TODO
+    fspace = dof.H1_vars[var_index].fspace
 
-  # func_ids = func_ids[dofs_perm][dofs_unique]
-  # return DirichletBCCollection(funcs, func_ids)
-end
+    temp_nodes = getproperty(fspace.sideset_nodes, sset_name)
+    append!(elements, getproperty(fspace.sideset_elems, sset_name))
+    # append!(nodes, getproperty(fspace.sideset_nodes, sset_name))
+    append!(nodes, temp_nodes)
+    append!(sides, getproperty(fspace.sideset_sides, sset_name))
 
-function create_bcs(dbcs::DirichletBCCollection, time)
-  backend = KA.get_backend(dbcs.func_ids)
-  vals = KA.zeros(backend, Float64, length(dbcs.func_ids))
+    blocks = Vector{Int64}(undef, 0)
 
-  AK.foreachindex(dbcs.func_ids) do n
-    # TODO change to coords
-    func_id = dbcs.func_ids[n]
-    func = values(dbcs.funcs)[func_id]  
-    # vals[n] = values(dbcs.funcs)[dbcs.func_ids[n]](time, time)
+    # gather the blocks that are present in this sideset
+    # TODO this isn't quite right
+    for (n, val) in enumerate(values(fspace.elem_id_maps))
+      # note these are the local elem id to the block, e.g. starting from 1.
+      indices_in_sset = indexin(val, elements)
+      filter!(x -> x !== nothing, indices_in_sset)
+      
+      if length(indices_in_sset) > 0
+        # add stuff to arrays
+        push!(blocks, n)
+      end
+    end
+
+    # setting up dofs for use in dirichlet bcs
+    # TODO only works for H1
+    ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+    n_total_dofs = ND * NN
+    # all_dofs = reshape(1:length(dof), num_dofs_per_node(dof), num_nodes(dof))
+    all_dofs = reshape(1:n_total_dofs, ND, NN)
+    temp_dofs = all_dofs[dof_index, temp_nodes]
+    append!(dofs, temp_dofs)
   end
-  return vals
+
+  # dof_perm = _unique_sort_perm(dofs)
+  # el_perm = _unique_sort_perm(elements)
+  # # TODO fix up blocks first
+  # # blocks = blocks[el_perm]
+  # dofs = dofs[dof_perm]
+  # elements = elements[el_perm]
+  # nodes = nodes[dof_perm]
+  # sides = sides[el_perm]
+
+  # ND = size(dof.H1_vars[1].fspace.coords, 1)
+
+  return BCBookKeeping{typeof(blocks)}(
+    blocks, dofs, elements, nodes, sides
+  )
 end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function BCBookKeeping(dof::DofManager, var_name::Symbol, sset_name::Symbol)
+  return BCBookKeeping(dof, [var_name], [sset_name])
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+KA.get_backend(bk::BCBookKeeping) = KA.get_backend(bk.blocks)
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+abstract type AbstractBC{F <: Function} end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function (bc::AbstractBC)(x, t)
+  return bc.func(x, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+KA.get_backend(x::AbstractBC) = KA.get_backend(x.vals)
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+abstract type AbstractBCContainer{
+  B <: BCBookKeeping,
+  F <: Function,
+  V <: AbstractArray{<:Number, 1}
+} end
+
+KA.get_backend(x::AbstractBCContainer) = KA.get_backend(x.vals)
+
+# need checks on if field types are compatable
+"""
+$(TYPEDSIGNATURES)
+CPU implementation for updating stored bc values 
+based on the stored function
+"""
+function _update_bc_values!(bc, X, t, ::KA.CPU)
+  ND = num_fields(X)
+  for (n, node) in enumerate(bc.bookkeeping.nodes)
+    X_temp = @views SVector{ND, eltype(X)}(X[:, node])
+    bc.vals[n] = bc.func(X_temp, t)
+  end
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+GPU kernel for updating stored bc values based on the stored function
+"""
+KA.@kernel function _update_bc_values_kernel!(bc, X, t)
+  I = KA.@index(Global)
+  ND = num_fields(X)
+  node = bc.bookkeeping.nodes[I]
+
+  # hacky for now, but it works
+  # can't do X[:, node] on the GPU, this results in a dynamic
+  # function call
+  if ND == 1
+    X_temp = SVector{ND, eltype(X)}(X[1, node])
+  elseif ND == 2
+    X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node])
+  elseif ND == 3
+    X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node], X[3, node])
+  end
+  bc.vals[I] = bc.func(X_temp, t)
+end
+
+"""
+$(TYPEDSIGNATURES)
+GPU kernel wrapper for updating bc values based on the stored function
+"""
+function _update_bc_values!(bc, X, t, backend::KA.Backend)
+  kernel! = _update_bc_values_kernel!(backend)
+  kernel!(bc, X, t, ndrange=length(bc.bookkeeping.dofs))
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+Wrapper that is generic for all architectures to
+update bc values based on the stored function
+"""
+function update_bc_values!(bcs, X, t)
+  for bc in values(bcs)
+    backend = KA.get_backend(bc)
+    _update_bc_values!(bc, X, t, backend)
+  end
+  return nothing
+end
+
+include("DirichletBCs.jl")
+include("NeumannBCs.jl")

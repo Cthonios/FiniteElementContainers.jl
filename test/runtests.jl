@@ -1,21 +1,21 @@
 using Aqua
 using Exodus
 using FiniteElementContainers
-using JET
+# using JET
 using LinearAlgebra
-using Parameters
 using ReferenceFiniteElements
 using StaticArrays
-using StructArrays
 using Tensors
 using Test
 using TestSetExtensions
 
+include("TestBCs.jl")
 include("TestConnectivities.jl")
 include("TestDofManagers.jl")
 include("TestFields.jl")
 include("TestFormulations.jl")
 # include("TestFunctionSpaces.jl")
+include("TestFunctions.jl")
 include("TestMesh.jl")
 include("TestPhysics.jl")
 
@@ -24,8 +24,11 @@ include("TestPhysics.jl")
 # end
 
 @testset ExtendedTestSet "Poisson problem" begin
-  # include("poisson/TestPoisson.jl")
-  include("poisson/TestPoisson2.jl")
+  include("poisson/TestPoisson.jl")
+end
+
+@testset ExtendedTestSet "Mechanics Problem" begin
+  include("mechanics/TestMechanics.jl")
 end
 
 @testset ExtendedTestSet "Aqua" begin

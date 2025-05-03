@@ -1,14 +1,30 @@
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 abstract type AbstractAssembler{Dof <: DofManager} end
+"""
+$(TYPEDSIGNATURES)
+"""
+KA.get_backend(asm::AbstractAssembler) = KA.get_backend(asm.dof)
 
 """
 $(TYPEDSIGNATURES)
 Assembly method for a scalar field stored as a size 1 vector
+Called on a single element e for a given block b where local_val
+has already been constructed from quadrature contributions.
 """
 function _assemble_element!(global_val::T, local_val, conn, e, b) where T <: AbstractArray{<:Number, 1}
   global_val[1] += local_val
   return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+Assembly method for an H1Field, e.g. internal force
+Called on a single element e for a given block b where local_val
+has already been constructed from quadrature contributions.
+"""
 function _assemble_element!(global_val::H1Field, local_val, conn, e, b)
   n_dofs = size(global_val, 1)
   for i in axes(conn, 1)
@@ -22,176 +38,136 @@ function _assemble_element!(global_val::H1Field, local_val, conn, e, b)
   return nothing
 end
 
-function _assemble_block!(assembler, physics, ::Val{:residual}, ref_fe, U, X, conns, block_id, ::KA.CPU)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  for e in axes(conns, 2)
-    x_el = _element_level_coordinates(X, ref_fe, conns, e)
-    u_el = _element_level_fields(U, ref_fe, conns, e)
-    R_el = zeros(SVector{NxNDof, Float64})
-
-    for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-      R_q = residual(physics, interps, u_el)
-      R_el = R_el + R_q
-    end
-    
-    @views _assemble_element!(assembler.residual_storage, R_el, conns[:, e], e, block_id)
-  end
-end
-
-KA.@kernel function _assemble_block_residual_kernel!(assembler, physics, ref_fe, U, X, conns, block_id)
-  E = KA.@index(Global)
-
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-
-  x_el = _element_level_coordinates(X, ref_fe, conns, E)
-  u_el = _element_level_fields(U, ref_fe, conns, E)
-  R_el = zeros(SVector{NxNDof, Float64})
-
-  for q in 1:num_quadrature_points(ref_fe)
-    interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-    R_q = residual(physics, interps, u_el)
-    R_el = R_el + R_q
-  end
-
-  # now assemble atomically
-  n_dofs = size(assembler.residual_storage, 1)
-  for i in 1:size(conns, 1)
-    for d in 1:n_dofs
-      global_id = n_dofs * (conns[i, E] - 1) + d
-      local_id = n_dofs * (i - 1) + d
-      Atomix.@atomic assembler.residual_storage.vals[global_id] += R_el[local_id]
-    end
-  end
-end
-
-function _assemble_block!(assembler, physics, ::Val{:residual}, ref_fe, U, X, conns, block_id, backend::KA.Backend)
-  kernel! = _assemble_block_residual_kernel!(backend)
-  kernel!(assembler, physics, ref_fe, U, X, conns, block_id, ndrange=size(conns, 2))
-  return nothing
-end
-
-function _assemble_block!(assembler, physics, ::Val{:residual_and_stiffness}, ref_fe, U, X, conns, block_id, ::KA.CPU)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  for e in axes(conns, 2)
-    x_el = _element_level_coordinates(X, ref_fe, conns, e)
-    u_el = _element_level_fields(U, ref_fe, conns, e)
-    R_el = zeros(SVector{NxNDof, Float64})
-    K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
-
-    for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-      R_q = residual(physics, interps, u_el)
-      K_q = stiffness(physics, interps, u_el)
-      R_el = R_el + R_q
-      K_el = K_el + K_q
-    end
-    
-    @views _assemble_element!(assembler.residual_storage, R_el, conns[:, e], e, block_id)
-    @views _assemble_element!(assembler, K_el, conns[:, e], e, block_id)
-  end
-  return nothing
-end
-
-function _assemble_block!(assembler, physics, ::Val{:stiffness}, ref_fe, U, X, conns, block_id, ::KA.CPU)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  for e in axes(conns, 2)
-    x_el = _element_level_coordinates(X, ref_fe, conns, e)
-    u_el = _element_level_fields(U, ref_fe, conns, e)
-    K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
-
-    for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-      K_q = stiffness(physics, interps, u_el)
-      K_el = K_el + K_q
-    end
-    
-    @views _assemble_element!(assembler, K_el, conns[:, e], e, block_id)
-  end
-  return nothing
-end
-
-KA.@kernel function _assemble_block_stiffness_kernel!(assembler, physics, ref_fe, U, X, conns, block_id)
-  E = KA.@index(Global)
-
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-
-  x_el = _element_level_coordinates(X, ref_fe, conns, E)
-  u_el = _element_level_fields(U, ref_fe, conns, E)
-  K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
-
-  for q in 1:num_quadrature_points(ref_fe)
-    interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-    K_q = stiffness(physics, interps, u_el)
-    K_el = K_el + K_q
-  end
-
-  block_size = values(assembler.pattern.block_sizes)[block_id]
-  block_offset = values(assembler.pattern.block_offsets)[block_id]
-  start_id = (block_id - 1) * block_size + 
-             (E - 1) * block_offset + 1
-  end_id = start_id + block_offset - 1
-  ids = start_id:end_id
-  for (i, id) in enumerate(ids)
-    Atomix.@atomic assembler.stiffness_storage[id] += K_el.data[i]
-  end
-end
-
-function _assemble_block!(assembler, physics, ::Val{:stiffness}, ref_fe, U, X, conns, block_id, backend::KA.Backend)
-  kernel! = _assemble_block_stiffness_kernel!(backend)
-  kernel!(assembler, physics, ref_fe, U, X, conns, block_id, ndrange=size(conns, 2))
-  return nothing
-end
-
-function _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, block_id)
+function _check_backends(assembler, U, X, state_old, state_new, conns)
   backend = KA.get_backend(assembler)
   # TODO add get_backend method of ref_fe
   @assert backend == KA.get_backend(U)
   @assert backend == KA.get_backend(X)
   @assert backend == KA.get_backend(conns)
-  _assemble_block!(assembler, physics, Val{sym}(), ref_fe, U, X, conns, block_id, backend)
+  @assert backend == KA.get_backend(state_old)
+  @assert backend == KA.get_backend(state_new)
+  # props will be complicated...
+  # TODO
+  return backend
+end
+
+function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:mass})
+  fspace = assembler.dof.H1_vars[1].fspace
+  _zero_storage(assembler, val_sym)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    _assemble_block_mass!(
+      assembler, block_physics, ref_fe, 
+      p.h1_field, p.h1_coords, state_old, state_new, props,
+      conns, b, 
+      backend
+    )
+  end
+end
+
+function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
+  fspace = assembler.dof.H1_vars[1].fspace
+  _zero_storage(assembler, val_sym)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    _assemble_block_residual!(
+      assembler, block_physics, ref_fe, 
+      p.h1_field, p.h1_coords, state_old, state_new, props,
+      conns, b, 
+      backend
+    )
+  end
+end
+
+function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual_and_stiffness})
+  fspace = assembler.dof.H1_vars[1].fspace
+  _zero_storage(assembler, val_sym)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    _assemble_block_residual_and_stiffness!(
+      assembler, block_physics, ref_fe, 
+      p.h1_field, p.h1_coords, state_old, state_new, props,
+      conns, b, 
+      backend
+    )
+  end
+end
+
+function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:stiffness})
+  _zero_storage(assembler, val_sym)
+  fspace = assembler.dof.H1_vars[1].fspace
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    _assemble_block_stiffness!(
+      assembler, block_physics, ref_fe, 
+      p.h1_field, p.h1_coords, state_old, state_new, props,
+      conns, b, 
+      backend
+    )
+  end
 end
 
 """
 $(TYPEDSIGNATURES)
-Top level assembly method
-TODO make more general
+Top level assembly method for ```H1Field``` that loops over blocks and dispatches
+to appropriate kernels based on sym.
+
+TODO need to make sure at setup time that physics and elem_conns have the same
+values order. Otherwise, shenanigans.
+
+TODO figure out how to do generated functions
+
+creates one type instability from the Val
 """
-function assemble!(assembler, physics, U::H1Field, sym::Symbol)
-  # TODO need to generalize to different field types
-  # fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
-  _zero_storage(assembler, Val{sym}())
-  fspace = assembler.dof.H1_vars[1].fspace
-  X = fspace.coords
-  for (b, conns) in enumerate(values(fspace.elem_conns))
-    ref_fe = values(fspace.ref_fes)[b]
-    _assemble_block!(assembler, physics, sym, ref_fe, U, X, conns, b)
-  end
-  return nothing
+function assemble!(assembler, type::Type{H1Field}, p, sym::Symbol)
+  assemble!(assembler, type, p, Val{sym}())
 end
 
-
+"""
+$(TYPEDSIGNATURES)
+"""
 create_bcs(asm::AbstractAssembler, type) = create_bcs(asm.dof, type)
+"""
+$(TYPEDSIGNATURES)
+"""
 create_field(asm::AbstractAssembler, type) = create_field(asm.dof, type)
+"""
+$(TYPEDSIGNATURES)
+"""
 create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
 
-function _element_level_coordinates(X::H1Field, ref_fe, conns, e)
-  NDim = size(X, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  x_el = @views SMatrix{NDim, NNPE, Float64, NDim * NNPE}(X[:, conns[:, e]])
-  return x_el
-end
+"""
+$(TYPEDSIGNATURES)
+"""
+create_unknowns(asm::AbstractAssembler, type::Type{<:AbstractField}) = create_unknowns(asm.dof, type)
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function _element_level_fields(U::H1Field, ref_fe, conns, e)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
@@ -200,41 +176,31 @@ function _element_level_fields(U::H1Field, ref_fe, conns, e)
   return u_el
 end
 
-KA.@kernel function _extract_residual_unknowns!(Ru, unknown_dofs, R)
-  N = KA.@index(Global)
-  Ru[N] = R[unknown_dofs[N]]
-end
-
-function _residual(asm::AbstractAssembler, backend::KA.Backend)
-  kernel! = _extract_residual_unknowns!(backend)
-  kernel!(asm.residual_unknowns, 
-          asm.dof.H1_unknown_dofs, 
-          asm.residual_storage, 
-          ndrange=length(asm.dof.H1_unknown_dofs))
-  return asm.residual_unknowns
-end 
-
-# TODO hardcoded to H1 fields right now.
-function _residual(asm::AbstractAssembler, ::KA.CPU)
-  # for n in axes(asm.residual_unknowns, 1)
-  #   asm.residual_unknowns[n] = asm.residual_storage[asm.dof.H1_unknown_dofs[n]]
-  # end
-  @views asm.residual_unknowns .= asm.residual_storage[asm.dof.H1_unknown_dofs]
-  return asm.residual_unknowns
-end
-
+"""
+$(TYPEDSIGNATURES)
+"""
 function residual(asm::AbstractAssembler)
   return _residual(asm, KA.get_backend(asm))
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function update_field!(U, asm::AbstractAssembler, Uu, Ubc)
   update_field!(U, asm.dof, Uu, Ubc)
   return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function _zero_storage(asm::AbstractAssembler, ::Val{:residual})
   fill!(asm.residual_storage.vals, zero(eltype(asm.residual_storage.vals)))
 end
+
+# different backend implementations of abstract methods
+include("CPUGeneral.jl")
+include("GPUGeneral.jl")
 
 # some utilities
 include("SparsityPattern.jl")
