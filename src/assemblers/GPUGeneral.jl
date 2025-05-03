@@ -51,7 +51,7 @@ function _assemble_block_residual!(
   kernel! = _assemble_block_residual_kernel!(backend)
   kernel!(
     assembler, physics, ref_fe, 
-    U, X, state_old, state_new,
+    U, X, state_old, state_new, props,
     conns, block_id, ndrange=size(conns, 2)
   )
   return nothing
@@ -104,7 +104,7 @@ function _assemble_block_stiffness!(
   kernel! = _assemble_block_stiffness_kernel!(backend)
   kernel!(
     assembler, physics, ref_fe, 
-    U, X, state_old, state_new, 
+    U, X, state_old, state_new, props,
     conns, block_id, ndrange=size(conns, 2)
   )
   return nothing
