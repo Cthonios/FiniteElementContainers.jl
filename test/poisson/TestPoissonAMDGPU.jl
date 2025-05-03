@@ -1,6 +1,6 @@
 import KernelAbstractions as KA
 using Adapt
-using CUDA
+using AMDGPU
 using Exodus
 using FiniteElementContainers
 using Krylov
@@ -31,25 +31,24 @@ function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
   return JxW * K_q
 end
 
-# function poisson_cuda()
+# function poisson_amdgpu()
   # do all setup on CPU
   # the mesh for instance is not gpu compatable
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Poisson()
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(H1Field, u)
+  dof = DofManager(u)
+  asm = SparseMatrixAssembler(dof, H1Field)
   pp = PostProcessor(mesh, output_file, u)
 
   dbcs = DirichletBC[
     DirichletBC(:u, :sset_1, bc_func),
     DirichletBC(:u, :sset_2, bc_func),
     DirichletBC(:u, :sset_3, bc_func),
-    DirichletBC(:u, :sset_4, bc_func_2),
+    DirichletBC(:u, :sset_4, bc_func),
   ]
 
-  # create parameters on CPU
-  # TODO make a better constructor
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
 
   # device movement
@@ -58,16 +57,18 @@ end
 
   solver = NewtonSolver(IterativeLinearSolver(asm_gpu, :CgSolver))
   integrator = QuasiStaticIntegrator(solver)
-  evolve!(integrator, p_gpu)
+  @time evolve!(integrator, p_gpu)
 
-  # transfer to cpu to post-process
   p = p_gpu |> cpu
   U = p.h1_field
 
   write_times(pp, 1, 0.0)
   write_field(pp, 1, U)
   close(pp)
+
 # end
 
-# @time poisson_cuda()
-# @time poisson_cuda()
+# @time poisson_amdgpu()
+# @time poisson_amdgpu()
+
+# @benchmark poisson_cuda()
