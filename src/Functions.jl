@@ -87,7 +87,7 @@ function TensorFunction(fspace::FunctionSpace, sym; use_spatial_dimension=false)
   # switch for whether to do the sensible thing for constitutive equations
   # e.g. always use 3x3 for displacement gradient regardless of dimension
   if use_spatial_dimension
-    ND = size(values(fspace.coords)[1], 1)
+    ND = size(values(fspace.coords), 1)
   else
     ND = 3
   end
@@ -135,7 +135,7 @@ function SymmetricTensorFunction(fspace::FunctionSpace, sym; use_spatial_dimensi
   # switch for whether to do the sensible thing for constitutive equations
   # e.g. always use 3x3 for displacement gradient regardless of dimension
   if use_spatial_dimension
-    ND = size(values(fspace.coords)[1], 1)
+    ND = size(values(fspace.coords), 1)
   else
     ND = 3
   end
@@ -168,27 +168,27 @@ function Base.show(io::IO, ::SymmetricTensorFunction{S, F}) where {S, F}
 end
 
 
-struct StateFunction{S, F, NS, NQ} <: AbstractFunction{S, F}
-  fspace::F
-end
+# struct StateFunction{S, F, NS, NQ} <: AbstractFunction{S, F}
+#   fspace::F
+# end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function StateFunction(fspace::FunctionSpace, sym, n_state, n_quad_pts)
-  syms = ()
-  for n in 1:n_state
-    for q in 1:n_quad_pts
-      syms = (syms..., String(sym) * String("_$(n)_$(q)"))
-    end
-  end
-  syms = Symbol.(syms)
-  return StateFunction{syms, typeof(fspace), n_state, n_quad_pts}(fspace)
-end
+# """
+# $(TYPEDSIGNATURES)
+# """
+# function StateFunction(fspace::FunctionSpace, sym, n_state, n_quad_pts)
+#   syms = ()
+#   for n in 1:n_state
+#     for q in 1:n_quad_pts
+#       syms = (syms..., String(sym) * String("_$(n)_$(q)"))
+#     end
+#   end
+#   syms = Symbol.(syms)
+#   return StateFunction{syms, typeof(fspace), n_state, n_quad_pts}(fspace)
+# end
 
-function Base.show(io::IO, ::StateFunction{S, F, NS, NQ}) where {S, F, NS, NQ}
-  println(io, "StateFunction:")
-  println(io, "  names: $S")
-  println(io, "  number of state variables: $NS")
-  println(io, "  number of quadrature points: $NQ")
-end
+# function Base.show(io::IO, ::StateFunction{S, F, NS, NQ}) where {S, F, NS, NQ}
+#   println(io, "StateFunction:")
+#   println(io, "  names: $S")
+#   println(io, "  number of state variables: $NS")
+#   println(io, "  number of quadrature points: $NQ")
+# end
