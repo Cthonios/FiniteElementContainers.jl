@@ -1,4 +1,4 @@
-@testset ExtendedTestSet "Connectivies" begin
+@testset ExtendedTestSet "Connectivities" begin
   conn_in = [
     1 5 9;
     2 6 10;

@@ -1,14 +1,11 @@
 # TODO
-# need to add L2 element and L2 quadrature dofs. They don't need to deliniate between
-# bcs or unknowns
-#
-# deliniate between different var types e.g. H1, Hdiv, etc.
-#
-# TODO
 # Should we create a small DofManager for single functions spaces
-# and one for mixed function spaces for an easier interface? Yes.
+# and one for mixed function spaces for an easier interface? Maybe.
 # what would be the container though? A namedtuple? Or just a general
 # one?
+# TODO need to make NL2EDofs and NL2QDofs namedtuples Otherwise
+# all blocks need have the same number of vars there
+# which will not be the case for properties and state variables
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -26,9 +23,10 @@ struct DofManager{
   Hcurl_unknown_dofs::IDs
   Hdiv_bc_dofs::IDs
   Hdiv_unknown_dofs::IDs
+  # we can save space by having the below two fields be ranges
   L2_element_dofs::IDs
   L2_quadrature_dofs::IDs
-  # TODO make bins of vars
+  # bins of vars
   H1_vars::H1Vars
   Hcurl_vars::HcurlVars
   Hdiv_vars::HdivVars
@@ -56,7 +54,6 @@ function DofManager(vars...)
   Hdiv_vars = NamedTuple() # TODO
   L2_element_vars = _filter_field_type(vars, L2ElementField)
   L2_quadrature_vars = _filter_field_type(vars, L2QuadratureField)
-  
   # get number of dofs
   n_H1_dofs = _n_dofs_from_vars(H1_vars)
   n_Hcurl_dofs = _n_dofs_from_vars(Hcurl_vars)
@@ -66,18 +63,40 @@ function DofManager(vars...)
 
   # hack for now
   # TODO remove this warning
-  if length(vars) > 1
-    @warn "Using multiple variables require they share FunctionSpaces currently. Checking this is satisfied..."
-    for var in vars
-      @assert typeof(var.fspace) == typeof(vars[1].fspace)
-      @assert all(getfield(var.fspace, f) == getfield(vars[1].fspace, f) for f in fieldnames(typeof(vars[1].fspace)))
-    end
-  end
+  # if length(vars) > 1
+  #   @warn "Using multiple variables require they share FunctionSpaces currently. Checking this is satisfied..."
+  #   for var in vars
+  #     @assert typeof(var.fspace) == typeof(vars[1].fspace)
+  #     @assert all(getfield(var.fspace, f) == getfield(vars[1].fspace, f) for f in fieldnames(typeof(vars[1].fspace)))
+  #   end
+  # end
 
   # TODO fix this
-  fspace = vars[1].fspace
-  H1_unknown_dofs = 1:size(fspace.coords, 2) * n_H1_dofs |> collect
-  H1_bc_dofs = typeof(H1_unknown_dofs)(undef, 0)
+  # setting up H1 vars
+  if length(H1_vars) > 0
+    H1_unknown_dofs = 1:size(H1_vars[1].fspace.coords, 2) * n_H1_dofs |> collect
+    H1_bc_dofs = typeof(H1_unknown_dofs)(undef, 0)
+  else
+    H1_unknown_dofs = zeros(Int, 0)
+    H1_bc_dofs = zeros(Int, 0)
+  end
+
+  # TODO need coords everywhere basically, that's apparently the interace
+  # if length(L2_element_vars) > 0
+  #   L2_element_dofs = 1:size(L2_element_vars[1].fspace.coords, 2) * size(L2_element_vars[1].fspace.coords, 2) * n_L2_quadrature_dofs |> collect
+  #   @show L2_element_dofs
+  # end
+
+  if length(L2_quadrature_vars) > 0
+    # L2_quadrature_dofs = 1:size(L2_quadrature_vars[1].fspace.coords, 2) * size(L2_quadrature_vars[1].fspace.coords, 3) * n_L2_quadrature_dofs |> collect
+    n_total_elements = 0
+    for var in L2_quadrature_vars
+      n_total_elements = n_total_elements + sum(map(x -> size(x, 3), values(var.fspace.coords)))
+    end
+    L2_quadrature_dofs = 1:n_L2_quadrature_dofs * n_total_elements |> collect
+  else
+    L2_quadrature_dofs = zeros(Int, 0)
+  end
 
   # TODO
   # fill out Hcurl properly
@@ -90,7 +109,7 @@ function DofManager(vars...)
   Hdiv_bc_dofs = zeros(Int, 0)
   # L2 doesn't need to be here most likely...
   L2_element_dofs = zeros(Int, 0)
-  L2_quadrature_dofs = zeros(Int, 0)
+  # L2_quadrature_dofs = zeros(Int, 0)
 
   return DofManager{
     eltype(H1_unknown_dofs), typeof(H1_unknown_dofs),
@@ -112,6 +131,18 @@ function _dof_manager_sym_name(u::ScalarFunction)
   return names(u)[1]
 end
 
+function _dof_manager_sym_name(u::SymmetricTensorFunction)
+  return Symbol(split(String(names(u)[1]), ['_'])[1])
+end
+
+# function _dof_manager_sym_name(u::StateFunction)
+#   return Symbol(split(String(names(u)[1]), ['_'])[1])
+# end
+
+function _dof_manager_sym_name(u::TensorFunction)
+  return Symbol(split(String(names(u)[1]), ['_'])[1])
+end
+
 function _dof_manager_sym_name(u::VectorFunction)
   return Symbol(split(String(names(u)[1]), ['_'])[1])
 end
@@ -121,7 +152,24 @@ function _dof_manager_vars(dof::DofManager, ::Type{<:H1Field})
 end
 
 function _filter_field_type(vars, T)
-  vars = filter(x -> isa(x.fspace.coords, T), vars)
+  if T == L2QuadratureField
+    # vars = map(y -> isa(y, T), values(x.fspace.coords))
+    # vars = map(x -> , vars)
+    temp_vars = filter(x -> isa(x.fspace.coords, NamedTuple), vars)
+    var_syms = Symbol[]
+    var_vals = [] # TODO type this array
+    for var in temp_vars
+      if isa(values(var.fspace.coords)[1], L2QuadratureField)
+        push!(var_syms, names(var)[1])
+        push!(var_vals, var)
+      end
+    end
+    # @show vars
+    # vars = NamedTuple{tuple(var_syms...)}(tuple(var_vals...))
+    vars = tuple(var_vals...)
+  else
+    vars = filter(x -> isa(x.fspace.coords, T), vars)
+  end
   syms = map(_dof_manager_sym_name, vars)
   return NamedTuple{syms}(vars)
 end
@@ -170,6 +218,8 @@ Base.length(dof::DofManager) = length(dof.H1_bc_dofs) + length(dof.H1_unknown_do
                                length(dof.L2_quadrature_dofs)
 
 KA.get_backend(dof::DofManager) = KA.get_backend(dof.H1_unknown_dofs)
+
+# is create_bcs even really needed anymore?
 
 """
 $(TYPEDSIGNATURES)
@@ -235,6 +285,31 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function create_field(dof::DofManager, ::Type{H1Field}, syms)
+  backend = KA.get_backend(dof.H1_bc_dofs)
+  NF, NN = num_dofs_per_node(dof), num_nodes(dof)
+  field = KA.zeros(backend, Float64, NF, NN)
+  @assert NF == length(syms)
+  return H1Field(field, syms)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function create_field(dof::DofManager, ::Type{L2QuadratureField})
+  backend = KA.get_backend(dof.L2_quadrature_dofs)
+  fspace = dof.L2_quadrature_vars[1].fspace
+  # NS = 
+  for ref_fe in fspace.ref_fes
+    @show ref_fe
+    NQ = num_quadrature_points(ref_fe)
+
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function create_unknowns(dof::DofManager)
   n_unknowns = length(dof.H1_unknown_dofs) + 
                length(dof.Hcurl_unknown_dofs) + 
@@ -243,6 +318,11 @@ function create_unknowns(dof::DofManager)
                length(dof.L2_quadrature_dofs)
 
   # return typeof(dof.vars[1].fspace.coords.vals)
+  return KA.zeros(KA.get_backend(dof), Float64, n_unknowns)
+end
+
+function create_unknowns(dof::DofManager, ::Type{<:H1Field})
+  n_unknowns = length(dof.H1_unknown_dofs)
   return KA.zeros(KA.get_backend(dof), Float64, n_unknowns)
 end
 
@@ -258,6 +338,19 @@ num_dofs_per_edge(::DofManager{
   NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
   H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
 } = NHcurlDofs
+
+"""
+$(TYPEDSIGNATURES)
+"""
+num_dofs_per_element(::DofManager{
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+}) where {
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+} = NL2EDofs
 
 """
 $(TYPEDSIGNATURES)
@@ -284,6 +377,19 @@ num_dofs_per_node(::DofManager{
   NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
   H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
 } = NH1Dofs
+
+"""
+$(TYPEDSIGNATURES)
+"""
+num_dofs_per_quadrature_point(::DofManager{
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+}) where {
+  T, IDs, 
+  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
+  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
+} = NL2QDofs
 
 """
 $(TYPEDSIGNATURES)
@@ -339,8 +445,8 @@ Currently this only works with H1 spaces.
 """
 function update_dofs!(dof::DofManager, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
   ND, NN = num_dofs_per_node(dof), num_nodes(dof)
-  resize!(dof.H1_bc_dofs, length(dirichlet_dofs))
-  resize!(dof.H1_unknown_dofs, ND * NN)
+  Base.resize!(dof.H1_bc_dofs, length(dirichlet_dofs))
+  Base.resize!(dof.H1_unknown_dofs, ND * NN)
 
   # checking dirichlet dofs make sense for this dof manager
   # for d in dirichlet_dofs
@@ -383,6 +489,26 @@ Does a simple copy on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
 function update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
   _update_field_bcs!(U, dof, Ubc, KA.get_backend(dof))
   return nothing
+end
+
+# # CPU only for now
+# function update_field_bcs!(U::H1Field, dof::DofManager, dbc::DirichletBC, t)
+#   X_global = dof.H1_vars[1].fspace.coords
+#   for (n, node) in enumerate(dbc.bookkeeping.nodes)
+#     X = @views X_global[:, node]
+#     dbc.vals[n] = dbc.func(X, t)
+#   end
+#   for (n, dof) in enumerate(dbc.bookkeeping.dofs)
+#     U[dof] = dbc.vals[n]
+#   end
+#   return nothing
+# end
+
+# CPU only for now, implementations in bcs folders
+function update_field_bcs!(U::H1Field, dof::DofManager, dbcs, t)
+  for bc in dbcs
+    update_field_bcs!(U, dof, bc, t)
+  end
 end
 
 KA.@kernel function _update_field_unknowns_kernel!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
