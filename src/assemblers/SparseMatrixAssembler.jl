@@ -93,104 +93,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-Assembly method for a block labelled as block_id. This is a CPU implementation
-with no threading.
-
-TODO add state variables and physics properties
-"""
-function _assemble_block_mass!(
-  assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props,
-  conns, block_id, ::KA.CPU
-)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  for e in axes(conns, 2)
-    x_el = _element_level_fields(X, ref_fe, conns, e)
-    u_el = _element_level_fields(U, ref_fe, conns, e)
-    M_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.mass_storage), NxNDof * NxNDof})
-
-    for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-      M_q = mass(physics, interps, u_el)
-      M_el = M_el + M_q
-    end
-    
-    @views _assemble_element!(assembler, Val{:mass}(), M_el, conns[:, e], e, block_id)
-  end
-  return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-Assembly method for a block labelled as block_id. This is a CPU implementation
-with no threading.
-
-TODO add state variables and physics properties
-"""
-function _assemble_block_stiffness!(
-  assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props,
-  conns, block_id, ::KA.CPU
-)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  for e in axes(conns, 2)
-    x_el = _element_level_fields(X, ref_fe, conns, e)
-    u_el = _element_level_fields(U, ref_fe, conns, e)
-    K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})
-
-    for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-      K_q = stiffness(physics, interps, u_el)
-      K_el = K_el + K_q
-    end
-    
-    @views _assemble_element!(assembler, Val{:stiffness}(), K_el, conns[:, e], e, block_id)
-  end
-  return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-Assembly method for a block labelled as block_id. This is a CPU implementation
-with no threading.
-
-TODO add state variables and physics properties
-TODO remove Float64 typing below for eventual unitful use
-"""
-function _assemble_block_residual_and_stiffness!(
-  assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props,
-  conns, block_id, ::KA.CPU
-)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  for e in axes(conns, 2)
-    x_el = _element_level_fields(X, ref_fe, conns, e)
-    u_el = _element_level_fields(U, ref_fe, conns, e)
-    R_el = zeros(SVector{NxNDof, eltype(assembler.residual_storage)})
-    K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})
-
-    for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
-      R_q = residual(physics, interps, u_el)
-      K_q = stiffness(physics, interps, u_el)
-      R_el = R_el + R_q
-      K_el = K_el + K_q
-    end
-    
-    @views _assemble_element!(assembler.residual_storage, R_el, conns[:, e], e, block_id)
-    @views _assemble_element!(assembler, Val{:stiffness}(), K_el, conns[:, e], e, block_id)
-  end
-  return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
 """
 function SparseArrays.sparse(assembler::SparseMatrixAssembler)
   # ids = pattern.unknown_dofs
@@ -229,16 +131,8 @@ function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
   return SparseArrays.sparse!(assembler, :mass_storage)
 end
 
-function mass(assembler::SparseMatrixAssembler)
-  return _mass(assembler, KA.get_backend(assembler))
-end
-
 function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
   return SparseArrays.sparse!(assembler, :stiffness_storage)
-end
-
-function stiffness(assembler::SparseMatrixAssembler)
-  return _stiffness(assembler, KA.get_backend(assembler))
 end
 
 # TODO probably only works for H1 fields
