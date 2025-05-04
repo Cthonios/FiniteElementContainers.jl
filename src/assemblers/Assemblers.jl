@@ -51,86 +51,6 @@ function _check_backends(assembler, U, X, state_old, state_new, conns)
   return backend
 end
 
-function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:mass})
-  fspace = assembler.dof.H1_vars[1].fspace
-  _zero_storage(assembler, val_sym)
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
-    values(fspace.elem_conns), 
-    values(p.physics),
-    values(p.state_old), values(p.state_new),
-    values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_mass!(
-      assembler, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props,
-      conns, b, 
-      backend
-    )
-  end
-end
-
-function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
-  fspace = assembler.dof.H1_vars[1].fspace
-  _zero_storage(assembler, val_sym)
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
-    values(fspace.elem_conns), 
-    values(p.physics),
-    values(p.state_old), values(p.state_new),
-    values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_residual!(
-      assembler, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props,
-      conns, b, 
-      backend
-    )
-  end
-end
-
-function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual_and_stiffness})
-  fspace = assembler.dof.H1_vars[1].fspace
-  _zero_storage(assembler, val_sym)
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
-    values(fspace.elem_conns), 
-    values(p.physics),
-    values(p.state_old), values(p.state_new),
-    values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_residual_and_stiffness!(
-      assembler, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props,
-      conns, b, 
-      backend
-    )
-  end
-end
-
-function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:stiffness})
-  _zero_storage(assembler, val_sym)
-  fspace = assembler.dof.H1_vars[1].fspace
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
-    values(fspace.elem_conns), 
-    values(p.physics),
-    values(p.state_old), values(p.state_new),
-    values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_stiffness!(
-      assembler, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props,
-      conns, b, 
-      backend
-    )
-  end
-end
-
 """
 $(TYPEDSIGNATURES)
 Top level assembly method for ```H1Field``` that loops over blocks and dispatches
@@ -179,8 +99,22 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function mass(assembler::AbstractAssembler)
+  return _mass(assembler, KA.get_backend(assembler))
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function residual(asm::AbstractAssembler)
   return _residual(asm, KA.get_backend(asm))
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function stiffness(assembler::AbstractAssembler)
+  return _stiffness(assembler, KA.get_backend(assembler))
 end
 
 """
@@ -198,12 +132,14 @@ function _zero_storage(asm::AbstractAssembler, ::Val{:residual})
   fill!(asm.residual_storage.vals, zero(eltype(asm.residual_storage.vals)))
 end
 
-# different backend implementations of abstract methods
-include("CPUGeneral.jl")
-include("GPUGeneral.jl")
-
 # some utilities
 include("SparsityPattern.jl")
 
 # implementations
 include("SparseMatrixAssembler.jl")
+
+# methods
+include("Mass.jl")
+include("Residual.jl")
+include("ResidualAndStiffness.jl")
+include("Stiffness.jl")
