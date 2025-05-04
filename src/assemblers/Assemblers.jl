@@ -99,6 +99,34 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function _element_level_properties(props::SVector{NP, T}, ::Int) where {NP, T}
+  return props
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function _element_level_properties(props::L2ElementField, e::Int)
+  props_e = @views SVector{size(props, 1), eltype(props)}(props[:, e])
+  return props_e
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function _quadrature_level_state(state::L2QuadratureField, q::Int, e::Int)
+  NS = size(state, 1)
+  if NS > 0
+    state_q = @views SVector{size(state, 1), eltype(state)}(state[:, q, e])
+  else
+    state_q = SVector{0, eltype(state)}
+  end
+  return state_q
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function mass(assembler::AbstractAssembler)
   return _mass(assembler, KA.get_backend(assembler))
 end
