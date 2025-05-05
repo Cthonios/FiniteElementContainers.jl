@@ -1,6 +1,6 @@
 abstract type AbstractTimeStepper{T} end
-current_time(t::AbstractTimeStepper) = sum(t.time_current)
-time_step(t::AbstractTimeStepper) = sum(t.Δt)
+current_time(t::AbstractTimeStepper) = unsafe_load(pointer(t.time_current))
+time_step(t::AbstractTimeStepper) = unsafe_load(pointer(t.Δt))
 
 struct TimeStepper{T} <: AbstractTimeStepper{T}
   time_start::T
