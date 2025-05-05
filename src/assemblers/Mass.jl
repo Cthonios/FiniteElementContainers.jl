@@ -45,9 +45,9 @@ function _assemble_block_mass!(
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.mass_storage), NxNDof * NxNDof})
 
     for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+      interps = ref_fe.cell_interps.vals[q]
       state_old_q = _quadrature_level_state(state_old, q, e)
-      K_q = mass(physics, interps, u_el, state_old_q, props_el, dt)
+      K_q = mass(physics, interps, u_el, x_el, state_old_q, props_el, dt)
       K_el = K_el + K_q
     end
     
@@ -76,9 +76,9 @@ KA.@kernel function _assemble_block_mass_kernel!(
   K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
 
   for q in 1:num_quadrature_points(ref_fe)
-    interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+    interps = ref_fe.cell_interps.vals[q]
     state_old_q = _quadrature_level_state(state_old, q, E)
-    K_q = mass(physics, interps, u_el, state_old_q, props_el, dt)
+    K_q = mass(physics, interps, u_el, x_el, state_old_q, props_el, dt)
     K_el = K_el + K_q
   end
 

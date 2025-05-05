@@ -14,6 +14,8 @@ end
 
 function evolve!(integrator::QuasiStaticIntegrator, p)
   update_time!(p)
+  @show p.times.time_current
+  @info "Current Time = $(current_time(p.times))"
   # update_bcs!(H1Field, integrator.solver, p)
   update_bcs!(integrator, p)
   solve!(integrator.solver, integrator.solution, p)
@@ -22,7 +24,7 @@ end
 
 function update_bcs!(::QuasiStaticIntegrator, p::Parameters)
   X = p.h1_coords # TODO won't work for mixed bcs
-  t = current_time(p.times)
+  @show t = current_time(p.times)
 
   update_bc_values!(p.dirichlet_bcs, X, t)
 

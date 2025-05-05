@@ -30,8 +30,10 @@ function strain_energy(∇u)
   ψ = 0.5 * K * tr(ε)^2 + G * dcontract(dev(ε), dev(ε))
 end
 
-function FiniteElementContainers.residual(physics::Mechanics, cell, u_el, args...)
-  (; X_q, N, ∇N_X, JxW) = cell
+function FiniteElementContainers.residual(
+  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, dt
+)
+  (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
 
   # kinematics
   ∇u_q = u_el * ∇N_X
@@ -43,11 +45,12 @@ function FiniteElementContainers.residual(physics::Mechanics, cell, u_el, args..
   G_q = discrete_gradient(physics.formulation, ∇N_X)
   f_q = G_q * P_q
   return JxW * f_q[:]
-  # return f_q
 end
 
-function FiniteElementContainers.stiffness(physics::Mechanics, cell, u_el, args...)
-  (; X_q, N, ∇N_X, JxW) = cell
+function FiniteElementContainers.stiffness(  
+  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, dt
+)
+  (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
 
   # kinematics
   ∇u_q = u_el * ∇N_X

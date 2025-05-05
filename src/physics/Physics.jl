@@ -44,3 +44,15 @@ function stiffness end
 function gradient end
 function hessian end
 function value end
+
+# function energy(::AbstractPhysics)
+
+# end
+
+# function residual(
+#   physics, interps::ReferenceFiniteElements.Interpolants,
+#   u_el, x_el, state_old_q, props_el, dt
+# )
+#   mapped_interps = MappedInterpolants(interps, x_el)
+#   return residual(physics, mapped_interps, u_el, state_old_q, props_el, dt)
+# end

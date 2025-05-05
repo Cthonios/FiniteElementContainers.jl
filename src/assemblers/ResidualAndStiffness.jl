@@ -46,10 +46,10 @@ function _assemble_block_residual_and_stiffness!(
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.stiffness_storage), NxNDof * NxNDof})
 
     for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+      interps = ref_fe.cell_interps.vals[q]
       state_old_q = _quadrature_level_state(state, q, e)
-      R_q = residual(physics, interps, u_el, state_old_q, props_el, dt)
-      K_q = stiffness(physics, interps, u_el, state_old_q, props_el, dt)
+      R_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, dt)
+      K_q = stiffness(physics, interps, u_el, x_el, state_old_q, props_el, dt)
       R_el = R_el + R_q
       K_el = K_el + K_q
     end

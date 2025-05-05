@@ -47,9 +47,9 @@ function _assemble_block_residual!(
     R_el = zeros(SVector{NxNDof, eltype(assembler.residual_storage)})
 
     for q in 1:num_quadrature_points(ref_fe)
-      interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+      interps = ref_fe.cell_interps.vals[q]
       state_old_q = _quadrature_level_state(state_old, q, e)
-      R_q = residual(physics, interps, u_el, state_old_q, props_el, dt)
+      R_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, dt)
       R_el = R_el + R_q
     end
     
@@ -94,9 +94,9 @@ KA.@kernel function _assemble_block_residual_kernel!(
   R_el = zeros(SVector{NxNDof, Float64})
 
   for q in 1:num_quadrature_points(ref_fe)
-    interps = MappedInterpolants(ref_fe.cell_interps.vals[q], x_el)
+    interps = ref_fe.cell_interps.vals[q]
     state_old_q = _quadrature_level_state(state_old, q, E)
-    R_q = residual(physics, interps, u_el, state_old_q, props_el, dt)
+    R_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, dt)
     R_el = R_el + R_q
   end
 
