@@ -96,6 +96,14 @@ function _element_level_fields(U::H1Field, ref_fe, conns, e)
   return u_el
 end
 
+function _element_level_fields_flat(U::H1Field, ref_fe, conns, e)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns[:, e]])
+  return u_el
+end
+
 """
 $(TYPEDSIGNATURES)
 """
