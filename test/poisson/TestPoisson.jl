@@ -46,10 +46,11 @@ function poisson()
     @test exodiff(output_file, gold_file)
   end
   rm(output_file; force=true)
+  display(solver.timer)
 end
 
 @time poisson()
-# @time poisson()
+@time poisson()
 
 # # condensed test
 # mesh = UnstructuredMesh(mesh_file)

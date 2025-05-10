@@ -1,10 +1,12 @@
 struct DirectLinearSolver{
   A <: SparseMatrixAssembler, 
   P, 
+  T <: TimerOutput,
   Inc <: AbstractArray{<:Number, 1}
-} <: AbstractLinearSolver{A, P, Inc}
+} <: AbstractLinearSolver{A, P, T, Inc}
   assembler::A
   preconditioner::P
+  timer::T
   # TODO add some tolerances
   # what's the best way to do this with general solvers?
   ΔUu::Inc
@@ -14,7 +16,7 @@ function DirectLinearSolver(assembler::SparseMatrixAssembler)
   preconditioner = I
   ΔUu = similar(assembler.residual_unknowns)
   fill!(ΔUu, zero(eltype(ΔUu)))
-  return DirectLinearSolver(assembler, preconditioner, ΔUu)
+  return DirectLinearSolver(assembler, preconditioner, TimerOutput(), ΔUu)
 end 
 
 function solve!(solver::DirectLinearSolver, Uu, p)

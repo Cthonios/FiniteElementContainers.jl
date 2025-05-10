@@ -2,11 +2,13 @@ struct IterativeLinearSolver{
   A <: AbstractAssembler,
   P,
   S,
+  T <: TimerOutput,
   U <: AbstractArray{<:Number, 1}
-} <: AbstractLinearSolver{A, P, U}
+} <: AbstractLinearSolver{A, P, T, U}
   assembler::A
   preconditioner::P
   solver::S
+  timer::T
   ΔUu::U
 end
 
@@ -18,21 +20,31 @@ function IterativeLinearSolver(assembler::SparseMatrixAssembler, solver_sym)
   fill!(ΔUu, zero(eltype(ΔUu)))
   n = length(ΔUu)
   solver = eval(solver_sym)(n, n, typeof(ΔUu))
-  return IterativeLinearSolver(assembler, preconditioner, solver, ΔUu)
+  return IterativeLinearSolver(assembler, preconditioner, solver, TimerOutput(), ΔUu)
 end
 
 # TODO specialize for operator like assemblers
 function solve!(solver::IterativeLinearSolver, Uu, p)
   # update unknown dofs
-  update_field_unknowns!(p.h1_field, solver.assembler.dof, Uu)
+  @timeit solver.timer "update unknowns" begin
+    update_field_unknowns!(p.h1_field, solver.assembler.dof, Uu)
+  end
   # assemble relevant fields
-  assemble!(solver.assembler, H1Field, p, Val{:residual}())
-  assemble!(solver.assembler, H1Field, p, Val{:stiffness}())
+  @timeit solver.timer "residual assembly" begin
+    assemble!(solver.assembler, H1Field, p, Val{:residual}())
+  end
+  @timeit solver.timer "stiffness assembly" begin
+    assemble!(solver.assembler, H1Field, p, Val{:stiffness}())
+  end
   # solve and fetch solution
-  Krylov.solve!(solver.solver, stiffness(solver.assembler), residual(solver.assembler))
-  ΔUu = -Krylov.solution(solver.solver)
-  # make necessary copies and updates
-  copyto!(solver.ΔUu, ΔUu)
-  map!((x, y) -> x + y, Uu, Uu, ΔUu)
+  @timeit solver.timer "solve" begin
+    Krylov.solve!(solver.solver, stiffness(solver.assembler), residual(solver.assembler))
+  end
+  @timeit solver.timer "update solution" begin
+    ΔUu = -Krylov.solution(solver.solver)
+    # make necessary copies and updates
+    copyto!(solver.ΔUu, ΔUu)
+    map!((x, y) -> x + y, Uu, Uu, ΔUu)
+  end
   return nothing
 end
