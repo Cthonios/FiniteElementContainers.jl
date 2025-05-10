@@ -1,7 +1,9 @@
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:energy})
   fspace = assembler.dof.H1_vars[1].fspace
-  t = current_time(p.times)
-  Δt = time_step(p.times)
+  # t = current_time(p.times)
+  # Δt = time_step(p.times)
+  t = 0.
+  Δt = 0.
   _zero_storage(assembler, val_sym)
   for (b, (field, conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(assembler.scalar_quadarature_storage),
@@ -89,27 +91,18 @@ KA.@kernel function _assemble_block_scalar_kernel!(
   S    <: L2QuadratureField,
   T    <: Number
 }
-  # Q, E = KA.@index(Global, NTuple)
-  E = KA.@index(Global)
-
+  Q, E = KA.@index(Global, NTuple)
   x_el = _element_level_fields(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
 
-  for q in 1:num_quadrature_points(ref_fe)
-    interps = ref_fe.cell_interps.vals[q]
-    state_old_q = _quadrature_level_state(state_old, q, E)
-    e_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
-    field[q, E] = e_q
-    for s in 1:length(state_old)
-      state_new[s, q, E] = state_new_q[s]
-    end
+  interps = ref_fe.cell_interps.vals[Q]
+  state_old_q = _quadrature_level_state(state_old, Q, E)
+  e_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
+  field[Q, E] = e_q
+  for s in 1:length(state_old)
+    state_new[s, q, E] = state_new_q[s]
   end
-  # # R_el = R_el + R_q
-  # # update state here
-
-  # field[Q, E] = e_q
-  
 end
 
 """
@@ -139,7 +132,7 @@ function _assemble_block_scalar!(
   kernel!(
     field, physics, ref_fe, 
     U, X, state_old, state_new, props, t, Δt,
-    conns, block_id, func, ndrange=size(field, 2)
+    conns, block_id, func, ndrange=size(field)
   )
   # KA.synchronize(backend)
   return nothing

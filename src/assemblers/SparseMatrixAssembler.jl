@@ -57,7 +57,10 @@ function SparseMatrixAssembler(dof::DofManager, type::Type{<:H1Field})
   for (key, val) in pairs(fspace.ref_fes)
     NQ = ReferenceFiniteElements.num_quadrature_points(val)
     NE = size(getfield(fspace.elem_conns, key), 2)
-    push!(scalar_quadarature_storage, zeros(Float64, NQ, NE))
+    syms = map(x -> Symbol("quadrature_field_$x"), 1:NQ)
+    field = L2ElementField(zeros(Float64, NQ, NE), tuple(syms...))
+    push!(scalar_quadarature_storage, field)
+    # push!(scalar_quadarature_storage, zeros(Float64, NQ, NE))
   end
   scalar_quadarature_storage = NamedTuple{keys(fspace.ref_fes)}(tuple(scalar_quadarature_storage...))
 
