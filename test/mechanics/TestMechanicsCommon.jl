@@ -18,7 +18,7 @@ end
 
 # note for CUDA things crash without inline
 @inline function FiniteElementContainers.residual(
-  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, dt
+  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
   (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
   u_el = reshape_element_level_field(physics, u_el)
@@ -36,7 +36,7 @@ end
 end
 
 @inline function FiniteElementContainers.stiffness(  
-  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, dt
+  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
   (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
   u_el = reshape_element_level_field(physics, u_el)

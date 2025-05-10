@@ -2,6 +2,7 @@
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:stiffness})
   _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
+  t = current_time(p.times)
   dt = time_step(p.times)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
@@ -13,7 +14,7 @@ function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:stiffness})
     backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_stiffness!(
       assembler, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props, dt,
+      p.h1_field, p.h1_coords, state_old, state_new, props, t, dt,
       conns, b, 
       backend
     )
@@ -31,7 +32,7 @@ TODO add state variables and physics properties
 """
 function _assemble_block_stiffness!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, dt,
+  U, X, state_old, state_new, props, t, dt,
   conns, block_id, ::KA.CPU
 )
   ND = size(U, 1)
@@ -46,7 +47,7 @@ function _assemble_block_stiffness!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = ref_fe.cell_interps.vals[q]
       state_old_q = _quadrature_level_state(state_old, q, e)
-      K_q, state_new_q = stiffness(physics, interps, u_el, x_el, state_old_q, props_el, dt)
+      K_q, state_new_q = stiffness(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
       K_el = K_el + K_q
       for s in 1:length(state_old)
         state_new[s, q, e] = state_new_q[s]
@@ -63,7 +64,7 @@ end
 
 KA.@kernel function _assemble_block_stiffness_kernel!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, dt,
+  U, X, state_old, state_new, props, t, dt,
   conns, block_id
 )
   E = KA.@index(Global)
@@ -80,7 +81,7 @@ KA.@kernel function _assemble_block_stiffness_kernel!(
   for q in 1:num_quadrature_points(ref_fe)
     interps = ref_fe.cell_interps.vals[q]
     state_old_q = _quadrature_level_state(state_old, q, E)
-    K_q, state_new_q = stiffness(physics, interps, u_el, x_el, state_old_q, props_el, dt)
+    K_q, state_new_q = stiffness(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
     K_el = K_el + K_q
     for s in 1:length(state_old)
       state_new[s, q, E] = state_new_q[s]
@@ -107,13 +108,13 @@ TODO add state variables and physics properties
 """
 function _assemble_block_stiffness!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, dt,
+  U, X, state_old, state_new, props, t, dt,
   conns, block_id, backend::KA.Backend
 )
   kernel! = _assemble_block_stiffness_kernel!(backend)
   kernel!(
     assembler, physics, ref_fe, 
-    U, X, state_old, state_new, props, dt,
+    U, X, state_old, state_new, props, t, dt,
     conns, block_id, ndrange=size(conns, 2)
   )
   return nothing

@@ -5,7 +5,7 @@ struct Poisson <: AbstractPhysics{1, 0, 0}
 end
 
 @inline function FiniteElementContainers.residual(
-  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, dt
+  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
   (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
   u_el = reshape_element_level_field(physics, u_el)
@@ -15,7 +15,7 @@ end
 end
 
 @inline function FiniteElementContainers.stiffness(
-  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, dt
+  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
   (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
   u_el = reshape_element_level_field(physics, u_el)
