@@ -125,6 +125,7 @@ using ReferenceFiniteElements
 using SparseArrays
 using StaticArrays
 using Tensors
+using TimerOutputs
 
 abstract type FEMContainer end
 
