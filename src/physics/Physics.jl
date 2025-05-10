@@ -4,6 +4,9 @@ num_fields(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NF
 num_properties(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NP
 num_states(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NS
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function create_properties(physics::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS}
   @assert false "You need to implement the create_properties method for physics $(physics) or 
   type $(typeof(physics))!"
@@ -15,6 +18,17 @@ end
 
 function create_initial_state(::AbstractPhysics{NF, NP, 0}) where {NF, NP}
   return SVector{0, Float64}()
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+@inline function reshape_element_level_field(
+  physics::P, u_el::SVector{NxNDof, T}
+) where {P <: AbstractPhysics, NxNDof, T <: Number}
+  NDof = num_fields(physics)
+  N = NxNDof ÷ NDof
+  return SMatrix{NDof, N, T, NxNDof}(u_el)
 end
 
 # Can we make something that makes interfacing with kernels easier?

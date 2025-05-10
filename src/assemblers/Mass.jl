@@ -40,7 +40,7 @@ function _assemble_block_mass!(
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
     x_el = _element_level_fields(X, ref_fe, conns, e)
-    u_el = _element_level_fields(U, ref_fe, conns, e)
+    u_el = _element_level_fields_flat(U, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(assembler.mass_storage), NxNDof * NxNDof})
 
@@ -74,7 +74,7 @@ KA.@kernel function _assemble_block_mass_kernel!(
   NxNDof = NNPE * ND
 
   x_el = _element_level_fields(X, ref_fe, conns, E)
-  u_el = _element_level_fields(U, ref_fe, conns, E)
+  u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
   K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
 

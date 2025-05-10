@@ -21,6 +21,7 @@ end
   physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, dt
 )
   (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
+  u_el = reshape_element_level_field(physics, u_el)
 
   # kinematics
   ∇u_q = u_el * ∇N_X
@@ -38,6 +39,7 @@ end
   physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, dt
 )
   (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
+  u_el = reshape_element_level_field(physics, u_el)
 
   # kinematics
   ∇u_q = u_el * ∇N_X
