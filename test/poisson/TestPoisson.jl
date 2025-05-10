@@ -10,21 +10,7 @@ output_file = "./poisson/poisson.e"
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 bc_func(_, _) = 0.
 
-struct Poisson <: AbstractPhysics{1, 0, 0}
-end
-
-function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)
-  (; X_q, N, ∇N_X, JxW) = cell
-  ∇u_q = u_el * ∇N_X
-  R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
-  return JxW * R_q[:]
-end
-
-function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
-  (; X_q, N, ∇N_X, JxW) = cell
-  K_q = ∇N_X * ∇N_X'
-  return JxW * K_q
-end
+include("TestPoissonCommon.jl")
 
 # read mesh and relevant quantities
 

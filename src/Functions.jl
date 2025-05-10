@@ -163,7 +163,7 @@ function SymmetricTensorFunction(fspace::FunctionSpace, sym; use_spatial_dimensi
 end
 
 function Base.show(io::IO, ::SymmetricTensorFunction{S, F}) where {S, F}
-  println(io, "TensorFunction:")
+  println(io, "SymmetricTensorFunction:")
   println(io, "  names: $S")
 end
 

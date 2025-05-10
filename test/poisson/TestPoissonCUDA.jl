@@ -5,6 +5,7 @@ using Exodus
 using FiniteElementContainers
 using Krylov
 using LinearAlgebra
+using Test
 
 # mesh file
 gold_file = "./test/poisson/poisson.gold"
@@ -12,24 +13,10 @@ mesh_file = "./test/poisson/poisson.g"
 output_file = "./test/poisson/poisson.e"
 
 # methods for a simple Poisson problem
-f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
+f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 bc_func(_, _) = 0.
 
-struct Poisson <: AbstractPhysics{1, 0, 0}
-end
-
-function FiniteElementContainers.residual(::Poisson, cell, u_el, args...)
-  (; X_q, N, ∇N_X, JxW) = cell
-  ∇u_q = u_el * ∇N_X
-  R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
-  return JxW * R_q[:]
-end
-
-function FiniteElementContainers.stiffness(::Poisson, cell, u_el, args...)
-  (; X_q, N, ∇N_X, JxW) = cell
-  K_q = ∇N_X * ∇N_X'
-  return JxW * K_q
-end
+include("TestPoissonCommon.jl")
 
 # function poisson_cuda()
   # do all setup on CPU
@@ -45,7 +32,7 @@ end
     DirichletBC(:u, :sset_1, bc_func),
     DirichletBC(:u, :sset_2, bc_func),
     DirichletBC(:u, :sset_3, bc_func),
-    DirichletBC(:u, :sset_4, bc_func_2),
+    DirichletBC(:u, :sset_4, bc_func),
   ]
 
   # create parameters on CPU
@@ -67,6 +54,11 @@ end
   write_times(pp, 1, 0.0)
   write_field(pp, 1, U)
   close(pp)
+
+  if !Sys.iswindows()
+    @test exodiff(output_file, gold_file)
+  end
+  rm(output_file; force=true)
 # end
 
 # @time poisson_cuda()

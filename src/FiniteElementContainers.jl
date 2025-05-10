@@ -111,6 +111,8 @@ export solve!
 
 # other exports from deps
 export Lagrange
+export MappedInterpolants
+export MappedSurfaceInterpolants
 
 # dependencies
 import AcceleratedKernels as AK
