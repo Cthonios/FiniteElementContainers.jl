@@ -7,9 +7,9 @@ end
 @inline function FiniteElementContainers.residual(
   physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
-  (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
-  u_el = reshape_element_level_field(physics, u_el)
-  ∇u_q = u_el * ∇N_X
+  interps = MappedInterpolants(interps, x_el)
+  (; X_q, N, ∇N_X, JxW) = interps
+  ∇u_q = interpolate_field_gradients(physics, interps, u_el)
   R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
   return JxW * R_q[:], state_old_q
 end
@@ -17,8 +17,8 @@ end
 @inline function FiniteElementContainers.stiffness(
   physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
-  (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
-  u_el = reshape_element_level_field(physics, u_el)
+  interps = MappedInterpolants(interps, x_el)
+  (; X_q, N, ∇N_X, JxW) = interps
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q, state_old_q
 end
