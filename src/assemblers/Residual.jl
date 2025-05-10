@@ -2,6 +2,7 @@
 
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
   fspace = assembler.dof.H1_vars[1].fspace
+  t = current_time(p.times)
   dt = time_step(p.times)
   _zero_storage(assembler, val_sym)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
@@ -14,7 +15,7 @@ function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
     backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_residual!(
       assembler, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props, dt,
+      p.h1_field, p.h1_coords, state_old, state_new, props, t, dt,
       conns, b, 
       backend
     )
@@ -34,7 +35,7 @@ TODO remove Float64 typing below for eventual unitful use
 """
 function _assemble_block_residual!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, dt,
+  U, X, state_old, state_new, props, t, dt,
   conns, block_id, ::KA.CPU
 )
   ND = size(U, 1)
@@ -49,7 +50,7 @@ function _assemble_block_residual!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = ref_fe.cell_interps.vals[q]
       state_old_q = _quadrature_level_state(state_old, q, e)
-      R_q, state_new_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, dt)
+      R_q, state_new_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
       R_el = R_el + R_q
       # update state here
       for s in 1:length(state_old)
@@ -83,7 +84,7 @@ TODO mark const fields
 """
 KA.@kernel function _assemble_block_residual_kernel!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, dt,
+  U, X, state_old, state_new, props, t, dt,
   conns, block_id
 )
   E = KA.@index(Global)
@@ -100,7 +101,7 @@ KA.@kernel function _assemble_block_residual_kernel!(
   for q in 1:num_quadrature_points(ref_fe)
     interps = ref_fe.cell_interps.vals[q]
     state_old_q = _quadrature_level_state(state_old, q, E)
-    R_q, state_new_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, dt)
+    R_q, state_new_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
     R_el = R_el + R_q
     # update state here
     for s in 1:length(state_old)
@@ -128,13 +129,13 @@ TODO add state variables and physics properties
 """
 function _assemble_block_residual!(
   assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, dt,
+  U, X, state_old, state_new, props, t, dt,
   conns, block_id, backend::KA.Backend
 )
   kernel! = _assemble_block_residual_kernel!(backend)
   kernel!(
     assembler, physics, ref_fe, 
-    U, X, state_old, state_new, props, dt,
+    U, X, state_old, state_new, props, t, dt,
     conns, block_id, ndrange=size(conns, 2)
   )
   return nothing
