@@ -15,25 +15,7 @@ output_file = "./test/poisson/poisson.e"
 f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 bc_func(_, _) = 0.
 
-struct Poisson <: AbstractPhysics{1, 0, 0}
-end
-
-function FiniteElementContainers.residual(
-  ::Poisson, interps, u_el, x_el, state_old_q, props_el, dt
-)
-  (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
-  ∇u_q = u_el * ∇N_X
-  R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
-  return JxW * R_q[:]
-end
-
-function FiniteElementContainers.stiffness(
-  ::Poisson, interps, u_el, x_el, state_old_q, props_el, dt
-)
-  (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
-  K_q = ∇N_X * ∇N_X'
-  return JxW * K_q
-end
+include("TestPoissonCommon.jl")
 
 # function poisson_amdgpu()
   # do all setup on CPU
