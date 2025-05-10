@@ -20,6 +20,27 @@ function create_initial_state(::AbstractPhysics{NF, NP, 0}) where {NF, NP}
   return SVector{0, Float64}()
 end
 
+@inline function interpolate_field_values(
+  physics::P, interps::M, U_el::SVector{N, T}
+) where {P <: AbstractPhysics, M <: MappedInterpolants, N, T}
+  U_el = reshape_element_level_field(physics, U_el)
+  return U_el * interps.N
+end
+
+@inline function interpolate_field_gradients(
+  physics::P, interps::M, U_el::SVector{N, T}
+) where {P <: AbstractPhysics, M <: MappedInterpolants, N, T}
+  U_el = reshape_element_level_field(physics, U_el)
+  return U_el * interps.∇N_X
+end
+
+@inline function interpolate_field_values_and_gradients(
+  physics::P, interps::M, U_el::SVector{N, T}
+) where {P <: AbstractPhysics, M <: MappedInterpolants, N, T}
+  U_el = reshape_element_level_field(physics, U_el)
+  return U_el * interps.N, U_el * interps.∇N_X
+end
+
 """
 $(TYPEDSIGNATURES)
 """

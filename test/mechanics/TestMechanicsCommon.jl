@@ -20,11 +20,11 @@ end
 @inline function FiniteElementContainers.residual(
   physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
-  (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
-  u_el = reshape_element_level_field(physics, u_el)
+  interps = MappedInterpolants(interps, x_el)
+  (; X_q, N, ∇N_X, JxW) = interps
+  ∇u_q = interpolate_field_gradients(physics, interps, u_el)
 
   # kinematics
-  ∇u_q = u_el * ∇N_X
   ∇u_q = modify_field_gradients(physics.formulation, ∇u_q)
   # constitutive
   P_q = gradient(z -> strain_energy(z, state_old_q, props_el, dt), ∇u_q)
@@ -38,11 +38,11 @@ end
 @inline function FiniteElementContainers.stiffness(  
   physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
-  (; X_q, N, ∇N_X, JxW) = MappedInterpolants(interps, x_el)
-  u_el = reshape_element_level_field(physics, u_el)
+  interps = MappedInterpolants(interps, x_el)
+  (; X_q, N, ∇N_X, JxW) = interps
+  ∇u_q = interpolate_field_gradients(physics, interps, u_el)
 
   # kinematics
-  ∇u_q = u_el * ∇N_X
   ∇u_q = modify_field_gradients(physics.formulation, ∇u_q)
   # constitutive
   K_q = hessian(z -> strain_energy(z, state_old_q, props_el, dt), ∇u_q)
