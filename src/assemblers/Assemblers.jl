@@ -171,11 +171,12 @@ end
 # some utilities
 include("SparsityPattern.jl")
 
-# implementations
+# types
 include("SparseMatrixAssembler.jl")
 
 # methods
-include("Mass.jl")
-include("Residual.jl")
+# include("Mass.jl")
+include("Matrix.jl")
+include("Vector.jl")
 include("ResidualAndStiffness.jl")
-include("Stiffness.jl")
+# include("Stiffness.jl")

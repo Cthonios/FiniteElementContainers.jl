@@ -145,8 +145,8 @@ include("Functions.jl")
 include("DofManagers.jl")
 include("bcs/BoundaryConditions.jl")
 include("formulations/Formulations.jl")
-include("assemblers/Assemblers.jl")
 include("physics/Physics.jl")
+include("assemblers/Assemblers.jl")
 include("PostProcessors.jl")
 
 #
