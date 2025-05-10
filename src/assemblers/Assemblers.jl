@@ -51,6 +51,20 @@ function _check_backends(assembler, U, X, state_old, state_new, conns)
   return backend
 end
 
+function _check_backends(assembler, U, V, X, state_old, state_new, conns)
+  backend = KA.get_backend(assembler)
+  # TODO add get_backend method of ref_fe
+  @assert backend == KA.get_backend(U)
+  @assert backend == KA.get_backend(V)
+  @assert backend == KA.get_backend(X)
+  @assert backend == KA.get_backend(conns)
+  @assert backend == KA.get_backend(state_old)
+  @assert backend == KA.get_backend(state_new)
+  # props will be complicated...
+  # TODO
+  return backend
+end
+
 """
 $(TYPEDSIGNATURES)
 Top level assembly method for ```H1Field``` that loops over blocks and dispatches
@@ -164,8 +178,25 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function _zero_storage(asm::AbstractAssembler, ::Val{:energy})
+  # fill!(asm.residual_storage.vals, zero(eltype(asm.residual_storage.vals)))
+  for val in values(asm.scalar_quadarature_storage)
+    fill!(val, zero(eltype(val)))
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function _zero_storage(asm::AbstractAssembler, ::Val{:residual})
   fill!(asm.residual_storage.vals, zero(eltype(asm.residual_storage.vals)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function _zero_storage(asm::AbstractAssembler, ::Val{:stiffness_action})
+  fill!(asm.stiffness_action_storage.vals, zero(eltype(asm.stiffness_action_storage.vals)))
 end
 
 # some utilities
@@ -175,8 +206,8 @@ include("SparsityPattern.jl")
 include("SparseMatrixAssembler.jl")
 
 # methods
-# include("Mass.jl")
 include("Matrix.jl")
+include("MatrixAction.jl")
+include("Scalar.jl")
 include("Vector.jl")
 include("ResidualAndStiffness.jl")
-# include("Stiffness.jl")

@@ -5,20 +5,24 @@ General sparse matrix assembler that can handle first or second order
 problems in time. 
 """
 struct SparseMatrixAssembler{
-  Dof <: DofManager, 
-  Pattern <: SparsityPattern, 
-  Storage1 <: AbstractArray{<:Number},
+  Dof      <: DofManager, 
+  Pattern  <: SparsityPattern, 
+  Storage1 <: AbstractArray{<:Number, 1},
   Storage2 <: AbstractField,
-  Storage3 <: AbstractArray{<:Number, 1}
+  Storage3 <: NamedTuple
 } <: AbstractAssembler{Dof}
   dof::Dof
   pattern::Pattern
   constraint_storage::Storage1
   damping_storage::Storage1
+  hessian_storage::Storage1
   mass_storage::Storage1
   residual_storage::Storage2
-  residual_unknowns::Storage3
+  residual_unknowns::Storage1
+  scalar_quadarature_storage::Storage3 # useful for energy like calculations
   stiffness_storage::Storage1
+  stiffness_action_storage::Storage2
+  stiffness_action_unknowns::Storage1
 end
 
 # TODO this will not work for other than single H1 spaces
@@ -39,16 +43,34 @@ function SparseMatrixAssembler(dof::DofManager, type::Type{<:H1Field})
   # fill!(constraint_storage, )
   # residual_storage = zeros(length(dof))
   damping_storage = zeros(num_entries(pattern))
+  hessian_storage = zeros(num_entries(pattern))
   mass_storage = zeros(num_entries(pattern))
   residual_storage = create_field(dof, H1Field)
-  residual_unknowns = create_unknowns(dof)
+  residual_unknowns = create_unknowns(dof, H1Field)
   stiffness_storage = zeros(num_entries(pattern))
+  stiffness_action_storage = create_field(dof, H1Field)
+  stiffness_action_unknowns = create_unknowns(dof, H1Field)
+
+  # setup quadrature scalar storage
+  fspace = values(dof.H1_vars)[1].fspace
+  scalar_quadarature_storage = Matrix{Float64}[]
+  for (key, val) in pairs(fspace.ref_fes)
+    NQ = ReferenceFiniteElements.num_quadrature_points(val)
+    NE = size(getfield(fspace.elem_conns, key), 2)
+    push!(scalar_quadarature_storage, zeros(Float64, NQ, NE))
+  end
+  scalar_quadarature_storage = NamedTuple{keys(fspace.ref_fes)}(tuple(scalar_quadarature_storage...))
+
   return SparseMatrixAssembler(
     dof, pattern, 
     constraint_storage, 
-    damping_storage, mass_storage,
+    damping_storage, 
+    hessian_storage,
+    mass_storage,
     residual_storage, residual_unknowns,
-    stiffness_storage
+    scalar_quadarature_storage,
+    stiffness_storage, 
+    stiffness_action_storage, stiffness_action_unknowns
   )
 end
 
@@ -73,20 +95,19 @@ _get_storage(asm::SparseMatrixAssembler, ::Val{:stiffness}) = asm.stiffness_stor
 $(TYPEDSIGNATURES)
 Specialization of of ```_assemble_element!``` for ```SparseMatrixAssembler```.
 """
-function _assemble_element!(asm::SparseMatrixAssembler, sym, K_el::SMatrix, conn, el_id::Int, block_id::Int)
+function _assemble_element!(
+  pattern::SparsityPattern, storage, K_el::SMatrix, el_id::Int, block_id::Int
+)
   # figure out ids needed to update
-  block_size = values(asm.pattern.block_sizes)[block_id]
-  block_offset = values(asm.pattern.block_offsets)[block_id]
-  # start_id = (block_id - 1) * asm.pattern.block_sizes[block_id] + 
-  #            (el_id - 1) * asm.pattern.block_offsets[block_id] + 1
-  # end_id = start_id + asm.pattern.block_offsets[block_id] - 1
+  block_size = values(pattern.block_sizes)[block_id]
+  block_offset = values(pattern.block_offsets)[block_id]
+  # get range of ids
   start_id = (block_id - 1) * block_size + 
              (el_id - 1) * block_offset + 1
   end_id = start_id + block_offset - 1
   ids = start_id:end_id
 
   # get appropriate storage and update values
-  storage = _get_storage(asm, sym)
   @views storage[ids] += K_el[:]
   return nothing
 end

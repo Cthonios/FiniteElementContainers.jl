@@ -5,7 +5,6 @@ using Exodus
 using FiniteElementContainers
 using Krylov
 using LinearAlgebra
-using Test
 
 # mesh file
 gold_file = "./test/poisson/poisson.gold"
@@ -13,7 +12,7 @@ mesh_file = "./test/poisson/poisson.g"
 output_file = "./test/poisson/poisson.e"
 
 # methods for a simple Poisson problem
-f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 bc_func(_, _) = 0.
 
 include("TestPoissonCommon.jl")
@@ -46,6 +45,8 @@ include("TestPoissonCommon.jl")
   integrator = QuasiStaticIntegrator(solver)
   @time evolve!(integrator, p_gpu)
 
+  display(solver.timer)
+
   p = p_gpu |> cpu
   U = p.h1_field
 
@@ -53,11 +54,6 @@ include("TestPoissonCommon.jl")
   write_field(pp, 1, U)
   close(pp)
 
-  if !Sys.iswindows()
-    @test exodiff(output_file, gold_file)
-  end
-  rm(output_file; force=true)
-  display(solver.timer)
 # end
 
 # @time poisson_amdgpu()

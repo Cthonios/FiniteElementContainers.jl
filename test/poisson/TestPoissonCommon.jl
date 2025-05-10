@@ -4,6 +4,18 @@
 struct Poisson <: AbstractPhysics{1, 0, 0}
 end
 
+@inline function FiniteElementContainers.energy(
+  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
+)
+  interps = MappedInterpolants(interps, x_el)
+  # (; X_q, N, ∇N_X, JxW) = interps
+  u_q, ∇u_q = interpolate_field_values_and_gradients(physics, interps, u_el)
+  # R_q = ∇u_q * ∇N_X' - N' * f(X_q, 0.0)
+  # e_q = 0.5 * dot(∇u_q[:], ∇u_q[:]) - u_q * f(X_q, 0.0)
+  # return JxW * e_q
+  return 0.
+end
+
 @inline function FiniteElementContainers.residual(
   physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
