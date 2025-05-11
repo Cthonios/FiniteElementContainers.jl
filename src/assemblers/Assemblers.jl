@@ -77,8 +77,8 @@ TODO figure out how to do generated functions
 
 creates one type instability from the Val
 """
-function assemble!(assembler, type::Type{H1Field}, Uu, p, sym::Symbol)
-  assemble!(assembler, type, Uu, p, Val{sym}())
+function assemble!(assembler, Uu, p, sym::Symbol, type::Type{H1Field})
+  assemble!(assembler, Uu, p, Val{sym}(), type)
 end
 
 """
@@ -208,6 +208,7 @@ include("SparseMatrixAssembler.jl")
 # methods
 include("Matrix.jl")
 include("MatrixAction.jl")
+include("MatrixAndVector.jl")
 include("Scalar.jl")
 include("Vector.jl")
-include("ResidualAndStiffness.jl")
+# include("ResidualAndStiffness.jl")

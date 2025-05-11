@@ -26,7 +26,6 @@ include("TestPoissonCommon.jl")
   u = ScalarFunction(V, :u)
   dof = DofManager(u)
   asm = SparseMatrixAssembler(dof, H1Field)
-  pp = PostProcessor(mesh, output_file, u)
 
   dbcs = DirichletBC[
     DirichletBC(:u, :sset_1, bc_func),
@@ -35,6 +34,28 @@ include("TestPoissonCommon.jl")
     DirichletBC(:u, :sset_4, bc_func),
   ]
 
+  # # test direct solver
+  # p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+
+  # # device movement
+  # p_gpu = p |> gpu
+  # asm_gpu = asm |> gpu
+
+  # solver = NewtonSolver(DirectLinearSolver(asm_gpu))
+  # integrator = QuasiStaticIntegrator(solver)
+  # @time evolve!(integrator, p_gpu)
+
+  # display(solver.timer)
+
+  # p = p_gpu |> cpu
+  # U = p.h1_field
+
+  # pp = PostProcessor(mesh, output_file, u)
+  # write_times(pp, 1, 0.0)
+  # write_field(pp, 1, U)
+  # close(pp)
+
+  # test iterative solver
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
 
   # device movement
@@ -50,6 +71,7 @@ include("TestPoissonCommon.jl")
   p = p_gpu |> cpu
   U = p.h1_field
 
+  pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
   write_field(pp, 1, U)
   close(pp)

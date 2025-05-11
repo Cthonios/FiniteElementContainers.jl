@@ -1,4 +1,4 @@
-function assemble!(assembler, ::Type{H1Field}, Uu, p, val_sym::Val{:energy})
+function assemble!(assembler, Uu, p, val_sym::Val{:energy}, ::Type{H1Field})
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   Δt = time_step(p.times)
