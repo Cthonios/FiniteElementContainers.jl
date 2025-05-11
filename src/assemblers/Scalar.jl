@@ -1,9 +1,7 @@
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:energy})
   fspace = assembler.dof.H1_vars[1].fspace
-  # t = current_time(p.times)
-  # Δt = time_step(p.times)
-  t = 0.
-  Δt = 0.
+  t = current_time(p.times)
+  Δt = time_step(p.times)
   _zero_storage(assembler, val_sym)
   for (b, (field, conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(assembler.scalar_quadarature_storage),
@@ -41,7 +39,7 @@ function _assemble_block_scalar!(
   conns::C, block_id::Int, func::Func, ::KA.CPU
 ) where {
   C    <: Connectivity,
-  F1   <: AbstractArray{<:Number, 1},
+  F1   <: AbstractArray{<:Number, 2},
   F2   <: AbstractField,
   F3   <: AbstractField,
   P    <: Union{<:SVector, <:L2ElementField},
@@ -91,17 +89,20 @@ KA.@kernel function _assemble_block_scalar_kernel!(
   S    <: L2QuadratureField,
   T    <: Number
 }
-  Q, E = KA.@index(Global, NTuple)
+  # Q, E = KA.@index(Global, NTuple)
+  E = KA.@index(Global)
   x_el = _element_level_fields(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
 
-  interps = ref_fe.cell_interps.vals[Q]
-  state_old_q = _quadrature_level_state(state_old, Q, E)
-  e_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
-  field[Q, E] = e_q
-  for s in 1:length(state_old)
-    state_new[s, q, E] = state_new_q[s]
+  KA.Extras.@unroll for q in 1:num_quadrature_points(ref_fe)
+    @inbounds interps = ref_fe.cell_interps.vals[q]
+    state_old_q = _quadrature_level_state(state_old, q, E)
+    e_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
+    @inbounds field[q, E] = e_q
+    for s in 1:length(state_old)
+      @inbounds state_new[s, q, E] = state_new_q[s]
+    end
   end
 end
 
@@ -132,7 +133,7 @@ function _assemble_block_scalar!(
   kernel!(
     field, physics, ref_fe, 
     U, X, state_old, state_new, props, t, Δt,
-    conns, block_id, func, ndrange=size(field)
+    conns, block_id, func, ndrange=size(field, 2)
   )
   # KA.synchronize(backend)
   return nothing
