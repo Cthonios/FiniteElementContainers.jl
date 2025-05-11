@@ -25,16 +25,12 @@ end
 
 # TODO specialize for operator like assemblers
 function solve!(solver::IterativeLinearSolver, Uu, p)
-  # update unknown dofs
-  @timeit solver.timer "update unknowns" begin
-    update_field_unknowns!(p.h1_field, solver.assembler.dof, Uu)
-  end
   # assemble relevant fields
   @timeit solver.timer "residual assembly" begin
-    assemble!(solver.assembler, H1Field, p, Val{:residual}())
+    assemble!(solver.assembler, H1Field, Uu, p, Val{:residual}())
   end
   @timeit solver.timer "stiffness assembly" begin
-    assemble!(solver.assembler, H1Field, p, Val{:stiffness}())
+    assemble!(solver.assembler, H1Field, Uu, p, Val{:stiffness}())
   end
   # solve and fetch solution
   @timeit solver.timer "solve" begin

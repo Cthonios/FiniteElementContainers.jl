@@ -181,7 +181,9 @@ function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
     adapt(to, p.state_old),
     adapt(to, p.state_new),
     adapt(to, p.h1_coords),
-    adapt(to, p.h1_field)
+    adapt(to, p.h1_field),
+    # scratch fields
+    adapt(to, p.h1_hvp)
   )
 end
 
