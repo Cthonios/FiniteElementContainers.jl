@@ -120,7 +120,6 @@ export MappedInterpolants
 export MappedSurfaceInterpolants
 
 # dependencies
-import AcceleratedKernels as AK
 import KernelAbstractions as KA
 using Atomix
 using DocStringExtensions
