@@ -137,6 +137,28 @@ function create_parameters(
   return Parameters(assembler, physics, dirichlet_bcs, neumann_bcs, times)
 end
 
+function update_bcs!(p::Parameters)
+  for bc in values(p.dirichlet_bcs)
+    _update_bcs!(bc, p.h1_field, KA.get_backend(bc))
+  end
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+This method is used to update the stored bc values.
+This should be called at the beginning of any load step
+
+TODO need to incorporate other bcs besides H1 spaces
+TODO need to incorporate neumann bc updates
+"""
+function update_bc_values!(p::Parameters)
+  X = p.h1_coords
+  t = current_time(p.times)
+  update_bc_values!(p.dirichlet_bcs, X, t)
+  return nothing
+end
+
 function update_dofs!(asm::SparseMatrixAssembler, p::Parameters)
   update_dofs!(asm, p.dirichlet_bcs)
   return nothing
