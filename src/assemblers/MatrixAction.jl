@@ -1,11 +1,11 @@
 # Top level method
-assemble!(assembler, type::Type{H1Field}, Uu, p, Vu, ::Val{:hvp}) = 
-assemble!(assembler, type, Uu, p, Vu, Val{:stiffness_action}())
+assemble!(assembler, Uu, p, Vu, ::Val{:hvp}, type::Type{H1Field}) = 
+assemble!(assembler, Uu, p, Vu, Val{:stiffness_action}(), type)
 
 # TODO below isn't exactly right...
 # we're going to need some additional scratch storage for 
 # the full field of Vu
-function assemble!(assembler, ::Type{H1Field}, Uu, p, Vu, val_sym::Val{:stiffness_action})
+function assemble!(assembler, Uu, p, Vu, val_sym::Val{:stiffness_action}, ::Type{H1Field})
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   Δt = time_step(p.times)

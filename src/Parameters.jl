@@ -125,7 +125,7 @@ function Parameters(
 
   # assemble the stiffness at least once for 
   # making easier to use on GPU
-  assemble!(assembler, H1Field, Uu, p, :stiffness)
+  assemble!(assembler, Uu, p, Val{:stiffness}(), H1Field)
   K = stiffness(assembler)
 
   return p

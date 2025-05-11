@@ -20,7 +20,6 @@ function poisson()
   physics = Poisson()
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(H1Field, u)
-  pp = PostProcessor(mesh, output_file, u)
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -30,6 +29,28 @@ function poisson()
     DirichletBC(:u, :sset_4, bc_func),
   ]
 
+  # direct solver test
+  # setup the parameters
+  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+
+  # setup solver and integrator
+  solver = NewtonSolver(DirectLinearSolver(asm))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p)
+
+  pp = PostProcessor(mesh, output_file, u)
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, p.h1_field)
+  close(pp)
+
+  if !Sys.iswindows()
+    @test exodiff(output_file, gold_file)
+  end
+  rm(output_file; force=true)
+  display(solver.timer)
+
+
+  # iterative solver test
   # setup the parameters
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
 
@@ -38,6 +59,7 @@ function poisson()
   integrator = QuasiStaticIntegrator(solver)
   evolve!(integrator, p)
 
+  pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
   write_field(pp, 1, p.h1_field)
   close(pp)

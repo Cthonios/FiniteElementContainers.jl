@@ -27,10 +27,10 @@ end
 function solve!(solver::IterativeLinearSolver, Uu, p)
   # assemble relevant fields
   @timeit solver.timer "residual assembly" begin
-    assemble!(solver.assembler, H1Field, Uu, p, Val{:residual}())
+    assemble!(solver.assembler, Uu, p, Val{:residual}(), H1Field)
   end
   @timeit solver.timer "stiffness assembly" begin
-    assemble!(solver.assembler, H1Field, Uu, p, Val{:stiffness}())
+    assemble!(solver.assembler, Uu, p, Val{:stiffness}(), H1Field)
   end
   # solve and fetch solution
   @timeit solver.timer "solve" begin

@@ -1,9 +1,9 @@
 # Top level method
 
-assemble!(assembler, type::Type{H1Field}, Uu, p, ::Val{:gradient}) = 
-assemble!(assembler, type, Uu, p, Val{:residual}())
+assemble!(assembler, Uu, p, ::Val{:gradient}, type::Type{H1Field}) = 
+assemble!(assembler, Uu, p, Val{:residual}(), type)
 
-function assemble!(assembler, ::Type{H1Field}, Uu, p, val_sym::Val{:residual})
+function assemble!(assembler, Uu, p, val_sym::Val{:residual}, ::Type{H1Field})
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   Δt = time_step(p.times)
