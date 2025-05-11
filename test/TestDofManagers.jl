@@ -6,6 +6,7 @@ function test_dof_constructors(fspace)
   dof = DofManager(u)
   dof = DofManager(u, v)
   dof = DofManager(u, v, w)
+  @show dof
 end
 
 function test_dof_methods(fspace)
