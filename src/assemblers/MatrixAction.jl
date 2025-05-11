@@ -1,13 +1,18 @@
 # Top level method
-assemble!(assembler, type::Type{H1Field}, p, v, val_sym::Val{:hvp}) = 
-assemble!(assembler, type, p, v, Val{:stiffness_action}())
+assemble!(assembler, type::Type{H1Field}, Uu, p, Vu, ::Val{:hvp}) = 
+assemble!(assembler, type, Uu, p, Vu, Val{:stiffness_action}())
 
-function assemble!(assembler, ::Type{H1Field}, p, v, val_sym::Val{:stiffness_action})
+# TODO below isn't exactly right...
+# we're going to need some additional scratch storage for 
+# the full field of Vu
+function assemble!(assembler, ::Type{H1Field}, Uu, p, Vu, val_sym::Val{:stiffness_action})
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   Δt = time_step(p.times)
   _zero_storage(assembler, val_sym)
   update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  update_field_unknowns!(p.h1_hvp, assembler.dof, Vu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
@@ -18,7 +23,7 @@ function assemble!(assembler, ::Type{H1Field}, p, v, val_sym::Val{:stiffness_act
     backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_matrix_action!(
       assembler.residual_storage, block_physics, ref_fe, 
-      p.h1_field, v, p.h1_coords, state_old, state_new, props, t, Δt,
+      p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, props, t, Δt,
       conns, b, stiffness,
       backend
     )

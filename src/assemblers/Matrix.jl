@@ -1,10 +1,11 @@
 # Top level methods
-function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:mass})
+function assemble!(assembler, ::Type{H1Field}, Uu, p, val_sym::Val{:mass})
   _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   dt = time_step(p.times)
   update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
@@ -22,11 +23,13 @@ function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:mass})
   end
 end
 
-function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:stiffness})
+function assemble!(assembler, ::Type{H1Field}, Uu, p, val_sym::Val{:stiffness})
   _zero_storage(assembler, val_sym)
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   dt = time_step(p.times)
+  update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),

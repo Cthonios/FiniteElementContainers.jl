@@ -5,19 +5,18 @@ struct Parameters{
   D, N, T, Phys, Props, S, 
   H1Coords, H1
 } <: AbstractParameters
-  # actual parameter fields
-  # TODO add boundary condition stuff and time stepping stuff
+  # parameter/solution fields
   dirichlet_bcs::D
   neumann_bcs::N
   times::T
   physics::Phys
-  #
   properties::Props
   state_old::S
   state_new::S
-  # scratch fields
   h1_coords::H1Coords
   h1_field::H1
+  # scratch fields
+  h1_hvp::H1
 end
 
 # TODO 
@@ -35,6 +34,7 @@ function Parameters(
 )
   h1_coords = assembler.dof.H1_vars[1].fspace.coords
   h1_field = create_field(assembler, H1Field)
+  h1_hvp = create_field(assembler, H1Field)
 
   # TODO
   properties = nothing
@@ -115,14 +115,17 @@ function Parameters(
     physics, 
     properties, 
     state_old, state_new, 
-    h1_coords, h1_field
+    h1_coords, h1_field, 
+    # scratch fields
+    h1_hvp
   )
 
   update_dofs!(assembler, p)
+  Uu = create_unknowns(assembler.dof, H1Field)
 
   # assemble the stiffness at least once for 
   # making easier to use on GPU
-  assemble!(assembler, H1Field, p, :stiffness)
+  assemble!(assembler, H1Field, Uu, p, :stiffness)
   K = stiffness(assembler)
 
   return p

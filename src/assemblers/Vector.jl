@@ -1,14 +1,15 @@
 # Top level method
 
-assemble!(assembler, type::Type{H1Field}, p, v, val_sym::Val{:gradient}) = 
-assemble!(assembler, type, p, v, Val{:residual}())
+assemble!(assembler, type::Type{H1Field}, Uu, p, ::Val{:gradient}) = 
+assemble!(assembler, type, Uu, p, Val{:residual}())
 
-function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
+function assemble!(assembler, ::Type{H1Field}, Uu, p, val_sym::Val{:residual})
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   Δt = time_step(p.times)
   _zero_storage(assembler, val_sym)
   update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),

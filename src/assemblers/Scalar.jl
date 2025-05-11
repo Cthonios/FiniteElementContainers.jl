@@ -1,9 +1,10 @@
-function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:energy})
+function assemble!(assembler, ::Type{H1Field}, Uu, p, val_sym::Val{:energy})
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   Δt = time_step(p.times)
   _zero_storage(assembler, val_sym)
   update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
   for (b, (field, conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(assembler.scalar_quadarature_storage),
     values(fspace.elem_conns), 
