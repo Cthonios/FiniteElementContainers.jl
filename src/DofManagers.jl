@@ -219,54 +219,6 @@ Base.length(dof::DofManager) = length(dof.H1_bc_dofs) + length(dof.H1_unknown_do
 
 KA.get_backend(dof::DofManager) = KA.get_backend(dof.H1_unknown_dofs)
 
-# is create_bcs even really needed anymore?
-
-"""
-$(TYPEDSIGNATURES)
-"""
-function create_bcs(dof::DofManager, ::Type{H1Field})
-  backend = KA.get_backend(dof.H1_bc_dofs)
-  return KA.zeros(backend, Float64, length(dof.H1_bc_dofs))
-end
-
-# this one needs some TLC
-# function create_bcs(dof::DofManager, ::Type{H1Field}, dirichlet_bcs, time)
-#   backend = KA.get_backend(dof.H1_bc_dofs)
-
-#   X = dof.H1_vars[1].fspace.coords
-#   # ND = num_dimensions(dof.H1_vars[1].fspace)
-#   ND = size(X, 1) # TODO do this in a type stable way
-#   # ND = num_fields(X)
-#   # gather all dirichlet dofs
-#   dirichlet_dofs = vcat(map(x -> x.bookkeeping.dofs, dirichlet_bcs)...)
-#   dirichlet_vals = KA.zeros(backend, Float64, 0)
-
-#   dirichlet_perm = sortperm(dirichlet_dofs)
-#   dirichlet_dofs = dirichlet_dofs[dirichlet_perm]
-#   dof_unique = unique(i -> dirichlet_dofs[i], eachindex(dirichlet_dofs))
-#   dirichlet_dofs = dirichlet_dofs[dof_unique]
-
-#   # dirichlet_vals = vcat(map(x -> x.func.(X[:, x.bookkeeping.nodes], (time,)), dirichlet_bcs)...)
-
-#   for bc in dirichlet_bcs
-#     # for node in bc.bookkeeping.nodes
-#     AK.foreachindex(bc.bookkeeping.nodes) do n
-#       node = bc.bookkeeping.nodes[n]
-#       X_temp = SVector{ND, Float64}(@views X[:, node])
-#       # @show bc.func(X_temp, time)
-#       push!(dirichlet_vals, bc.func(X_temp, time))
-#     end
-#   end
-#   # @show dirichlet_vals
-#   # dirichlet_dofs
-#   # need to get the coordinates and time
-#   # for bc in dirichlet_bcs
-
-#   # end
-#   dirichlet_vals[dirichlet_perm][dof_unique]
-# end
-
-
 """
 $(TYPEDSIGNATURES)
 """
@@ -470,51 +422,6 @@ function update_dofs!(dof::DofManager, dirichlet_dofs::T) where T <: AbstractArr
   return nothing
 end
 
-KA.@kernel function _update_field_bcs_kernel!(U::H1Field, dof::DofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
-  N = KA.@index(Global)
-  @inbounds U[dof.H1_bc_dofs[N]] = Ubc[N]
-end
-
-function _update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T, backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
-  kernel! = _update_field_bcs_kernel!(backend)
-  kernel!(U, dof, Ubc, ndrange = length(Ubc))
-  return nothing
-end
-
-function _update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T, ::KA.CPU) where T <: AbstractArray{<:Number, 1}
-  U[dof.H1_bc_dofs] .= Ubc
-  return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-Does a simple copy on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
-"""
-function update_field_bcs!(U::H1Field, dof::DofManager, Ubc::T) where T <: AbstractArray{<:Number, 1}
-  _update_field_bcs!(U, dof, Ubc, KA.get_backend(dof))
-  return nothing
-end
-
-# # CPU only for now
-# function update_field_bcs!(U::H1Field, dof::DofManager, dbc::DirichletBC, t)
-#   X_global = dof.H1_vars[1].fspace.coords
-#   for (n, node) in enumerate(dbc.bookkeeping.nodes)
-#     X = @views X_global[:, node]
-#     dbc.vals[n] = dbc.func(X, t)
-#   end
-#   for (n, dof) in enumerate(dbc.bookkeeping.dofs)
-#     U[dof] = dbc.vals[n]
-#   end
-#   return nothing
-# end
-
-# CPU only for now, implementations in bcs folders
-function update_field_bcs!(U::H1Field, dof::DofManager, dbcs, t)
-  for bc in dbcs
-    update_field_bcs!(U, dof, bc, t)
-  end
-end
-
 KA.@kernel function _update_field_unknowns_kernel!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
   N = KA.@index(Global)
   @inbounds U[dof.H1_unknown_dofs[N]] = Uu[N]
@@ -538,69 +445,6 @@ Does a simple copy on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
 """
 function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
   _update_field_unknowns!(U, dof, Uu, KA.get_backend(dof))
-  return nothing
-end
-
-KA.@kernel function _update_field_unknowns_kernel_minus!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
-  N = KA.@index(Global)
-  @inbounds U[dof.H1_unknown_dofs[N]] -= Uu[N]
-end
-
-KA.@kernel function _update_field_unknowns_kernel_plus!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
-  N = KA.@index(Global)
-  @inbounds U[dof.H1_unknown_dofs[N]] += Uu[N]
-end
-
-function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(-), backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
-  kernel! = _update_field_unknowns_kernel_minus!(backend)
-  kernel!(U, dof, Uu, ndrange = length(Uu))
-  return nothing
-end
-
-function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+), backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
-  kernel! = _update_field_unknowns_kernel_plus!(backend)
-  kernel!(U, dof, Uu, ndrange = length(Uu))
-  return nothing
-end
-
-function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(-), ::KA.CPU) where T <: AbstractArray{<:Number, 1}
-  for (n, d) in enumerate(dof.H1_unknown_dofs)
-    U[d] -= Uu[n]
-  end
-  return nothing
-end
-
-function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+), ::KA.CPU) where T <: AbstractArray{<:Number, 1}
-  for (n, d) in enumerate(dof.H1_unknown_dofs)
-    U[d] += Uu[n]
-  end
-  return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-Does a simple addition on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
-"""
-function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(-)) where T <: AbstractArray{<:Number, 1}
-  _update_field_unknowns!(U, dof, Uu, -, KA.get_backend(dof))
-  return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-Does a simple addition on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
-"""
-function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::typeof(+)) where T <: AbstractArray{<:Number, 1}
-  _update_field_unknowns!(U, dof, Uu, +, KA.get_backend(dof))
-  return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-function update_field!(U::H1Field, dof::DofManager, Uu::T, Ubc::T) where T <: AbstractArray{<:Number, 1}
-  update_field_bcs!(U, dof, Ubc)
-  update_field_unknowns!(U, dof, Uu)
   return nothing
 end
 
