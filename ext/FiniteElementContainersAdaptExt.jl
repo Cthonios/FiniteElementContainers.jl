@@ -12,10 +12,14 @@ function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
     adapt(to, asm.pattern),
     adapt(to, asm.constraint_storage),
     adapt(to, asm.damping_storage),
+    adapt(to, asm.hessian_storage),
     adapt(to, asm.mass_storage),
     adapt(to, asm.residual_storage),
     adapt(to, asm.residual_unknowns),
-    adapt(to, asm.stiffness_storage)
+    adapt(to, asm.scalar_quadarature_storage),
+    adapt(to, asm.stiffness_storage),
+    adapt(to, asm.stiffness_action_storage),
+    adapt(to, asm.stiffness_action_unknowns)
   )
 end
 

@@ -1,9 +1,12 @@
 # Top level method
 
+assemble!(assembler, type::Type{H1Field}, p, v, val_sym::Val{:gradient}) = 
+assemble!(assembler, type, p, v, Val{:residual}())
+
 function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
-  dt = time_step(p.times)
+  Δt = time_step(p.times)
   _zero_storage(assembler, val_sym)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
@@ -13,10 +16,10 @@ function assemble!(assembler, ::Type{H1Field}, p, val_sym::Val{:residual})
   ))
     ref_fe = values(fspace.ref_fes)[b]
     backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_residual!(
-      assembler, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props, t, dt,
-      conns, b, 
+    _assemble_block_vector!(
+      assembler.residual_storage, block_physics, ref_fe, 
+      p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
+      conns, b, residual,
       backend
     )
   end
@@ -30,14 +33,25 @@ $(TYPEDSIGNATURES)
 Assembly method for a block labelled as block_id. This is a CPU implementation
 with no threading.
 
-TODO add state variables and physics properties
-TODO remove Float64 typing below for eventual unitful use
+TODO improve typing of fields to ensure they mathc up in terms of function 
+  spaces
 """
-function _assemble_block_residual!(
-  assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, t, dt,
-  conns, block_id, ::KA.CPU
-)
+function _assemble_block_vector!(
+  field::F1, physics::Phys, ref_fe::R, 
+  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  conns::C, block_id::Int, func::Func, ::KA.CPU
+) where {
+  C    <: Connectivity,
+  F1   <: AbstractField,
+  F2   <: AbstractField,
+  F3   <: AbstractField,
+  P    <: Union{<:SVector, <:L2ElementField},
+  Func <: Function,
+  Phys <: AbstractPhysics, 
+  R    <: ReferenceFE,
+  S    <: L2QuadratureField,
+  T    <: Number
+}
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
@@ -45,12 +59,12 @@ function _assemble_block_residual!(
     x_el = _element_level_fields(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
-    R_el = zeros(SVector{NxNDof, eltype(assembler.residual_storage)})
+    R_el = zeros(SVector{NxNDof, eltype(field)})
 
     for q in 1:num_quadrature_points(ref_fe)
       interps = ref_fe.cell_interps.vals[q]
       state_old_q = _quadrature_level_state(state_old, q, e)
-      R_q, state_new_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
+      R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
       R_el = R_el + R_q
       # update state here
       for s in 1:length(state_old)
@@ -58,7 +72,7 @@ function _assemble_block_residual!(
       end
     end
     
-    @views _assemble_element!(assembler.residual_storage, R_el, conns[:, e], e, block_id)
+    @views _assemble_element!(field, R_el, conns[:, e], e, block_id)
   end
 end
 
@@ -82,11 +96,22 @@ Kernel for residual block assembly
 
 TODO mark const fields
 """
-KA.@kernel function _assemble_block_residual_kernel!(
-  assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, t, dt,
-  conns, block_id
-)
+KA.@kernel function _assemble_block_vector_kernel!(
+  field::F1, physics::Phys, ref_fe::R, 
+  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  conns::C, block_id::Int, func::Func
+) where {
+  C    <: Connectivity,
+  F1   <: AbstractField,
+  F2   <: AbstractField,
+  F3   <: AbstractField,
+  Func <: Function,
+  P    <: Union{<:SVector, <:L2ElementField},
+  Phys <: AbstractPhysics,
+  R    <: ReferenceFE,
+  S    <: L2QuadratureField,
+  T    <: Number
+}
   E = KA.@index(Global)
 
   ND = size(U, 1)
@@ -96,12 +121,12 @@ KA.@kernel function _assemble_block_residual_kernel!(
   x_el = _element_level_fields(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
-  R_el = zeros(SVector{NxNDof, Float64})
+  R_el = zeros(SVector{NxNDof, eltype(field)})
 
   for q in 1:num_quadrature_points(ref_fe)
     interps = ref_fe.cell_interps.vals[q]
     state_old_q = _quadrature_level_state(state_old, q, E)
-    R_q, state_new_q = residual(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
+    R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
     R_el = R_el + R_q
     # update state here
     for s in 1:length(state_old)
@@ -110,12 +135,12 @@ KA.@kernel function _assemble_block_residual_kernel!(
   end
 
   # now assemble atomically
-  n_dofs = size(assembler.residual_storage, 1)
+  n_dofs = size(field, 1)
   for i in 1:size(conns, 1)
     for d in 1:n_dofs
       global_id = n_dofs * (conns[i, E] - 1) + d
       local_id = n_dofs * (i - 1) + d
-      Atomix.@atomic assembler.residual_storage.vals[global_id] += R_el[local_id]
+      Atomix.@atomic field.vals[global_id] += R_el[local_id]
     end
   end
 end
@@ -127,16 +152,27 @@ using KernelAbstractions and Atomix for eliminating race conditions
 
 TODO add state variables and physics properties
 """
-function _assemble_block_residual!(
-  assembler, physics, ref_fe, 
-  U, X, state_old, state_new, props, t, dt,
-  conns, block_id, backend::KA.Backend
-)
-  kernel! = _assemble_block_residual_kernel!(backend)
+function _assemble_block_vector!(
+  field::F1, physics::Phys, ref_fe::R, 
+  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  conns::C, block_id::Int, func::Func, backend::KA.Backend
+) where {
+  C    <: Connectivity,
+  F1   <: AbstractField,
+  F2   <: AbstractField,
+  F3   <: AbstractField,
+  Func <: Function,
+  P    <: Union{<:SVector, <:L2ElementField},
+  Phys <: AbstractPhysics,
+  R    <: ReferenceFE,
+  S    <: L2QuadratureField,
+  T    <: Number
+}
+  kernel! = _assemble_block_vector_kernel!(backend)
   kernel!(
-    assembler, physics, ref_fe, 
-    U, X, state_old, state_new, props, t, dt,
-    conns, block_id, ndrange=size(conns, 2)
+    field, physics, ref_fe, 
+    U, X, state_old, state_new, props, t, Δt,
+    conns, block_id, func, ndrange=size(conns, 2)
   )
   return nothing
 end

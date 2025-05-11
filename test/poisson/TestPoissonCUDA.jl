@@ -18,7 +18,7 @@ bc_func(_, _) = 0.
 
 include("TestPoissonCommon.jl")
 
-function poisson_cuda()
+# function poisson_cuda()
   # do all setup on CPU
   # the mesh for instance is not gpu compatable
   mesh = UnstructuredMesh(mesh_file)
@@ -60,7 +60,7 @@ function poisson_cuda()
   end
   rm(output_file; force=true)
   display(solver.timer)
-end
+# end
 
-@time poisson_cuda()
-@time poisson_cuda()
+# @time poisson_cuda()
+# @time poisson_cuda()
