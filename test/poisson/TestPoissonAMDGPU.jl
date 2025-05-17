@@ -7,17 +7,17 @@ using Krylov
 using LinearAlgebra
 
 # mesh file
-gold_file = "./test/poisson/poisson.gold"
-mesh_file = "./test/poisson/poisson.g"
-output_file = "./test/poisson/poisson.e"
+gold_file = "./poisson/poisson.gold"
+mesh_file = "./poisson/poisson.g"
+output_file = "./poisson/poisson.e"
 
 # methods for a simple Poisson problem
-f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
+f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 bc_func(_, _) = 0.
 
 include("TestPoissonCommon.jl")
 
-# function poisson_amdgpu()
+function poisson_amdgpu()
   # do all setup on CPU
   # the mesh for instance is not gpu compatable
   mesh = UnstructuredMesh(mesh_file)
@@ -34,33 +34,12 @@ include("TestPoissonCommon.jl")
     DirichletBC(:u, :sset_4, bc_func),
   ]
 
-  # # test direct solver
-  # p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
-
-  # # device movement
-  # p_gpu = p |> gpu
-  # asm_gpu = asm |> gpu
-
-  # solver = NewtonSolver(DirectLinearSolver(asm_gpu))
-  # integrator = QuasiStaticIntegrator(solver)
-  # @time evolve!(integrator, p_gpu)
-
-  # display(solver.timer)
-
-  # p = p_gpu |> cpu
-  # U = p.h1_field
-
-  # pp = PostProcessor(mesh, output_file, u)
-  # write_times(pp, 1, 0.0)
-  # write_field(pp, 1, U)
-  # close(pp)
-
   # test iterative solver
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
 
   # device movement
-  p_gpu = p |> gpu
-  asm_gpu = asm |> gpu
+  p_gpu = p |> rocm
+  asm_gpu = asm |> rocm
 
   solver = NewtonSolver(IterativeLinearSolver(asm_gpu, :CgSolver))
   integrator = QuasiStaticIntegrator(solver)
@@ -76,9 +55,14 @@ include("TestPoissonCommon.jl")
   write_field(pp, 1, U)
   close(pp)
 
-# end
+  if !Sys.iswindows()
+    @test exodiff(output_file, gold_file)
+  end
+  rm(output_file; force=true)
+  display(solver.timer)
+end
 
-# @time poisson_amdgpu()
-# @time poisson_amdgpu()
+@time poisson_amdgpu()
+@time poisson_amdgpu()
 
 # @benchmark poisson_cuda()

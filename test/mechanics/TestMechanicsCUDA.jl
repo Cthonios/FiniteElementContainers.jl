@@ -93,8 +93,8 @@ include("TestMechanicsCommon.jl")
   p = create_parameters(asm, physics; dirichlet_bcs=dbcs, times=times)
 
   # move to device
-  p_gpu = p |> gpu
-  asm_gpu = asm |> gpu
+  p_gpu = p |> cuda
+  asm_gpu = asm |> cuda
 
   solver = NewtonSolver(IterativeLinearSolver(asm_gpu, :CgSolver))
   integrator = QuasiStaticIntegrator(solver)
