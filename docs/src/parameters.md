@@ -1,6 +1,6 @@
-# Physics
+# Parameters
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["Physics.jl"]
+Pages = ["Parameters.jl"]
 Order = [:type, :function]
 ```

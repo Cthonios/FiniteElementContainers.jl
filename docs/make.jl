@@ -36,6 +36,7 @@ makedocs(;
         "Function spaces"     => "function_spaces.md",
         "Functions"           => "functions.md",
         "Meshes"              => "meshes.md",
+        "Parameters"          => "parameters.md",
         "Physics"             => "physics.md"
     ],
 )
