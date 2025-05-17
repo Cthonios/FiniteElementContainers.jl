@@ -13,7 +13,7 @@ concurrency:
 jobs:
   test:
     name: Julia ${{ matrix.version }} - self-hosted - ${{ matrix.arch }} - ${{ github.event_name }}
-    runs-on: self-hosted-amdgpu
+    runs-on: [self-hosted, self-hosted-amdgpu]
     strategy:
       fail-fast: false
       matrix:
