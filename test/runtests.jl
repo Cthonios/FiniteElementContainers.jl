@@ -9,6 +9,7 @@ using Tensors
 using Test
 using TestSetExtensions
 
+include("TestAssemblers.jl")
 include("TestBCs.jl")
 include("TestConnectivities.jl")
 include("TestDofManagers.jl")

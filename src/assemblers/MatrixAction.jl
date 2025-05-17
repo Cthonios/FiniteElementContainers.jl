@@ -1,6 +1,6 @@
 # Top level method
-assemble!(assembler, Uu, p, Vu, val::Val{:hvp}, type::Type{H1Field}) = 
-assemble!(assembler, Uu, p, Vu, val, type)
+assemble!(assembler, Uu, p, Vu, ::Val{:hvp}, type::Type{H1Field}) = 
+assemble!(assembler, Uu, p, Vu, Val{:stiffness_action}(), type)
 
 # TODO below isn't exactly right...
 # we're going to need some additional scratch storage for 
