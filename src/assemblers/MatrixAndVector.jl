@@ -1,8 +1,8 @@
 # Top level method
-function assemble!(assembler, Uu, p, val_sym::Val{:residual_and_stiffness}, ::Type{H1Field})
+function assemble!(assembler, Uu, p, ::Val{:residual_and_stiffness}, ::Type{H1Field})
   fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
   fill!(assembler.stiffness_storage, zero(eltype(assembler.stiffness_storage)))
-  fspace = assembler.dof.H1_vars[1].fspace
+  fspace = function_space(assembler, H1Field)
   t = current_time(p.times)
   dt = time_step(p.times)
   update_bcs!(p)
@@ -68,7 +68,7 @@ function _assemble_block_matrix_and_vector!(
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(stiffness_field), NxNDof * NxNDof})
 
     for q in 1:num_quadrature_points(ref_fe)
-      interps = ref_fe.cell_interps.vals[q]
+      interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
       R_q, state_new_q = residual_func(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
       K_q, state_new_q = stiffness_func(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
@@ -119,7 +119,7 @@ KA.@kernel function _assemble_block_matrix_and_vector_kernel!(
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(stiffness_field), NxNDof * NxNDof})
 
   for q in 1:num_quadrature_points(ref_fe)
-    interps = ref_fe.cell_interps.vals[q]
+    interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
     R_q, state_new_q = residual_func(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
     K_q, state_new_q = stiffness_func(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)

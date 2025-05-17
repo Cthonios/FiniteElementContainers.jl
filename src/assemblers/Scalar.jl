@@ -1,5 +1,5 @@
 function assemble!(assembler, Uu, p, ::Val{:energy}, ::Type{H1Field})
-  fspace = assembler.dof.H1_vars[1].fspace
+  fspace = function_space(assembler, H1Field)
   t = current_time(p.times)
   Δt = time_step(p.times)
   update_bcs!(p)
@@ -56,7 +56,7 @@ function _assemble_block_scalar!(
     props_el = _element_level_properties(props, e)
 
     for q in 1:num_quadrature_points(ref_fe)
-      interps = ref_fe.cell_interps.vals[q]
+      interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
       e_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
       field[q, e] = e_q
@@ -97,7 +97,7 @@ KA.@kernel function _assemble_block_scalar_kernel!(
   props_el = _element_level_properties(props, E)
 
   KA.Extras.@unroll for q in 1:num_quadrature_points(ref_fe)
-    @inbounds interps = ref_fe.cell_interps.vals[q]
+    interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
     e_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
     @inbounds field[q, E] = e_q
