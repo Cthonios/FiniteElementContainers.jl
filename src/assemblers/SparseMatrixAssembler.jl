@@ -110,16 +110,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-"""
-function SparseArrays.sparse(assembler::SparseMatrixAssembler)
-  # ids = pattern.unknown_dofs
-  pattern = assembler.pattern
-  storage = assembler.stiffness_storage
-  return @views sparse(pattern.Is, pattern.Js, storage)
-end
-
-"""
-$(TYPEDSIGNATURES)
 TODO add symbol to interface
 """
 function SparseArrays.sparse!(assembler::SparseMatrixAssembler, sym)
