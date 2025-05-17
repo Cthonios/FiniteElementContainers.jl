@@ -2,7 +2,8 @@ module FiniteElementContainers
 
 # general
 export cpu
-export gpu
+export cuda
+export rocm
 
 # Assemblers
 export SparseMatrixAssembler
@@ -132,7 +133,8 @@ using TimerOutputs
 abstract type FEMContainer end
 
 function cpu end
-function gpu end
+function cuda end
+function rocm end
 
 # TODO clean this up, make it make sense in an ordered way
 include("fields/Fields.jl")

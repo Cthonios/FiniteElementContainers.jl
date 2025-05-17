@@ -6,7 +6,7 @@ using FiniteElementContainers
 using KernelAbstractions
 
 # need to double check if it's ROCArray
-FiniteElementContainers.gpu(x) = Adapt.adapt_structure(ROCArray, x)
+FiniteElementContainers.rocm(x) = Adapt.adapt_structure(ROCArray, x)
 
 # this method need to have the assembler initialized first
 # if the stored values in asm.pattern.cscnzval or zero

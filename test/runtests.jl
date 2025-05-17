@@ -1,3 +1,5 @@
+using Adapt
+using AMDGPU
 using Aqua
 using Exodus
 using FiniteElementContainers
@@ -26,10 +28,16 @@ include("TestPhysics.jl")
 
 @testset ExtendedTestSet "Poisson problem" begin
   include("poisson/TestPoisson.jl")
+  if AMDGPU.functional()
+    include("poisson/TestPoissonAMDGPU.jl")
+  end
 end
 
 @testset ExtendedTestSet "Mechanics Problem" begin
   include("mechanics/TestMechanics.jl")
+  if AMDGPU.functional()
+    include("mechanics/TestMechanicsAMDGPU.jl")
+  end
 end
 
 @testset ExtendedTestSet "Aqua" begin
