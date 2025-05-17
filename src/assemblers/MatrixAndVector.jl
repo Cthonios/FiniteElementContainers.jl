@@ -61,7 +61,7 @@ function _assemble_block_matrix_and_vector!(
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   for e in axes(conns, 2)
-    x_el = _element_level_fields(X, ref_fe, conns, e)
+    x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
     R_el = zeros(SVector{NxNDof, eltype(residual_field)})
@@ -112,7 +112,7 @@ KA.@kernel function _assemble_block_matrix_and_vector_kernel!(
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
 
-  x_el = _element_level_fields(X, ref_fe, conns, E)
+  x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
   R_el = zeros(SVector{NxNDof, eltype(residual_field)})

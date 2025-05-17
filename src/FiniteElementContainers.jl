@@ -95,6 +95,7 @@ export AbstractPhysics
 export interpolate_field_gradients
 export interpolate_field_values
 export interpolate_field_values_and_gradients
+export map_interpolants
 export num_properties
 export num_states
 export reshape_element_level_field
