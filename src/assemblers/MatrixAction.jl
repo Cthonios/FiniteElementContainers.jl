@@ -20,7 +20,7 @@ function assemble!(assembler, Uu, p, Vu, ::Val{:stiffness_action}, ::Type{H1Fiel
     values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    backend = _check_backends(assembler, p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, conns)
     _assemble_block_matrix_action!(
       assembler.stiffness_action_storage, block_physics, ref_fe, 
       p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, props, t, Δt,

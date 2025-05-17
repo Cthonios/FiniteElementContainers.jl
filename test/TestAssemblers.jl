@@ -12,7 +12,7 @@ include("poisson/TestPoissonCommon.jl")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(H1Field, u)
+  @show asm = SparseMatrixAssembler(H1Field, u)
   dbcs = DirichletBC[
     DirichletBC(:u, :sset_1, bc_func),
     DirichletBC(:u, :sset_2, bc_func),
@@ -25,7 +25,20 @@ include("poisson/TestPoissonCommon.jl")
   assemble!(asm, Uu, p, Val{:energy}(), H1Field)
   assemble!(asm, Uu, p, Val{:gradient}(), H1Field)
   assemble!(asm, Uu, p, Vu, Val{:hvp}(), H1Field)
+  assemble!(asm, Uu, p, Val{:mass}(), H1Field)
   assemble!(asm, Uu, p, Val{:residual}(), H1Field)
   assemble!(asm, Uu, p, Val{:stiffness}(), H1Field)
   assemble!(asm, Uu, p, Vu, Val{:stiffness_action}(), H1Field)
+
+  assemble!(asm, Uu, p, :energy, H1Field)
+  assemble!(asm, Uu, p, :gradient, H1Field)
+  assemble!(asm, Uu, p, Vu, :hvp, H1Field)
+  assemble!(asm, Uu, p, :mass, H1Field)
+  assemble!(asm, Uu, p, :residual, H1Field)
+  assemble!(asm, Uu, p, :stiffness, H1Field)
+  assemble!(asm, Uu, p, Vu, :stiffness_action, H1Field)
+
+  K = stiffness(asm)
+  M = mass(asm)
+  R = residual(asm)
 end

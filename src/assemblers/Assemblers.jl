@@ -83,8 +83,20 @@ end
 
 """
 $(TYPEDSIGNATURES)
+Top level assembly method for ```H1Field``` that loops over blocks and dispatches
+to appropriate kernels based on sym.
+
+TODO need to make sure at setup time that physics and elem_conns have the same
+values order. Otherwise, shenanigans.
+
+TODO figure out how to do generated functions
+
+creates one type instability from the Val
 """
-create_bcs(asm::AbstractAssembler, type) = create_bcs(asm.dof, type)
+function assemble!(assembler, Uu, p, Vv, sym::Symbol, type::Type{H1Field})
+  assemble!(assembler, Uu, p, Vv, Val{sym}(), type)
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -165,14 +177,6 @@ $(TYPEDSIGNATURES)
 """
 function stiffness(assembler::AbstractAssembler)
   return _stiffness(assembler, KA.get_backend(assembler))
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-function update_field!(U, asm::AbstractAssembler, Uu, Ubc)
-  update_field!(U, asm.dof, Uu, Ubc)
-  return nothing
 end
 
 # some utilities
