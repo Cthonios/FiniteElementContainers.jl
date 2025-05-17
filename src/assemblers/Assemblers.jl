@@ -101,7 +101,7 @@ end
 $(TYPEDSIGNATURES)
 """
 @inline function _cell_interpolants(ref_fe::R, q::Int) where R <: ReferenceFE
-  return ref_fe.cell_interps.vals[q]
+  return @inbounds ref_fe.cell_interps.vals[q]
 end
 
 """
@@ -157,7 +157,7 @@ $(TYPEDSIGNATURES)
 Returns either nothing or the function space
 associated with H1Fields in the problem.
 """
-function function_space(asm::AbstractAssembler, ::Type{<:H1Field})
+@inline function function_space(asm::AbstractAssembler, ::Type{<:H1Field})
   if asm.dof.H1_vars === nothing
     @assert "You're trying to access a function space that does not exist"
   end
