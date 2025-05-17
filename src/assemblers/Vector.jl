@@ -1,7 +1,7 @@
 # Top level method
 
-assemble!(assembler, Uu, p, val::Val{:gradient}, type::Type{H1Field}) = 
-assemble!(assembler, Uu, p, val, type)
+assemble!(assembler, Uu, p, ::Val{:gradient}, type::Type{H1Field}) = 
+assemble!(assembler, Uu, p, Val{:residual}(), type)
 
 function assemble!(assembler, Uu, p, ::Val{:residual}, ::Type{H1Field})
   fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
