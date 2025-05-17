@@ -40,5 +40,5 @@ include("poisson/TestPoissonCommon.jl")
 
   K = stiffness(asm)
   M = mass(asm)
-  R = residual(R)
+  R = residual(asm)
 end
