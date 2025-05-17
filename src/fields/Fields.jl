@@ -20,6 +20,12 @@ Base.eltype(::Type{AbstractField{T, N, NF, Vals, SymIDMap}}) where {T, N, NF, Va
 """
 $(TYPEDSIGNATURES)
 """
+Base.fill!(field::AbstractField{T, N, NF, V, S}, v::T) where {T, N, NF, V, S} = 
+fill!(field.vals, v)
+
+"""
+$(TYPEDSIGNATURES)
+"""
 Base.names(::AbstractField{T, N, NF, Vals, SymIDMap}) where {T, N, NF, Vals, SymIDMap} = keys(SymIDMap)
 
 """
