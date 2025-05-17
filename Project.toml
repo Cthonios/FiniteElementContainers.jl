@@ -51,9 +51,10 @@ julia = "1"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestSetExtensions = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"
 
 [targets]
-test = ["Adapt", "AMDGPU", "Aqua", "Exodus", "Test", "TestSetExtensions"]
+test = ["Adapt", "AMDGPU", "Aqua", "CUDA", "Exodus", "Test", "TestSetExtensions"]

@@ -25,7 +25,7 @@ function CUDA.CUSPARSE.CuSparseMatrixCSC(asm::SparseMatrixAssembler)
   )
 end
 
-function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::Backend)
+function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::CUDABackend)
   return CUDA.CUSPARSE.CuSparseMatrixCSC(asm)
 end
 

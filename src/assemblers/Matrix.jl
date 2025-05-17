@@ -1,3 +1,27 @@
+function assemble_matrix!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <: Function
+  fill!(assembler.stiffness_storage, zero(eltype(assembler.stiffness_storage)))
+  fspace = function_space(assembler, H1Field)
+  t = current_time(p.times)
+  dt = time_step(p.times)
+  update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    _assemble_block_matrix!(
+      assembler.stiffness_storage, assembler.pattern, block_physics, ref_fe,
+      p.h1_field, p.h1_coords, state_old, state_new, props, t, dt,
+      conns, b, func,
+      backend
+    )
+  end
+end
+
 # Top level methods
 function assemble!(assembler, Uu, p, ::Val{:mass}, ::Type{H1Field})
   fill!(assembler.mass_storage, zero(eltype(assembler.mass_storage)))
