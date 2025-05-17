@@ -1,9 +1,10 @@
 # Top level method
 function assemble!(assembler, Uu, p, val_sym::Val{:residual_and_stiffness}, ::Type{H1Field})
+  fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
+  fill!(assembler.stiffness_storage, zero(eltype(assembler.stiffness_storage)))
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   dt = time_step(p.times)
-  _zero_storage(assembler, val_sym)
   update_bcs!(p)
   update_field_unknowns!(p.h1_field, assembler.dof, Uu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
@@ -150,13 +151,13 @@ KA.@kernel function _assemble_block_matrix_and_vector_kernel!(
   end
 end
 
-"""
-$(TYPEDSIGNATURES)
-Assembly method for a block labelled as block_id. This is a GPU agnostic implementation
-using KernelAbstractions and Atomix for eliminating race conditions
+# """
+# $(TYPEDSIGNATURES)
+# Assembly method for a block labelled as block_id. This is a GPU agnostic implementation
+# using KernelAbstractions and Atomix for eliminating race conditions
 
-TODO add state variables and physics properties
-"""
+# TODO add state variables and physics properties
+# """
 function _assemble_block_matrix_and_vector!(
   residual_field::F1, stiffness_field::F2, pattern::Patt, 
   physics::Phys, ref_fe::R,

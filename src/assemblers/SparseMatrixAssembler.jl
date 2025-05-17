@@ -87,13 +87,6 @@ function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "  ", asm.dof)
 end
 
-# below methods used to make type stable dispatch for _assemble_element! resuse for
-# stiffness/mass/damping matrix value storage
-_get_storage(asm::SparseMatrixAssembler, ::Val{:damping}) = asm.damping_storage
-_get_storage(asm::SparseMatrixAssembler, ::Val{:mass}) = asm.mass_storage
-_get_storage(asm::SparseMatrixAssembler, ::Val{:stiffness}) = asm.stiffness_storage
-
-# TODO add symbol to interface for name of storage array to assemble into
 """
 $(TYPEDSIGNATURES)
 Specialization of of ```_assemble_element!``` for ```SparseMatrixAssembler```.
@@ -250,17 +243,4 @@ function _update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) wher
   resize!(assembler.pattern.csrnzval, length(assembler.pattern.Is))
 
   return nothing
-end
-
-function _zero_storage(asm::SparseMatrixAssembler, ::Val{:mass})
-  fill!(asm.mass_storage, zero(eltype(asm.mass_storage)))
-end
-
-function _zero_storage(asm::SparseMatrixAssembler, ::Val{:residual_and_stiffness})
-  _zero_storage(asm, Val{:residual}())
-  fill!(asm.stiffness_storage, zero(eltype(asm.stiffness_storage)))
-end
-
-function _zero_storage(asm::SparseMatrixAssembler, ::Val{:stiffness})
-  fill!(asm.stiffness_storage, zero(eltype(asm.stiffness_storage)))
 end

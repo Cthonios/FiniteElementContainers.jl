@@ -1,8 +1,7 @@
-function assemble!(assembler, Uu, p, val_sym::Val{:energy}, ::Type{H1Field})
+function assemble!(assembler, Uu, p, ::Val{:energy}, ::Type{H1Field})
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   Δt = time_step(p.times)
-  _zero_storage(assembler, val_sym)
   update_bcs!(p)
   update_field_unknowns!(p.h1_field, assembler.dof, Uu)
   for (b, (field, conns, block_physics, state_old, state_new, props)) in enumerate(zip(
@@ -22,7 +21,7 @@ function assemble!(assembler, Uu, p, val_sym::Val{:energy}, ::Type{H1Field})
     )
   end
 
-
+  # TODO need to eventually sum that all up somewhere
 end
 
 # CPU Implementation

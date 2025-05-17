@@ -175,30 +175,6 @@ function update_field!(U, asm::AbstractAssembler, Uu, Ubc)
   return nothing
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function _zero_storage(asm::AbstractAssembler, ::Val{:energy})
-  # fill!(asm.residual_storage.vals, zero(eltype(asm.residual_storage.vals)))
-  for val in values(asm.scalar_quadarature_storage)
-    fill!(val, zero(eltype(val)))
-  end
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-function _zero_storage(asm::AbstractAssembler, ::Val{:residual})
-  fill!(asm.residual_storage.vals, zero(eltype(asm.residual_storage.vals)))
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-function _zero_storage(asm::AbstractAssembler, ::Val{:stiffness_action})
-  fill!(asm.stiffness_action_storage.vals, zero(eltype(asm.stiffness_action_storage.vals)))
-end
-
 # some utilities
 include("SparsityPattern.jl")
 
@@ -211,4 +187,3 @@ include("MatrixAction.jl")
 include("MatrixAndVector.jl")
 include("Scalar.jl")
 include("Vector.jl")
-# include("ResidualAndStiffness.jl")
