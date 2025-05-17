@@ -137,37 +137,11 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
   )
 end
 
-# Functions
-function Adapt.adapt_structure(to, var::ScalarFunction)
+function Adapt.adapt_structure(to, var::T) where T <: FiniteElementContainers.AbstractFunction
   syms = names(var)
   fspace = adapt(to, var.fspace)
-  return ScalarFunction{syms, typeof(fspace)}(fspace)
-end
-
-function Adapt.adapt_structure(to, var::SymmetricTensorFunction)
-  syms = names(var)
-  fspace = adapt(to, var.fspace)
-  return SymmetricTensorFunction{syms, typeof(fspace)}(fspace)
-end
-
-function Adapt.adapt_structure(to, var::TensorFunction)
-  syms = names(var)
-  fspace = adapt(to, var.fspace)
-  return TensorFunction{syms, typeof(fspace)}(fspace)
-end
-
-function Adapt.adapt_structure(to, var::VectorFunction)
-  syms = names(var)
-  fspace = adapt(to, var.fspace)
-  return VectorFunction{syms, typeof(fspace)}(fspace)
-end
-
-# Integrators
-function Adapt.adapt_structure(to, integrator::QuasiStaticIntegrator)
-  return QuasiStaticIntegrator(
-    adapt(to, integrator.solution),
-    adapt(to, integrator.solver)
-  )
+  type = eval(T.name.name)
+  return type{syms, typeof(fspace)}(fspace)
 end
 
 # parameters
