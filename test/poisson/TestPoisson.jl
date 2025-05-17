@@ -57,7 +57,9 @@ function poisson()
   # setup solver and integrator
   solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
   integrator = QuasiStaticIntegrator(solver)
-  evolve!(integrator, p)
+  @time evolve!(integrator, p)
+
+  display(solver.timer)
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)

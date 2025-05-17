@@ -100,6 +100,13 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+@inline function _cell_interpolants(ref_fe::R, q::Int) where R <: ReferenceFE
+  return ref_fe.cell_interps.vals[q]
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 create_field(asm::AbstractAssembler, type) = create_field(asm.dof, type)
 """
 $(TYPEDSIGNATURES)
@@ -143,6 +150,18 @@ $(TYPEDSIGNATURES)
 function _element_level_properties(props::L2ElementField, e::Int)
   props_e = @views SVector{size(props, 1), eltype(props)}(props[:, e])
   return props_e
+end
+
+"""
+$(TYPEDSIGNATURES)
+Returns either nothing or the function space
+associated with H1Fields in the problem.
+"""
+function function_space(asm::AbstractAssembler, ::Type{<:H1Field})
+  if asm.dof.H1_vars === nothing
+    @assert "You're trying to access a function space that does not exist"
+  end
+  return @inbounds asm.dof.H1_vars[1].fspace
 end
 
 """

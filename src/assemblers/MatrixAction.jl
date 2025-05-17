@@ -7,7 +7,7 @@ assemble!(assembler, Uu, p, Vu, Val{:stiffness_action}(), type)
 # the full field of Vu
 function assemble!(assembler, Uu, p, Vu, ::Val{:stiffness_action}, ::Type{H1Field})
   fill!(assembler.stiffness_action_storage, zero(eltype(assembler.stiffness_action_storage)))
-  fspace = assembler.dof.H1_vars[1].fspace
+  fspace = function_space(assembler, H1Field)
   t = current_time(p.times)
   Δt = time_step(p.times)
   update_bcs!(p)
@@ -69,7 +69,7 @@ function _assemble_block_matrix_action!(
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(field), NxNDof * NxNDof})
 
     for q in 1:num_quadrature_points(ref_fe)
-      interps = ref_fe.cell_interps.vals[q]
+      interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
       K_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
       K_el = K_el + K_q
@@ -133,7 +133,7 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(field), NxNDof * NxNDof})
 
   for q in 1:num_quadrature_points(ref_fe)
-    interps = ref_fe.cell_interps.vals[q]
+    interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
     K_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
     K_el = K_el + K_q

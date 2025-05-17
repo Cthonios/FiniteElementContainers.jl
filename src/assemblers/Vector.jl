@@ -3,9 +3,38 @@
 assemble!(assembler, Uu, p, ::Val{:gradient}, type::Type{H1Field}) = 
 assemble!(assembler, Uu, p, Val{:residual}(), type)
 
+"""
+$(TYPEDSIGNATURES)
+
+"""
+function assemble_vector!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <: Function
+  fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
+  fspace = function_space(assembler, H1Field)
+  t = current_time(p.times)
+  Δt = time_step(p.times)
+  update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    _assemble_block_vector!(
+      assembler.residual_storage, block_physics, ref_fe, 
+      p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
+      conns, b, func,
+      backend
+    )
+  end
+end
+
+
 function assemble!(assembler, Uu, p, ::Val{:residual}, ::Type{H1Field})
   fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
-  fspace = assembler.dof.H1_vars[1].fspace
+  fspace = function_space(assembler, H1Field)
   t = current_time(p.times)
   Δt = time_step(p.times)
   update_bcs!(p)
@@ -64,7 +93,7 @@ function _assemble_block_vector!(
     R_el = zeros(SVector{NxNDof, eltype(field)})
 
     for q in 1:num_quadrature_points(ref_fe)
-      interps = ref_fe.cell_interps.vals[q]
+      interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
       R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
       R_el = R_el + R_q
@@ -126,7 +155,7 @@ KA.@kernel function _assemble_block_vector_kernel!(
   R_el = zeros(SVector{NxNDof, eltype(field)})
 
   for q in 1:num_quadrature_points(ref_fe)
-    interps = ref_fe.cell_interps.vals[q]
+    interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
     R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
     R_el = R_el + R_q
