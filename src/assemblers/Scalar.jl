@@ -51,7 +51,7 @@ function _assemble_block_scalar!(
   T    <: Number
 }
   for e in axes(conns, 2)
-    x_el = _element_level_fields(X, ref_fe, conns, e)
+    x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
 
@@ -92,7 +92,7 @@ KA.@kernel function _assemble_block_scalar_kernel!(
 }
   # Q, E = KA.@index(Global, NTuple)
   E = KA.@index(Global)
-  x_el = _element_level_fields(X, ref_fe, conns, E)
+  x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
 

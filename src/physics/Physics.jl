@@ -41,6 +41,26 @@ end
   return U_el * interps.N, U_el * interps.∇N_X
 end
 
+@inline function map_interpolants(
+  interps::I, x_el::SVector{NxD, T}
+) where {I <: ReferenceFiniteElements.Interpolants, NxD, T <: Number}
+  x_el = reshape_element_level_coordinates(interps, x_el)
+  interps = MappedInterpolants(interps, x_el)
+  return interps
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+@inline function reshape_element_level_coordinates(
+  interps::I, x_el::SVector{NxD, T}
+) where {I <: ReferenceFiniteElements.Interpolants, NxD, T <: Number}
+  # ND = ReferenceFiniteElements.num_dimensions(interps)
+  ND = size(interps.∇N_ξ, 2)
+  N = NxD ÷ ND
+  return SMatrix{ND, N, T, NxD}(x_el)
+end
+
 """
 $(TYPEDSIGNATURES)
 """
