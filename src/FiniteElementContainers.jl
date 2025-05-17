@@ -8,6 +8,7 @@ export gpu
 export SparseMatrixAssembler
 export assemble!
 export constraint_matrix
+export mass
 export residual
 export stiffness
 
