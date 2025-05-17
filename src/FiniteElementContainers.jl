@@ -26,13 +26,11 @@ export L2QuadratureField
 
 # DofManager
 export DofManager
-export create_bcs
 export create_field
 export create_unknowns
 export update_bcs!
 export update_dofs!
 export update_field_unknowns!
-export update_field!
 
 # Formulations
 export IncompressiblePlaneStress

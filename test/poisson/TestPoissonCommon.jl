@@ -14,6 +14,15 @@ end
   return JxW * e_q, state_old_q
 end
 
+@inline function FiniteElementContainers.mass(
+  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
+)
+  interps = MappedInterpolants(interps, x_el)
+  (; X_q, N, ∇N_X, JxW) = interps
+  M_q = N * N'
+  return JxW * M_q, state_old_q
+end
+
 @inline function FiniteElementContainers.residual(
   physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
 )
