@@ -1,6 +1,6 @@
 # Top level methods
-function assemble!(assembler, Uu, p, val_sym::Val{:mass}, ::Type{H1Field})
-  _zero_storage(assembler, val_sym)
+function assemble!(assembler, Uu, p, ::Val{:mass}, ::Type{H1Field})
+  fill!(assembler.mass_storage, zero(eltype(assembler.mass_storage)))
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   dt = time_step(p.times)
@@ -23,8 +23,8 @@ function assemble!(assembler, Uu, p, val_sym::Val{:mass}, ::Type{H1Field})
   end
 end
 
-function assemble!(assembler, Uu, p, val_sym::Val{:stiffness}, ::Type{H1Field})
-  _zero_storage(assembler, val_sym)
+function assemble!(assembler, Uu, p, ::Val{:stiffness}, ::Type{H1Field})
+  fill!(assembler.stiffness_storage, zero(eltype(assembler.stiffness_storage)))
   fspace = assembler.dof.H1_vars[1].fspace
   t = current_time(p.times)
   dt = time_step(p.times)
