@@ -41,4 +41,10 @@ include("poisson/TestPoissonCommon.jl")
   K = stiffness(asm)
   M = mass(asm)
   R = residual(asm)
+
+  assemble_matrix!(asm, Uu, p, H1Field, mass)
+  assemble_matrix!(asm, Uu, p, H1Field, stiffness)
+  assemble_matrix_action!(asm, Uu, p, Vu, H1Field, stiffness)
+  assemble_scalar!(asm, Uu, p, H1Field, energy)
+  assemble_vector!(asm, Uu, p, H1Field, residual)
 end

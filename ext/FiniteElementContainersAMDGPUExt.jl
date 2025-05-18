@@ -29,7 +29,7 @@ function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
   )
 end
 
-function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::Backend)
+function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::ROCBackend)
   return AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm)
 end
 

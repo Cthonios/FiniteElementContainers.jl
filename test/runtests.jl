@@ -1,6 +1,7 @@
 using Adapt
 using AMDGPU
 using Aqua
+using CUDA
 using Exodus
 using FiniteElementContainers
 # using JET
@@ -31,12 +32,18 @@ include("TestPhysics.jl")
   if AMDGPU.functional()
     include("poisson/TestPoissonAMDGPU.jl")
   end
+  if CUDA.functional()
+    include("poisson/TestPoissonCUDA.jl")
+  end
 end
 
 @testset ExtendedTestSet "Mechanics Problem" begin
   include("mechanics/TestMechanics.jl")
   if AMDGPU.functional()
     include("mechanics/TestMechanicsAMDGPU.jl")
+  end
+  if CUDA.functional()
+    include("mechanics/TestMechanicsCUDA.jl")
   end
 end
 

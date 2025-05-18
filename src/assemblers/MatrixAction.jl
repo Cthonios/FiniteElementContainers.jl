@@ -2,9 +2,32 @@
 assemble!(assembler, Uu, p, Vu, ::Val{:hvp}, type::Type{H1Field}) = 
 assemble!(assembler, Uu, p, Vu, Val{:stiffness_action}(), type)
 
-# TODO below isn't exactly right...
-# we're going to need some additional scratch storage for 
-# the full field of Vu
+
+function assemble_matrix_action!(assembler, Uu, p, Vu, ::Type{H1Field}, func)
+  fill!(assembler.stiffness_action_storage, zero(eltype(assembler.stiffness_action_storage)))
+  fspace = function_space(assembler, H1Field)
+  t = current_time(p.times)
+  Δt = time_step(p.times)
+  update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  update_field_unknowns!(p.h1_hvp, assembler.dof, Vu)
+  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, conns)
+    _assemble_block_matrix_action!(
+      assembler.stiffness_action_storage, block_physics, ref_fe, 
+      p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, props, t, Δt,
+      conns, b, func,
+      backend
+    )
+  end
+end
+
 function assemble!(assembler, Uu, p, Vu, ::Val{:stiffness_action}, ::Type{H1Field})
   fill!(assembler.stiffness_action_storage, zero(eltype(assembler.stiffness_action_storage)))
   fspace = function_space(assembler, H1Field)
