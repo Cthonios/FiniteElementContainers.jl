@@ -182,6 +182,14 @@ $(TYPEDSIGNATURES)
 """
 KA.get_backend(bk::BCBookKeeping) = KA.get_backend(bk.blocks)
 
+function Base.show(io::IO, bk::BCBookKeeping)
+  println(io, "Blocks                    = $(unique(bk.blocks))")
+  println(io, "Number of active dofs     = $(length(bk.dofs))")
+  println(io, "Number of active elements = $(length(bk.elements))")
+  println(io, "Number of active nodes    = $(length(bk.nodes))")
+  println(io, "Number of active sides    = $(length(bk.sides))")
+end
+
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -208,11 +216,37 @@ $(TYPEDFIELDS)
 """
 abstract type AbstractBCContainer{
   B <: BCBookKeeping,
-  F <: Function,
+  # F <: Function,
   V <: AbstractArray{<:Number, 1}
 } end
 
 KA.get_backend(x::AbstractBCContainer) = KA.get_backend(x.vals)
+
+function Base.show(io::IO, bc::AbstractBCContainer)
+  println(io, "$(typeof(bc).name.name):")
+  println(io, "$(bc.bookkeeping)")
+  # println(io, "Function = $(bc.func)")
+end
+
+function _update_bcs!(bc, U, ::KA.CPU)
+  for (dof, val) in zip(bc.bookkeeping.dofs, bc.vals)
+    U[dof] = val
+  end
+  return nothing
+end
+
+KA.@kernel function _update_bcs_kernel!(bc, U)
+  I = KA.@index(Global)
+  dof = bc.bookkeeping.dofs[I]
+  val = bc.vals[I]
+  U[dof] = val
+end
+
+function _update_bcs!(bc, U, backend::KA.Backend)
+  kernel! = _update_bcs_kernel!(backend)
+  kernel!(bc, U, ndrange=length(bc.vals))
+  return nothing
+end
 
 # need checks on if field types are compatable
 """
@@ -220,11 +254,12 @@ $(TYPEDSIGNATURES)
 CPU implementation for updating stored bc values 
 based on the stored function
 """
-function _update_bc_values!(bc, X, t, ::KA.CPU)
+function _update_bc_values!(bc, func, X, t, ::KA.CPU)
   ND = num_fields(X)
   for (n, node) in enumerate(bc.bookkeeping.nodes)
     X_temp = @views SVector{ND, eltype(X)}(X[:, node])
-    bc.vals[n] = bc.func(X_temp, t)
+    # bc.vals[n] = bc.func(X_temp, t)
+    bc.vals[n] = func(X_temp, t)
   end
   return nothing
 end
@@ -233,7 +268,7 @@ end
 $(TYPEDSIGNATURES)
 GPU kernel for updating stored bc values based on the stored function
 """
-KA.@kernel function _update_bc_values_kernel!(bc, X, t)
+KA.@kernel function _update_bc_values_kernel!(bc, func, X, t)
   I = KA.@index(Global)
   ND = num_fields(X)
   node = bc.bookkeeping.nodes[I]
@@ -248,16 +283,17 @@ KA.@kernel function _update_bc_values_kernel!(bc, X, t)
   elseif ND == 3
     X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node], X[3, node])
   end
-  bc.vals[I] = bc.func(X_temp, t)
+  # bc.vals[I] = bc.func(X_temp, t)
+  bc.vals[I] = func(X_temp, t)
 end
 
 """
 $(TYPEDSIGNATURES)
 GPU kernel wrapper for updating bc values based on the stored function
 """
-function _update_bc_values!(bc, X, t, backend::KA.Backend)
+function _update_bc_values!(bc, func, X, t, backend::KA.Backend)
   kernel! = _update_bc_values_kernel!(backend)
-  kernel!(bc, X, t, ndrange=length(bc.bookkeeping.dofs))
+  kernel!(bc, func, X, t, ndrange=length(bc.bookkeeping.dofs))
   return nothing
 end
 
@@ -266,10 +302,10 @@ $(TYPEDSIGNATURES)
 Wrapper that is generic for all architectures to
 update bc values based on the stored function
 """
-function update_bc_values!(bcs, X, t)
-  for bc in values(bcs)
+function update_bc_values!(bcs, funcs, X, t)
+  for (bc, func) in zip(values(bcs), values(funcs))
     backend = KA.get_backend(bc)
-    _update_bc_values!(bc, X, t, backend)
+    _update_bc_values!(bc, func, X, t, backend)
   end
   return nothing
 end

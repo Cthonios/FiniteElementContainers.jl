@@ -6,9 +6,9 @@ using StaticArrays
 using Tensors
 
 # mesh file
-gold_file = "./mechanics/mechanics.gold"
-mesh_file = "./mechanics/mechanics.g"
-output_file = "./mechanics/mechanics.e"
+gold_file = Base.source_dir() * "/mechanics.gold"
+mesh_file = Base.source_dir() * "/mechanics.g"
+output_file = Base.source_dir() * "/mechanics.e"
 
 fixed(_, _) = 0.
 displace(_, t) = 1.e-3 * t
@@ -19,6 +19,7 @@ function mechanics_test()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Mechanics(PlaneStrain())
+  props = create_properties(physics)
 
   u = VectorFunction(V, :displ)
   dof = DofManager(u)
@@ -33,7 +34,7 @@ function mechanics_test()
 
   # pre-setup some scratch arrays
   times = TimeStepper(0., 1., 1)
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs, times=times)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs, times=times)
 
   # move to device
   p_gpu = p |> rocm

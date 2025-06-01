@@ -2,9 +2,9 @@ using Exodus
 using FiniteElementContainers
 
 # mesh file
-gold_file = "./poisson/poisson.gold"
-mesh_file = "./poisson/poisson.g"
-output_file = "./poisson/poisson.e"
+gold_file = Base.source_dir() * "/poisson.gold"
+mesh_file = Base.source_dir() * "/poisson.g"
+output_file = Base.source_dir() * "/poisson.e"
 
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
@@ -18,6 +18,7 @@ function poisson()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
+  props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(H1Field, u)
 
@@ -31,7 +32,7 @@ function poisson()
 
   # direct solver test
   # setup the parameters
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+  @show p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
 
   # setup solver and integrator
   solver = NewtonSolver(DirectLinearSolver(asm))
@@ -52,7 +53,7 @@ function poisson()
 
   # iterative solver test
   # setup the parameters
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
 
   # setup solver and integrator
   solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))

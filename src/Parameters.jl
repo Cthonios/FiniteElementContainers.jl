@@ -2,12 +2,14 @@ abstract type AbstractParameters end
 
 # TODO need to break up bcs to different field types
 struct Parameters{
-  D, N, T, Phys, Props, S, 
+  D, DF, N, NF, T, Phys, Props, S, 
   H1Coords, H1
 } <: AbstractParameters
   # parameter/solution fields
   dirichlet_bcs::D
+  dirichlet_bc_funcs::DF
   neumann_bcs::N
+  neumann_bc_funcs::NF
   times::T
   physics::Phys
   properties::Props
@@ -28,6 +30,7 @@ end
 # 5. convert vectors of dbcs/nbcs into namedtuples - done
 function Parameters(
   assembler, physics,
+  properties,
   dirichlet_bcs, 
   neumann_bcs, 
   times
@@ -37,7 +40,7 @@ function Parameters(
   h1_hvp = create_field(assembler, H1Field)
 
   # TODO
-  properties = nothing
+  # properties = nothing
 
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
@@ -49,13 +52,21 @@ function Parameters(
     # TODO re-arrange physics tuple to match fspaces when appropriate
   end
 
+  if isa(properties, AbstractArray)
+    syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
+    properties = map(x -> properties, syms)
+    properties = NamedTuple{tuple(syms...)}(tuple(properties...))
+  else
+    @assert isa(properties, NamedTuple)
+  end
+
   # state_old = Array{Float64, 3}[]
-  properties = []
+  # properties = []
   state_old = L2QuadratureField[]
   for (key, val) in pairs(physics)
     # create properties for this block physics
     # TODO specialize to allow for element level properties
-    push!(properties, create_properties(val))
+    # push!(properties, create_properties(val))
 
     # create state variables for this block physics
     NS = num_states(val)
@@ -79,27 +90,34 @@ function Parameters(
     push!(state_old, state_old_temp)
   end
 
-  properties = NamedTuple{keys(physics)}(tuple(properties...))
+  # properties = NamedTuple{keys(physics)}(tuple(properties...))
 
   state_new = copy(state_old)
   state_old = NamedTuple{keys(physics)}(tuple(state_old...))
   state_new = NamedTuple{keys(physics)}(tuple(state_new...))
 
-  if dirichlet_bcs !== nothing
+  if dirichlet_bcs !== NamedTuple()
     syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
     # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
     # dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
+    dirichlet_bc_funcs = NamedTuple{tuple(syms...)}(
+      map(x -> x.func, dirichlet_bcs)
+    )
     dirichlet_bcs = DirichletBCContainer.((assembler.dof,), dirichlet_bcs)
     temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
     temp_dofs = unique(sort(temp_dofs))
     dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
+    
     # TODO eventually do something different here
     # update_dofs!(assembler.dof, dbcs.bookkeeping.dofs)
     update_dofs!(assembler.dof, temp_dofs)
   end
 
-  if neumann_bcs !== nothing
+  if neumann_bcs !== NamedTuple()
     syms = map(x -> Symbol("neumann_bc_$x"), 1:length(neumann_bcs))
+    neumann_bc_funcs = NamedTuple{tuple(syms...)}(
+      map(x -> x.func, neumann_bcs)
+    )
     neumann_bcs = NamedTuple{tuple(syms...)}(tuple(neumann_bcs...))
   end
 
@@ -109,8 +127,8 @@ function Parameters(
   end
 
   p = Parameters(
-    dirichlet_bcs,
-    neumann_bcs, 
+    dirichlet_bcs, dirichlet_bc_funcs,
+    neumann_bcs, neumann_bc_funcs,
     times,
     physics, 
     properties, 
@@ -131,13 +149,32 @@ function Parameters(
   return p
 end
 
+function Base.show(io::IO, parameters::Parameters)
+  println(io, "Parameters:")
+  println(io, "Dirichlet Boundary Conditions:")
+  for bc in parameters.dirichlet_bcs
+    println(io, "$bc")
+  end
+  println(io, "Neumann Boundary Conditions:")
+  for bc in parameters.neumann_bcs
+    println(io, "$bc")
+  end
+  println(io, parameters.times)
+  println(io, "Physics:")
+  for (physics, props) in zip(parameters.physics, parameters.properties)
+    println(io, physics)
+    println(io, "Props = $props")
+  end
+  println("Number of active state variables = $(mapreduce(x -> length(x), sum, values(parameters.state_old)))")
+end
+
 function create_parameters(
-  assembler, physics; 
-  dirichlet_bcs=nothing, 
-  neumann_bcs=nothing,
+  assembler, physics, props; 
+  dirichlet_bcs=DirichletBC[], 
+  neumann_bcs=NeumannBC[],
   times=nothing
 )
-  return Parameters(assembler, physics, dirichlet_bcs, neumann_bcs, times)
+  return Parameters(assembler, physics, props, dirichlet_bcs, neumann_bcs, times)
 end
 
 function update_bcs!(p::Parameters)
@@ -158,7 +195,7 @@ TODO need to incorporate neumann bc updates
 function update_bc_values!(p::Parameters)
   X = p.h1_coords
   t = current_time(p.times)
-  update_bc_values!(p.dirichlet_bcs, X, t)
+  update_bc_values!(p.dirichlet_bcs, p.dirichlet_bc_funcs, X, t)
   return nothing
 end
 

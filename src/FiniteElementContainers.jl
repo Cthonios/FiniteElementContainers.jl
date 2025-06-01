@@ -93,6 +93,8 @@ export create_parameters
 
 # Physics
 export AbstractPhysics
+export create_initial_state
+export create_properties
 export interpolate_field_gradients
 export interpolate_field_values
 export interpolate_field_values_and_gradients

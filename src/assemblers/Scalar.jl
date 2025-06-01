@@ -20,8 +20,6 @@ function assemble_scalar!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <:
       backend
     )
   end
-
-  # TODO need to eventually sum that all up somewhere
 end
 
 function assemble!(assembler, Uu, p, ::Val{:energy}, ::Type{H1Field})

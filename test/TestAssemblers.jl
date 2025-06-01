@@ -11,6 +11,7 @@ include("poisson/TestPoissonCommon.jl")
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
+  props = SVector{0, Float64}()
   u = ScalarFunction(V, :u)
   @show asm = SparseMatrixAssembler(H1Field, u)
   dbcs = DirichletBC[
@@ -19,7 +20,7 @@ include("poisson/TestPoissonCommon.jl")
     DirichletBC(:u, :sset_3, bc_func),
     DirichletBC(:u, :sset_4, bc_func),
   ]
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
   Uu = create_unknowns(asm, H1Field)
   Vu = create_unknowns(asm, H1Field)
   assemble!(asm, Uu, p, Val{:energy}(), H1Field)

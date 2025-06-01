@@ -172,7 +172,7 @@ function _quadrature_level_state(state::L2QuadratureField, q::Int, e::Int)
   if NS > 0
     state_q = @views SVector{size(state, 1), eltype(state)}(state[:, q, e])
   else
-    state_q = SVector{0, eltype(state)}
+    state_q = SVector{0, eltype(state)}()
   end
   return state_q
 end

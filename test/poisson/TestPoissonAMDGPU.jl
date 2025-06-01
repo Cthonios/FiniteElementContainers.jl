@@ -7,9 +7,9 @@ using Krylov
 using LinearAlgebra
 
 # mesh file
-gold_file = "./poisson/poisson.gold"
-mesh_file = "./poisson/poisson.g"
-output_file = "./poisson/poisson.e"
+gold_file = Base.source_dir() * "/poisson.gold"
+mesh_file = Base.source_dir() * "/poisson.g"
+output_file = Base.source_dir() * "/poisson.e"
 
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
@@ -23,6 +23,7 @@ function poisson_amdgpu()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Poisson()
+  props = create_properties(physics)
   u = ScalarFunction(V, :u)
   dof = DofManager(u)
   asm = SparseMatrixAssembler(dof, H1Field)
@@ -35,7 +36,7 @@ function poisson_amdgpu()
   ]
 
   # test iterative solver
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
 
   # device movement
   p_gpu = p |> rocm
