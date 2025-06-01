@@ -8,6 +8,10 @@ export rocm
 # Assemblers
 export SparseMatrixAssembler
 export assemble!
+export assemble_matrix!
+export assemble_matrix_action!
+export assemble_scalar!
+export assemble_vector!
 export constraint_matrix
 
 # BCs
@@ -101,7 +105,6 @@ export energy
 export mass
 export residual
 export stiffness
-
 
 # PostProcessors
 export PostProcessor

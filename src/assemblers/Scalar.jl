@@ -1,3 +1,29 @@
+function assemble_scalar!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <: Function
+  fspace = function_space(assembler, H1Field)
+  t = current_time(p.times)
+  Δt = time_step(p.times)
+  update_bcs!(p)
+  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  for (b, (field, conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+    values(assembler.scalar_quadarature_storage),
+    values(fspace.elem_conns), 
+    values(p.physics),
+    values(p.state_old), values(p.state_new),
+    values(p.properties)
+  ))
+    ref_fe = values(fspace.ref_fes)[b]
+    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    _assemble_block_scalar!(
+      field, block_physics, ref_fe, 
+      p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
+      conns, b, func,
+      backend
+    )
+  end
+
+  # TODO need to eventually sum that all up somewhere
+end
+
 function assemble!(assembler, Uu, p, ::Val{:energy}, ::Type{H1Field})
   fspace = function_space(assembler, H1Field)
   t = current_time(p.times)
