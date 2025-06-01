@@ -34,9 +34,9 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 Internal implementation of dirichlet BCs
 """
-struct DirichletBCContainer{B, F, V} <: AbstractBCContainer{B, F, V}
+struct DirichletBCContainer{B, V} <: AbstractBCContainer{B, V}
   bookkeeping::B
-  func::F
+  # func::F
   vals::V
 end
 
@@ -45,7 +45,7 @@ end
 # 2. have bcs only take in a sset name, var name, and func
 # 3. create one giant bookkeeper here
 
-function DirichletBCContainer(dof, dbc)
+function DirichletBCContainer(dof::DofManager, dbc::DirichletBC)
   var_name = dbc.var_name
   sset_name = dbc.sset_name
 
@@ -71,7 +71,8 @@ function DirichletBCContainer(dof, dbc)
 
   vals = zeros(length(bk.nodes))
 
-  return DirichletBCContainer(bk, dbc.func, vals)
+  # return DirichletBCContainer(bk, dbc.func, vals)
+  return DirichletBCContainer(bk, vals)
 end
 
 KA.get_backend(x::DirichletBCContainer) = KA.get_backend(x.bookkeeping)

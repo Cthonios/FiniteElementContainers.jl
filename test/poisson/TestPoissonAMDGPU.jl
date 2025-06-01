@@ -7,9 +7,9 @@ using Krylov
 using LinearAlgebra
 
 # mesh file
-gold_file = "./poisson/poisson.gold"
-mesh_file = "./poisson/poisson.g"
-output_file = "./poisson/poisson.e"
+gold_file = Base.source_dir() * "/poisson.gold"
+mesh_file = Base.source_dir() * "/poisson.g"
+output_file = Base.source_dir() * "/poisson.e"
 
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])

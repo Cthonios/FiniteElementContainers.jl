@@ -6,9 +6,9 @@ using StaticArrays
 using Tensors
 
 # mesh file
-gold_file = "./test/mechanics/mechanics.gold"
-mesh_file = "./test/mechanics/mechanics.g"
-output_file = "./test/mechanics/mechanics.e"
+gold_file = Base.source_dir() * "/mechanics.gold"
+mesh_file = Base.source_dir() * "/mechanics.g"
+output_file = Base.source_dir() * "/mechanics.e"
 
 fixed(_, _) = 0.
 displace(_, t) = 1.e-3 * t

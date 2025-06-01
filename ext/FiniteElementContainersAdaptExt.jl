@@ -62,7 +62,7 @@ function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCContai
   return FiniteElementContainers.DirichletBCContainer(
     adapt(to, bc.bookkeeping),
     # adapt(to, bc.funcs),
-    adapt(to, bc.func),
+    # adapt(to, bc.func),
     # adapt(to, bc.func_ids),
     adapt(to, bc.vals)
   )
@@ -148,7 +148,9 @@ end
 function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
   return FiniteElementContainers.Parameters(
     adapt(to, p.dirichlet_bcs),
+    adapt(to, p.dirichlet_bc_funcs),
     adapt(to, p.neumann_bcs),
+    adapt(to, p.neumann_bc_funcs),
     adapt(to, p.times),
     adapt(to, p.physics),
     adapt(to, p.properties),

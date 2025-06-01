@@ -2,12 +2,14 @@ abstract type AbstractParameters end
 
 # TODO need to break up bcs to different field types
 struct Parameters{
-  D, N, T, Phys, Props, S, 
+  D, DF, N, NF, T, Phys, Props, S, 
   H1Coords, H1
 } <: AbstractParameters
   # parameter/solution fields
   dirichlet_bcs::D
+  dirichlet_bc_funcs::DF
   neumann_bcs::N
+  neumann_bc_funcs::NF
   times::T
   physics::Phys
   properties::Props
@@ -98,10 +100,14 @@ function Parameters(
     syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
     # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
     # dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
+    dirichlet_bc_funcs = NamedTuple{tuple(syms...)}(
+      map(x -> x.func, dirichlet_bcs)
+    )
     dirichlet_bcs = DirichletBCContainer.((assembler.dof,), dirichlet_bcs)
     temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
     temp_dofs = unique(sort(temp_dofs))
     dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
+    
     # TODO eventually do something different here
     # update_dofs!(assembler.dof, dbcs.bookkeeping.dofs)
     update_dofs!(assembler.dof, temp_dofs)
@@ -109,6 +115,9 @@ function Parameters(
 
   if neumann_bcs !== NamedTuple()
     syms = map(x -> Symbol("neumann_bc_$x"), 1:length(neumann_bcs))
+    neumann_bc_funcs = NamedTuple{tuple(syms...)}(
+      map(x -> x.func, neumann_bcs)
+    )
     neumann_bcs = NamedTuple{tuple(syms...)}(tuple(neumann_bcs...))
   end
 
@@ -118,8 +127,8 @@ function Parameters(
   end
 
   p = Parameters(
-    dirichlet_bcs,
-    neumann_bcs, 
+    dirichlet_bcs, dirichlet_bc_funcs,
+    neumann_bcs, neumann_bc_funcs,
     times,
     physics, 
     properties, 
@@ -186,7 +195,7 @@ TODO need to incorporate neumann bc updates
 function update_bc_values!(p::Parameters)
   X = p.h1_coords
   t = current_time(p.times)
-  update_bc_values!(p.dirichlet_bcs, X, t)
+  update_bc_values!(p.dirichlet_bcs, p.dirichlet_bc_funcs, X, t)
   return nothing
 end
 
