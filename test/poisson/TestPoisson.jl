@@ -32,7 +32,7 @@ function poisson()
 
   # direct solver test
   # setup the parameters
-  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
+  @show p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
 
   # setup solver and integrator
   solver = NewtonSolver(DirectLinearSolver(asm))
