@@ -4,6 +4,7 @@ using Aqua
 using CUDA
 using Exodus
 using FiniteElementContainers
+using ForwardDiff
 # using JET
 using LinearAlgebra
 using ReferenceFiniteElements
