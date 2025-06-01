@@ -140,10 +140,29 @@ function Parameters(
   return p
 end
 
+function Base.show(io::IO, parameters::Parameters)
+  println(io, "Parameters:")
+  println(io, "Dirichlet Boundary Conditions:")
+  for bc in parameters.dirichlet_bcs
+    println(io, "$bc")
+  end
+  println(io, "Neumann Boundary Conditions:")
+  for bc in parameters.neumann_bcs
+    println(io, "$bc")
+  end
+  println(io, parameters.times)
+  println(io, "Physics:")
+  for (physics, props) in zip(parameters.physics, parameters.properties)
+    println(io, physics)
+    println(io, "Props = $props")
+  end
+  println("Number of active state variables = $(mapreduce(x -> length(x), sum, values(parameters.state_old)))")
+end
+
 function create_parameters(
   assembler, physics, props; 
-  dirichlet_bcs=nothing, 
-  neumann_bcs=nothing,
+  dirichlet_bcs=NamedTuple(), 
+  neumann_bcs=NamedTuple(),
   times=nothing
 )
   return Parameters(assembler, physics, props, dirichlet_bcs, neumann_bcs, times)

@@ -182,6 +182,14 @@ $(TYPEDSIGNATURES)
 """
 KA.get_backend(bk::BCBookKeeping) = KA.get_backend(bk.blocks)
 
+function Base.show(io::IO, bk::BCBookKeeping)
+  println(io, "Blocks                    = $(unique(bk.blocks))")
+  println(io, "Number of active dofs     = $(length(bk.dofs))")
+  println(io, "Number of active elements = $(length(bk.elements))")
+  println(io, "Number of active nodes    = $(length(bk.nodes))")
+  println(io, "Number of active sides    = $(length(bk.sides))")
+end
+
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -213,6 +221,12 @@ abstract type AbstractBCContainer{
 } end
 
 KA.get_backend(x::AbstractBCContainer) = KA.get_backend(x.vals)
+
+function Base.show(io::IO, bc::AbstractBCContainer)
+  println(io, "$(typeof(bc).name.name):")
+  println(io, "$(bc.bookkeeping)")
+  println(io, "Function = $(bc.func)")
+end
 
 # need checks on if field types are compatable
 """
