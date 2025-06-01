@@ -1,3 +1,8 @@
+"""
+$(TYPEDSIGNATURES)
+Note this is hard coded to storing the assembled sparse matrix in 
+the stiffness_storage field of assembler.
+"""
 function assemble_matrix!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <: Function
   fill!(assembler.stiffness_storage, zero(eltype(assembler.stiffness_storage)))
   fspace = function_space(assembler, H1Field)
