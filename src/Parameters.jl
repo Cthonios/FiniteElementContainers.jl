@@ -94,7 +94,7 @@ function Parameters(
   state_old = NamedTuple{keys(physics)}(tuple(state_old...))
   state_new = NamedTuple{keys(physics)}(tuple(state_new...))
 
-  if dirichlet_bcs !== nothing
+  if dirichlet_bcs !== NamedTuple()
     syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
     # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
     # dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
@@ -107,7 +107,7 @@ function Parameters(
     update_dofs!(assembler.dof, temp_dofs)
   end
 
-  if neumann_bcs !== nothing
+  if neumann_bcs !== NamedTuple()
     syms = map(x -> Symbol("neumann_bc_$x"), 1:length(neumann_bcs))
     neumann_bcs = NamedTuple{tuple(syms...)}(tuple(neumann_bcs...))
   end
@@ -161,8 +161,8 @@ end
 
 function create_parameters(
   assembler, physics, props; 
-  dirichlet_bcs=NamedTuple(), 
-  neumann_bcs=NamedTuple(),
+  dirichlet_bcs=DirichletBC[], 
+  neumann_bcs=NeumannBC[],
   times=nothing
 )
   return Parameters(assembler, physics, props, dirichlet_bcs, neumann_bcs, times)
