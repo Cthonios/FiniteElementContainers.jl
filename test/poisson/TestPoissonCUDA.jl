@@ -8,9 +8,9 @@ using LinearAlgebra
 using Test
 
 # mesh file
-gold_file = "./test/poisson/poisson.gold"
-mesh_file = "./test/poisson/poisson.g"
-output_file = "./test/poisson/poisson.e"
+gold_file = "./poisson/poisson.gold"
+mesh_file = "./poisson/poisson.g"
+output_file = "./poisson/poisson.e"
 
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
@@ -18,7 +18,7 @@ bc_func(_, _) = 0.
 
 include("TestPoissonCommon.jl")
 
-# function poisson_cuda()
+function poisson_cuda()
   # do all setup on CPU
   # the mesh for instance is not gpu compatable
   mesh = UnstructuredMesh(mesh_file)
@@ -60,7 +60,7 @@ include("TestPoissonCommon.jl")
   end
   rm(output_file; force=true)
   display(solver.timer)
-# end
+end
 
-# @time poisson_cuda()
-# @time poisson_cuda()
+@time poisson_cuda()
+@time poisson_cuda()

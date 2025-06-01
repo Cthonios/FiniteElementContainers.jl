@@ -9,9 +9,6 @@ export rocm
 export SparseMatrixAssembler
 export assemble!
 export constraint_matrix
-export mass
-export residual
-export stiffness
 
 # BCs
 export DirichletBC
@@ -99,6 +96,11 @@ export map_interpolants
 export num_properties
 export num_states
 export reshape_element_level_field
+
+export energy
+export mass
+export residual
+export stiffness
 
 
 # PostProcessors
