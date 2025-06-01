@@ -23,6 +23,7 @@ function poisson_amdgpu()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Poisson()
+  props = create_properties(physics)
   u = ScalarFunction(V, :u)
   dof = DofManager(u)
   asm = SparseMatrixAssembler(dof, H1Field)
@@ -35,7 +36,7 @@ function poisson_amdgpu()
   ]
 
   # test iterative solver
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
 
   # device movement
   p_gpu = p |> rocm

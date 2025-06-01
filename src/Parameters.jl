@@ -28,6 +28,7 @@ end
 # 5. convert vectors of dbcs/nbcs into namedtuples - done
 function Parameters(
   assembler, physics,
+  properties,
   dirichlet_bcs, 
   neumann_bcs, 
   times
@@ -37,7 +38,7 @@ function Parameters(
   h1_hvp = create_field(assembler, H1Field)
 
   # TODO
-  properties = nothing
+  # properties = nothing
 
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
@@ -49,13 +50,21 @@ function Parameters(
     # TODO re-arrange physics tuple to match fspaces when appropriate
   end
 
+  if isa(properties, AbstractArray)
+    syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
+    properties = map(x -> properties, syms)
+    properties = NamedTuple{tuple(syms...)}(tuple(properties...))
+  else
+    @assert isa(properties, NamedTuple)
+  end
+
   # state_old = Array{Float64, 3}[]
-  properties = []
+  # properties = []
   state_old = L2QuadratureField[]
   for (key, val) in pairs(physics)
     # create properties for this block physics
     # TODO specialize to allow for element level properties
-    push!(properties, create_properties(val))
+    # push!(properties, create_properties(val))
 
     # create state variables for this block physics
     NS = num_states(val)
@@ -79,7 +88,7 @@ function Parameters(
     push!(state_old, state_old_temp)
   end
 
-  properties = NamedTuple{keys(physics)}(tuple(properties...))
+  # properties = NamedTuple{keys(physics)}(tuple(properties...))
 
   state_new = copy(state_old)
   state_old = NamedTuple{keys(physics)}(tuple(state_old...))
@@ -132,12 +141,12 @@ function Parameters(
 end
 
 function create_parameters(
-  assembler, physics; 
+  assembler, physics, props; 
   dirichlet_bcs=nothing, 
   neumann_bcs=nothing,
   times=nothing
 )
-  return Parameters(assembler, physics, dirichlet_bcs, neumann_bcs, times)
+  return Parameters(assembler, physics, props, dirichlet_bcs, neumann_bcs, times)
 end
 
 function update_bcs!(p::Parameters)

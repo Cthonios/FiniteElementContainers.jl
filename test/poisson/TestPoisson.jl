@@ -18,6 +18,7 @@ function poisson()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
+  props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(H1Field, u)
 
@@ -31,7 +32,7 @@ function poisson()
 
   # direct solver test
   # setup the parameters
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
 
   # setup solver and integrator
   solver = NewtonSolver(DirectLinearSolver(asm))
@@ -52,7 +53,7 @@ function poisson()
 
   # iterative solver test
   # setup the parameters
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
 
   # setup solver and integrator
   solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))

@@ -19,6 +19,7 @@ include("TestMechanicsCommon.jl")
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Mechanics(PlaneStrain())
+  props = create_properties(physics)
 
   u = VectorFunction(V, :displ)
   asm = SparseMatrixAssembler(H1Field, u)
@@ -32,7 +33,7 @@ include("TestMechanicsCommon.jl")
 
   # pre-setup some scratch arrays
   times = TimeStepper(0., 1., 1)
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs, times=times)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs, times=times)
 
   # move to device
   p_gpu = p |> cuda

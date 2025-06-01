@@ -24,6 +24,7 @@ function poisson_cuda()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Poisson()
+  props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(H1Field, u)
   pp = PostProcessor(mesh, output_file, u)
@@ -37,7 +38,7 @@ function poisson_cuda()
 
   # create parameters on CPU
   # TODO make a better constructor
-  p = create_parameters(asm, physics; dirichlet_bcs=dbcs)
+  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
 
   # device movement
   p_gpu = p |> cuda
