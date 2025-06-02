@@ -34,9 +34,8 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 Internal implementation of dirichlet BCs
 """
-struct DirichletBCContainer{B, V} <: AbstractBCContainer{B, V}
+struct DirichletBCContainer{B, T, V} <: AbstractBCContainer{B, T, V}
   bookkeeping::B
-  # func::F
   vals::V
 end
 
@@ -71,8 +70,7 @@ function DirichletBCContainer(dof::DofManager, dbc::DirichletBC)
 
   vals = zeros(length(bk.nodes))
 
-  # return DirichletBCContainer(bk, dbc.func, vals)
-  return DirichletBCContainer(bk, vals)
+  return DirichletBCContainer{typeof(bk), eltype(vals), typeof(vals)}(
+    bk, vals
+  )
 end
-
-KA.get_backend(x::DirichletBCContainer) = KA.get_backend(x.bookkeeping)

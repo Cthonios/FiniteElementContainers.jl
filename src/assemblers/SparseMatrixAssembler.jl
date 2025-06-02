@@ -112,11 +112,24 @@ end
 $(TYPEDSIGNATURES)
 TODO add symbol to interface
 """
-function SparseArrays.sparse!(assembler::SparseMatrixAssembler, sym)
-  # ids = pattern.unknown_dofs
+function SparseArrays.sparse!(assembler::SparseMatrixAssembler, ::Val{:stiffness})
   pattern = assembler.pattern
-  # storage = assembler.stiffness_storage
-  storage = getproperty(assembler, sym)
+  storage = assembler.stiffness_storage
+  return @views SparseArrays.sparse!(
+    pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
+    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
+    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
+    pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
+  )
+end
+
+"""
+$(TYPEDSIGNATURES)
+TODO add symbol to interface
+"""
+function SparseArrays.sparse!(assembler::SparseMatrixAssembler, ::Val{:mass})
+  pattern = assembler.pattern
+  storage = assembler.mass_storage
   return @views SparseArrays.sparse!(
     pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
     length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
@@ -135,11 +148,11 @@ function constraint_matrix(assembler::SparseMatrixAssembler)
 end
 
 function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
-  return SparseArrays.sparse!(assembler, :mass_storage)
+  return SparseArrays.sparse!(assembler, Val{:mass}())
 end
 
 function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
-  return SparseArrays.sparse!(assembler, :stiffness_storage)
+  return SparseArrays.sparse!(assembler, Val{:stiffness}())
 end
 
 # TODO probably only works for H1 fields

@@ -59,12 +59,12 @@ function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{V})
 end
 
 function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCContainer)
-  return FiniteElementContainers.DirichletBCContainer(
-    adapt(to, bc.bookkeeping),
-    # adapt(to, bc.funcs),
-    # adapt(to, bc.func),
-    # adapt(to, bc.func_ids),
-    adapt(to, bc.vals)
+  bk = adapt(to, bc.bookkeeping)
+  vals = adapt(to, bc.vals)
+  return FiniteElementContainers.DirichletBCContainer{
+    typeof(bk), eltype(vals), typeof(vals)
+  }(
+    bk, vals
   )
 end
 
