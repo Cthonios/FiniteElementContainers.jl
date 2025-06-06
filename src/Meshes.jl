@@ -53,21 +53,21 @@ end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function element_connectivity(::AbstractMesh) 
+function element_connectivity(::AbstractMesh, id) 
   @assert false
 end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function element_type(::AbstractMesh)
+function element_type(::AbstractMesh, id)
   @assert false
 end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function nodeset(::AbstractMesh) 
+function nodeset(::AbstractMesh, id) 
   @assert false
 end
 """
@@ -95,7 +95,7 @@ end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function sideset(::AbstractMesh)
+function sideset(::AbstractMesh, id)
   @assert false
 end
 """
@@ -376,15 +376,6 @@ end
 
 function FileMesh(::Type{AbstractMeshType}, file_name::String)
   @assert false "You need to load a mesh backend package such as Exodus"
-end
-
-function FileMesh(file_name::String)
-  ext = splitext(file_name)
-  if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
-    return FileMesh(ExodusMesh, file_name)
-  else
-    throw(ErrorException("Unsupported file type with extension $ext"))
-  end
 end
 
 function UnstructuredMesh(::Type{AbstractMeshType}, file_name::String, create_edges, create_faces)

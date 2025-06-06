@@ -69,7 +69,9 @@ export evolve!
 export FileMesh
 export UnstructuredMesh
 export coordinates
+export element_block_id_map
 export element_block_ids
+export element_block_names
 export element_connectivity
 export element_type
 export nodeset

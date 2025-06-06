@@ -10,17 +10,6 @@ KA.get_backend(asm::AbstractAssembler) = KA.get_backend(asm.dof)
 
 """
 $(TYPEDSIGNATURES)
-Assembly method for a scalar field stored as a size 1 vector
-Called on a single element e for a given block b where local_val
-has already been constructed from quadrature contributions.
-"""
-function _assemble_element!(global_val::T, local_val, conn, e, b) where T <: AbstractArray{<:Number, 1}
-  global_val[1] += local_val
-  return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
 Assembly method for an H1Field, e.g. internal force
 Called on a single element e for a given block b where local_val
 has already been constructed from quadrature contributions.
@@ -108,10 +97,6 @@ end
 $(TYPEDSIGNATURES)
 """
 create_field(asm::AbstractAssembler, type) = create_field(asm.dof, type)
-"""
-$(TYPEDSIGNATURES)
-"""
-create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
 
 """
 $(TYPEDSIGNATURES)
@@ -120,6 +105,7 @@ create_unknowns(asm::AbstractAssembler, type::Type{<:AbstractField}) = create_un
 
 """
 $(TYPEDSIGNATURES)
+Should we keep this?
 """
 function _element_level_fields(U::H1Field, ref_fe, conns, e)
   ND = size(U, 1)
