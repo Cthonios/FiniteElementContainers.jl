@@ -114,7 +114,7 @@ function _hvp(asm::AbstractAssembler, ::KA.CPU)
   # for n in axes(asm.residual_unknowns, 1)
   #   asm.residual_unknowns[n] = asm.residual_storage[asm.dof.H1_unknown_dofs[n]]
   # end
-  @views asm.stiffness_action_unknowns .= asm.stiffness_storage[asm.dof.H1_unknown_dofs]
+  @views asm.stiffness_action_unknowns .= asm.stiffness_action_storage[asm.dof.H1_unknown_dofs]
   return asm.stiffness_action_unknowns
 end
 

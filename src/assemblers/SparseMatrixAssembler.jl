@@ -204,6 +204,7 @@ function _update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) wher
   # resize the resiual unkowns
   n_total_H1_dofs = num_nodes(assembler.dof) * num_dofs_per_node(assembler.dof)
   resize!(assembler.residual_unknowns, length(assembler.dof.H1_unknown_dofs))
+  resize!(assembler.stiffness_action_unknowns, length(assembler.dof.H1_unknown_dofs))
 
   # n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
   n_total_dofs = n_total_H1_dofs - length(dirichlet_dofs)
