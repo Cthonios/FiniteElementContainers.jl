@@ -19,6 +19,7 @@ function assemble_scalar!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <:
       conns, b, func,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 
@@ -43,6 +44,7 @@ function assemble!(assembler, Uu, p, ::Val{:energy}, ::Type{H1Field})
       conns, b, energy,
       backend
     )
+    KA.synchronize(backend)
   end
 
   # TODO need to eventually sum that all up somewhere
