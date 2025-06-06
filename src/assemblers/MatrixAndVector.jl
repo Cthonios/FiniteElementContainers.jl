@@ -22,6 +22,7 @@ function assemble!(assembler, Uu, p, ::Val{:residual_and_stiffness}, ::Type{H1Fi
       conns, b, residual, stiffness,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 

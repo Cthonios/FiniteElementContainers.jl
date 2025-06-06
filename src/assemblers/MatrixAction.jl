@@ -25,6 +25,7 @@ function assemble_matrix_action!(assembler, Uu, p, Vu, ::Type{H1Field}, func)
       conns, b, func,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 
@@ -50,6 +51,7 @@ function assemble!(assembler, Uu, p, Vu, ::Val{:stiffness_action}, ::Type{H1Fiel
       conns, b, stiffness,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 

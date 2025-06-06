@@ -444,7 +444,9 @@ $(TYPEDSIGNATURES)
 Does a simple copy on CPUs. On GPUs it uses a ```KernelAbstractions``` kernel
 """
 function update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
-  _update_field_unknowns!(U, dof, Uu, KA.get_backend(dof))
+  backend = KA.get_backend(dof)
+  _update_field_unknowns!(U, dof, Uu, backend)
+  KA.synchronize(backend)
   return nothing
 end
 

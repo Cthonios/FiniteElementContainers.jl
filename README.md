@@ -9,7 +9,7 @@ This package is meant to serve as a light weight and allocation free set of cont
 
 This package is meant to serve as a the minimal tools necessary to build new finite element method based applications for researchers working in challenging domains with e.g. large deformation, path dependence, contact, etc. All runtime intensive containers are written with the unique julia GPU infrastructure in mind. [KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl) is used in the few places where we have written custom kernels in tandem with [Atomix.jl](https://github.com/JuliaConcurrent/Atomix.jl) to eliminate race conditions in assembly operations.
 
-The goal is to be platform independent, provide CPU/GPU implementations, and leverage [ReferenceFiniteElements.jl](https://github.com/Cthonios/ReferenceFiniteElements.jl) for easy implementation of for new element types/formulations with out too much needed shim code. 
+The goal is to be platform independent, provide CPU/GPU implementations, and leverage [ReferenceFiniteElements.jl](https://github.com/Cthonios/ReferenceFiniteElements.jl) for easy implementation of new element types/formulations with out too much needed shim code. 
 
 A semi-agnostic yet exodusII centric mesh interface is used. No single mesh format is directly supported within the main package module. Instead, package extensions are used for different mesh formats. Currently only exodusII files are supported for IO through [Exodus.jl](https://github.com/cmhamel/Exodus.jl).
 

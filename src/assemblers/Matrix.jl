@@ -24,6 +24,7 @@ function assemble_matrix!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <:
       conns, b, func,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 
@@ -49,6 +50,7 @@ function assemble!(assembler, Uu, p, ::Val{:mass}, ::Type{H1Field})
       conns, b, mass,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 
@@ -73,6 +75,7 @@ function assemble!(assembler, Uu, p, ::Val{:stiffness}, ::Type{H1Field})
       conns, b, stiffness,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 

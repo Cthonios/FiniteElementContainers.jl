@@ -28,6 +28,7 @@ function assemble_vector!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <:
       conns, b, func,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 
@@ -53,6 +54,7 @@ function assemble!(assembler, Uu, p, ::Val{:residual}, ::Type{H1Field})
       conns, b, residual,
       backend
     )
+    KA.synchronize(backend)
   end
 end
 
