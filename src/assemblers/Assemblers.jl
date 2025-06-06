@@ -180,6 +180,13 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function hvp(assembler::AbstractAssembler)
+  return _hvp(assembler, KA.get_backend(assembler))
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function mass(assembler::AbstractAssembler)
   return _mass(assembler, KA.get_backend(assembler))
 end
