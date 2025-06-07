@@ -196,6 +196,7 @@ function update_bc_values!(p::Parameters)
   X = p.h1_coords
   t = current_time(p.times)
   update_bc_values!(p.dirichlet_bcs, p.dirichlet_bc_funcs, X, t)
+  update_bc_values!(p.neumann_bcs, p.neumann_bc_funcs, X, t)
   return nothing
 end
 
