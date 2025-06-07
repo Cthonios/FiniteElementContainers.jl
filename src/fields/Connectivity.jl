@@ -23,14 +23,6 @@ $(TYPEDSIGNATURES)
 """
 Connectivity{Tup}(vals) where Tup = Connectivity{Tup[1], Tup[2]}(vals)
 
-function Connectivity{Tup, T}(::UndefInitializer) where {Tup, T}
-  NN, NE = Tup
-  vals = Vector{T}(undef, NN * NE)
-  syms = map(x -> Symbol(:node_, x), 1:NN)
-  nt = NamedTuple{syms}(1:NN)
-  return Connectivity{T, NN, typeof(vals), nt}(vals)
-end
-
 """
 $(TYPEDSIGNATURES)
 """

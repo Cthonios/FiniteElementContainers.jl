@@ -13,8 +13,6 @@ output_file = Base.source_dir() * "/mechanics.e"
 fixed(_, _) = 0.
 displace(_, t) = 1.e-3 * t
 
-include("TestMechanicsCommon.jl")
-
 function mechanics_test()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
