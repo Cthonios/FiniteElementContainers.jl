@@ -19,8 +19,8 @@ include("TestConnectivities.jl")
 include("TestDofManagers.jl")
 include("TestFields.jl")
 include("TestFormulations.jl")
-# include("TestFunctionSpaces.jl")
 include("TestFunctions.jl")
+include("TestFunctionSpaces.jl")
 include("TestMesh.jl")
 include("TestPhysics.jl")
 
@@ -39,6 +39,7 @@ include("TestPhysics.jl")
 end
 
 @testset ExtendedTestSet "Mechanics Problem" begin
+  include("mechanics/TestMechanicsCommon.jl")
   include("mechanics/TestMechanics.jl")
   if AMDGPU.functional()
     include("mechanics/TestMechanicsAMDGPU.jl")

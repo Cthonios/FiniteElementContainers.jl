@@ -18,13 +18,6 @@ function H1Field(vals::M, syms) where M <: AbstractMatrix
   return H1Field{eltype(vals), NF, typeof(vals), nt}(vals)
 end
 
-# general base methods
-
-function Base.zero(::Type{H1Field{T, NF, Vals, SymIDMap}}, n_nodes) where {T, NF, Vals, SymIDMap}
-  vals = zeros(T, NF * n_nodes)
-  return H1Field{T, NF, typeof(vals), SymIDMap}(vals)
-end
-
 # abstract array interface
 
 function Base.getindex(field::H1Field, d::Int, n::Int)

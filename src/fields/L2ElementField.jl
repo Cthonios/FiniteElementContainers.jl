@@ -17,13 +17,6 @@ function L2ElementField(vals::M, syms) where M <: AbstractMatrix
   return L2ElementField{eltype(vals), NN, typeof(vals), nt}(vals)
 end
 
-# general base methods
-
-function Base.zero(::Type{L2ElementField{T, NN, Vals, SymIDMap}}, n_elements) where {T, NN, Vals, SymIDMap}
-  vals = zeros(T, NN * n_elements)
-  return L2ElementField{T, NN, typeof(vals), SymIDMap}(vals)
-end
-
 # abstract array interface
 
 function Base.getindex(field::L2ElementField, d::Int, n::Int)

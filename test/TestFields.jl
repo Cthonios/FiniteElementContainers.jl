@@ -8,6 +8,7 @@
   @test num_fields(field) == size(vals, 1)
   @test num_nodes_per_element(field) == size(vals, 1)
   @test num_elements(field) == size(vals, 2)
+  @test typeof(similar(field)) == typeof(field) 
 
   # test basic axes and basic getindex
   for n in axes(vals)
@@ -53,6 +54,7 @@ end
   @test size(field) == size(vals)
   @test num_fields(field) == size(vals, 1)
   @test num_nodes(field) == size(vals, 2)
+  @test typeof(similar(field)) == typeof(field) 
 
   # test basic axes and basic getindex
   for n in axes(vals)
@@ -97,6 +99,7 @@ end
   @test names(field) == (:var_1, :var_2)
   @test size(field) == size(vals)
   @test num_elements(field) == size(vals, 3)
+  @test typeof(similar(field)) == typeof(field) 
 
   # test basic axes and basic getindex
   for n in axes(vals)
