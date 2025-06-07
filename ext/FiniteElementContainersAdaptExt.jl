@@ -68,6 +68,16 @@ function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCContai
   )
 end
 
+function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContainer)
+  bk = adapt(to, bc.bookkeeping)
+  vals = adapt(to, bc.vals)
+  return FiniteElementContainers.NeumannBCContainer{
+    typeof(bk), eltype(vals), typeof(vals)
+  }(
+    bk, vals
+  )
+end
+
 # DofManagers
 function Adapt.adapt_structure(to, dof::DofManager{
   T, IDs, 

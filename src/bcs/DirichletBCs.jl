@@ -39,37 +39,14 @@ struct DirichletBCContainer{B, T, V} <: AbstractBCContainer{B, T, V}
   vals::V
 end
 
-# TODO modify as follows
-# 1. remove bookkeeping from bcs
-# 2. have bcs only take in a sset name, var name, and func
-# 3. create one giant bookkeeper here
-
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
 function DirichletBCContainer(dof::DofManager, dbc::DirichletBC)
-  var_name = dbc.var_name
-  sset_name = dbc.sset_name
-
-  bk = BCBookKeeping(dof, var_name, sset_name)
-
-  # now sort and unique this stuff
-  dof_perm = _unique_sort_perm(bk.dofs)
-  el_perm = _unique_sort_perm(bk.elements)
-
-  # do permutations
-  dofs_new = bk.dofs[dof_perm]
-  elements_new = bk.elements[el_perm]
-  nodes_new = bk.nodes[dof_perm]
-  sides_new = bk.sides[el_perm]
-  resize!(bk.dofs, length(dofs_new))
-  resize!(bk.elements, length(elements_new))
-  resize!(bk.nodes, length(nodes_new))
-  resize!(bk.sides, length(sides_new))
-  copyto!(bk.dofs, dofs_new)
-  copyto!(bk.elements, elements_new)
-  copyto!(bk.nodes, nodes_new)
-  copyto!(bk.sides, sides_new)
-
+  bk = BCBookKeeping(dof, dbc.var_name, dbc.sset_name)
   vals = zeros(length(bk.nodes))
-
   return DirichletBCContainer{typeof(bk), eltype(vals), typeof(vals)}(
     bk, vals
   )

@@ -75,8 +75,7 @@ function BCBookKeeping(dof::DofManager, var_names::Vector{Symbol}, sset_names::V
       filter!(x -> x !== nothing, indices_in_sset)
       
       if length(indices_in_sset) > 0
-        # add stuff to arrays
-        push!(blocks, n)
+        append!(blocks, repeat([n], length(indices_in_sset)))
       end
     end
 
@@ -84,22 +83,31 @@ function BCBookKeeping(dof::DofManager, var_names::Vector{Symbol}, sset_names::V
     # TODO only works for H1
     ND, NN = num_dofs_per_node(dof), num_nodes(dof)
     n_total_dofs = ND * NN
-    # all_dofs = reshape(1:length(dof), num_dofs_per_node(dof), num_nodes(dof))
     all_dofs = reshape(1:n_total_dofs, ND, NN)
     temp_dofs = all_dofs[dof_index, temp_nodes]
     append!(dofs, temp_dofs)
   end
 
-  # dof_perm = _unique_sort_perm(dofs)
-  # el_perm = _unique_sort_perm(elements)
-  # # TODO fix up blocks first
-  # # blocks = blocks[el_perm]
-  # dofs = dofs[dof_perm]
-  # elements = elements[el_perm]
-  # nodes = nodes[dof_perm]
-  # sides = sides[el_perm]
+  # now sort and unique this stuff
+  dof_perm = _unique_sort_perm(dofs)
+  el_perm = _unique_sort_perm(elements)
 
-  # ND = size(dof.H1_vars[1].fspace.coords, 1)
+  # do permutations
+  blocks_new = blocks[el_perm]
+  dofs_new = dofs[dof_perm]
+  elements_new = elements[el_perm]
+  nodes_new = nodes[dof_perm]
+  sides_new = sides[el_perm]
+  resize!(blocks, length(blocks_new))
+  resize!(dofs, length(dofs_new))
+  resize!(elements, length(elements_new))
+  resize!(nodes, length(nodes_new))
+  resize!(sides, length(sides_new))
+  copyto!(blocks, blocks_new)
+  copyto!(dofs, dofs_new)
+  copyto!(elements, elements_new)
+  copyto!(nodes, nodes_new)
+  copyto!(sides, sides_new)
 
   return BCBookKeeping{typeof(blocks)}(
     blocks, dofs, elements, nodes, sides
