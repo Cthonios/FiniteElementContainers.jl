@@ -20,12 +20,14 @@ AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [extensions]
 FiniteElementContainersAMDGPUExt = ["Adapt", "AMDGPU"]
 FiniteElementContainersAdaptExt = "Adapt"
 FiniteElementContainersCUDAExt = ["Adapt", "CUDA"]
 FiniteElementContainersExodusExt = "Exodus"
+FiniteElementContainersUnitfulExt = "Unitful"
 
 [compat]
 AMDGPU = "1"
@@ -46,6 +48,7 @@ Tensors = "1"
 Test = "1"
 TestSetExtensions = "2"
 TimerOutputs = "0.5"
+Unitful = "1"
 julia = "1"
 
 [extras]
@@ -57,6 +60,8 @@ Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestSetExtensions = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
+
 
 [targets]
-test = ["Adapt", "AMDGPU", "Aqua", "CUDA", "Exodus", "ForwardDiff", "Test", "TestSetExtensions"]
+test = ["Adapt", "AMDGPU", "Aqua", "CUDA", "Exodus", "ForwardDiff", "Test", "TestSetExtensions", "Unitful"]

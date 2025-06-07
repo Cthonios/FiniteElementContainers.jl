@@ -88,7 +88,7 @@ function Base.similar(field::AbstractField)
   return typeof(field)(vals)
 end
 
-function Base.size(field::AbstractField{T, 2, NF, V, SymIDMap}) where {T, NF, V <: DenseArray, SymIDMap} 
+function Base.size(field::AbstractField{T, 2, NF, V, SymIDMap}) where {T, NF, V, SymIDMap} 
   NN = length(field.vals) ÷ NF
   return (NF, NN)
 end
