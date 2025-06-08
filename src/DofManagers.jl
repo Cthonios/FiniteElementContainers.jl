@@ -278,6 +278,10 @@ function create_unknowns(dof::DofManager, ::Type{<:H1Field})
   return KA.zeros(KA.get_backend(dof), Float64, n_unknowns)
 end
 
+function function_space(dof::DofManager, ::Type{<:H1Field})
+  return dof.H1_vars[1].fspace
+end
+
 """
 $(TYPEDSIGNATURES)
 """

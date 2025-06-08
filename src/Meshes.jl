@@ -254,7 +254,7 @@ struct UnstructuredMesh{
   X, 
   EBlockNames, ETypes, EConns, EMaps, 
   NSetNodes,
-  SSetElems, SSetNodes, SSetSides,
+  SSetElems, SSetNodes, SSetSides, SSetSideNodes,
   EdgeConns, FaceConns
 } <: AbstractMesh
   mesh_obj::MeshObj
@@ -267,6 +267,7 @@ struct UnstructuredMesh{
   sideset_elems::SSetElems
   sideset_nodes::SSetNodes
   sideset_sides::SSetSides
+  sideset_side_nodes::SSetSideNodes
   # new additions
   edge_conns::EdgeConns
   face_conns::FaceConns
@@ -314,6 +315,7 @@ function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, crea
   sset_elems = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[1], ssets)...))
   sset_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[2], ssets)...))
   sset_sides = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[3], ssets)...))
+  sset_side_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[4], ssets)...))
   # TODO also add edges/faces for sidesets, this may be tricky...
 
   # TODO
@@ -364,7 +366,9 @@ function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, crea
     nodal_coords, 
     el_block_names, el_types, el_conns, el_id_maps, 
     nset_nodes,
-    sset_elems, sset_nodes, sset_sides,
+    sset_elems, 
+    sset_nodes, 
+    sset_sides, sset_side_nodes,
     edges, faces
   )
 end

@@ -5,7 +5,6 @@ assemble!(assembler, Uu, p, Val{:residual}(), type)
 
 """
 $(TYPEDSIGNATURES)
-
 """
 function assemble_vector!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <: Function
   fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
@@ -25,7 +24,8 @@ function assemble_vector!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <:
     _assemble_block_vector!(
       assembler.residual_storage, block_physics, ref_fe, 
       p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
-      conns, b, func,
+      conns, b, 
+      func,
       backend
     )
     KA.synchronize(backend)
@@ -51,7 +51,8 @@ function assemble!(assembler, Uu, p, ::Val{:residual}, ::Type{H1Field})
     _assemble_block_vector!(
       assembler.residual_storage, block_physics, ref_fe, 
       p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
-      conns, b, residual,
+      conns, b,
+      residual,
       backend
     )
     KA.synchronize(backend)
@@ -72,7 +73,8 @@ TODO improve typing of fields to ensure they mathc up in terms of function
 function _assemble_block_vector!(
   field::F1, physics::Phys, ref_fe::R, 
   U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, func::Func, ::KA.CPU
+  conns::C, block_id::Int, 
+  func::Func, ::KA.CPU
 ) where {
   C    <: Connectivity,
   F1   <: AbstractField,
@@ -113,10 +115,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function _residual(asm::AbstractAssembler, ::KA.CPU)
-  # for n in axes(asm.residual_unknowns, 1)
-  #   asm.residual_unknowns[n] = asm.residual_storage[asm.dof.H1_unknown_dofs[n]]
-  # end
+function _residual(asm::AbstractAssembler, ::KA.CPU)\
   @views asm.residual_unknowns .= asm.residual_storage[asm.dof.H1_unknown_dofs]
   return asm.residual_unknowns
 end
@@ -132,7 +131,8 @@ TODO mark const fields
 KA.@kernel function _assemble_block_vector_kernel!(
   field::F1, physics::Phys, ref_fe::R, 
   U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, func::Func
+  conns::C, block_id::Int, 
+  func::Func
 ) where {
   C    <: Connectivity,
   F1   <: AbstractField,
@@ -188,7 +188,8 @@ TODO add state variables and physics properties
 function _assemble_block_vector!(
   field::F1, physics::Phys, ref_fe::R, 
   U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, func::Func, backend::KA.Backend
+  conns::C, block_id::Int, 
+  func::Func, backend::KA.Backend
 ) where {
   C    <: Connectivity,
   F1   <: AbstractField,
@@ -205,7 +206,8 @@ function _assemble_block_vector!(
   kernel!(
     field, physics, ref_fe, 
     U, X, state_old, state_new, props, t, Δt,
-    conns, block_id, func, ndrange=size(conns, 2)
+    conns, block_id,
+    func, ndrange=size(conns, 2)
   )
   return nothing
 end
@@ -223,9 +225,11 @@ $(TYPEDSIGNATURES)
 """
 function _residual(asm::AbstractAssembler, backend::KA.Backend)
   kernel! = _extract_residual_unknowns!(backend)
-  kernel!(asm.residual_unknowns, 
-          asm.dof.H1_unknown_dofs, 
-          asm.residual_storage, 
-          ndrange=length(asm.dof.H1_unknown_dofs))
+  kernel!(
+    asm.residual_unknowns, 
+    asm.dof.H1_unknown_dofs, 
+    asm.residual_storage, 
+    ndrange=length(asm.dof.H1_unknown_dofs)
+  )
   return asm.residual_unknowns
 end 
