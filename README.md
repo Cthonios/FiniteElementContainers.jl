@@ -5,7 +5,7 @@
 [![ROCm](https://github.com/Cthonios/FiniteElementContainers.jl/actions/workflows/CI_ROCM.yml/badge.svg?branch=main)](https://github.com/Cthonios/FiniteElementContainers.jl/actions/workflows/CI_ROCM.yml?query=branch%3Amain) 
 [![Coverage](https://codecov.io/gh/Cthonios/FiniteElementContainers.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Cthonios/FiniteElementContainers.jl)
 
-This package is meant to serve as a light weight and allocation free set of containers for carrying out finite element or finite element-like calculations.
+This package is meant to serve as a set of containers and methods for carrying out finite element or finite element-like calculations.
 
 This package is meant to serve as a the minimal tools necessary to build new finite element method based applications for researchers working in challenging domains with e.g. large deformation, path dependence, contact, etc. All runtime intensive containers are written with the unique julia GPU infrastructure in mind. [KernelAbstractions.jl](https://github.com/JuliaGPU/KernelAbstractions.jl) is used in the few places where we have written custom kernels in tandem with [Atomix.jl](https://github.com/JuliaConcurrent/Atomix.jl) to eliminate race conditions in assembly operations.
 
