@@ -21,6 +21,13 @@ Pages = ["MatrixAction.jl"]
 Order = [:function]
 ```
 
+## Matrix Action
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["NeumannBC.jl"]
+Order = [:function]
+```
+
 ## Scalar
 ```@autodocs
 Modules = [FiniteElementContainers]

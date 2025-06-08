@@ -49,12 +49,14 @@ end
 # Boundary Conditions
 function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{V}) where V
   blocks = adapt(to, bk.blocks)
-  return FiniteElementContainers.BCBookKeeping{typeof(blocks)}(
+  side_nodes = adapt(to, bk.side_nodes)
+  return FiniteElementContainers.BCBookKeeping{typeof(side_nodes), typeof(blocks)}(
     blocks,
     adapt(to, bk.dofs),
     adapt(to, bk.elements),
     adapt(to, bk.nodes),
-    adapt(to, bk.sides)
+    adapt(to, bk.sides),
+    side_nodes
   )
 end
 
@@ -139,11 +141,14 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
   sideset_elems = adapt(to, fspace.sideset_elems)
   sideset_nodes = adapt(to, fspace.sideset_nodes)
   sideset_sides = adapt(to, fspace.sideset_sides)
+  sideset_side_nodes = adapt(to, fspace.sideset_side_nodes)
   return FunctionSpace(
     coords, 
     elem_conns, elem_id_maps, 
     ref_fes,
-    sideset_elems, sideset_nodes, sideset_sides
+    sideset_elems, 
+    sideset_nodes, 
+    sideset_sides, sideset_side_nodes
   )
 end
 

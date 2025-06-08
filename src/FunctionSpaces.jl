@@ -17,7 +17,7 @@ struct FunctionSpace{
   ElemConns, ElemIdMaps, 
   # FSpaceType,
   RefFEs,
-  SSetElems, SSetNodes, SSetSides
+  SSetElems, SSetNodes, SSetSides, SSetSideNodes,
 } <: AbstractFunctionSpace
   coords::Coords
   elem_conns::ElemConns
@@ -27,6 +27,7 @@ struct FunctionSpace{
   sideset_elems::SSetElems
   sideset_nodes::SSetNodes
   sideset_sides::SSetSides
+  sideset_side_nodes::SSetSideNodes
 end
 
 function _setup_ref_fes(mesh::AbstractMesh, interp_type, q_degree)
@@ -74,7 +75,9 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{H1Field}, interp_type, q_degre
     mesh.element_conns, mesh.element_id_maps, 
     # H1(), 
     ref_fes,
-    mesh.sideset_elems, mesh.sideset_nodes, mesh.sideset_sides
+    mesh.sideset_elems, 
+    mesh.sideset_nodes, 
+    mesh.sideset_sides, mesh.sideset_side_nodes
   )
 end
 
@@ -103,7 +106,9 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{L2ElementField}, interp_type, 
     coords,
     nothing, nothing, # TODO what makes sense here?
     ref_fes,
-    mesh.sideset_elems, mesh.sideset_nodes, mesh.sideset_sides
+    mesh.sideset_elems, 
+    mesh.sideset_nodes, 
+    mesh.sideset_sides, mesh.sideset_side_nodes
   )
 end
 
@@ -137,7 +142,9 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{L2QuadratureField}, interp_typ
     coords,
     nothing, nothing, # TODO what makes sense here?
     ref_fes,
-    mesh.sideset_elems, mesh.sideset_nodes, mesh.sideset_sides
+    mesh.sideset_elems, 
+    mesh.sideset_nodes, 
+    mesh.sideset_sides, mesh.sideset_side_nodes
   )
 end
 

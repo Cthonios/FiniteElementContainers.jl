@@ -144,9 +144,19 @@ function FiniteElementContainers.sideset(
   elems = convert.(Int64, sset.elements)
   sides = convert.(Int64, sset.sides)
   nodes = convert.(Int64, Exodus.read_side_set_node_list(mesh.mesh_obj, id)[2])
+  side_nodes = convert.(Int64, sset.side_nodes)
+
+  # re-arrange some of these
   unique!(sort!(nodes))
+  
+  # side_nodes = reshape(side_nodes, 1, length(side_nodes))
   perm = sortperm(elems)
-  return elems[perm], nodes, sides[perm]
+
+  num_nodes_per_side = length(side_nodes) ÷ length(sides)
+  side_nodes = reshape(side_nodes, num_nodes_per_side, length(sides))[:, perm]
+  side_nodes = reshape(side_nodes, 1, length(side_nodes))
+
+  return elems[perm], nodes, sides[perm], side_nodes
 end
 
 function FiniteElementContainers.sidesets(

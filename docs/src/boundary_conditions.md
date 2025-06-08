@@ -19,6 +19,12 @@ Pages = ["DirichletBCs.jl"]
 Order = [:type, :function]
 ```
 
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["NeumannBCs.jl"]
+Order = [:type, :function]
+```
+
 ## Boundary Condition Implementation Details
 ```@autodocs
 Modules = [FiniteElementContainers]
