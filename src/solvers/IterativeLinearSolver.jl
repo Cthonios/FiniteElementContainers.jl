@@ -45,6 +45,7 @@ function solve!(solver::IterativeLinearSolver, Uu, p)
     copyto!(solver.ΔUu, ΔUu)
     KA.synchronize(KA.get_backend(solver))
     map!((x, y) -> x + y, Uu, Uu, ΔUu)
+    KA.synchronize(KA.get_backend(solver))
   end
   return nothing
 end
