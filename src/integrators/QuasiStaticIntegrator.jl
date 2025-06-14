@@ -17,5 +17,6 @@ function evolve!(integrator::QuasiStaticIntegrator, p)
   @info "Current Time = $(current_time(p.times))"
   update_bc_values!(p)
   solve!(integrator.solver, integrator.solution, p)
+  KA.synchronize(KA.get_backend(integrator))
   return nothing
 end

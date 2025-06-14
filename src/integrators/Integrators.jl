@@ -15,4 +15,8 @@ abstract type AbstractStaticIntegrator{
 
 function evolve! end
 
+function KA.get_backend(integrator::AbstractIntegrator)
+  return KA.get_backend(integrator.solution)
+end
+
 include("QuasiStaticIntegrator.jl")

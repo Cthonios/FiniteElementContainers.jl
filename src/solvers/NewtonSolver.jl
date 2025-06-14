@@ -21,12 +21,16 @@ function solve!(solver::NewtonSolver, Uu, p)
         solve!(solver.linear_solver, Uu, p)
       end
 
+      KA.synchronize(KA.get_backend(solver))
+
       @timeit solver.timer "convergence check" begin
         @show norm(solver.linear_solver.ΔUu) norm(residual(solver.linear_solver.assembler))
         if norm(solver.linear_solver.ΔUu) < 1e-12 || norm(residual(solver.linear_solver.assembler)) < 1e-12
           break
         end
       end
+
+      KA.synchronize(KA.get_backend(solver))
     end
   end
 end

@@ -96,29 +96,50 @@ function Parameters(
   state_old = NamedTuple{keys(physics)}(tuple(state_old...))
   state_new = NamedTuple{keys(physics)}(tuple(state_new...))
 
-  if dirichlet_bcs !== NamedTuple()
-    syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
-    # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
-    # dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
-    dirichlet_bc_funcs = NamedTuple{tuple(syms...)}(
-      map(x -> x.func, dirichlet_bcs)
-    )
-    dirichlet_bcs = DirichletBCContainer.((assembler.dof,), dirichlet_bcs)
-    temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
-    temp_dofs = unique(sort(temp_dofs))
-    dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
+  # if dirichlet_bcs !== NamedTuple()
+  # if length(dirichlet_bcs) > 0
+  #   syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
+  #   # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
+  #   # dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
+  #   dirichlet_bc_funcs = NamedTuple{tuple(syms...)}(
+  #     map(x -> x.func, dirichlet_bcs)
+  #   )
+  #   dirichlet_bcs = DirichletBCContainer.((assembler.dof,), dirichlet_bcs)
+  #   temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
+  #   temp_dofs = unique(sort(temp_dofs))
+  #   dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
     
-    # TODO eventually do something different here
-    # update_dofs!(assembler.dof, dbcs.bookkeeping.dofs)
-    update_dofs!(assembler.dof, temp_dofs)
-  end
+  #   # TODO eventually do something different here
+  #   # update_dofs!(assembler.dof, dbcs.bookkeeping.dofs)
+  #   update_dofs!(assembler.dof, temp_dofs)
+  # else
+  #   dirichlet_bcs = NamedTuple()
+  #   dirichlet_bc_funcs = NamedTuple()
+  # end
+  dirichlet_bcs, dirichlet_bc_funcs = create_dirichlet_bcs(
+    assembler.dof, dirichlet_bcs
+  )
+  # update_dofs!(assembler.dof, )
 
   if neumann_bcs !== NamedTuple()
     syms = map(x -> Symbol("neumann_bc_$x"), 1:length(neumann_bcs))
-    neumann_bc_funcs = NamedTuple{tuple(syms...)}(
-      map(x -> x.func, neumann_bcs)
-    )
-    neumann_bcs = NamedTuple{tuple(syms...)}(tuple(neumann_bcs...))
+    # neumann_bc_funcs = NamedTuple{tuple(syms...)}(
+    #   map(x -> x.func, neumann_bcs)
+    # )
+    # neumann_bcs = NeumannBCContainer.((assembler.dof,), neumann_bcs)
+    # @show neumann_bcs
+    # if length(neumann_bcs) > 1
+    #   @show "hur"
+    #   neumann_bcs = _split_neumann_bcs_by_block(neumann_bcs)
+    # end
+
+    # neumann_bcs = NamedTuple{tuple(syms...)}(tuple(neumann_bcs...))
+    if length(neumann_bcs) > 1
+      neumann_bcs, neumann_bc_funcs = create_neumann_bcs(assembler.dof, neumann_bcs)
+    else
+      neumann_bcs = NamedTuple()
+      neumann_bc_funcs = NamedTuple()
+    end
   end
 
   # dummy time stepper for a static problem

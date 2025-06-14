@@ -1,5 +1,7 @@
 using Exodus
 using FiniteElementContainers
+using StaticArrays
+using Test
 
 # mesh file
 gold_file = Base.source_dir() * "/poisson.gold"
@@ -8,13 +10,15 @@ output_file = Base.source_dir() * "/poisson.e"
 
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+# f(_, _) = 1.
 bc_func(_, _) = 0.
+bc_func_neumann(_, _) = SVector{1, Float64}(1.)
 
 include("TestPoissonCommon.jl")
 
 # read mesh and relevant quantities
 
-function poisson()
+function test_poisson_direct()
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
@@ -50,6 +54,68 @@ function poisson()
   rm(output_file; force=true)
   display(solver.timer)
 
+end
+
+function test_poisson_direct_neumman()
+  mesh = UnstructuredMesh(mesh_file)
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson()
+  props = create_properties(physics)
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(H1Field, u)
+
+  # setup and update bcs
+  dbcs = DirichletBC[
+    DirichletBC(:u, :sset_1, bc_func),
+    DirichletBC(:u, :sset_2, bc_func)
+  ]
+
+  nbcs = NeumannBC[
+    NeumannBC(:u, :sset_3, bc_func_neumann),
+    NeumannBC(:u, :sset_4, bc_func_neumann)
+  ]
+
+  # direct solver test
+  # setup the parameters
+  @show p = create_parameters(
+    asm, physics, props; 
+    dirichlet_bcs=dbcs,
+    neumann_bcs=nbcs
+  )
+
+  # setup solver and integrator
+  solver = NewtonSolver(DirectLinearSolver(asm))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p)
+
+  pp = PostProcessor(mesh, output_file, u)
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, p.h1_field)
+  close(pp)
+
+  if !Sys.iswindows()
+    @test exodiff(output_file, gold_file)
+  end
+  rm(output_file; force=true)
+  display(solver.timer)
+
+end
+
+function test_poisson_iterative()
+  mesh = UnstructuredMesh(mesh_file)
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson()
+  props = create_properties(physics)
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(H1Field, u)
+
+  # setup and update bcs
+  dbcs = DirichletBC[
+    DirichletBC(:u, :sset_1, bc_func),
+    DirichletBC(:u, :sset_2, bc_func),
+    DirichletBC(:u, :sset_3, bc_func),
+    DirichletBC(:u, :sset_4, bc_func),
+  ]
 
   # iterative solver test
   # setup the parameters
@@ -74,8 +140,12 @@ function poisson()
   display(solver.timer)
 end
 
-@time poisson()
-@time poisson()
+@time test_poisson_direct()
+@time test_poisson_direct()
+# @time test_poisson_direct_neumman()
+# @time test_poisson_direct_neumman()
+@time test_poisson_iterative()
+@time test_poisson_iterative()
 
 # # condensed test
 # mesh = UnstructuredMesh(mesh_file)

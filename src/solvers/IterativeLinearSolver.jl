@@ -18,6 +18,7 @@ function IterativeLinearSolver(assembler::SparseMatrixAssembler, solver_sym)
   # ΔUu = KA.zeros(KA.get_backend)
   ΔUu = similar(assembler.residual_unknowns)
   fill!(ΔUu, zero(eltype(ΔUu)))
+  KA.synchronize(KA.get_backend(ΔUu))
   n = length(ΔUu)
   solver = eval(solver_sym)(n, n, typeof(ΔUu))
   return IterativeLinearSolver(assembler, preconditioner, solver, TimerOutput(), ΔUu)
@@ -28,6 +29,7 @@ function solve!(solver::IterativeLinearSolver, Uu, p)
   # assemble relevant fields
   @timeit solver.timer "residual assembly" begin
     assemble!(solver.assembler, Uu, p, Val{:residual}(), H1Field)
+    # assemble_vector_neumann_bc!(solver.assembler, Uu, p, H1Field)
   end
   @timeit solver.timer "stiffness assembly" begin
     assemble!(solver.assembler, Uu, p, Val{:stiffness}(), H1Field)
@@ -35,12 +37,15 @@ function solve!(solver::IterativeLinearSolver, Uu, p)
   # solve and fetch solution
   @timeit solver.timer "solve" begin
     Krylov.solve!(solver.solver, stiffness(solver.assembler), residual(solver.assembler))
+    KA.synchronize(KA.get_backend(solver))
   end
   @timeit solver.timer "update solution" begin
     ΔUu = -Krylov.solution(solver.solver)
     # make necessary copies and updates
     copyto!(solver.ΔUu, ΔUu)
+    KA.synchronize(KA.get_backend(solver))
     map!((x, y) -> x + y, Uu, Uu, ΔUu)
+    KA.synchronize(KA.get_backend(solver))
   end
   return nothing
 end

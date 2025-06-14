@@ -232,5 +232,6 @@ function _hvp(asm::AbstractAssembler, backend::KA.Backend)
           asm.dof.H1_unknown_dofs, 
           asm.stiffness_storage, 
           ndrange=length(asm.dof.H1_unknown_dofs))
+  KA.synchronize(KA.get_backend(asm))
   return asm.stiffness_action_unknowns
 end 
