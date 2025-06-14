@@ -231,5 +231,6 @@ function _residual(asm::AbstractAssembler, backend::KA.Backend)
     asm.residual_storage, 
     ndrange=length(asm.dof.H1_unknown_dofs)
   )
+  KA.synchronize(KA.get_backend(asm))
   return asm.residual_unknowns
 end 

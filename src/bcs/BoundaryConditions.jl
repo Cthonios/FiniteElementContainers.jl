@@ -273,8 +273,9 @@ function update_bc_values!(bcs, funcs, X, t)
   for (bc, func) in zip(values(bcs), values(funcs))
     backend = KA.get_backend(bc)
     _update_bc_values!(bc, func, X, t, backend)
-    KA.synchronize(backend)
   end
+  backend = KA.get_backend(X)
+  KA.synchronize(backend)
   return nothing
 end
 
