@@ -13,9 +13,13 @@ function FiniteElementContainers.FileMesh(::Type{<:FiniteElementContainers.Exodu
   return FileMesh{typeof(exo)}(file_name, exo)
 end
 
+function FiniteElementContainers._mesh_file_type(::Type{FiniteElementContainers.ExodusMesh})
+  return ExodusDatabase
+end
+
 function FiniteElementContainers.num_dimensions(
-  mesh::FileMesh{<:ExodusDatabase}
-)::Int32
+  mesh::FileMesh{ExodusDatabase{M, I, B, F}}
+)::Int32 where {M, I, B, F}
   return Exodus.num_dimensions(mesh.mesh_obj.init)
 end
 
@@ -77,7 +81,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.coordinates(mesh::FileMesh{ExodusDatabase{M, I, B, F, Init}})::Matrix{F} where {M, I, B, F, Init} 
+function FiniteElementContainers.coordinates(mesh::FileMesh{ExodusDatabase{M, I, B, F}})::Matrix{F} where {M, I, B, F} 
   coords = Exodus.read_coordinates(mesh.mesh_obj)
   return coords
 end
@@ -152,7 +156,11 @@ function FiniteElementContainers.sideset(
   # side_nodes = reshape(side_nodes, 1, length(side_nodes))
   perm = sortperm(elems)
 
-  num_nodes_per_side = length(side_nodes) ÷ length(sides)
+  if length(sides) == 0
+    num_nodes_per_side = 0
+  else
+    num_nodes_per_side = length(side_nodes) ÷ length(sides)
+  end
   side_nodes = reshape(side_nodes, num_nodes_per_side, length(sides))[:, perm]
   side_nodes = reshape(side_nodes, 1, length(side_nodes))
 
