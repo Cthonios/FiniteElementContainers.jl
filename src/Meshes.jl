@@ -153,6 +153,9 @@ struct FileMesh{MeshObj} <: AbstractMesh
   file_name::String
   mesh_obj::MeshObj
 end
+
+# num_dimensions(mesh::FileMesh{T}) where {T} = num_dimensions(mesh.mesh_obj)
+
 # function num_dimensions(::FileMesh{ND, NN, M})::Int32 where {ND, NN, M}
 # num_nodes(::FileMesh{ND, NN, M}) where {ND, NN, M} = NN
 
@@ -278,14 +281,18 @@ $(TYPEDSIGNATURES)
 """
 function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, create_faces::Bool)
   file = FileMesh(file_type, file_name)
+  return UnstructuredMesh(file, create_edges, create_faces)
+end
+
+function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::Bool) where T
 
   # read nodal coordinates
   if num_dimensions(file) == 2
     coord_syms = (:X, :Y)
   elseif num_dimensions(file) == 3
     coord_syms = (:X, :Y, :Z)
-  else
-    @assert false "Bad number of dimensions $(num_dimensions(file))"
+  # else
+  #   @assert false "Bad number of dimensions $(num_dimensions(file))"
   end
 
   nodal_coords = coordinates(file)
@@ -373,18 +380,27 @@ function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, crea
   )
 end
 
+num_dimensions(mesh::UnstructuredMesh) = num_dimensions(mesh.mesh_obj)
+
 # different mesh types
 abstract type AbstractMeshType end
 struct ExodusMesh <: AbstractMeshType
 end
 
+function _mesh_file_type end
+
 function FileMesh(::Type{AbstractMeshType}, file_name::String)
   @assert false "You need to load a mesh backend package such as Exodus"
 end
 
+FileMesh{T}(file_name::String) where T <: AbstractMeshType = FileMesh(T, file_name)
+
 function UnstructuredMesh(::Type{AbstractMeshType}, file_name::String, create_edges, create_faces)
   @assert false "You need to load a mesh backend package such as Exodus"
 end
+
+# UnstructuredMesh{T}(file_name::String, create_edges, create_faces) where T <: AbstractMeshType =
+# UnstructuredMesh(T, file_name, create_edges, create_faces)
 
 # dispatch based on file extension
 """

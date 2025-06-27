@@ -151,12 +151,14 @@ function create_dirichlet_bcs(dof::DofManager, dirichlet_bcs::Vector{<:Dirichlet
     map(x -> x.func, dirichlet_bcs)
   )
   dirichlet_bcs = DirichletBCContainer.((dof,), dirichlet_bcs)
-  temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
-  temp_dofs = unique(sort(temp_dofs))
+
+  if length(dirichlet_bcs) > 0
+    temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
+    temp_dofs = unique(sort(temp_dofs))
+    update_dofs!(dof, temp_dofs)
+  end
 
   dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
-
-  update_dofs!(dof, temp_dofs)
 
   return dirichlet_bcs, dirichlet_bc_funcs
 end
