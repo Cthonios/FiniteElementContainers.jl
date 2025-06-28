@@ -128,7 +128,6 @@ Kernel for residual block assembly
 
 TODO mark const fields
 """
-#= @coverage-ignore =#
 KA.@kernel function _assemble_block_vector_kernel!(
   field::F1, physics::Phys, ref_fe::R, 
   U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
@@ -216,7 +215,6 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-#= @coverage-ignore =#
 KA.@kernel function _extract_residual_unknowns!(Ru, unknown_dofs, R)
   N = KA.@index(Global)
   Ru[N] = R[unknown_dofs[N]]
