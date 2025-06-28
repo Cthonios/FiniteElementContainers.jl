@@ -100,6 +100,7 @@ Kernel for residual block assembly
 
 TODO mark const fields
 """
+#= @coverage-ignore =#
 KA.@kernel function _assemble_block_scalar_kernel!(
   field::F1, physics::Phys, ref_fe::R, 
   U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,

@@ -131,7 +131,7 @@ end
 
 
 # GPU implementation
-
+#= @coverage-ignore =#
 KA.@kernel function _assemble_block_matrix_kernel!(
   field::F1, pattern::Patt, physics::Phys, ref_fe::R,
   U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, dt::T,
