@@ -34,12 +34,13 @@ jobs:
       - name: test-rocm
         run: |
           HIP_VISIBLE_DEVICES=0 julia --project=@. -e 'using Pkg; Pkg.test("FiniteElementContainers"; coverage=true, julia_args=["--check-bounds=yes", "--compiled-modules=yes", "--depwarn=yes"], force_latest_compatible_version=false, allow_reresolve=true)'
-      - name: Filter coverage to remove @kernel functions
+      - name: Add Coverage
         run: |
           julia --project=@. -e '
             using Pkg
             Pkg.add("Coverage")
           '
+      - name: Filter coverage to remove @kernel functions
         run: |
           julia --project=@. -e '
             using Coverage
