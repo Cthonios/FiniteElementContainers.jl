@@ -37,6 +37,11 @@ jobs:
       - name: Filter coverage to remove @kernel functions
         run: |
           julia --project=@. -e '
+            using Pkg
+            Pkg.add("Coverage")
+          '
+        run: |
+          julia --project=@. -e '
             using Coverage
 
             # Collect all coverage results
