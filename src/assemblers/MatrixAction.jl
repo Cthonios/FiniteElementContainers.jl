@@ -128,6 +128,7 @@ Kernel for residual block assembly
 
 TODO mark const fields
 """
+# COV_EXCL_START
 KA.@kernel function _assemble_block_matrix_action_kernel!(
   field::F1, physics::Phys, ref_fe::R, 
   U::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
@@ -179,6 +180,7 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
     end
   end
 end
+# COV_EXCL_STOP
 
 """
 $(TYPEDSIGNATURES)

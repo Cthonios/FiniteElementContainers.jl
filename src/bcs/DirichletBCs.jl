@@ -90,6 +90,7 @@ end
 $(TYPEDSIGNATURES)
 GPU kernel for updating stored bc values based on the stored function
 """
+# COV_EXCL_START
 KA.@kernel function _update_bc_values_kernel!(bc::DirichletBCContainer, func, X, t)
   I = KA.@index(Global)
   ND = num_fields(X)
@@ -107,6 +108,7 @@ KA.@kernel function _update_bc_values_kernel!(bc::DirichletBCContainer, func, X,
   end
   bc.vals[I] = func(X_temp, t)
 end
+# COV_EXCL_STOP
 
 """
 $(TYPEDSIGNATURES)
@@ -126,12 +128,14 @@ function _update_bcs!(bc::DirichletBCContainer, U, ::KA.CPU)
   return nothing
 end
 
+# COV_EXCL_START
 KA.@kernel function _update_bcs_kernel!(bc::DirichletBCContainer, U)
   I = KA.@index(Global)
   dof = bc.bookkeeping.dofs[I]
   val = bc.vals[I]
   U[dof] = val
 end
+# COV_EXCL_STOP
 
 function _update_bcs!(bc::DirichletBCContainer, U, backend::KA.Backend)
   kernel! = _update_bcs_kernel!(backend)
