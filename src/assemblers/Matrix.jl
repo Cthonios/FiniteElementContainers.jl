@@ -131,7 +131,7 @@ end
 
 
 # GPU implementation
-
+# COV_EXCL_START
 KA.@kernel function _assemble_block_matrix_kernel!(
   field::F1, pattern::Patt, physics::Phys, ref_fe::R,
   U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, dt::T,
@@ -180,6 +180,7 @@ KA.@kernel function _assemble_block_matrix_kernel!(
     Atomix.@atomic field[id] += K_el.data[i]
   end
 end
+# COV_EXCL_STOP
 
 """
 $(TYPEDSIGNATURES)

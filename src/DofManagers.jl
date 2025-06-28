@@ -426,10 +426,12 @@ function update_dofs!(dof::DofManager, dirichlet_dofs::T) where T <: AbstractArr
   return nothing
 end
 
+# COV_EXCL_START
 KA.@kernel function _update_field_unknowns_kernel!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
   N = KA.@index(Global)
   @inbounds U[dof.H1_unknown_dofs[N]] = Uu[N]
 end
+# COV_EXCL_STOP
 
 function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
   kernel! = _update_field_unknowns_kernel!(backend)

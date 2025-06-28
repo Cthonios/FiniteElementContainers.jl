@@ -87,6 +87,7 @@ function _assemble_block_matrix_and_vector!(
 end
 
 # TODO implement GPU version
+# COV_EXCL_START
 KA.@kernel function _assemble_block_matrix_and_vector_kernel!(
   residual_field::F1, stiffness_field::F2, pattern::Patt, 
   physics::Phys, ref_fe::R,
@@ -151,6 +152,7 @@ KA.@kernel function _assemble_block_matrix_and_vector_kernel!(
     Atomix.@atomic stiffness_field[id] += K_el.data[i]
   end
 end
+# COV_EXCL_STOP
 
 # """
 # $(TYPEDSIGNATURES)
