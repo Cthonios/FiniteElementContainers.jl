@@ -19,6 +19,14 @@ function solve! end
 function tangent end
 function update_preconditioner! end
 
+function KA.get_backend(solver::AbstractLinearSolver)
+  return KA.get_backend(solver.assembler)
+end
+
+function KA.get_backend(solver::AbstractNonLinearSolver)
+  return KA.get_backend(solver.linear_solver)
+end
+
 include("DirectLinearSolver.jl")
 include("IterativeLinearSolver.jl")
 include("NewtonSolver.jl")

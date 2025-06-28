@@ -153,6 +153,9 @@ struct FileMesh{MeshObj} <: AbstractMesh
   file_name::String
   mesh_obj::MeshObj
 end
+
+# num_dimensions(mesh::FileMesh{T}) where {T} = num_dimensions(mesh.mesh_obj)
+
 # function num_dimensions(::FileMesh{ND, NN, M})::Int32 where {ND, NN, M}
 # num_nodes(::FileMesh{ND, NN, M}) where {ND, NN, M} = NN
 
@@ -254,7 +257,7 @@ struct UnstructuredMesh{
   X, 
   EBlockNames, ETypes, EConns, EMaps, 
   NSetNodes,
-  SSetElems, SSetNodes, SSetSides,
+  SSetElems, SSetNodes, SSetSides, SSetSideNodes,
   EdgeConns, FaceConns
 } <: AbstractMesh
   mesh_obj::MeshObj
@@ -267,6 +270,7 @@ struct UnstructuredMesh{
   sideset_elems::SSetElems
   sideset_nodes::SSetNodes
   sideset_sides::SSetSides
+  sideset_side_nodes::SSetSideNodes
   # new additions
   edge_conns::EdgeConns
   face_conns::FaceConns
@@ -277,14 +281,18 @@ $(TYPEDSIGNATURES)
 """
 function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, create_faces::Bool)
   file = FileMesh(file_type, file_name)
+  return UnstructuredMesh(file, create_edges, create_faces)
+end
+
+function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::Bool) where T
 
   # read nodal coordinates
   if num_dimensions(file) == 2
     coord_syms = (:X, :Y)
   elseif num_dimensions(file) == 3
     coord_syms = (:X, :Y, :Z)
-  else
-    @assert false "Bad number of dimensions $(num_dimensions(file))"
+  # else
+  #   @assert false "Bad number of dimensions $(num_dimensions(file))"
   end
 
   nodal_coords = coordinates(file)
@@ -314,6 +322,7 @@ function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, crea
   sset_elems = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[1], ssets)...))
   sset_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[2], ssets)...))
   sset_sides = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[3], ssets)...))
+  sset_side_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[4], ssets)...))
   # TODO also add edges/faces for sidesets, this may be tricky...
 
   # TODO
@@ -364,23 +373,34 @@ function UnstructuredMesh(file_type, file_name::String, create_edges::Bool, crea
     nodal_coords, 
     el_block_names, el_types, el_conns, el_id_maps, 
     nset_nodes,
-    sset_elems, sset_nodes, sset_sides,
+    sset_elems, 
+    sset_nodes, 
+    sset_sides, sset_side_nodes,
     edges, faces
   )
 end
+
+num_dimensions(mesh::UnstructuredMesh) = num_dimensions(mesh.mesh_obj)
 
 # different mesh types
 abstract type AbstractMeshType end
 struct ExodusMesh <: AbstractMeshType
 end
 
+function _mesh_file_type end
+
 function FileMesh(::Type{AbstractMeshType}, file_name::String)
   @assert false "You need to load a mesh backend package such as Exodus"
 end
 
+FileMesh{T}(file_name::String) where T <: AbstractMeshType = FileMesh(T, file_name)
+
 function UnstructuredMesh(::Type{AbstractMeshType}, file_name::String, create_edges, create_faces)
   @assert false "You need to load a mesh backend package such as Exodus"
 end
+
+# UnstructuredMesh{T}(file_name::String, create_edges, create_faces) where T <: AbstractMeshType =
+# UnstructuredMesh(T, file_name, create_edges, create_faces)
 
 # dispatch based on file extension
 """
