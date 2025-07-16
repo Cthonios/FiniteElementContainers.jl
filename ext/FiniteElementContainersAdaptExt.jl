@@ -182,14 +182,6 @@ function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
     adapt(to, p.neumann_bc_funcs),
     adapt(to, p.times),
     adapt(to, p.physics),
-    # adapt(to, p.properties),
-    # handle special case for staticarray so it doesn't
-    # get hard converted to Array
-    # if isa(values(p.properties)[1], SArray)
-    #   p.properties
-    # else
-    #   adapt(to, p.properties)
-    # end,
     props,
     adapt(to, p.state_old),
     adapt(to, p.state_new),
