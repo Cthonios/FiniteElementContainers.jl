@@ -144,7 +144,7 @@ function _update_bcs!(bc::DirichletBCContainer, U, backend::KA.Backend)
 end
 
 function create_dirichlet_bcs(dof::DofManager, dirichlet_bcs::Vector{<:DirichletBC})
-  if length(dirichlet_bcs) == 1
+  if length(dirichlet_bcs) == 0
     return NamedTuple(), NamedTuple()
   end
 
