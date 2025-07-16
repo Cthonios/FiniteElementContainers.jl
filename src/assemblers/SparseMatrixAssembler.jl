@@ -167,7 +167,8 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs; use_conde
   vars = assembler.dof.H1_vars
 
   if length(vars) != 1
-    @assert false "multiple fspace not supported yet"
+    # @assert false "multiple fspace not supported yet"
+    @warn "Multiple variables is still a work in progress."
   end
 
   # dirichlet_dofs = dirichlet_bcs.bookkeeping.dofs
