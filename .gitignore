@@ -6,6 +6,13 @@
 /docs/build/
 *.log
 *.e
+*.e.*.*
+*.e.nem
+*.e.pex
+*.g
+*.g.*.*
+*.g.nem
+*.g.pex
 *.swp
 *.vtu
 
