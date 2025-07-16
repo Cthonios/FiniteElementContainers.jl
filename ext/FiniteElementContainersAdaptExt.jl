@@ -2,6 +2,7 @@ module FiniteElementContainersAdaptExt
 
 using Adapt
 using FiniteElementContainers
+using StaticArrays
 
 FiniteElementContainersAdaptExt.cpu(x) = adapt(Array, x)
 
@@ -161,6 +162,19 @@ end
 
 # parameters
 function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
+
+  # need to handle props specially
+  props = []
+  for p in values(p.properties)
+    if isa(p, SArray)
+      push!(props, p)
+    else
+      push!(props, adapt(to, p))
+    end
+  end
+
+  props = NamedTuple{keys(p.properties)}(props)
+
   return FiniteElementContainers.Parameters(
     adapt(to, p.dirichlet_bcs),
     adapt(to, p.dirichlet_bc_funcs),
@@ -168,7 +182,7 @@ function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
     adapt(to, p.neumann_bc_funcs),
     adapt(to, p.times),
     adapt(to, p.physics),
-    adapt(to, p.properties),
+    props,
     adapt(to, p.state_old),
     adapt(to, p.state_new),
     adapt(to, p.h1_coords),
