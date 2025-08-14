@@ -28,11 +28,13 @@ end
 function solve!(solver::IterativeLinearSolver, Uu, p)
   # assemble relevant fields
   @timeit solver.timer "residual assembly" begin
-    assemble!(solver.assembler, Uu, p, Val{:residual}(), H1Field)
+    # assemble!(solver.assembler, Uu, p, Val{:residual}(), H1Field)
+    assemble_vector!(solver.assembler, residual, Uu, p, H1Field)
     # assemble_vector_neumann_bc!(solver.assembler, Uu, p, H1Field)
   end
   @timeit solver.timer "stiffness assembly" begin
-    assemble!(solver.assembler, Uu, p, Val{:stiffness}(), H1Field)
+    # assemble!(solver.assembler, Uu, p, Val{:stiffness}(), H1Field)
+    assemble_stiffness!(solver.assembler, stiffness, Uu, p, H1Field)
   end
   # solve and fetch solution
   @timeit solver.timer "solve" begin

@@ -17,8 +17,9 @@ struct Parameters{
   state_new::S
   h1_coords::H1Coords
   h1_field::H1
+  h1_field_old::H1
   # scratch fields
-  h1_hvp::H1
+  h1_hvp_scratch_field::H1
 end
 
 # TODO 
@@ -37,6 +38,7 @@ function Parameters(
 )
   h1_coords = assembler.dof.H1_vars[1].fspace.coords
   h1_field = create_field(assembler, H1Field)
+  h1_field_old = create_field(assembler, H1Field)
   h1_hvp = create_field(assembler, H1Field)
 
   # TODO
@@ -154,7 +156,7 @@ function Parameters(
     physics, 
     properties, 
     state_old, state_new, 
-    h1_coords, h1_field, 
+    h1_coords, h1_field, h1_field_old,
     # scratch fields
     h1_hvp
   )
@@ -164,7 +166,9 @@ function Parameters(
 
   # assemble the stiffness at least once for 
   # making easier to use on GPU
-  assemble!(assembler, Uu, p, Val{:stiffness}(), H1Field)
+  # assemble!(assembler, Uu, p, Val{:stiffness}(), H1Field)
+  # TODO should we also assemble mass if necessary?
+  assemble_stiffness!(assembler, stiffness, Uu, p, H1Field)
   K = stiffness(assembler)
 
   return p

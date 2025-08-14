@@ -105,17 +105,8 @@ create_unknowns(asm::AbstractAssembler, type::Type{<:AbstractField}) = create_un
 
 """
 $(TYPEDSIGNATURES)
-Should we keep this?
 """
-function _element_level_fields(U::H1Field, ref_fe, conns, e)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  u_el = @views SMatrix{ND, NNPE, Float64, NxNDof}(U[:, conns[:, e]])
-  return u_el
-end
-
-function _element_level_fields_flat(U::H1Field, ref_fe, conns, e)
+@inline function _element_level_fields_flat(U::H1Field, ref_fe, conns, e)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
@@ -126,14 +117,14 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function _element_level_properties(props::SVector{NP, T}, ::Int) where {NP, T}
+@inline function _element_level_properties(props::SVector{NP, T}, ::Int) where {NP, T}
   return props
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function _element_level_properties(props::L2ElementField, e::Int)
+@inline function _element_level_properties(props::L2ElementField, e::Int)
   props_e = @views SVector{size(props, 1), eltype(props)}(props[:, e])
   return props_e
 end
@@ -200,7 +191,6 @@ include("SparseMatrixAssembler.jl")
 # methods
 include("Matrix.jl")
 include("MatrixAction.jl")
-include("MatrixAndVector.jl")
 include("NeumannBC.jl")
-include("Scalar.jl")
+include("QuadratureQuantity.jl")
 include("Vector.jl")
