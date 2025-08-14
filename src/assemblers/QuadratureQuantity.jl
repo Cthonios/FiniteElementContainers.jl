@@ -1,53 +1,39 @@
-function assemble_scalar!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <: Function
-  fspace = function_space(assembler, H1Field)
+
+function assemble_scalar!(
+  assembler, func::F, Uu, p, type::Type{H1Field}
+) where F <: Function
+  assemble_quadrature_quantity!(
+    assembler.scalar_quadarature_storage, assembler.dof,
+    func, Uu, p, type
+  )
+end
+
+function assemble_quadrature_quantity!(
+  storage, dof,
+  func::F, Uu, p, ::Type{H1Field}
+) where F <: Function
+  fspace = function_space(dof, H1Field)
   t = current_time(p.times)
   Δt = time_step(p.times)
   update_bcs!(p)
-  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  update_field_unknowns!(p.h1_field, dof, Uu)
   for (b, (field, conns, block_physics, state_old, state_new, props)) in enumerate(zip(
-    values(assembler.scalar_quadarature_storage),
+    values(storage),
     values(fspace.elem_conns), 
     values(p.physics),
     values(p.state_old), values(p.state_new),
     values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_scalar!(
+    # backend = _check_backends(assembler, p.h1_field, p.h1_field_old, p.h1_coords, state_old, state_new, conns)
+    backend = KA.get_backend(p.h1_field)
+    _assemble_block_quadrature_quantity!(
       field, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
+      p.h1_field, p.h1_field_old, p.h1_coords, state_old, state_new, props, t, Δt,
       conns, b, func,
       backend
     )
-    KA.synchronize(backend)
   end
-end
-
-function assemble!(assembler, Uu, p, ::Val{:energy}, ::Type{H1Field})
-  fspace = function_space(assembler, H1Field)
-  t = current_time(p.times)
-  Δt = time_step(p.times)
-  update_bcs!(p)
-  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
-  for (b, (field, conns, block_physics, state_old, state_new, props)) in enumerate(zip(
-    values(assembler.scalar_quadarature_storage),
-    values(fspace.elem_conns), 
-    values(p.physics),
-    values(p.state_old), values(p.state_new),
-    values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_scalar!(
-      field, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
-      conns, b, energy,
-      backend
-    )
-    KA.synchronize(backend)
-  end
-
-  # TODO need to eventually sum that all up somewhere
 end
 
 # CPU Implementation
@@ -60,9 +46,9 @@ with no threading.
 TODO improve typing of fields to ensure they mathc up in terms of function 
   spaces
 """
-function _assemble_block_scalar!(
+function _assemble_block_quadrature_quantity!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, func::Func, ::KA.CPU
 ) where {
   C    <: Connectivity,
@@ -79,6 +65,7 @@ function _assemble_block_scalar!(
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
+    u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
 
     for q in 1:num_quadrature_points(ref_fe)
@@ -101,9 +88,9 @@ Kernel for residual block assembly
 TODO mark const fields
 """
 # COV_EXCL_START
-KA.@kernel function _assemble_block_scalar_kernel!(
+KA.@kernel function _assemble_block_quadrature_quantity_kernel!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, func::Func
 ) where {
   C    <: Connectivity,
@@ -121,6 +108,7 @@ KA.@kernel function _assemble_block_scalar_kernel!(
   E = KA.@index(Global)
   x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
 
   KA.Extras.@unroll for q in 1:num_quadrature_points(ref_fe)
@@ -142,9 +130,9 @@ using KernelAbstractions and Atomix for eliminating race conditions
 
 TODO add state variables and physics properties
 """
-function _assemble_block_scalar!(
+function _assemble_block_quadrature_quantity!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, func::Func, backend::KA.Backend
 ) where {
   C    <: Connectivity,
@@ -158,10 +146,10 @@ function _assemble_block_scalar!(
   S    <: L2QuadratureField,
   T    <: Number
 }
-  kernel! = _assemble_block_scalar_kernel!(backend)
+  kernel! = _assemble_block_quadrature_quantity_kernel!(backend)
   kernel!(
     field, physics, ref_fe, 
-    U, X, state_old, state_new, props, t, Δt,
+    U, U_old, X, state_old, state_new, props, t, Δt,
     conns, block_id, func, ndrange=size(field, 2)
   )
   # KA.synchronize(backend)

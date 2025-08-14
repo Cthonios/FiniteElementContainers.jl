@@ -1,7 +1,13 @@
 # Top level method
-function assemble!(assembler, Uu, p, ::Val{:residual_and_stiffness}, ::Type{H1Field})
-  fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
-  fill!(assembler.stiffness_storage, zero(eltype(assembler.stiffness_storage)))
+function assemble_matrix_and_vector!(
+  assembler, func1, func2, Uu, p, ::Type{H1Field};
+  storage_sym_1=:residual_storage,
+  storage_sym_2=:stiffness_storage
+)
+  storage_1 = getfield(assembler, storage_sym_1)
+  storage_2 = getfield(assembler, storage_sym_2)
+  fill!(storage_1, zero(eltype(storage_1)))
+  fill!(storage_2, zero(eltype(storage_2)))
   fspace = function_space(assembler, H1Field)
   t = current_time(p.times)
   dt = time_step(p.times)
@@ -16,10 +22,10 @@ function assemble!(assembler, Uu, p, ::Val{:residual_and_stiffness}, ::Type{H1Fi
     ref_fe = values(fspace.ref_fes)[b]
     backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_matrix_and_vector!(
-      assembler.residual_storage, assembler.stiffness_storage, assembler.pattern, 
+      storage_1, storage_2, assembler.pattern, 
       block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props, t, dt,
-      conns, b, residual, stiffness,
+      p.h1_field, p.h1_field_old, p.h1_coords, state_old, state_new, props, t, dt,
+      conns, b, func1, func2,
       backend
     )
     KA.synchronize(backend)
@@ -40,7 +46,7 @@ function _assemble_block_matrix_and_vector!(
   # assembler, physics, ref_fe, 
   residual_field::F1, stiffness_field::F2, pattern::Patt,
   physics::Phys, ref_fe::R,
-  U::F3, X::F4, state_old::S, state_new::S, props::P, t::T, dt::T,
+  U::F3, U_old::F3, X::F4, state_old::S, state_new::S, props::P, t::T, dt::T,
   conns::C, block_id::Int, 
   residual_func::Func1, stiffness_func::Func2, ::KA.CPU
 ) where {
@@ -64,6 +70,7 @@ function _assemble_block_matrix_and_vector!(
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
+    u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
     R_el = zeros(SVector{NxNDof, eltype(residual_field)})
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(stiffness_field), NxNDof * NxNDof})
@@ -91,7 +98,7 @@ end
 KA.@kernel function _assemble_block_matrix_and_vector_kernel!(
   residual_field::F1, stiffness_field::F2, pattern::Patt, 
   physics::Phys, ref_fe::R,
-  U::F3, X::F4, state_old::S, state_new::S, props::P, t::T, dt::T,
+  U::F3, U_old::F3, X::F4, state_old::S, state_new::S, props::P, t::T, dt::T,
   conns::C, block_id::Int, residual_func::Func1, stiffness_func::Func2
 ) where {
   C     <: Connectivity,
@@ -116,6 +123,7 @@ KA.@kernel function _assemble_block_matrix_and_vector_kernel!(
 
   x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
   R_el = zeros(SVector{NxNDof, eltype(residual_field)})
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(stiffness_field), NxNDof * NxNDof})
@@ -164,7 +172,7 @@ end
 function _assemble_block_matrix_and_vector!(
   residual_field::F1, stiffness_field::F2, pattern::Patt, 
   physics::Phys, ref_fe::R,
-  U::F3, X::F4, state_old::S, state_new::S, props::P, t::T, dt::T,
+  U::F3, U_old::F3, X::F4, state_old::S, state_new::S, props::P, t::T, dt::T,
   conns::C, block_id::Int, 
   residual_func::Func1, stiffness_func::Func2, 
   backend::KA.Backend
@@ -187,7 +195,7 @@ function _assemble_block_matrix_and_vector!(
   kernel!(
     residual_field, stiffness_field, pattern, 
     physics, ref_fe,
-    U, X, state_old, state_new, props, t, dt,
+    U, U_old, X, state_old, state_new, props, t, dt,
     conns, block_id, 
     residual_func, stiffness_func,
     ndrange=size(conns, 2)

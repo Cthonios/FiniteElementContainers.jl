@@ -1,16 +1,15 @@
-# Top level method
-assemble!(assembler, Uu, p, Vu, ::Val{:hvp}, type::Type{H1Field}) = 
-assemble!(assembler, Uu, p, Vu, Val{:stiffness_action}(), type)
-
-
-function assemble_matrix_action!(assembler, Uu, p, Vu, ::Type{H1Field}, func)
-  fill!(assembler.stiffness_action_storage, zero(eltype(assembler.stiffness_action_storage)))
+function assemble_matrix_action!(
+  assembler, func, Uu, Vu, p, ::Type{H1Field}
+)
+  # storage = getfield(assembler, storage_sym)
+  storage = assembler.stiffness_action_storage
+  fill!(storage, zero(eltype(storage)))
   fspace = function_space(assembler, H1Field)
   t = current_time(p.times)
   Δt = time_step(p.times)
   update_bcs!(p)
   update_field_unknowns!(p.h1_field, assembler.dof, Uu)
-  update_field_unknowns!(p.h1_hvp, assembler.dof, Vu)
+  update_field_unknowns!(p.h1_hvp_scratch_field, assembler.dof, Vu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
@@ -18,43 +17,15 @@ function assemble_matrix_action!(assembler, Uu, p, Vu, ::Type{H1Field}, func)
     values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, conns)
+    backend = _check_backends(assembler, p.h1_field, p.h1_hvp_scratch_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_matrix_action!(
-      assembler.stiffness_action_storage, block_physics, ref_fe, 
-      p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, props, t, Δt,
+      storage, block_physics, ref_fe, 
+      p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field, p.h1_coords, state_old, state_new, props, t, Δt,
       conns, b, func,
       backend
     )
-    KA.synchronize(backend)
   end
 end
-
-function assemble!(assembler, Uu, p, Vu, ::Val{:stiffness_action}, ::Type{H1Field})
-  fill!(assembler.stiffness_action_storage, zero(eltype(assembler.stiffness_action_storage)))
-  fspace = function_space(assembler, H1Field)
-  t = current_time(p.times)
-  Δt = time_step(p.times)
-  update_bcs!(p)
-  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
-  update_field_unknowns!(p.h1_hvp, assembler.dof, Vu)
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
-    values(fspace.elem_conns), 
-    values(p.physics),
-    values(p.state_old), values(p.state_new),
-    values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_matrix_action!(
-      assembler.stiffness_action_storage, block_physics, ref_fe, 
-      p.h1_field, p.h1_hvp, p.h1_coords, state_old, state_new, props, t, Δt,
-      conns, b, stiffness,
-      backend
-    )
-    KA.synchronize(backend)
-  end
-end
-
 
 # CPU Implementation
 
@@ -68,7 +39,7 @@ TODO improve typing of fields to ensure they mathc up in terms of function
 """
 function _assemble_block_matrix_action!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, func::Func, ::KA.CPU
 ) where {
   C    <: Connectivity,
@@ -89,6 +60,7 @@ function _assemble_block_matrix_action!(
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
+    u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
     v_el = _element_level_fields_flat(V, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
     K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(field), NxNDof * NxNDof})
@@ -131,7 +103,7 @@ TODO mark const fields
 # COV_EXCL_START
 KA.@kernel function _assemble_block_matrix_action_kernel!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, func::Func
 ) where {
   C    <: Connectivity,
@@ -154,6 +126,7 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
 
   x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
   v_el = _element_level_fields_flat(V, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(field), NxNDof * NxNDof})
@@ -191,7 +164,7 @@ TODO add state variables and physics properties
 """
 function _assemble_block_matrix_action!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, func::Func, backend::KA.Backend
 ) where {
   C    <: Connectivity,
@@ -209,7 +182,7 @@ function _assemble_block_matrix_action!(
   kernel! = _assemble_block_matrix_action_kernel!(backend)
   kernel!(
     field, physics, ref_fe, 
-    U, V, X, state_old, state_new, props, t, Δt,
+    U, U_old, V, X, state_old, state_new, props, t, Δt,
     conns, block_id, func, ndrange=size(conns, 2)
   )
   return nothing
@@ -232,7 +205,7 @@ function _hvp(asm::AbstractAssembler, backend::KA.Backend)
   kernel! = _extract_residual_unknowns!(backend)
   kernel!(asm.stiffness_action_unknowns, 
           asm.dof.H1_unknown_dofs, 
-          asm.stiffness_storage, 
+          asm.stiffness_action_storage, 
           ndrange=length(asm.dof.H1_unknown_dofs))
   KA.synchronize(KA.get_backend(asm))
   return asm.stiffness_action_unknowns

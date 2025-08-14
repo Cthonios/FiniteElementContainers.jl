@@ -1,13 +1,11 @@
-# Top level method
-
-assemble!(assembler, Uu, p, ::Val{:gradient}, type::Type{H1Field}) = 
-assemble!(assembler, Uu, p, Val{:residual}(), type)
-
 """
 $(TYPEDSIGNATURES)
 """
-function assemble_vector!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <: Function
-  fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
+function assemble_vector!(
+  assembler, func::F, Uu, p, ::Type{H1Field}
+) where F <: Function
+  storage = assembler.residual_storage
+  fill!(storage, zero(eltype(storage)))
   fspace = function_space(assembler, H1Field)
   t = current_time(p.times)
   Δt = time_step(p.times)
@@ -22,43 +20,14 @@ function assemble_vector!(assembler, Uu, p, ::Type{H1Field}, func::F) where F <:
     ref_fe = values(fspace.ref_fes)[b]
     backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     _assemble_block_vector!(
-      assembler.residual_storage, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
+      storage, block_physics, ref_fe, 
+      p.h1_field, p.h1_field_old, p.h1_coords, state_old, state_new, props, t, Δt,
       conns, b, 
       func,
       backend
     )
-    KA.synchronize(backend)
   end
 end
-
-
-function assemble!(assembler, Uu, p, ::Val{:residual}, ::Type{H1Field})
-  fill!(assembler.residual_storage, zero(eltype(assembler.residual_storage)))
-  fspace = function_space(assembler, H1Field)
-  t = current_time(p.times)
-  Δt = time_step(p.times)
-  update_bcs!(p)
-  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
-    values(fspace.elem_conns), 
-    values(p.physics),
-    values(p.state_old), values(p.state_new),
-    values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
-    _assemble_block_vector!(
-      assembler.residual_storage, block_physics, ref_fe, 
-      p.h1_field, p.h1_coords, state_old, state_new, props, t, Δt,
-      conns, b,
-      residual,
-      backend
-    )
-    KA.synchronize(backend)
-  end
-end
-
 
 # CPU Implementation
 
@@ -72,7 +41,7 @@ TODO improve typing of fields to ensure they mathc up in terms of function
 """
 function _assemble_block_vector!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, 
   func::Func, ::KA.CPU
 ) where {
@@ -93,6 +62,7 @@ function _assemble_block_vector!(
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
+    u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
     R_el = zeros(SVector{NxNDof, eltype(field)})
 
@@ -131,7 +101,7 @@ TODO mark const fields
 # COV_EXCL_START
 KA.@kernel function _assemble_block_vector_kernel!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, 
   func::Func
 ) where {
@@ -154,6 +124,7 @@ KA.@kernel function _assemble_block_vector_kernel!(
 
   x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
   R_el = zeros(SVector{NxNDof, eltype(field)})
 
@@ -189,7 +160,7 @@ TODO add state variables and physics properties
 """
 function _assemble_block_vector!(
   field::F1, physics::Phys, ref_fe::R, 
-  U::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
+  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
   conns::C, block_id::Int, 
   func::Func, backend::KA.Backend
 ) where {
@@ -207,7 +178,7 @@ function _assemble_block_vector!(
   kernel! = _assemble_block_vector_kernel!(backend)
   kernel!(
     field, physics, ref_fe, 
-    U, X, state_old, state_new, props, t, Δt,
+    U, U_old, X, state_old, state_new, props, t, Δt,
     conns, block_id,
     func, ndrange=size(conns, 2)
   )
