@@ -31,7 +31,7 @@ Order = [:function]
 ## Scalar
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["Scalar.jl"]
+Pages = ["QuadratureQuantity.jl"]
 Order = [:function]
 ```
 
