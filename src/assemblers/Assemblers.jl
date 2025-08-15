@@ -106,6 +106,17 @@ create_unknowns(asm::AbstractAssembler, type::Type{<:AbstractField}) = create_un
 """
 $(TYPEDSIGNATURES)
 """
+@inline function _element_level_fields(U::H1Field, ref_fe, conns, e)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns[:, e]])
+  return u_el
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 @inline function _element_level_fields_flat(U::H1Field, ref_fe, conns, e)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)

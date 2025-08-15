@@ -73,11 +73,15 @@ end
 
 function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContainer)
   bk = adapt(to, bc.bookkeeping)
+  el_conns = adapt(to, bc.element_conns)
+  surf_conns = adapt(to, bc.surface_conns)
+  ref_fe = adapt(to, bc.ref_fe)
   vals = adapt(to, bc.vals)
   return FiniteElementContainers.NeumannBCContainer{
-    typeof(bk), eltype(vals), typeof(vals)
+    typeof(bk), typeof(el_conns), typeof(surf_conns),
+    typeof(ref_fe), eltype(vals), typeof(vals)
   }(
-    bk, vals
+    bk, el_conns, surf_conns, ref_fe, vals
   )
 end
 
