@@ -1,4 +1,6 @@
-
+"""
+$(TYPEDSIGNATURES)
+"""
 function assemble_scalar!(
   assembler, func::F, Uu, p, type::Type{H1Field}
 ) where F <: Function
@@ -8,6 +10,9 @@ function assemble_scalar!(
   )
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function assemble_quadrature_quantity!(
   storage, dof,
   func::F, Uu, p, ::Type{H1Field}
