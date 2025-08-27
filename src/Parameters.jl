@@ -2,7 +2,11 @@ abstract type AbstractParameters end
 
 # TODO need to break up bcs to different field types
 struct Parameters{
-  D, DF, N, NF, T, Phys, Props, S, 
+  RT <: Number, # Real type
+  RV <: AbstractArray{RT, 1}, # Real vector type
+  D, DF, N, NF, 
+  Phys, Props, 
+  S, 
   H1Coords, H1
 } <: AbstractParameters
   # parameter/solution fields
@@ -10,7 +14,7 @@ struct Parameters{
   dirichlet_bc_funcs::DF
   neumann_bcs::N
   neumann_bc_funcs::NF
-  times::T
+  times::TimeStepper{RV}
   physics::Phys
   properties::Props
   state_old::S
