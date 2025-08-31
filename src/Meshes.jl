@@ -154,17 +154,6 @@ struct FileMesh{MeshObj} <: AbstractMesh
   mesh_obj::MeshObj
 end
 
-# num_dimensions(mesh::FileMesh{T}) where {T} = num_dimensions(mesh.mesh_obj)
-
-# function num_dimensions(::FileMesh{ND, NN, M})::Int32 where {ND, NN, M}
-# num_nodes(::FileMesh{ND, NN, M}) where {ND, NN, M} = NN
-
-# struct DummyMeshObj
-# end
-
-# dummy function to make JET happy
-# file_mesh(::Type{DummyMeshObj}, ::String) = nothing
-
 # TODO change to a type that subtypes AbstractMesh
 function create_structured_mesh_data(Nx, Ny, xExtent, yExtent)
   xs = LinRange(xExtent[1], xExtent[2], Nx)
@@ -257,7 +246,7 @@ struct UnstructuredMesh{
   X, 
   EBlockNames, ETypes, EConns, EMaps, 
   NSetNodes,
-  SSetElems, SSetNodes, SSetSides, SSetSideNodes,
+  SSetIVs, SSetIMs,
   EdgeConns, FaceConns
 } <: AbstractMesh
   mesh_obj::MeshObj
@@ -267,10 +256,10 @@ struct UnstructuredMesh{
   element_conns::EConns
   element_id_maps::EMaps
   nodeset_nodes::NSetNodes # TODO, we can remove this since we're using sidesets now.
-  sideset_elems::SSetElems
-  sideset_nodes::SSetNodes
-  sideset_sides::SSetSides
-  sideset_side_nodes::SSetSideNodes
+  sideset_elems::SSetIVs
+  sideset_nodes::SSetIVs
+  sideset_sides::SSetIVs
+  sideset_side_nodes::SSetIMs
   # new additions
   edge_conns::EdgeConns
   face_conns::FaceConns
@@ -323,6 +312,7 @@ function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::B
   sset_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[2], ssets)...))
   sset_sides = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[3], ssets)...))
   sset_side_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[4], ssets)...))
+
   # TODO also add edges/faces for sidesets, this may be tricky...
 
   # TODO
