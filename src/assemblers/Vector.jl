@@ -145,7 +145,7 @@ KA.@kernel function _assemble_block_vector_kernel!(
     for d in 1:n_dofs
       global_id = n_dofs * (conns[i, E] - 1) + d
       local_id = n_dofs * (i - 1) + d
-      Atomix.@atomic field.vals[global_id] += R_el[local_id]
+      Atomix.@atomic field.data[global_id] += R_el[local_id]
     end
   end
 end

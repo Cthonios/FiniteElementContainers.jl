@@ -296,7 +296,7 @@ function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::B
   end
 
   nodal_coords = coordinates(file)
-  nodal_coords = H1Field(nodal_coords, coord_syms)
+  nodal_coords = H1Field(nodal_coords)
 
   # read element block types, conn, etc.
   el_block_ids = element_block_ids(file)
@@ -305,7 +305,7 @@ function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::B
   el_types = element_type.((file,), el_block_ids)
   el_types = NamedTuple{tuple(el_block_names...)}(tuple(el_types...))
   el_conns = element_connectivity.((file,), el_block_ids)
-  el_conns = map(x -> Connectivity{size(x)}(x), el_conns)
+  el_conns = map(Connectivity, el_conns)
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
   el_id_maps = element_block_id_map.((file,), el_block_ids)
   el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))

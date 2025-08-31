@@ -122,19 +122,19 @@ function Adapt.adapt_structure(to, dof::DofManager{
 end
 
 # Fields
-function Adapt.adapt_structure(to, field::L2ElementField{T, NF, V, S}) where {T, NF, V, S}
-  vals = adapt(to, field.vals)
-  return L2ElementField{T, NF, typeof(vals), S}(vals)
+function Adapt.adapt_structure(to, field::L2ElementField{T, D, NF}) where {T, D, NF}
+  data = adapt(to, field.data)
+  return L2ElementField{T, typeof(data), NF}(data)
 end
 
-function Adapt.adapt_structure(to, field::L2QuadratureField{T, NF, NQ, V, S}) where {T, NF, NQ, V, S}
-  vals = adapt(to, field.vals)
-  return L2QuadratureField{T, NF, NQ, typeof(vals), S}(vals)
+function Adapt.adapt_structure(to, field::L2QuadratureField{T, D, NF, NQ}) where {T, D, NF, NQ}
+  data = adapt(to, field.data)
+  return L2QuadratureField{T, typeof(data), NF, NQ}(data)
 end
 
-function Adapt.adapt_structure(to, field::H1Field{T, NF, V, S}) where {T, NF, V, S}
-  vals = adapt(to, field.vals)
-  return H1Field{T, NF, typeof(vals), S}(vals)
+function Adapt.adapt_structure(to, field::H1Field{T, D, NF}) where {T, D, NF}
+  data = adapt(to, field.data)
+  return H1Field{T, typeof(data), NF}(data)
 end
 
 # Function spaces

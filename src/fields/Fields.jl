@@ -3,118 +3,58 @@ $(TYPEDEF)
 Thin wrapper that subtypes ```AbstractArray``` and serves
 as the base ```Field``` type
 """
-abstract type AbstractField{T, N, NF, Vals, SymIDMap} <: AbstractArray{T, N} end
+abstract type AbstractField{T, N, D <: AbstractArray{T, 1}, NF} <: AbstractArray{T, N} end
 
 """
 $(TYPEDSIGNATURES)
 """
-function KA.get_backend(field::AbstractField)
-  return KA.get_backend(field.vals)
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-Base.fill!(field::AbstractField{T, N, NF, V, S}, v::T) where {T, N, NF, V, S} = 
-fill!(field.vals, v)
-
-"""
-$(TYPEDSIGNATURES)
-"""
-Base.names(::AbstractField{T, N, NF, Vals, SymIDMap}) where {T, N, NF, Vals, SymIDMap} = keys(SymIDMap)
-
-"""
-$(TYPEDSIGNATURES)
-"""
-num_fields(::AbstractField{T, N, NF, Vals, SymIDMap}) where {T, N, NF, Vals, SymIDMap} = NF
-
-"""
-$(TYPEDSIGNATURES)
-"""
-_sym_id_map(::AbstractField{T, N, NF, Vals, SymIDMap}, sym::Symbol) where {T, N, NF, Vals, SymIDMap} = getproperty(SymIDMap, sym)
+Base.fill!(field::AbstractField{T, N, D, NF}, v::T) where {T, N, D, NF} = fill!(field.data, v)
 
 # minimal abstractarray interface methods below
 
-function Base.axes(field::AbstractField{T, 2, NF, V, S}) where {T, NF, V, S}
+function Base.axes(field::AbstractField{T, 2, D, NF}) where {T, D, NF}
   NN = length(field) ÷ NF
   return (Base.OneTo(NF), Base.OneTo(NN))
 end
 
 function Base.getindex(field::AbstractField, n::Int)
-  return getindex(field.vals, n)
-end
-
-function Base.getindex(field::AbstractField{T, 2, NF, V, S}, sym::Symbol) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return field[d, :]
-end
-
-function Base.getindex(field::AbstractField{T, 3, NF, V, S}, sym::Symbol) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return field[d, :, :]
-end
-
-function Base.getindex(field::AbstractField{T, 2, NF, V, S}, sym::Symbol, ::Colon) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return field[d, :]
-end
-
-function Base.getindex(field::AbstractField{T, 3, NF, V, S}, sym::Symbol, ::Colon, ::Colon) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return field[d, :, :]
-end
-
-function Base.getindex(field::AbstractField{T, 2, NF, V, S}, sym::Symbol, n::Int) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return field[d, n]
-end
-
-function Base.getindex(field::AbstractField{T, 3, NF, V, S}, sym::Symbol, m::Int, n::Int) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return field[d, m, n]
+  return getindex(field.data, n)
 end
 
 function Base.IndexStyle(::Type{<:AbstractField}) 
   return IndexLinear()
 end
 
-function Base.setindex!(field::AbstractField{T, N, NF, V, S}, v::T, n::Int) where {T, N, NF, V, S}
-  setindex!(field.vals, v, n)
+function Base.setindex!(field::AbstractField{T, N, D, NF}, v::T, n::Int) where {T, N, D, NF}
+  setindex!(field.data, v, n)
   return nothing
 end 
 
 function Base.similar(field::AbstractField)
-  vals = similar(field.vals)
-  return typeof(field)(vals)
+  data = similar(field.data)
+  return typeof(field)(data)
 end
 
-function Base.size(field::AbstractField{T, 2, NF, V, SymIDMap}) where {T, NF, V <: DenseArray, SymIDMap} 
-  NN = length(field.vals) ÷ NF
+function Base.size(field::AbstractField{T, 2, D, NF}) where {T, D, NF} 
+  NN = length(field.data) ÷ NF
   return (NF, NN)
 end
 
-function Base.view(field::AbstractField{T, 2, NF, V, S}, sym::Symbol) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return view(field, d, :)
+"""
+$(TYPEDSIGNATURES)
+"""
+function KA.get_backend(field::AbstractField)
+  return KA.get_backend(field.data)
 end
 
-function Base.view(field::AbstractField{T, 2, NF, V, S}, sym::Symbol, ::Colon) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return view(field, d, :)
-end
-
-function Base.view(field::AbstractField{T, 3, NF, V, S}, sym::Symbol) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return view(field, d, :, :)
-end
-
-function Base.view(field::AbstractField{T, 3, NF, V, S}, sym::Symbol, ::Colon, ::Colon) where {T, NF, V, S}
-  d = _sym_id_map(field, sym)
-  return view(field, d, :, :)
+"""
+$(TYPEDSIGNATURES)
+"""
+function num_fields(::AbstractField{T, N, D, NF}) where {T, N, D, NF}
+  return NF
 end
 
 # actual implementations
-# include("ElementField.jl")
 include("H1Field.jl")
 include("L2ElementField.jl")
 include("L2QuadratureField.jl")

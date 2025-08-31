@@ -209,8 +209,9 @@ end
 
 # end
 
-function FiniteElementContainers.write_field(pp::PostProcessor, time_index::Int, field::H1Field)
-  field_names = names(field)
+function FiniteElementContainers.write_field(pp::PostProcessor, time_index::Int, field_names, field::H1Field)
+  # field_names = names(field)
+  @assert length(field_names) == num_fields(field)
   for n in axes(field, 1)
     name = String(field_names[n])
     write_values(pp.field_output_db, NodalVariable, time_index, name, field[n, :])

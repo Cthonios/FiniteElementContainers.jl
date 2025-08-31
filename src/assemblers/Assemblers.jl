@@ -101,7 +101,7 @@ create_field(asm::AbstractAssembler, type) = create_field(asm.dof, type)
 """
 $(TYPEDSIGNATURES)
 """
-create_unknowns(asm::AbstractAssembler, type::Type{<:AbstractField}) = create_unknowns(asm.dof, type)
+create_unknowns(asm::AbstractAssembler, type) = create_unknowns(asm.dof, type)
 
 """
 $(TYPEDSIGNATURES)

@@ -226,24 +226,19 @@ function create_field(dof::DofManager, ::Type{H1Field})
   backend = KA.get_backend(dof.H1_bc_dofs)
   NF, NN = num_dofs_per_node(dof), num_nodes(dof)
   field = KA.zeros(backend, Float64, NF, NN)
-
-  syms = ()
-  for var in dof.H1_vars
-    syms = (syms..., names(var)...)
-  end
-  return H1Field(field, syms)
+  return H1Field(field)
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function create_field(dof::DofManager, ::Type{H1Field}, syms)
-  backend = KA.get_backend(dof.H1_bc_dofs)
-  NF, NN = num_dofs_per_node(dof), num_nodes(dof)
-  field = KA.zeros(backend, Float64, NF, NN)
-  @assert NF == length(syms)
-  return H1Field(field, syms)
-end
+# """
+# $(TYPEDSIGNATURES)
+# """
+# function create_field(dof::DofManager, ::Type{H1Field}, syms)
+#   backend = KA.get_backend(dof.H1_bc_dofs)
+#   NF, NN = num_dofs_per_node(dof), num_nodes(dof)
+#   field = KA.zeros(backend, Float64, NF, NN)
+#   @assert NF == length(syms)
+#   return H1Field(field, syms)
+# end
 
 """
 $(TYPEDSIGNATURES)

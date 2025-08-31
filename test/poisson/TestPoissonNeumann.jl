@@ -36,7 +36,7 @@ function test_poisson_neumann()
 
     pp = PostProcessor(mesh, output_file, u)
     write_times(pp, 1, 0.0)
-    write_field(pp, 1, p.h1_field)
+    write_field(pp, 1, ("u",), p.h1_field)
     close(pp)
 end
 
