@@ -84,14 +84,13 @@ function Parameters(
       2
     )
 
-    syms = tuple(map(x -> Symbol("state_variable_$x"), 1:NS)...)
     state_old_temp = zeros(NS, NQ, NE)
     for e in 1:NE
       for q in 1:NQ
         state_old_temp[:, q, e] = create_initial_state(val)
       end
     end
-    state_old_temp = L2QuadratureField(state_old_temp, syms)
+    state_old_temp = L2QuadratureField(state_old_temp)
 
     push!(state_old, state_old_temp)
   end

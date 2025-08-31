@@ -3,19 +3,17 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 Implementation of fields that live on nodes.
 """
-struct H1Field{T, NF, Vals <: AbstractArray{T, 1}, SymIDMap} <: AbstractField{T, 2, NF, Vals, SymIDMap}
-  vals::Vals
+struct H1Field{T, D, NF} <: AbstractField{T, 2, D, NF}
+  data::D
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function H1Field(vals::M, syms) where M <: AbstractMatrix
-  NF = size(vals, 1)
-  @assert length(syms) == NF
-  vals = vec(vals)
-  nt = NamedTuple{syms}(1:length(syms))
-  return H1Field{eltype(vals), NF, typeof(vals), nt}(vals)
+function H1Field(data::M) where M <: AbstractMatrix
+  NF = size(data, 1)
+  data = vec(data)
+  return H1Field{eltype(data), typeof(data), NF}(data)
 end
 
 # abstract array interface
@@ -23,26 +21,20 @@ end
 function Base.getindex(field::H1Field, d::Int, n::Int)
   @assert d > 0 && d <= num_fields(field)
   @assert n > 0 && n <= num_nodes(field)
-  getindex(field.vals, (n - 1) * num_fields(field) + d)
+  getindex(field.data, (n - 1) * num_fields(field) + d)
 end
 
-function Base.setindex!(field::H1Field{T, NF, V, SymIDMap}, v, d::Int, n::Int) where {T, NF, V <: DenseArray, SymIDMap}
+function Base.setindex!(field::H1Field{T, D, NF}, v, d::Int, n::Int) where {T, D, NF}
   @assert d > 0 && d <= num_fields(field)
   @assert n > 0 && n <= num_nodes(field)
-  setindex!(field.vals, v, (n - 1) * num_fields(field) + d)
+  setindex!(field.data, v, (n - 1) * num_fields(field) + d)
 end
-
-# TODO
-# function Base.setindex!(field::H1Field, v, sym::Symbol, n::Int)
-#   # d = getproperty(_sym_id_map(field), sym)
-#   # d = _sym_id_map(field)
-# end
 
 # additional methods
 """
 $(TYPEDSIGNATURES)
 """
-function num_nodes(field::H1Field{T, NF, Vals, SymIDMap}) where {T, NF, Vals, SymIDMap} 
+function num_nodes(field::H1Field{T, D, NF}) where {T, D, NF} 
   NN = length(field) ÷ NF
   return NN
 end

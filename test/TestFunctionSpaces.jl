@@ -66,7 +66,7 @@ end
     0.1 0.4;
     -0.2 -0.1
   ]
-  coords = H1Field(coords, (:x, :y))
+  coords = H1Field(coords)
 
   # coords = NodalField{size(coords)}(coords)
   # elem_id_map = Dict{Int, Int}(zip(1:size(conns, 2), 1:size(conns, 2)))

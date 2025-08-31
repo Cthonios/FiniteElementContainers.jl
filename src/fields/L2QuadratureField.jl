@@ -3,28 +3,26 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 Implementation of fields that live on elements.
 """
-struct L2QuadratureField{T, NF, NQ, Vals <: AbstractArray{T, 1}, SymIDMap} <: AbstractField{T, 3, NF, Vals, SymIDMap}
-  vals::Vals
+struct L2QuadratureField{T, D, NF, NQ} <: AbstractField{T, 3, D, NF}
+  data::D
 end
 
 # currently has shenanigans when vals has zero fields
 # will create a field that is 0 x NQ x 0 when it should
 # be 0 x NQ x NF. Likely due to the vec(vals) call
-function L2QuadratureField(vals::A, syms) where A <: AbstractArray{<:Number, 3}
-  NF, NQ = size(vals, 1), size(vals, 2)
-  @assert length(syms) == NF
-  nt = NamedTuple{syms}(1:length(syms))
-  vals = vec(vals)
-  L2QuadratureField{eltype(vals), NF, NQ, typeof(vals), nt}(vals)
+function L2QuadratureField(data::A) where A <: AbstractArray{<:Number, 3}
+  NF, NQ = size(data, 1), size(data, 2)
+  data = vec(data)
+  return L2QuadratureField{eltype(data), typeof(data), NF, NQ}(data)
 end
 
 # abstract array interface
 
-function Base.axes(field::L2QuadratureField{T, NF, NQ, V, SymIDMap}) where {T, NF, NQ, V, SymIDMap}
+function Base.axes(field::L2QuadratureField{T, D, NF, NQ}) where {T, D, NF, NQ}
   if NF == 0
-    NE = length(field.vals) ÷ NQ
+    NE = length(field.data) ÷ NQ
   else
-    NE = length(field.vals) ÷ NF ÷ NQ
+    NE = length(field.data) ÷ NF ÷ NQ
   end
   return (Base.OneTo(NF), Base.OneTo(NQ), Base.OneTo(NE))
 end
@@ -39,15 +37,15 @@ end
 #   setindex!(field.vals, v, (e - 1) * NQ + (q - 1) * NF + n)
 # end
 
-function Base.size(field::L2QuadratureField{T, NF, NQ, A, S}) where {T, NF, NQ, A, S} 
+function Base.size(field::L2QuadratureField{T, D, NF, NQ}) where {T, D, NF, NQ} 
   if NF == 0
-    (NF, NQ, length(field.vals) ÷ NQ)
+    (NF, NQ, length(field.data) ÷ NQ)
   else
-    (NF, NQ, length(field.vals) ÷ NF ÷ NQ)
+    (NF, NQ, length(field.data) ÷ NF ÷ NQ)
   end
 end
 
-function num_elements(field::L2QuadratureField{T, NF, NQ, A, S}) where {T, NF, NQ, A, S}
+function num_elements(field::L2QuadratureField{T, D, NF, NQ}) where {T, D, NF, NQ}
   NE = length(field) ÷ NF ÷ NQ
   return NE
 end

@@ -159,8 +159,9 @@ function create_neumann_bcs(dof::DofManager, neumann_bcs::Vector{NeumannBC})
         end
       end
 
-      conns = Connectivity{NN, length(new_bk.elements)}(conns)
-      surface_conns = Connectivity{NNPS, length(new_bk.elements)}(surface_conns)
+      conns = Connectivity(conns)
+      # surface_conns = Connectivity{NNPS, length(new_bk.elements)}(surface_conns)
+      surface_conns = Connectivity{eltype(surface_conns), typeof(surface_conns), NNPS}(surface_conns)
 
       vals = zeros(SVector{ND, Float64}, NQ, length(bk.sides))
       new_bc = NeumannBCContainer{

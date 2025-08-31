@@ -53,7 +53,7 @@ function poisson_cuda()
   U = p.h1_field
 
   write_times(pp, 1, 0.0)
-  write_field(pp, 1, U)
+  write_field(pp, 1, ("u",), U)
   close(pp)
 
   if !Sys.iswindows()

@@ -135,7 +135,7 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{L2QuadratureField}, interp_typ
     temp_syms = (:coords_x, :coords_y, :coords_z)
   end
 
-  coords_vals = L2QuadratureField.(coords_vals, (temp_syms,))
+  coords_vals = L2QuadratureField.(coords_vals)
   coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
 
   return FunctionSpace(

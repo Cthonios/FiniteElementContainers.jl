@@ -45,7 +45,7 @@ displace(_, t) = 1.e-3 * t
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
-  write_field(pp, 1, p.h1_field)
+  write_field(pp, 1, ("displ_x", "displ_y"), p.h1_field)
   close(pp)
 # end
 
