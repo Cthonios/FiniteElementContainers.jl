@@ -12,22 +12,19 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct FunctionSpace{
-  # Coords <: AbstractField, 
   Coords,
   ElemConns, ElemIdMaps, 
-  # FSpaceType,
   RefFEs,
-  SSetElems, SSetNodes, SSetSides, SSetSideNodes,
+  SSetIVs, SSetIMs
 } <: AbstractFunctionSpace
   coords::Coords
   elem_conns::ElemConns
   elem_id_maps::ElemIdMaps
-  # fspace_type::FSpaceType
   ref_fes::RefFEs
-  sideset_elems::SSetElems
-  sideset_nodes::SSetNodes
-  sideset_sides::SSetSides
-  sideset_side_nodes::SSetSideNodes
+  sideset_elems::SSetIVs
+  sideset_nodes::SSetIVs
+  sideset_sides::SSetIVs
+  sideset_side_nodes::SSetIMs
 end
 
 function _setup_ref_fes(mesh::AbstractMesh, interp_type, q_degree)
@@ -73,7 +70,6 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{H1Field}, interp_type, q_degre
   return FunctionSpace(
     coords, 
     mesh.element_conns, mesh.element_id_maps, 
-    # H1(), 
     ref_fes,
     mesh.sideset_elems, 
     mesh.sideset_nodes, 

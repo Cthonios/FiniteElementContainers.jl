@@ -1,4 +1,4 @@
-abstract type AbstractPostProcessor <: FEMContainer end
+abstract type AbstractPostProcessor end
 
 # TODO add a csv file for global stuff
 struct PostProcessor{O}
