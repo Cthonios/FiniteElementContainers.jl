@@ -54,14 +54,14 @@ function _assemble_block_vector_neumann_bc!(
   ref_fe = bc.ref_fe
 
   ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe.surface_element)
+  NNPE = ReferenceFiniteElements.num_vertices(surface_element(ref_fe.element))
   NxNDof = NNPE * ND
 
   for e in axes(conns, 2)
     x_el = _element_level_fields(X, ref_fe, conns, e)
     R_el = zeros(SVector{NxNDof, eltype(field)})
     side = bc.bookkeeping.sides[e]
-    for q in 1:num_quadrature_points(ref_fe.surface_element)
+    for q in 1:num_quadrature_points(surface_element(ref_fe.element))
       interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)
       Nvec = interps.N_reduced
       JxW = interps.JxW
@@ -103,14 +103,14 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
   ref_fe = bc.ref_fe
 
   ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe.surface_element)
+  NNPE = ReferenceFiniteElements.num_vertices(surface_element(ref_fe.element))
   NxNDof = NNPE * ND
 
   x_el = _element_level_fields(X, ref_fe, conns, E)
   R_el = zeros(SVector{NxNDof, eltype(field)})
   side = bc.bookkeeping.sides[E]
 
-  for q in 1:num_quadrature_points(ref_fe.surface_element)
+  for q in 1:num_quadrature_points(surface_element(ref_fe.element))
     interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)
     Nvec = interps.N_reduced
     JxW = interps.JxW

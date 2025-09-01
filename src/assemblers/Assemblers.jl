@@ -90,7 +90,7 @@ end
 $(TYPEDSIGNATURES)
 """
 @inline function _cell_interpolants(ref_fe::R, q::Int) where R <: ReferenceFE
-  return @inbounds ref_fe.cell_interps.vals[q]
+  return @inbounds ref_fe.cell_interps[q]
 end
 
 """

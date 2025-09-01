@@ -46,13 +46,13 @@ end
 function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
   ND = size(X, 1)
   NN = num_vertices(bc.ref_fe)
-  NNPS = num_vertices(bc.ref_fe.surface_element)
+  NNPS = num_vertices(surface_element(bc.ref_fe.element))
   for (n, e) in enumerate(bc.bookkeeping.elements)
     conn = @views bc.element_conns[:, n]
     X_el = SVector{ND * NN, eltype(X)}(@views X[:, conn])
     X_el = SMatrix{length(X_el) ÷ ND, ND, eltype(X_el), length(X_el)}(X_el...)
 
-    for q in 1:num_quadrature_points(bc.ref_fe.surface_element)
+    for q in 1:num_quadrature_points(surface_element(bc.ref_fe.element))
       side = bc.bookkeeping.sides[n]
       interps = MappedSurfaceInterpolants(bc.ref_fe, X_el, q, side)
       X_q = interps.X_q
@@ -64,7 +64,7 @@ end
 KA.@kernel function _update_bc_values_kernel!(bc::NeumannBCContainer, func, X, t)
   ND = size(X, 1)
   NN = num_vertices(bc.ref_fe)
-  NNPS = num_vertices(bc.ref_fe.surface_element)
+  NNPS = num_vertices(surface_element(bc.ref_fe.element))
 
   Q, E = KA.@index(Global, NTuple)
   # E = KA.@index(Global)
@@ -124,10 +124,10 @@ function create_neumann_bcs(dof::DofManager, neumann_bcs::Vector{NeumannBC})
       # push!(new_bks, BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides))
       new_bk = BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides, new_side_nodes)
       ref_fe = values(fspace.ref_fes)[block]
-      NQ = num_quadrature_points(ref_fe.surface_element)
+      NQ = num_quadrature_points(surface_element(ref_fe.element))
       ND = length(getfield(dof.H1_vars, var))
       NN = num_vertices(ref_fe)
-      NNPS = num_vertices(ref_fe.surface_element)
+      NNPS = num_vertices(surface_element(ref_fe.element))
 
       # conns = values(fspace.elem_conns)[block][:, new_elements]
 
