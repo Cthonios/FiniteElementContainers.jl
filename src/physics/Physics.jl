@@ -43,7 +43,7 @@ end
 
 @inline function map_interpolants(
   interps::I, x_el::SVector{NxD, T}
-) where {I <: ReferenceFiniteElements.Interpolants, NxD, T <: Number}
+) where {I <: ReferenceFiniteElements.AbstractInterpolants, NxD, T <: Number}
   x_el = reshape_element_level_coordinates(interps, x_el)
   interps = MappedInterpolants(interps, x_el)
   return interps
@@ -54,7 +54,7 @@ $(TYPEDSIGNATURES)
 """
 @inline function reshape_element_level_coordinates(
   interps::I, x_el::SVector{NxD, T}
-) where {I <: ReferenceFiniteElements.Interpolants, NxD, T <: Number}
+) where {I <: ReferenceFiniteElements.AbstractInterpolants, NxD, T <: Number}
   # ND = ReferenceFiniteElements.num_dimensions(interps)
   ND = size(interps.∇N_ξ, 2)
   N = NxD ÷ ND
