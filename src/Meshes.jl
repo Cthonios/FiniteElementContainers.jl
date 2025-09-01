@@ -15,7 +15,7 @@ elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.AbstractElementType}
 """
 $(TYPEDEF)
 """
-abstract type AbstractMesh <: FEMContainer end
+abstract type AbstractMesh end
 """
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format

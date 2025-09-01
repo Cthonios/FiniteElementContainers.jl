@@ -143,8 +143,6 @@ using StaticArrays
 using Tensors
 using TimerOutputs
 
-abstract type FEMContainer end
-
 function cpu end
 function cuda end
 function rocm end
