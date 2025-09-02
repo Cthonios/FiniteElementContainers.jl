@@ -21,7 +21,7 @@ function mechanics_test()
 
   u = VectorFunction(V, :displ)
   dof = DofManager(u)
-  asm = SparseMatrixAssembler(dof, H1Field)
+  asm = SparseMatrixAssembler(u)
 
   dbcs = DirichletBC[
     DirichletBC(:displ_x, :sset_3, fixed),

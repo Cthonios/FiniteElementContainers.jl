@@ -26,7 +26,7 @@ function poisson_amdgpu()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
   dof = DofManager(u)
-  asm = SparseMatrixAssembler(dof, H1Field)
+  asm = SparseMatrixAssembler(u)
 
   dbcs = DirichletBC[
     DirichletBC(:u, :sset_1, bc_func),

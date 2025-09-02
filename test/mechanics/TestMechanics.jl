@@ -18,7 +18,7 @@ function mechanics_test()
   props = create_properties(physics)
 
   u = VectorFunction(V, :displ)
-  asm = SparseMatrixAssembler(H1Field, u)
+  asm = SparseMatrixAssembler(u)
 
   dbcs = DirichletBC[
     DirichletBC(:displ_x, :sset_3, fixed),

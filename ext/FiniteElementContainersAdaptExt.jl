@@ -86,39 +86,11 @@ function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContaine
 end
 
 # DofManagers
-function Adapt.adapt_structure(to, dof::DofManager{
-  T, IDs, 
-  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
-  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
-}) where {
-  T, IDs, 
-  NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
-  H1Vars, HcurlVars, HdivVars, L2EVars, L2QVars
-}
-  H1_bc_dofs = adapt(to, dof.H1_bc_dofs)
-  H1_unknown_dofs = adapt(to, dof.H1_unknown_dofs)
-  Hcurl_bc_dofs = adapt(to, dof.Hcurl_bc_dofs)
-  Hcurl_unknown_dofs = adapt(to, dof.Hcurl_unknown_dofs)
-  Hdiv_bc_dofs = adapt(to, dof.Hdiv_bc_dofs)
-  Hdiv_unknown_dofs = adapt(to, dof.Hdiv_unknown_dofs)
-  L2_element_dofs = adapt(to, dof.L2_element_dofs)
-  L2_quadrature_dofs = adapt(to, dof.L2_quadrature_dofs)
-  H1_vars = adapt(to, dof.H1_vars)
-  Hcurl_vars = adapt(to, dof.Hcurl_vars)
-  Hdiv_vars = adapt(to, dof.Hdiv_vars)
-  L2_element_vars = adapt(to, dof.L2_element_vars)
-  L2_quadrature_vars =adapt(to, dof.L2_quadrature_vars)
-  return DofManager{
-    T, typeof(H1_bc_dofs), 
-    NH1Dofs, NHcurlDofs, NHdivDofs, NL2EDofs, NL2QDofs,
-    typeof(H1_vars), typeof(Hcurl_vars), typeof(Hdiv_vars), typeof(L2_element_vars), typeof(L2_quadrature_vars)  
-  }(
-    H1_bc_dofs, H1_unknown_dofs,
-    Hcurl_bc_dofs, Hcurl_unknown_dofs,
-    Hdiv_bc_dofs, Hdiv_unknown_dofs,
-    L2_element_dofs, L2_quadrature_dofs,
-    H1_vars, Hcurl_vars, Hdiv_vars, L2_element_vars, L2_quadrature_vars
-  )
+function Adapt.adapt_structure(to, dof::DofManager)
+  dirichlet_dofs = adapt(to, dof.dirichlet_dofs)
+  unknowns = adapt(to, dof.unknown_dofs)
+  var = adapt(to, dof.var)
+  return DofManager(dirichlet_dofs, unknowns, var)
 end
 
 # Fields

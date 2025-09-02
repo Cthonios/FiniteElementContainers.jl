@@ -2,11 +2,11 @@
 $(TYPEDSIGNATURES)
 """
 function assemble_scalar!(
-  assembler, func::F, Uu, p, type::Type{H1Field}
+  assembler, func::F, Uu, p
 ) where F <: Function
   assemble_quadrature_quantity!(
     assembler.scalar_quadarature_storage, assembler.dof,
-    func, Uu, p, type
+    func, Uu, p
   )
 end
 
@@ -15,9 +15,9 @@ $(TYPEDSIGNATURES)
 """
 function assemble_quadrature_quantity!(
   storage, dof,
-  func::F, Uu, p, ::Type{H1Field}
+  func::F, Uu, p
 ) where F <: Function
-  fspace = function_space(dof, H1Field)
+  fspace = function_space(dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
   update_bcs!(p)

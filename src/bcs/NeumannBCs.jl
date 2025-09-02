@@ -102,7 +102,7 @@ function create_neumann_bcs(dof::DofManager, neumann_bcs::Vector{NeumannBC})
   funcs = map(x -> x.func, neumann_bcs)
   bks = BCBookKeeping.((dof,), vars, sets)
   # bks = _split_bookkeeping_by_block(bks)
-  fspace = function_space(dof, H1Field)
+  fspace = function_space(dof)
   new_bcs = NeumannBCContainer[]
   new_funcs = Function[]
 
@@ -125,7 +125,8 @@ function create_neumann_bcs(dof::DofManager, neumann_bcs::Vector{NeumannBC})
       new_bk = BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides, new_side_nodes)
       ref_fe = values(fspace.ref_fes)[block]
       NQ = num_quadrature_points(surface_element(ref_fe.element))
-      ND = length(getfield(dof.H1_vars, var))
+      # ND = length(getfield(dof.H1_vars, var))
+      ND = length(dof.var)
       NN = num_vertices(ref_fe)
       NNPS = num_vertices(surface_element(ref_fe.element))
 

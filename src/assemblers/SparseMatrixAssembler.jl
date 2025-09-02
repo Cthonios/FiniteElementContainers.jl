@@ -32,27 +32,29 @@ Construct a ```SparseMatrixAssembler``` for a specific field type,
 e.g. ```H1Field```.
 Can be used to create block arrays for mixed FEM problems.
 """
-function SparseMatrixAssembler(dof::DofManager, type::Type{<:H1Field})
-  pattern = SparsityPattern(dof, type)
+function SparseMatrixAssembler(dof::DofManager)
+  pattern = SparsityPattern(dof)
   # constraint_storage = zeros(length(dof))
-  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  # ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  ND, NN = size(dof)
   n_total_dofs = ND * NN
   constraint_storage = zeros(n_total_dofs)
   # constraint_storage = zeros(_dof_manager_vars(dof, type))
-  constraint_storage[dof.H1_bc_dofs] .= 1.
+  constraint_storage[dof.dirichlet_dofs] .= 1.
   # fill!(constraint_storage, )
   # residual_storage = zeros(length(dof))
   damping_storage = zeros(num_entries(pattern))
   hessian_storage = zeros(num_entries(pattern))
   mass_storage = zeros(num_entries(pattern))
-  residual_storage = create_field(dof, H1Field)
-  residual_unknowns = create_unknowns(dof, H1Field)
+  residual_storage = create_field(dof)
+  residual_unknowns = create_unknowns(dof)
   stiffness_storage = zeros(num_entries(pattern))
-  stiffness_action_storage = create_field(dof, H1Field)
-  stiffness_action_unknowns = create_unknowns(dof, H1Field)
+  stiffness_action_storage = create_field(dof)
+  stiffness_action_unknowns = create_unknowns(dof)
 
   # setup quadrature scalar storage
-  fspace = values(dof.H1_vars)[1].fspace
+  # fspace = values(dof.H1_vars)[1].fspace
+  fspace = function_space(dof)
   scalar_quadarature_storage = Matrix{Float64}[]
   for (key, val) in pairs(fspace.ref_fes)
     NQ = ReferenceFiniteElements.num_quadrature_points(val)
@@ -77,9 +79,14 @@ function SparseMatrixAssembler(dof::DofManager, type::Type{<:H1Field})
   )
 end
 
-function SparseMatrixAssembler(::Type{<:H1Field}, vars...)
-  dof = DofManager(vars...)
-  return SparseMatrixAssembler(dof, H1Field)
+# function SparseMatrixAssembler(::Type{<:H1Field}, vars...)
+#   dof = DofManager(vars...)
+#   return SparseMatrixAssembler(dof, H1Field)
+# end
+
+function SparseMatrixAssembler(var::AbstractFunction)
+  dof = DofManager(var)
+  return SparseMatrixAssembler(dof)
 end
 
 function Base.show(io::IO, asm::SparseMatrixAssembler)
@@ -164,11 +171,12 @@ end
 # when we want to change BCs which is slow
 
 function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs; use_condensed=false)
-  vars = assembler.dof.H1_vars
+  # vars = assembler.dof.H1_vars
+  var = assembler.dof.var
 
-  if length(vars) != 1
-    @assert false "multiple fspace not supported yet"
-  end
+  # if length(vars) != 1
+  #   @assert false "multiple fspace not supported yet"
+  # end
 
   # dirichlet_dofs = dirichlet_bcs.bookkeeping.dofs
   if length(dirichlet_bcs) > 0
@@ -195,8 +203,8 @@ end
 # when we want to change BCs which is slow
 
 function _update_dofs_condensed!(assembler::SparseMatrixAssembler)
-  assembler.constraint_storage[assembler.dof.H1_unknown_dofs] .= 1.
-  assembler.constraint_storage[assembler.dof.H1_bc_dofs] .= 0.
+  assembler.constraint_storage[assembler.dof.unknown_dofs] .= 1.
+  assembler.constraint_storage[assembler.dof.dirichlet_bcs] .= 0.
   return nothing
 end
 
@@ -206,25 +214,31 @@ end
 function _update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
 
   # resize the resiual unkowns
-  n_total_H1_dofs = num_nodes(assembler.dof) * num_dofs_per_node(assembler.dof)
-  resize!(assembler.residual_unknowns, length(assembler.dof.H1_unknown_dofs))
-  resize!(assembler.stiffness_action_unknowns, length(assembler.dof.H1_unknown_dofs))
+  # n_total_H1_dofs = num_nodes(assembler.dof) * num_dofs_per_node(assembler.dof)
+  # n_unknown_dofs = length(assembler.dof.unknown_dofs)
+  # resize!(assembler.residual_unknowns, length(assembler.dof.H1_unknown_dofs))
+  # resize!(assembler.stiffness_action_unknowns, length(assembler.dof.H1_unknown_dofs))
+  resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
+  resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
 
   # n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
-  n_total_dofs = n_total_H1_dofs - length(dirichlet_dofs)
+  n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
+  # n_total_dofs = n_unknown_dofs - length(dirichlet_dofs)
 
   # TODO change to a good sizehint!
   resize!(assembler.pattern.Is, 0)
   resize!(assembler.pattern.Js, 0)
   resize!(assembler.pattern.unknown_dofs, 0)
 
-  ND, NN = num_dofs_per_node(assembler.dof), num_nodes(assembler.dof)
+  # ND, NN = num_dofs_per_node(assembler.dof), num_nodes(assembler.dof)
+  ND, NN = size(assembler.dof)
   # ids = reshape(1:length(assembler.dof), ND, NN)
-  ids = reshape(1:n_total_H1_dofs, ND, NN)
+  ids = reshape(1:length(assembler.dof), ND, NN)
 
   # TODO
-  vars = assembler.dof.H1_vars
-  fspace = vars[1].fspace
+  # vars = assembler.dof.H1_vars
+  # fspace = vars[1].fspace
+  fspace = function_space(assembler.dof)
 
   n = 1
   for conns in values(fspace.elem_conns)

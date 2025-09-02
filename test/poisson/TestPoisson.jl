@@ -24,7 +24,7 @@ function test_poisson_direct()
   physics = Poisson()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(H1Field, u)
+  asm = SparseMatrixAssembler(u)
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -62,7 +62,7 @@ function test_poisson_direct_neumman()
   physics = Poisson()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(H1Field, u)
+  asm = SparseMatrixAssembler(u)
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -107,7 +107,7 @@ function test_poisson_iterative()
   physics = Poisson()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(H1Field, u)
+  asm = SparseMatrixAssembler(u)
 
   # setup and update bcs
   dbcs = DirichletBC[

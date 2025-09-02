@@ -22,7 +22,7 @@ function test_poisson_neumann()
     physics = Poisson()
     props = create_properties(physics)
     u = ScalarFunction(V, :u)
-    asm = SparseMatrixAssembler(H1Field, u)
+    asm = SparseMatrixAssembler(u)
 
     dbcs = DirichletBC[
         DirichletBC(:u, :sset_1, bc_func_1)

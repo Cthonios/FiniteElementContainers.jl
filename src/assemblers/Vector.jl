@@ -2,11 +2,11 @@
 $(TYPEDSIGNATURES)
 """
 function assemble_vector!(
-  assembler, func::F, Uu, p, ::Type{H1Field}
+  assembler, func::F, Uu, p
 ) where F <: Function
   storage = assembler.residual_storage
   fill!(storage, zero(eltype(storage)))
-  fspace = function_space(assembler, H1Field)
+  fspace = function_space(assembler.dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
   update_bcs!(p)
@@ -86,7 +86,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function _residual(asm::AbstractAssembler, ::KA.CPU)\
-  @views asm.residual_unknowns .= asm.residual_storage[asm.dof.H1_unknown_dofs]
+  @views asm.residual_unknowns .= asm.residual_storage[asm.dof.unknown_dofs]
   return asm.residual_unknowns
 end
 
@@ -202,9 +202,9 @@ function _residual(asm::AbstractAssembler, backend::KA.Backend)
   kernel! = _extract_residual_unknowns!(backend)
   kernel!(
     asm.residual_unknowns, 
-    asm.dof.H1_unknown_dofs, 
+    asm.dof.unknown_dofs, 
     asm.residual_storage, 
-    ndrange=length(asm.dof.H1_unknown_dofs)
+    ndrange=length(asm.dof.unknown_dofs)
   )
   KA.synchronize(KA.get_backend(asm))
   return asm.residual_unknowns

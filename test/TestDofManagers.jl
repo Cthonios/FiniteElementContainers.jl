@@ -1,21 +1,23 @@
 function test_dof_constructors(fspace)
   # TODO this could be made more complicated
   u = ScalarFunction(fspace, :u)
-  v = ScalarFunction(fspace, :v)
-  w = VectorFunction(fspace, :w)
+  # v = ScalarFunction(fspace, :v)
+  # w = VectorFunction(fspace, :w)
   dof = DofManager(u)
-  dof = DofManager(u, v)
-  dof = DofManager(u, v, w)
+  # dof = DofManager(u, v)
+  # dof = DofManager(u, v, w)
   @show dof
 end
 
 function test_dof_methods(fspace)
   u = VectorFunction(fspace, :u)
   dof1 = DofManager(u)
-  @test eltype(dof1) == Int64
-  @test FiniteElementContainers.num_dofs_per_node(dof1) == 2
-  @test FiniteElementContainers.num_nodes(dof1) == 16641
-  U = create_field(dof1, H1Field)
+  # @test eltype(dof1) == Int64
+  # @test FiniteElementContainers.num_dofs_per_node(dof1) == 2
+  # @test FiniteElementContainers.num_nodes(dof1) == 16641
+  @test size(dof1) == (2, 16641)
+  @test length(dof1) == 2 * 16641
+  U = create_field(dof1)
   @test size(U) == (2, 16641)
 end
 

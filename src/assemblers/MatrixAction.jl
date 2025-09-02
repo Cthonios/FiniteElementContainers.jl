@@ -1,10 +1,10 @@
 function assemble_matrix_action!(
-  assembler, func, Uu, Vu, p, ::Type{H1Field}
+  assembler, func, Uu, Vu, p
 )
   # storage = getfield(assembler, storage_sym)
   storage = assembler.stiffness_action_storage
   fill!(storage, zero(eltype(storage)))
-  fspace = function_space(assembler, H1Field)
+  fspace = function_space(assembler.dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
   update_bcs!(p)

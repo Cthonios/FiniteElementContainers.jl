@@ -20,9 +20,9 @@ function DirectLinearSolver(assembler::SparseMatrixAssembler)
 end 
 
 function solve!(solver::DirectLinearSolver, Uu, p)
-  assemble_vector!(solver.assembler, residual, Uu, p, H1Field)
-  assemble_vector_neumann_bc!(solver.assembler, Uu, p, H1Field)
-  assemble_stiffness!(solver.assembler, stiffness, Uu, p, H1Field)
+  assemble_vector!(solver.assembler, residual, Uu, p)
+  assemble_vector_neumann_bc!(solver.assembler, Uu, p)
+  assemble_stiffness!(solver.assembler, stiffness, Uu, p)
   R = residual(solver.assembler)
   K = stiffness(solver.assembler)
   # TODO specialize to backend solvers if they exists

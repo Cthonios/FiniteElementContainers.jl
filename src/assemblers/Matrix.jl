@@ -1,18 +1,18 @@
 function assemble_mass!(
-  assembler, func::F, Uu, p, type::Type{H1Field}
+  assembler, func::F, Uu, p
 ) where F <: Function
   assemble_matrix!(
     assembler.mass_storage, assembler.pattern, assembler.dof,
-    func, Uu, p, type
+    func, Uu, p
   )
 end
 
 function assemble_stiffness!(
-  assembler, func::F, Uu, p, type::Type{H1Field}
+  assembler, func::F, Uu, p
 ) where F <: Function
   assemble_matrix!(
     assembler.stiffness_storage, assembler.pattern, assembler.dof,
-    func, Uu, p, type
+    func, Uu, p
   )
 end
 
@@ -24,12 +24,12 @@ the stiffness_storage field of assembler.
 function assemble_matrix!(
   # assembler, func::F, Uu, p, ::Type{H1Field};
   # storage_sym=Val{:stiffness_storage}()
-  storage, pattern, dof, func::F, Uu, p, ::Type{H1Field}
+  storage, pattern, dof, func::F, Uu, p
 ) where F <: Function
   # storage = getfield(assembler, storage_sym)
   # storage = _get_storage(assembler, storage_sym)
   fill!(storage, zero(eltype(storage)))
-  fspace = function_space(dof, H1Field)
+  fspace = function_space(dof)
   t = current_time(p.times)
   dt = time_step(p.times)
   update_bcs!(p)
@@ -98,7 +98,6 @@ function _assemble_block_matrix!(
         state_new[s, q, e] = state_new_q[s]
       end
     end
-    
     @views _assemble_element!(pattern, field, K_el, e, block_id)
   end
   return nothing
