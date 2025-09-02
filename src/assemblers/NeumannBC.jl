@@ -18,7 +18,7 @@
 $(TYPEDSIGNATURES)
 """
 function assemble_vector_neumann_bc!(
-  assembler, Uu, p, ::Type{H1Field}
+  assembler, Uu, p
 )
   storage = assembler.residual_storage
   # do not zero!

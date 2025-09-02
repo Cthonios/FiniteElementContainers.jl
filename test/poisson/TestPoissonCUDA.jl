@@ -26,7 +26,7 @@ function poisson_cuda()
   physics = Poisson()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(H1Field, u)
+  asm = SparseMatrixAssembler(u)
   pp = PostProcessor(mesh, output_file, u)
 
   dbcs = DirichletBC[

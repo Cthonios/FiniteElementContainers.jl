@@ -27,18 +27,22 @@ struct SparsityPattern{
 end
 
 # TODO won't work for H(div) or H(curl) yet
-function SparsityPattern(dof, type::Type{<:H1Field})
+function SparsityPattern(dof::DofManager)
 
   # get number of dofs for creating cache arrays
 
   # TODO this line needs to be specialized for aribitrary fields
   # it's hardcoded for H1 firght now.
-  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
-
+  # ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  ND, NN = size(dof)
   n_total_dofs = NN * ND
-  vars = _dof_manager_vars(dof, type)
-  n_blocks = length(vars[1].fspace.ref_fes)
+
+  # vars = _dof_manager_vars(dof, type)
+  # n_blocks = length(vars[1].fspace.ref_fes)
   # n_blocks = length(dof.H1_vars[1].fspace.ref_fes)
+
+  fspace = function_space(dof)
+  n_blocks = length(fspace.ref_fes)
 
   # first get total number of entries in a stupid manner
   n_entries = 0
@@ -46,7 +50,7 @@ function SparsityPattern(dof, type::Type{<:H1Field})
   block_offsets = Vector{Int64}(undef, n_blocks)
 
   # for (n, conn) in enumerate(values(dof.H1_vars[1].fspace.elem_conns))
-  for (n, conn) in enumerate(values(vars[1].fspace.elem_conns))
+  for (n, conn) in enumerate(values(fspace.elem_conns))
     ids = reshape(1:n_total_dofs, ND, NN)
     # TODO do we need this operation?
     conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
@@ -56,7 +60,7 @@ function SparsityPattern(dof, type::Type{<:H1Field})
   end
 
   # convert to NamedTuples so it's easy to index
-  block_syms = keys(vars[1].fspace.ref_fes)
+  block_syms = keys(fspace.ref_fes)
   block_sizes = NamedTuple{block_syms}(tuple(block_sizes)...)
   block_offsets = NamedTuple{block_syms}(tuple(block_offsets)...)
 
@@ -67,7 +71,7 @@ function SparsityPattern(dof, type::Type{<:H1Field})
 
   # now loop over function spaces and elements
   n = 1
-  for conn in values(vars[1].fspace.elem_conns)
+  for conn in values(fspace.elem_conns)
     ids = reshape(1:n_total_dofs, ND, NN)
     # TODO do we need this?
     block_conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))

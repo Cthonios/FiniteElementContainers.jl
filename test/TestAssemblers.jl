@@ -13,7 +13,7 @@ include("poisson/TestPoissonCommon.jl")
   physics = Poisson()
   props = SVector{0, Float64}()
   u = ScalarFunction(V, :u)
-  @show asm = SparseMatrixAssembler(H1Field, u)
+  @show asm = SparseMatrixAssembler(u)
   dbcs = DirichletBC[
     DirichletBC(:u, :sset_1, bc_func),
     DirichletBC(:u, :sset_2, bc_func),
@@ -21,14 +21,14 @@ include("poisson/TestPoissonCommon.jl")
     DirichletBC(:u, :sset_4, bc_func),
   ]
   p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
-  Uu = create_unknowns(asm, H1Field)
-  Vu = create_unknowns(asm, H1Field)
+  Uu = create_unknowns(asm)
+  Vu = create_unknowns(asm)
 
-  assemble_scalar!(asm, energy, Uu, p, H1Field)
-  assemble_mass!(asm, mass, Uu, p, H1Field)
-  assemble_stiffness!(asm, stiffness, Uu, p, H1Field)
-  assemble_matrix_action!(asm, stiffness, Uu, Vu, p, H1Field)
-  assemble_vector!(asm, residual, Uu, p, H1Field)
+  assemble_scalar!(asm, energy, Uu, p)
+  assemble_mass!(asm, mass, Uu, p)
+  assemble_stiffness!(asm, stiffness, Uu, p)
+  assemble_matrix_action!(asm, stiffness, Uu, Vu, p)
+  assemble_vector!(asm, residual, Uu, p)
 
   K = stiffness(asm)
   M = mass(asm)

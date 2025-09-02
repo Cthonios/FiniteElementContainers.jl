@@ -93,6 +93,9 @@ $(TYPEDSIGNATURES)
   return @inbounds ref_fe.cell_interps[q]
 end
 
+create_field(asm::AbstractAssembler) = create_field(asm.dof)
+create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
+
 """
 $(TYPEDSIGNATURES)
 """

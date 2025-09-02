@@ -20,7 +20,8 @@ function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
   # @assert all(x -> x != zero(eltype(asm.pattern.cscnzval)), asm.pattern.cscnzval) "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
   #
 
-  n_dofs = FiniteElementContainers.num_unknowns(asm.dof)
+  # n_dofs = FiniteElementContainers.num_unknowns(asm.dof)
+  n_dofs = length(asm.dof.unknown_dofs)
   return AMDGPU.rocSPARSE.ROCSparseMatrixCSC(
     asm.pattern.csccolptr,
     asm.pattern.cscrowval,
@@ -31,7 +32,6 @@ end
 
 function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, backend::ROCBackend)
   stiffness = AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm)
-  synchronize(backend)
   return stiffness
 end
 

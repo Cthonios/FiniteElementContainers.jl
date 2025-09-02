@@ -34,27 +34,36 @@ function BCBookKeeping(
   dof::DofManager, var_name::Symbol, sset_name::Symbol
 )
   # check if var exists
-  var_index = 0
+  # var_index = 0
   dof_index = 0
   found = false
-  for (vi, var) in enumerate(dof.H1_vars)
-    for name in names(var)
-      dof_index = dof_index + 1
-      if var_name == name
-        var_index = vi
-        found = true
-        break
-      end
+  # for (vi, var) in enumerate(dof.H1_vars)
+  #   for name in names(var)
+  #     dof_index = dof_index + 1
+  #     if var_name == name
+  #       var_index = vi
+  #       found = true
+  #       break
+  #     end
+  #   end
+  # end
+  for name in names(dof.var)
+    dof_index = dof_index + 1
+    if var_name == name
+      # var_index = vi
+      found = true
+      break
     end
   end
 
   # some error checking
   # @assert found == true "Failed to find variable $var_name"
-  @assert dof_index <= length(mapreduce(x -> names(x), +, dof.H1_vars)) "Found invalid dof index"
+  # @assert dof_index <= length(mapreduce(x -> names(x), +, dof.H1_vars)) "Found invalid dof index"
+  @assert dof_index <= length(names(dof.var)) "Found invalid dof index"
 
   # TODO
   # fspace = dof.H1_vars[var_index].fspace
-  fspace = function_space(dof, H1Field)
+  fspace = function_space(dof)
 
   # get sset specific fields
   elements = getproperty(fspace.sideset_elems, sset_name)
@@ -79,7 +88,8 @@ function BCBookKeeping(
 
   # setting up dofs for use in dirichlet bcs
   # TODO only works for H1
-  ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  # ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  ND, NN = size(dof)
   n_total_dofs = ND * NN
   all_dofs = reshape(1:n_total_dofs, ND, NN)
   # temp_dofs = all_dofs[dof_index, temp_nodes]

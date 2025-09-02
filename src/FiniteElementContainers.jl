@@ -11,7 +11,6 @@ export assemble!
 export assemble_mass!
 export assemble_matrix!
 export assemble_matrix_action!
-# export assemble_matrix_and_vector!
 export assemble_scalar!
 export assemble_stiffness!
 export assemble_vector!
@@ -82,7 +81,6 @@ export nodesets
 export nodeset_ids
 export nodeset_names
 export num_dimensions
-export num_dofs_per_node
 export num_fields
 export num_nodes
 export num_nodes_per_element
@@ -153,6 +151,7 @@ include("Meshes.jl")
 include("FunctionSpaces.jl")
 include("Functions.jl")
 include("DofManagers.jl")
+# include("DofManagersNew.jl")
 include("bcs/BoundaryConditions.jl")
 include("formulations/Formulations.jl")
 include("physics/Physics.jl")

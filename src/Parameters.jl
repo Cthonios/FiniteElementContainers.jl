@@ -46,17 +46,19 @@ function Parameters(
   neumann_bcs, 
   times
 )
-  h1_coords = assembler.dof.H1_vars[1].fspace.coords
-  h1_field = create_field(assembler, H1Field)
-  h1_field_old = create_field(assembler, H1Field)
-  h1_hvp = create_field(assembler, H1Field)
+  # h1_coords = assembler.dof.H1_vars[1].fspace.coords
+  h1_coords = function_space(assembler.dof).coords
+  h1_field = create_field(assembler)
+  h1_field_old = create_field(assembler)
+  h1_hvp = create_field(assembler)
 
   # TODO
   # properties = nothing
 
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
-    syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
+    # syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
+    syms = keys(function_space(assembler.dof).elem_conns)
     physics = map(x -> physics, syms)
     physics = NamedTuple{tuple(syms...)}(tuple(physics...))
   else
@@ -65,7 +67,8 @@ function Parameters(
   end
 
   if isa(properties, AbstractArray)
-    syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
+    # syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
+    syms = keys(function_space(assembler.dof).elem_conns)
     properties = map(x -> properties, syms)
     properties = NamedTuple{tuple(syms...)}(tuple(properties...))
   else
@@ -83,10 +86,12 @@ function Parameters(
     # create state variables for this block physics
     NS = num_states(val)
     NQ = ReferenceFiniteElements.num_quadrature_points(
-      getfield(values(assembler.dof.H1_vars)[1].fspace.ref_fes, key)
+      # getfield(values(assembler.dof.H1_vars)[1].fspace.ref_fes, key)
+      getfield(function_space(assembler.dof).ref_fes, key)
     )
     NE = size(
-      getfield(values(assembler.dof.H1_vars)[1].fspace.elem_conns, key),
+      # getfield(values(assembler.dof.H1_vars)[1].fspace.elem_conns, key),
+      getfield(function_space(assembler.dof).elem_conns, key),
       2
     )
 
@@ -141,13 +146,13 @@ function Parameters(
   )
 
   update_dofs!(assembler, p)
-  Uu = create_unknowns(assembler.dof, H1Field)
+  Uu = create_unknowns(assembler.dof)
 
   # assemble the stiffness at least once for 
   # making easier to use on GPU
   # assemble!(assembler, Uu, p, Val{:stiffness}(), H1Field)
   # TODO should we also assemble mass if necessary?
-  assemble_stiffness!(assembler, stiffness, Uu, p, H1Field)
+  assemble_stiffness!(assembler, stiffness, Uu, p)
   K = stiffness(assembler)
 
   return p
