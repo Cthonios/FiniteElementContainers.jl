@@ -62,6 +62,36 @@ function create_unknowns(dof::DofManager)
     return KA.zeros(backend, Float64, length(dof.unknown_dofs))
 end
 
+# COV_EXCL_START
+KA.@kernel function _extract_field_unknowns_kernel!(Uu::V, dof::DofManager, U::AbstractField) where V <: AbstractVector{<:Number}
+    N = KA.@index(Global)
+    @inbounds Uu[N] = U[dof.unknown_dofs[N]]
+end
+# COV_EXCL_STOP
+
+function _extract_field_unknowns!(Uu::V, dof::DofManager, U::AbstractField, backend::KA.Backend) where V <: AbstractVector{<:Number}
+    kernel! = _extract_field_unknowns_kernel!(backend)
+    kernel!(Uu, dof, U, ndrange = length(Uu))
+    return nothing
+end
+
+function _extract_field_unknowns!(Uu::V, dof::DofManager, U::AbstractField, ::KA.CPU) where V <: AbstractVector{<:Number}
+    @views Uu .= U[dof.unknown_dofs]
+    return nothing
+end
+
+function extract_field_unknowns!(
+    Uu::V,
+    dof::DofManager,
+    U::AbstractField
+) where V <: AbstractVector{<:Number}
+    backend = KA.get_backend(dof)
+    @assert KA.get_backend(U) == backend
+    @assert KA.get_backend(Uu) == backend
+    _extract_field_unknowns!(Uu, dof, U, backend)
+    return nothing
+end
+
 function function_space(dof::DofManager)
     return dof.var.fspace
 end
@@ -84,20 +114,20 @@ function update_dofs!(dof::DofManager, dirichlet_dofs)
 end
 
 # COV_EXCL_START
-KA.@kernel function _update_field_unknowns_kernel!(U::H1Field, dof::DofManager, Uu::T) where T <: AbstractArray{<:Number, 1}
+KA.@kernel function _update_field_unknowns_kernel!(U::AbstractField, dof::DofManager, Uu::V) where V <: AbstractVector{<:Number}
     N = KA.@index(Global)
     @inbounds U[dof.unknown_dofs[N]] = Uu[N]
 end
 # COV_EXCL_STOP
   
-function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, backend::KA.Backend) where T <: AbstractArray{<:Number, 1}
+function _update_field_unknowns!(U::AbstractField, dof::DofManager, Uu::T, backend::KA.Backend) where T <: AbstractVector{<:Number}
     kernel! = _update_field_unknowns_kernel!(backend)
     kernel!(U, dof, Uu, ndrange = length(Uu))
     return nothing
 end
   
 # Need a seperate CPU method since CPU is basically busted in KA
-function _update_field_unknowns!(U::H1Field, dof::DofManager, Uu::T, ::KA.CPU) where T <: AbstractArray{<:Number, 1}
+function _update_field_unknowns!(U::AbstractField, dof::DofManager, Uu::T, ::KA.CPU) where T <: AbstractVector{<:Number}
     U[dof.unknown_dofs] .= Uu
     return nothing
 end

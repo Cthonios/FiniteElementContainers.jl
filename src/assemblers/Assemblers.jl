@@ -172,7 +172,12 @@ end
 $(TYPEDSIGNATURES)
 """
 function hvp(assembler::AbstractAssembler)
-  return _hvp(assembler, KA.get_backend(assembler))
+  extract_field_unknowns!(
+    asm.stiffness_action_unknowns,
+    asm.dof,
+    asm.stiffness_action_storage
+  )
+  return nothing
 end
 
 """
@@ -186,7 +191,12 @@ end
 $(TYPEDSIGNATURES)
 """
 function residual(asm::AbstractAssembler)
-  return _residual(asm, KA.get_backend(asm))
+  extract_field_unknowns!(
+    asm.residual_unknowns, 
+    asm.dof, 
+    asm.residual_storage
+  )
+  return asm.residual_unknowns
 end
 
 """
@@ -200,6 +210,7 @@ end
 include("SparsityPattern.jl")
 
 # types
+include("MatrixFreeAssembler.jl")
 include("SparseMatrixAssembler.jl")
 
 # methods
