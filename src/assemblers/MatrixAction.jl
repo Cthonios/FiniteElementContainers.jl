@@ -1,15 +1,12 @@
 function assemble_matrix_action!(
   assembler, func, Uu, Vu, p
 )
-  # storage = getfield(assembler, storage_sym)
   storage = assembler.stiffness_action_storage
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(assembler.dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
-  update_bcs!(p)
-  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
-  update_field_unknowns!(p.h1_hvp_scratch_field, assembler.dof, Vu)
+  _update_for_assembly!(p, assembler.dof, Uu, Vu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
@@ -54,17 +51,13 @@ function _assemble_block_matrix_action!(
   S    <: L2QuadratureField,
   T    <: Number
 }
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
     u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
     v_el = _element_level_fields_flat(V, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
-    K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(field), NxNDof * NxNDof})
-
+    K_el = _element_scratch_matrix(ref_fe, U)
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
@@ -108,17 +101,12 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
 }
   E = KA.@index(Global)
 
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-
   x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
   v_el = _element_level_fields_flat(V, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
-  K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(field), NxNDof * NxNDof})
-
+  K_el = _element_scratch_matrix(ref_fe, U)
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
