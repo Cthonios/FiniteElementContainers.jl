@@ -9,8 +9,7 @@ function assemble_vector!(
   fspace = function_space(assembler.dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
-  update_bcs!(p)
-  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
+  _update_for_assembly!(p, assembler.dof, Uu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
@@ -56,15 +55,12 @@ function _assemble_block_vector!(
   S    <: L2QuadratureField,
   T    <: Number
 }
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
     u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
-    R_el = zeros(SVector{NxNDof, eltype(field)})
+    R_el = _element_scratch_vector(ref_fe, U)
 
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
@@ -109,15 +105,11 @@ KA.@kernel function _assemble_block_vector_kernel!(
 }
   E = KA.@index(Global)
 
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-
   x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
-  R_el = zeros(SVector{NxNDof, eltype(field)})
+  R_el = _element_scratch_vector(ref_fe, U)
 
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)

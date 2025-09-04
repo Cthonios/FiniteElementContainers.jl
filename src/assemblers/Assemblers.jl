@@ -56,38 +56,6 @@ end
 
 """
 $(TYPEDSIGNATURES)
-Top level assembly method for ```H1Field``` that loops over blocks and dispatches
-to appropriate kernels based on sym.
-
-TODO need to make sure at setup time that physics and elem_conns have the same
-values order. Otherwise, shenanigans.
-
-TODO figure out how to do generated functions
-
-creates one type instability from the Val
-"""
-function assemble!(assembler, Uu, p, sym::Symbol, type::Type{H1Field})
-  assemble!(assembler, Uu, p, Val{sym}(), type)
-end
-
-"""
-$(TYPEDSIGNATURES)
-Top level assembly method for ```H1Field``` that loops over blocks and dispatches
-to appropriate kernels based on sym.
-
-TODO need to make sure at setup time that physics and elem_conns have the same
-values order. Otherwise, shenanigans.
-
-TODO figure out how to do generated functions
-
-creates one type instability from the Val
-"""
-function assemble!(assembler, Uu, p, Vv, sym::Symbol, type::Type{H1Field})
-  assemble!(assembler, Uu, p, Vv, Val{sym}(), type)
-end
-
-"""
-$(TYPEDSIGNATURES)
 """
 @inline function _cell_interpolants(ref_fe::R, q::Int) where R <: ReferenceFE
   return @inbounds ref_fe.cell_interps[q]
@@ -95,16 +63,6 @@ end
 
 create_field(asm::AbstractAssembler) = create_field(asm.dof)
 create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
-
-"""
-$(TYPEDSIGNATURES)
-"""
-create_field(asm::AbstractAssembler, type) = create_field(asm.dof, type)
-
-"""
-$(TYPEDSIGNATURES)
-"""
-create_unknowns(asm::AbstractAssembler, type) = create_unknowns(asm.dof, type)
 
 """
 $(TYPEDSIGNATURES)
@@ -145,14 +103,24 @@ end
 
 """
 $(TYPEDSIGNATURES)
-Returns either nothing or the function space
-associated with H1Fields in the problem.
 """
-@inline function function_space(asm::AbstractAssembler, ::Type{<:H1Field})
-  if asm.dof.H1_vars === nothing
-    @assert "You're trying to access a function space that does not exist"
-  end
-  return @inbounds asm.dof.H1_vars[1].fspace
+@inline function _element_scratch_matrix(ref_fe, U)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(U), NxNDof * NxNDof})
+  return K_el
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+@inline function _element_scratch_vector(ref_fe, U)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  R_el = zeros(SVector{NxNDof, eltype(U)})
+  return R_el
 end
 
 """

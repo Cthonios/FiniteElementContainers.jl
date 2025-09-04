@@ -1,18 +1,3 @@
-# @inline function neumann_bc_energy(
-#   bc::NeumannBCContainer,
-#   u_el, x_el, t
-# )
-#   @assert false "In neumann bc residual"
-# end
-
-# @inline function neumann_bc_residual(
-#   # bc::NeumannBCContainer,
-#   interps, func,
-#   u_el, x_el, t
-# )
-#   @assert false "In neumann bc residual"
-# end
-
 # # below method implicitly will not zero out arrays
 """
 $(TYPEDSIGNATURES)
@@ -25,9 +10,7 @@ function assemble_vector_neumann_bc!(
   t = current_time(p.times)
   # TODO should below 2 methods calls be assumed to have
   # been conducted previously?
-  update_bcs!(p)
-  update_field_unknowns!(p.h1_field, assembler.dof, Uu)
-
+  _update_for_assembly!(p, assembler.dof, Uu)
   for bc in values(p.neumann_bcs)
     backend = KA.get_backend(bc)
     _assemble_block_vector_neumann_bc!(
@@ -53,13 +36,9 @@ function _assemble_block_vector_neumann_bc!(
   conns = bc.element_conns
   ref_fe = bc.ref_fe
 
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(surface_element(ref_fe.element))
-  NxNDof = NNPE * ND
-
   for e in axes(conns, 2)
     x_el = _element_level_fields(X, ref_fe, conns, e)
-    R_el = zeros(SVector{NxNDof, eltype(field)})
+    R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
     side = bc.bookkeeping.sides[e]
     for q in 1:num_quadrature_points(surface_element(ref_fe.element))
       interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)
@@ -102,12 +81,8 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
   conns = bc.element_conns
   ref_fe = bc.ref_fe
 
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(surface_element(ref_fe.element))
-  NxNDof = NNPE * ND
-
   x_el = _element_level_fields(X, ref_fe, conns, E)
-  R_el = zeros(SVector{NxNDof, eltype(field)})
+  R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
   side = bc.bookkeeping.sides[E]
 
   for q in 1:num_quadrature_points(surface_element(ref_fe.element))

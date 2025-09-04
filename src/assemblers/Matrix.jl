@@ -32,8 +32,7 @@ function assemble_matrix!(
   fspace = function_space(dof)
   t = current_time(p.times)
   dt = time_step(p.times)
-  update_bcs!(p)
-  update_field_unknowns!(p.h1_field, dof, Uu)
+  _update_for_assembly!(p, dof, Uu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
@@ -79,15 +78,13 @@ function _assemble_block_matrix!(
   S    <: L2QuadratureField,
   T    <: Number
 }
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
+
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
     u_el = _element_level_fields_flat(U, ref_fe, conns, e)
     u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
     props_el = _element_level_properties(props, e)
-    K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(field), NxNDof * NxNDof})
+    K_el = _element_scratch_matrix(ref_fe, U)
 
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
@@ -125,16 +122,11 @@ KA.@kernel function _assemble_block_matrix_kernel!(
 }
   E = KA.@index(Global)
 
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-
   x_el = _element_level_fields_flat(X, ref_fe, conns, E)
   u_el = _element_level_fields_flat(U, ref_fe, conns, E)
   u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
   props_el = _element_level_properties(props, E)
-  K_el = zeros(SMatrix{NxNDof, NxNDof, Float64, NxNDof * NxNDof})
-
+  K_el = _element_scratch_matrix(ref_fe, U)
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)

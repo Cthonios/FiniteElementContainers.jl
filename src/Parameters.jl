@@ -214,6 +214,19 @@ function update_dofs!(asm::SparseMatrixAssembler, p::Parameters)
   return nothing
 end
 
+function _update_for_assembly!(p::Parameters, dof::DofManager, Uu)
+  update_bcs!(p)
+  update_field_unknowns!(p.h1_field, dof, Uu)
+  return nothing
+end
+
+function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, Vu)
+  update_bcs!(p)
+  update_field_unknowns!(p.h1_field, dof, Uu)
+  update_field_unknowns!(p.h1_hvp_scratch_field, dof, Vu)
+  return nothing
+end
+
 function update_time!(p::Parameters)
   fill!(p.times.time_current, current_time(p.times) + time_step(p.times))
   return nothing
