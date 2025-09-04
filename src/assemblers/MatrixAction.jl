@@ -80,18 +80,6 @@ function _assemble_block_matrix_action!(
   end
 end
 
-# TODO hardcoded to H1 fields right now.
-"""
-$(TYPEDSIGNATURES)
-"""
-function _hvp(asm::AbstractAssembler, ::KA.CPU)
-  # for n in axes(asm.residual_unknowns, 1)
-  #   asm.residual_unknowns[n] = asm.residual_storage[asm.dof.H1_unknown_dofs[n]]
-  # end
-  @views asm.stiffness_action_unknowns .= asm.stiffness_action_storage[asm.dof.H1_unknown_dofs]
-  return asm.stiffness_action_unknowns
-end
-
 # GPU implementation
 
 """
@@ -187,26 +175,3 @@ function _assemble_block_matrix_action!(
   )
   return nothing
 end
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# KA.@kernel function _extract_residual_unknowns!(Ru, unknown_dofs, R)
-#   N = KA.@index(Global)
-#   Ru[N] = R[unknown_dofs[N]]
-# end
-
-"""
-$(TYPEDSIGNATURES)
-TODO note will only work for H1 spaces right now.
-  TODO move me to Assemblers.jl
-"""
-function _hvp(asm::AbstractAssembler, backend::KA.Backend)
-  kernel! = _extract_residual_unknowns!(backend)
-  kernel!(asm.stiffness_action_unknowns, 
-          asm.dof.H1_unknown_dofs, 
-          asm.stiffness_action_storage, 
-          ndrange=length(asm.dof.H1_unknown_dofs))
-  KA.synchronize(KA.get_backend(asm))
-  return asm.stiffness_action_unknowns
-end 

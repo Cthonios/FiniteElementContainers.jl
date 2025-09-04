@@ -81,15 +81,6 @@ function _assemble_block_vector!(
   end
 end
 
-# TODO hardcoded to H1 fields right now.
-"""
-$(TYPEDSIGNATURES)
-"""
-function _residual(asm::AbstractAssembler, ::KA.CPU)\
-  @views asm.residual_unknowns .= asm.residual_storage[asm.dof.unknown_dofs]
-  return asm.residual_unknowns
-end
-
 # GPU implementation
 
 """
@@ -184,28 +175,3 @@ function _assemble_block_vector!(
   )
   return nothing
 end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-# COV_EXCL_START
-KA.@kernel function _extract_residual_unknowns!(Ru, unknown_dofs, R)
-  N = KA.@index(Global)
-  Ru[N] = R[unknown_dofs[N]]
-end
-# COV_EXCL_STOP
-
-"""
-$(TYPEDSIGNATURES)
-"""
-function _residual(asm::AbstractAssembler, backend::KA.Backend)
-  kernel! = _extract_residual_unknowns!(backend)
-  kernel!(
-    asm.residual_unknowns, 
-    asm.dof.unknown_dofs, 
-    asm.residual_storage, 
-    ndrange=length(asm.dof.unknown_dofs)
-  )
-  KA.synchronize(KA.get_backend(asm))
-  return asm.residual_unknowns
-end 
