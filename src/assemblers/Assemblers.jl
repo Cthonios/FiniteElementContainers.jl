@@ -145,7 +145,7 @@ function hvp(assembler::AbstractAssembler)
     assembler.dof,
     assembler.stiffness_action_storage
   )
-  return nothing
+  return assembler.stiffness_action_unknowns
 end
 
 """
