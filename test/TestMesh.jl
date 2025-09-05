@@ -29,9 +29,16 @@ end
   @test_throws AssertionError nodeset(mesh, 1)
   @test_throws AssertionError nodesets(mesh, [1])
   @test_throws AssertionError nodeset_ids(mesh)
+  @test_throws AssertionError nodeset_names(mesh)
   @test_throws AssertionError num_dimensions(mesh)
   @test_throws AssertionError num_nodes(mesh)
   @test_throws AssertionError sideset(mesh, 1)
+  @test_throws AssertionError sidesets(mesh)
   @test_throws AssertionError sideset_ids(mesh)
   @test_throws AssertionError sideset_names(mesh)
 # end
+
+function test_bad_mesh_file_type()
+  file_name = "some_file.badext"
+  @test_throws ErrorException UnstructuredMesh(file_name)
+end

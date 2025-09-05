@@ -379,19 +379,6 @@ end
 
 function _mesh_file_type end
 
-function FileMesh(::Type{AbstractMeshType}, file_name::String)
-  @assert false "You need to load a mesh backend package such as Exodus"
-end
-
-FileMesh{T}(file_name::String) where T <: AbstractMeshType = FileMesh(T, file_name)
-
-function UnstructuredMesh(::Type{AbstractMeshType}, file_name::String, create_edges, create_faces)
-  @assert false "You need to load a mesh backend package such as Exodus"
-end
-
-# UnstructuredMesh{T}(file_name::String, create_edges, create_faces) where T <: AbstractMeshType =
-# UnstructuredMesh(T, file_name, create_edges, create_faces)
-
 # dispatch based on file extension
 """
 $(TYPEDSIGNATURES)
