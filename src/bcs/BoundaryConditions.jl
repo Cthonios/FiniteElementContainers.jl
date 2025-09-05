@@ -31,7 +31,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function BCBookKeeping(
-  dof::DofManager, var_name::Symbol, sset_name::Symbol
+  mesh, dof::DofManager, var_name::Symbol, sset_name::Symbol
 )
   # check if var exists
   # var_index = 0
@@ -66,17 +66,17 @@ function BCBookKeeping(
   fspace = function_space(dof)
 
   # get sset specific fields
-  elements = getproperty(fspace.sideset_elems, sset_name)
-  nodes = getproperty(fspace.sideset_nodes, sset_name)
-  sides = getproperty(fspace.sideset_sides, sset_name)
-  side_nodes = getproperty(fspace.sideset_side_nodes, sset_name)
+  elements = getproperty(mesh.sideset_elems, sset_name)
+  nodes = getproperty(mesh.sideset_nodes, sset_name)
+  sides = getproperty(mesh.sideset_sides, sset_name)
+  side_nodes = getproperty(mesh.sideset_side_nodes, sset_name)
 
   dofs = Vector{Int64}(undef, 0)
   blocks = Vector{Int64}(undef, 0)
 
   # gather the blocks that are present in this sideset
   # TODO this isn't quite right
-  for (n, val) in enumerate(values(fspace.elem_id_maps))
+  for (n, val) in enumerate(values(mesh.element_id_maps))
     # note these are the local elem id to the block, e.g. starting from 1.
     indices_in_sset = indexin(val, elements)
     filter!(x -> x !== nothing, indices_in_sset)

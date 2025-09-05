@@ -96,11 +96,11 @@ end
 
 # TODO below method also currently likely doesn't
 # handle blocks correclty 
-function create_neumann_bcs(dof::DofManager, neumann_bcs::Vector{NeumannBC})
+function create_neumann_bcs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
   sets = map(x -> x.sset_name, neumann_bcs)
   vars = map(x -> x.var_name, neumann_bcs)
   funcs = map(x -> x.func, neumann_bcs)
-  bks = BCBookKeeping.((dof,), vars, sets)
+  bks = BCBookKeeping.((mesh,), (dof,), vars, sets)
   # bks = _split_bookkeeping_by_block(bks)
   fspace = function_space(dof)
   new_bcs = NeumannBCContainer[]

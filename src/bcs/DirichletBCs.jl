@@ -44,8 +44,8 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
-function DirichletBCContainer(dof::DofManager, dbc::DirichletBC)
-  bk = BCBookKeeping(dof, dbc.var_name, dbc.sset_name)
+function DirichletBCContainer(mesh, dof::DofManager, dbc::DirichletBC)
+  bk = BCBookKeeping(mesh, dof, dbc.var_name, dbc.sset_name)
 
   # sort nodes and dofs for dirichlet bc
   dof_perm = _unique_sort_perm(bk.dofs)
@@ -65,10 +65,6 @@ end
 function Base.length(bc::DirichletBCContainer)
   return length(bc.bookkeeping.dofs)
 end
-
-# function bc_set_ids(bc::DirichletBCContainer)
-#   return bc.bookkeeping.nodes
-# end
 
 # need checks on if field types are compatable
 """
@@ -143,18 +139,16 @@ function _update_bcs!(bc::DirichletBCContainer, U, backend::KA.Backend)
   return nothing
 end
 
-function create_dirichlet_bcs(dof::DofManager, dirichlet_bcs::Vector{<:DirichletBC})
+function create_dirichlet_bcs(mesh, dof::DofManager, dirichlet_bcs::Vector{<:DirichletBC})
   if length(dirichlet_bcs) == 0
     return NamedTuple(), NamedTuple()
   end
 
   syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
-  # dbcs = NamedTuple{tuple(syms...)}(tuple(dbcs...))
-  # dbcs = DirichletBCContainer(dbcs, size(assembler.dof.H1_vars[1].fspace.coords, 1))
   dirichlet_bc_funcs = NamedTuple{tuple(syms...)}(
     map(x -> x.func, dirichlet_bcs)
   )
-  dirichlet_bcs = DirichletBCContainer.((dof,), dirichlet_bcs)
+  dirichlet_bcs = DirichletBCContainer.((mesh,), (dof,), dirichlet_bcs)
 
   if length(dirichlet_bcs) > 0
     temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)

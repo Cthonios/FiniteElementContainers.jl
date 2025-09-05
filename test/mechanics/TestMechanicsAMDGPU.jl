@@ -32,7 +32,7 @@ function mechanics_test()
 
   # pre-setup some scratch arrays
   times = TimeStepper(0., 1., 1)
-  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs, times=times)
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs, times=times)
 
   # move to device
   p_gpu = p |> rocm

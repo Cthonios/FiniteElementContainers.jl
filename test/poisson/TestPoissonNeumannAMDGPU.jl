@@ -33,7 +33,7 @@ function test_poisson_neumann()
         NeumannBC(:u, :sset_4, bc_func_2)
     ]
 
-    p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs, neumann_bcs=nbcs)
+    p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs, neumann_bcs=nbcs)
 
     # device movement
     p_gpu = p |> rocm

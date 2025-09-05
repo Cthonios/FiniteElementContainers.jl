@@ -29,7 +29,7 @@ function test_poisson_neumann()
         NeumannBC(:u, :sset_4, bc_func_2)
     ]
 
-    p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs, neumann_bcs=nbcs)
+    p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs, neumann_bcs=nbcs)
     solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
     integrator = QuasiStaticIntegrator(solver)
     evolve!(integrator, p)

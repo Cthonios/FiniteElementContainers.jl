@@ -13,18 +13,12 @@ $(TYPEDFIELDS)
 """
 struct FunctionSpace{
   Coords,
-  ElemConns, ElemIdMaps, 
-  RefFEs,
-  SSetIVs, SSetIMs
+  ElemConns,
+  RefFEs
 } <: AbstractFunctionSpace
   coords::Coords
   elem_conns::ElemConns
-  elem_id_maps::ElemIdMaps
   ref_fes::RefFEs
-  sideset_elems::SSetIVs
-  sideset_nodes::SSetIVs
-  sideset_sides::SSetIVs
-  sideset_side_nodes::SSetIMs
 end
 
 function _setup_ref_fes(mesh::AbstractMesh, interp_type, q_degree)
@@ -69,11 +63,8 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{H1Field}, interp_type, q_degre
 
   return FunctionSpace(
     coords, 
-    mesh.element_conns, mesh.element_id_maps, 
-    ref_fes,
-    mesh.sideset_elems, 
-    mesh.sideset_nodes, 
-    mesh.sideset_sides, mesh.sideset_side_nodes
+    mesh.element_conns,
+    ref_fes
   )
 end
 
@@ -100,11 +91,8 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{L2ElementField}, interp_type, 
 
   return FunctionSpace(
     coords,
-    nothing, nothing, # TODO what makes sense here?
-    ref_fes,
-    mesh.sideset_elems, 
-    mesh.sideset_nodes, 
-    mesh.sideset_sides, mesh.sideset_side_nodes
+    nothing, # TODO what makes sense here?
+    ref_fes
   )
 end
 
@@ -123,24 +111,13 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{L2QuadratureField}, interp_typ
     push!(coords_vals, coords_temp)
   end
 
-  if num_fields(mesh.nodal_coords) == 1
-    temp_syms = (:coords_x,)
-  elseif num_fields(mesh.nodal_coords) == 2
-    temp_syms = (:coords_x, :coords_y)
-  else
-    temp_syms = (:coords_x, :coords_y, :coords_z)
-  end
-
   coords_vals = L2QuadratureField.(coords_vals)
   coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
 
   return FunctionSpace(
     coords,
-    nothing, nothing, # TODO what makes sense here?
-    ref_fes,
-    mesh.sideset_elems, 
-    mesh.sideset_nodes, 
-    mesh.sideset_sides, mesh.sideset_side_nodes
+    nothing, # TODO what makes sense here?
+    ref_fes
   )
 end
 
@@ -153,47 +130,7 @@ function Base.show(io::IO, fspace::FunctionSpace)
   println(io, "  Type: $(typeof(fspace.coords).name.name)")
   for (key, ref_fe) in enumerate(fspace.ref_fes)
     println(io, "    Block: $key")
-    # println(io, "      Number of elements: $(fspace)")
-    # println(io, "  $ref_fe")
   end
-end
-
-function connectivity(fspace, block)
-  return Base.getproperty(fspace.elem_conns, block)
-end
-
-function connectivity(fspace, e::Int, block::Symbol)
-  temp = @views Base.getproperty(fspace.elem_conns, block)[:, e]
-  # NN = num_vertices(fspace.ref_fes[block])
-  # return SVector{NN, eltype(temp)}(temp)
-  return temp
-end
-
-function connectivity(fspace, e::Int, block_num::Int)
-  block_sym = keys(fspace.elem_conns)[block_num]
-  return @views Base.getproperty(fspace.elem_conns, block_sym)[:, e]
-end
-
-# connectivity(fspace, e, block::Symbol) = _connectivity(fspace, e, Val(block))
-
-function connectivity(fspace, n::Int, e::Int, block)
-  return @views Base.getproperty(fspace.elem_conns, block)[n, e]
-end 
-
-coordinates(fspace::FunctionSpace) = fspace.coords
-
-# function coordinates(fspace::FunctionSpace, e, block)
-#   conn = _connectivity(fspace, e, block)
-#   return @views fspace.coords[:, conn]
-# end
-
-function dof_connectivity(fspace, e, block, n_dofs)
-  ids = reshape(1:length(fspace.coords), size(fspace.coords)...)
-  block_name = keys(fspace.elem_conns)[block]
-  conns = getproperty(fspace.elem_conns, block_name)
-  # dof_conn = @views reshape(ids[:, conns[:, e]], n_dofs * size(conns, 1))
-  dof_conn = reshape(ids[:, conns[:, e]], n_dofs * size(conns, 1))
-  return dof_conn
 end
 
 function map_shape_function_gradients(X, ∇N_ξ)
@@ -201,20 +138,4 @@ function map_shape_function_gradients(X, ∇N_ξ)
   J_inv = inv(J)
   ∇N_X  = (J_inv * ∇N_ξ')'
   return ∇N_X
-end
-
-function num_dimensions(fspace::FunctionSpace, block_sym)
-  return ReferenceFiniteElements.dimension(getproperty(fspace.ref_fes, block_sym))
-end
-
-function num_elements(fspace::FunctionSpace, block_sym)
-  return num_elements(getproperty(fspace.elem_conns, block_sym))
-end
-
-function num_nodes_per_element(fspace::FunctionSpace, block_sym)
-  return ReferenceFiniteElements.num_vertices(getproperty(fspace.ref_fes, block_sym))
-end 
-
-function num_q_points(fspace::FunctionSpace, block_sym)
-  return ReferenceFiniteElements.num_quadrature_points(getproperty(fspace.ref_fes, block_sym))
 end

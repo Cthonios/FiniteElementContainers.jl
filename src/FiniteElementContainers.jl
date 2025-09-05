@@ -83,7 +83,6 @@ export num_dimensions
 export num_fields
 export num_nodes
 export num_nodes_per_element
-export num_q_points
 export sideset
 export sideset_ids
 export sideset_names

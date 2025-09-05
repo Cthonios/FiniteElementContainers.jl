@@ -20,7 +20,7 @@ include("poisson/TestPoissonCommon.jl")
     DirichletBC(:u, :sset_3, bc_func),
     DirichletBC(:u, :sset_4, bc_func),
   ]
-  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
   Uu = create_unknowns(asm)
   Vu = create_unknowns(asm)
 
