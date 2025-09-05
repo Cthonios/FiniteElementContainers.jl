@@ -40,7 +40,7 @@ end
 # 4. add different fspace types
 # 5. convert vectors of dbcs/nbcs into namedtuples - done
 function Parameters(
-  assembler, physics,
+  mesh, assembler, physics,
   properties,
   dirichlet_bcs, 
   neumann_bcs, 
@@ -86,11 +86,9 @@ function Parameters(
     # create state variables for this block physics
     NS = num_states(val)
     NQ = ReferenceFiniteElements.num_quadrature_points(
-      # getfield(values(assembler.dof.H1_vars)[1].fspace.ref_fes, key)
       getfield(function_space(assembler.dof).ref_fes, key)
     )
     NE = size(
-      # getfield(values(assembler.dof.H1_vars)[1].fspace.elem_conns, key),
       getfield(function_space(assembler.dof).elem_conns, key),
       2
     )
@@ -108,12 +106,12 @@ function Parameters(
 
   # properties = NamedTuple{keys(physics)}(tuple(properties...))
 
-  state_new = copy(state_old)
+  state_new = deepcopy(state_old)
   state_old = NamedTuple{keys(physics)}(tuple(state_old...))
   state_new = NamedTuple{keys(physics)}(tuple(state_new...))
 
   dirichlet_bcs, dirichlet_bc_funcs = create_dirichlet_bcs(
-    assembler.dof, dirichlet_bcs
+    mesh, assembler.dof, dirichlet_bcs
   )
   # update_dofs!(assembler.dof, )
 
@@ -121,7 +119,7 @@ function Parameters(
     syms = map(x -> Symbol("neumann_bc_$x"), 1:length(neumann_bcs))
 
     if length(neumann_bcs) > 1
-      neumann_bcs, neumann_bc_funcs = create_neumann_bcs(assembler.dof, neumann_bcs)
+      neumann_bcs, neumann_bc_funcs = create_neumann_bcs(mesh, assembler.dof, neumann_bcs)
     else
       neumann_bcs = NamedTuple()
       neumann_bc_funcs = NamedTuple()
@@ -178,12 +176,12 @@ function Base.show(io::IO, parameters::Parameters)
 end
 
 function create_parameters(
-  assembler, physics, props; 
+  mesh, assembler, physics, props; 
   dirichlet_bcs=DirichletBC[], 
   neumann_bcs=NeumannBC[],
   times=nothing
 )
-  return Parameters(assembler, physics, props, dirichlet_bcs, neumann_bcs, times)
+  return Parameters(mesh, assembler, physics, props, dirichlet_bcs, neumann_bcs, times)
 end
 
 function update_bcs!(p::Parameters)

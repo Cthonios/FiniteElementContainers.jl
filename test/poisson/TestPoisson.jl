@@ -36,7 +36,7 @@ function test_poisson_direct()
 
   # direct solver test
   # setup the parameters
-  @show p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
+  @show p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
 
   # setup solver and integrator
   solver = NewtonSolver(DirectLinearSolver(asm))
@@ -78,7 +78,7 @@ function test_poisson_direct_neumman()
   # direct solver test
   # setup the parameters
   @show p = create_parameters(
-    asm, physics, props; 
+    mesh, asm, physics, props; 
     dirichlet_bcs=dbcs,
     neumann_bcs=nbcs
   )
@@ -119,7 +119,7 @@ function test_poisson_iterative()
 
   # iterative solver test
   # setup the parameters
-  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
 
   # setup solver and integrator
   solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))

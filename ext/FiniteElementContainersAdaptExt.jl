@@ -113,19 +113,11 @@ end
 function Adapt.adapt_structure(to, fspace::FunctionSpace)
   coords = adapt(to, fspace.coords)
   elem_conns = adapt(to, fspace.elem_conns)
-  elem_id_maps = adapt(to, fspace.elem_id_maps)
   ref_fes = adapt(to, fspace.ref_fes)
-  sideset_elems = adapt(to, fspace.sideset_elems)
-  sideset_nodes = adapt(to, fspace.sideset_nodes)
-  sideset_sides = adapt(to, fspace.sideset_sides)
-  sideset_side_nodes = adapt(to, fspace.sideset_side_nodes)
   return FunctionSpace(
     coords, 
-    elem_conns, elem_id_maps, 
-    ref_fes,
-    sideset_elems, 
-    sideset_nodes, 
-    sideset_sides, sideset_side_nodes
+    elem_conns, 
+    ref_fes
   )
 end
 

@@ -38,7 +38,7 @@ function poisson_cuda()
 
   # create parameters on CPU
   # TODO make a better constructor
-  p = create_parameters(asm, physics, props; dirichlet_bcs=dbcs)
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
 
   # device movement
   p_gpu = p |> cuda
