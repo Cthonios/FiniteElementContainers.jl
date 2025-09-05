@@ -141,9 +141,9 @@ $(TYPEDSIGNATURES)
 """
 function hvp(assembler::AbstractAssembler)
   extract_field_unknowns!(
-    asm.stiffness_action_unknowns,
-    asm.dof,
-    asm.stiffness_action_storage
+    assembler.stiffness_action_unknowns,
+    assembler.dof,
+    assembler.stiffness_action_storage
   )
   return nothing
 end

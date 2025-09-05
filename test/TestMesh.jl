@@ -42,3 +42,5 @@ function test_bad_mesh_file_type()
   file_name = "some_file.badext"
   @test_throws ErrorException UnstructuredMesh(file_name)
 end
+
+test_bad_mesh_file_type()

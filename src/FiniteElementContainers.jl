@@ -84,6 +84,7 @@ export num_fields
 export num_nodes
 export num_nodes_per_element
 export sideset
+export sidesets
 export sideset_ids
 export sideset_names
 
@@ -105,6 +106,7 @@ export num_states
 export reshape_element_level_field
 
 export energy
+export hvp
 export mass
 export residual
 export stiffness

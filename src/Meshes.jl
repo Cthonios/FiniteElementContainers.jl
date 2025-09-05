@@ -102,7 +102,7 @@ end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
-function sidesets(::AbstractMesh, ids) 
+function sidesets(::AbstractMesh) 
   @assert false
 end
 """
