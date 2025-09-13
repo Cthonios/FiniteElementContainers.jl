@@ -17,7 +17,7 @@ bc_func(_, _) = 0.
 
 include("TestPoissonCommon.jl")
 
-function run_job()
+function test_poisson_condensed_bcs()
     mesh = UnstructuredMesh(mesh_file)
     V = FunctionSpace(mesh, H1Field, Lagrange)
     physics = Poisson()
@@ -72,3 +72,5 @@ function run_job()
 
     Uu, p
 end
+
+test_poisson_condensed_bcs()
