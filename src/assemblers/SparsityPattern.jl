@@ -109,3 +109,51 @@ function SparsityPattern(dof::DofManager)
 end
 
 num_entries(s::SparsityPattern) = length(s.Is)
+
+# NOTE this methods assumes that dof is up to date
+# NOTE this method also only resizes unknown_dofs
+# in the pattern object, that means that things
+# like Is, Js, etc. need to be viewed into or sliced
+function _update_dofs!(pattern::SparsityPattern, dof, dirichlet_dofs)
+  n_total_dofs = length(dof) - length(dirichlet_dofs)
+
+  # remove me
+  resize!(pattern.Is, 0)
+  resize!(pattern.Js, 0)
+  # end remove me
+  resize!(pattern.unknown_dofs, 0)
+  ND, NN = size(dof)
+  ids = reshape(1:length(dof), ND, NN)
+  fspace = function_space(dof)
+
+  n = 1
+  for conns in values(fspace.elem_conns)
+    dof_conns = @views reshape(ids[:, conns], ND * size(conns, 1), size(conns, 2))
+
+    for e in 1:size(conns, 2)
+      conn = @views dof_conns[:, e]
+      for temp in Iterators.product(conn, conn)
+        if insorted(temp[1], dirichlet_dofs) || insorted(temp[2], dirichlet_dofs)
+          # really do nothing here
+        else
+          # remove me
+          push!(pattern.Is, temp[1] - count(x -> x < temp[1], dirichlet_dofs))
+          push!(pattern.Js, temp[2] - count(x -> x < temp[2], dirichlet_dofs))
+          # end remove me
+          push!(pattern.unknown_dofs, n)
+        end
+        n += 1
+      end
+    end
+  end
+
+  resize!(pattern.klasttouch, n_total_dofs)
+  resize!(pattern.csrrowptr, n_total_dofs + 1)
+  # TODO Not sure about below 2 sizes
+  # resize!(assembler.pattern.csrcolval, length(assembler.pattern.Is))
+  # resize!(assembler.pattern.csrnzval, length(assembler.pattern.Is))
+  resize!(pattern.csrcolval, length(pattern.Is))
+  resize!(pattern.csrnzval, length(pattern.Is))
+
+  return nothing
+end

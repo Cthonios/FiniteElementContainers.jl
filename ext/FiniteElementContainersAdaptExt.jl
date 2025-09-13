@@ -86,11 +86,13 @@ function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContaine
 end
 
 # DofManagers
-function Adapt.adapt_structure(to, dof::DofManager)
+function Adapt.adapt_structure(to, dof::DofManager{C, IT, IDs, Var}) where {C, IT, IDs, Var}
   dirichlet_dofs = adapt(to, dof.dirichlet_dofs)
   unknowns = adapt(to, dof.unknown_dofs)
   var = adapt(to, dof.var)
-  return DofManager(dirichlet_dofs, unknowns, var)
+  return DofManager{
+    C, IT, typeof(dirichlet_dofs), typeof(var) 
+  }(dirichlet_dofs, unknowns, var)
 end
 
 # Fields

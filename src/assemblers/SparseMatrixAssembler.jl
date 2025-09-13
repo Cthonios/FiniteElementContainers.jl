@@ -79,13 +79,8 @@ function SparseMatrixAssembler(dof::DofManager)
   )
 end
 
-# function SparseMatrixAssembler(::Type{<:H1Field}, vars...)
-#   dof = DofManager(vars...)
-#   return SparseMatrixAssembler(dof, H1Field)
-# end
-
-function SparseMatrixAssembler(var::AbstractFunction)
-  dof = DofManager(var)
+function SparseMatrixAssembler(var::AbstractFunction; use_condensed::Bool = false)
+  dof = DofManager(var; use_condensed=use_condensed)
   return SparseMatrixAssembler(dof)
 end
 
@@ -119,15 +114,27 @@ end
 $(TYPEDSIGNATURES)
 TODO add symbol to interface
 """
-function SparseArrays.sparse!(assembler::SparseMatrixAssembler, ::Val{:stiffness})
+function SparseArrays.sparse!(
+  assembler::SparseMatrixAssembler, ::Val{:stiffness};
+  unknowns_only=true
+)
   pattern = assembler.pattern
   storage = assembler.stiffness_storage
-  return @views SparseArrays.sparse!(
-    pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
-    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
-    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
-    pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
-  )
+  if unknowns_only
+    return @views SparseArrays.sparse!(
+      pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
+      length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
+      pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
+      pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
+    )
+  # else
+  #   return SparseArrays.sparse!(
+  #     pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
+  #     length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
+  #     pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
+  #     pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
+  #   )
+  end
 end
 
 """
@@ -170,15 +177,9 @@ end
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
 
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs; use_condensed=false)
-  # vars = assembler.dof.H1_vars
-  var = assembler.dof.var
+function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs)
+  use_condensed = _is_condensed(assembler.dof)
 
-  # if length(vars) != 1
-  #   @assert false "multiple fspace not supported yet"
-  # end
-
-  # dirichlet_dofs = dirichlet_bcs.bookkeeping.dofs
   if length(dirichlet_bcs) > 0
     dirichlet_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
     dirichlet_dofs = unique(sort(dirichlet_dofs))
@@ -203,8 +204,8 @@ end
 # when we want to change BCs which is slow
 
 function _update_dofs_condensed!(assembler::SparseMatrixAssembler)
-  assembler.constraint_storage[assembler.dof.unknown_dofs] .= 1.
-  assembler.constraint_storage[assembler.dof.dirichlet_bcs] .= 0.
+  assembler.constraint_storage[assembler.dof.unknown_dofs] .= 0.
+  assembler.constraint_storage[assembler.dof.dirichlet_dofs] .= 1.
   return nothing
 end
 
@@ -214,55 +215,10 @@ end
 function _update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
 
   # resize the resiual unkowns
-  # n_total_H1_dofs = num_nodes(assembler.dof) * num_dofs_per_node(assembler.dof)
-  # n_unknown_dofs = length(assembler.dof.unknown_dofs)
-  # resize!(assembler.residual_unknowns, length(assembler.dof.H1_unknown_dofs))
-  # resize!(assembler.stiffness_action_unknowns, length(assembler.dof.H1_unknown_dofs))
   resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
   resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
 
-  # n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
-  n_total_dofs = length(assembler.dof) - length(dirichlet_dofs)
-  # n_total_dofs = n_unknown_dofs - length(dirichlet_dofs)
-
-  # TODO change to a good sizehint!
-  resize!(assembler.pattern.Is, 0)
-  resize!(assembler.pattern.Js, 0)
-  resize!(assembler.pattern.unknown_dofs, 0)
-
-  # ND, NN = num_dofs_per_node(assembler.dof), num_nodes(assembler.dof)
-  ND, NN = size(assembler.dof)
-  # ids = reshape(1:length(assembler.dof), ND, NN)
-  ids = reshape(1:length(assembler.dof), ND, NN)
-
-  # TODO
-  # vars = assembler.dof.H1_vars
-  # fspace = vars[1].fspace
-  fspace = function_space(assembler.dof)
-
-  n = 1
-  for conns in values(fspace.elem_conns)
-    dof_conns = @views reshape(ids[:, conns], ND * size(conns, 1), size(conns, 2))
-
-    for e in 1:size(conns, 2)
-      conn = @views dof_conns[:, e]
-      for temp in Iterators.product(conn, conn)
-        if insorted(temp[1], dirichlet_dofs) || insorted(temp[2], dirichlet_dofs)
-          # really do nothing here
-        else
-          push!(assembler.pattern.Is, temp[1] - count(x -> x < temp[1], dirichlet_dofs))
-          push!(assembler.pattern.Js, temp[2] - count(x -> x < temp[2], dirichlet_dofs))
-          push!(assembler.pattern.unknown_dofs, n)
-        end
-        n += 1
-      end
-    end
-  end
-
-  resize!(assembler.pattern.klasttouch, n_total_dofs)
-  resize!(assembler.pattern.csrrowptr, n_total_dofs + 1)
-  resize!(assembler.pattern.csrcolval, length(assembler.pattern.Is))
-  resize!(assembler.pattern.csrnzval, length(assembler.pattern.Is))
+  _update_dofs!(assembler.pattern, assembler.dof, dirichlet_dofs)
 
   return nothing
 end
