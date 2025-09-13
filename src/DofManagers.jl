@@ -4,6 +4,8 @@ abstract type AbstractDofManager{
 } end
 
 struct DofManager{
+    Condensed, # boolean flag for whether or not to seperate data between unknowns and constrained dofs
+    # when creating unknowns
     IT, 
     IDs <: AbstractArray{IT, 1},
     Var <: AbstractFunction
@@ -15,13 +17,19 @@ end
 
 # method that initializes dof manager
 # with all dofs unknown
-function DofManager(var::AbstractFunction)
+function DofManager(var::AbstractFunction; use_condensed::Bool = false)
     dirichlet_dofs = zeros(Int, 0)
     unknown_dofs = 1:size(var.fspace.coords, 2) * length(names(var)) |> collect
-    return DofManager(dirichlet_dofs, unknown_dofs, var)
+    return DofManager{
+        use_condensed,
+        eltype(dirichlet_dofs),
+        typeof(dirichlet_dofs),
+        typeof(var)
+    }(dirichlet_dofs, unknown_dofs, var)
 end
 
 _field_type(dof::DofManager) = eval(typeof(dof.var.fspace.coords).name.name)
+_is_condensed(dof::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = C
 
 Base.length(dof::DofManager) = length(dof.dirichlet_dofs) + length(dof.unknown_dofs)
 
@@ -57,26 +65,66 @@ function create_field(dof::DofManager)
     return _field_type(dof)(field)
 end
 
-function create_unknowns(dof::DofManager)
+function create_unknowns(dof::DofManager{false, IT, IDs, Var}) where {IT, IDs, Var}
     backend = KA.get_backend(dof)
     return KA.zeros(backend, Float64, length(dof.unknown_dofs))
 end
 
+function create_unknowns(dof::DofManager{true, IT, IDs, Var}) where {IT, IDs, Var}
+    backend = KA.get_backend(dof)
+    return KA.zeros(backend, Float64, length(dof))
+end
+
 # COV_EXCL_START
-KA.@kernel function _extract_field_unknowns_kernel!(Uu::V, dof::DofManager, U::AbstractField) where V <: AbstractVector{<:Number}
+KA.@kernel function _extract_field_unknowns_kernel!(
+    Uu::V, 
+    dof::DofManager{false, IT, IDs, Var}, 
+    U::AbstractField
+) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
     N = KA.@index(Global)
     @inbounds Uu[N] = U[dof.unknown_dofs[N]]
 end
 # COV_EXCL_STOP
 
-function _extract_field_unknowns!(Uu::V, dof::DofManager, U::AbstractField, backend::KA.Backend) where V <: AbstractVector{<:Number}
+# COV_EXCL_START
+KA.@kernel function _extract_field_unknowns_kernel!(
+    Uu::V, 
+    dof::DofManager{true, IT, IDs, Var}, 
+    U::AbstractField
+) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
+    N = KA.@index(Global)
+    @inbounds Uu[dof.unknown_dofs[N]] = U[dof.unknown_dofs[N]]
+end
+# COV_EXCL_STOP
+
+function _extract_field_unknowns!(
+    Uu::V, 
+    dof::DofManager, 
+    U::AbstractField, 
+    backend::KA.Backend
+) where V <: AbstractVector{<:Number}
     kernel! = _extract_field_unknowns_kernel!(backend)
     kernel!(Uu, dof, U, ndrange = length(Uu))
     return nothing
 end
 
-function _extract_field_unknowns!(Uu::V, dof::DofManager, U::AbstractField, ::KA.CPU) where V <: AbstractVector{<:Number}
+function _extract_field_unknowns!(
+    Uu::V, 
+    dof::DofManager{false, IT, IDs, Var}, 
+    U::AbstractField, 
+    ::KA.CPU
+) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
     @views Uu .= U[dof.unknown_dofs]
+    return nothing
+end
+
+function _extract_field_unknowns!(
+    Uu::V, 
+    dof::DofManager{true, IT, IDs, Var}, 
+    U::AbstractField, 
+    ::KA.CPU
+) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
+    @views Uu[dof.unknown_dofs] .= U[dof.unknown_dofs]
     return nothing
 end
 
@@ -96,7 +144,7 @@ function function_space(dof::DofManager)
     return dof.var.fspace
 end
 
-function update_dofs!(dof::DofManager, dirichlet_dofs)
+function update_dofs!(dof::DofManager, dirichlet_dofs::V) where V <: AbstractArray{<:Integer, 1}
     ND, NI = size(dof)
     Base.resize!(dof.dirichlet_dofs, length(dirichlet_dofs))
     Base.resize!(dof.unknown_dofs, ND * NI)
@@ -114,21 +162,56 @@ function update_dofs!(dof::DofManager, dirichlet_dofs)
 end
 
 # COV_EXCL_START
-KA.@kernel function _update_field_unknowns_kernel!(U::AbstractField, dof::DofManager, Uu::V) where V <: AbstractVector{<:Number}
+KA.@kernel function _update_field_unknowns_kernel!(
+    U::AbstractField, 
+    dof::DofManager{false, IT, IDs, Var}, 
+    Uu::V
+) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
     N = KA.@index(Global)
     @inbounds U[dof.unknown_dofs[N]] = Uu[N]
 end
 # COV_EXCL_STOP
+
+# COV_EXCL_START
+KA.@kernel function _update_field_unknowns_kernel!(
+    U::AbstractField, 
+    dof::DofManager{true, IT, IDs, Var}, 
+    Uu::V
+) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
+    N = KA.@index(Global)
+    @inbounds U[dof.unknown_dofs[N]] = Uu[dof.unknown_dofs[N]]
+end
+# COV_EXCL_STOP
   
-function _update_field_unknowns!(U::AbstractField, dof::DofManager, Uu::T, backend::KA.Backend) where T <: AbstractVector{<:Number}
+function _update_field_unknowns!(
+    U::AbstractField, 
+    dof::DofManager, 
+    Uu::T, 
+    backend::KA.Backend
+) where T <: AbstractVector{<:Number}
     kernel! = _update_field_unknowns_kernel!(backend)
     kernel!(U, dof, Uu, ndrange = length(Uu))
     return nothing
 end
   
 # Need a seperate CPU method since CPU is basically busted in KA
-function _update_field_unknowns!(U::AbstractField, dof::DofManager, Uu::T, ::KA.CPU) where T <: AbstractVector{<:Number}
+function _update_field_unknowns!(
+    U::AbstractField, 
+    dof::DofManager{false, IT, IDs, Var}, 
+    Uu::T, 
+    ::KA.CPU
+) where {T <: AbstractVector{<:Number}, IT, IDs, Var}
     U[dof.unknown_dofs] .= Uu
+    return nothing
+end
+
+function _update_field_unknowns!(
+    U::AbstractField, 
+    dof::DofManager{true, IT, IDs, Var}, 
+    Uu::T, 
+    ::KA.CPU
+) where {T <: AbstractVector{<:Number}, IT, IDs, Var}
+    @views U[dof.unknown_dofs] .= Uu[dof.unknown_dofs]
     return nothing
 end
 
@@ -140,6 +223,7 @@ function update_field_unknowns!(
     backend = KA.get_backend(dof)
     @assert KA.get_backend(U) == backend
     @assert KA.get_backend(Uu) == backend
+    # @assert length(dof.unknown_dofs) == length(Uu)
     _update_field_unknowns!(U, dof, Uu, backend)
     return nothing
 end

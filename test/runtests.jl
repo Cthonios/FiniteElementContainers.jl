@@ -31,6 +31,7 @@ include("TestPhysics.jl")
 @testset ExtendedTestSet "Poisson problem" begin
   include("poisson/TestPoisson.jl")
   include("poisson/TestPoissonNeumann.jl")
+  include("poisson/TestPoissonCondensedBCs.jl")
   if AMDGPU.functional()
     include("poisson/TestPoissonAMDGPU.jl")
     include("poisson/TestPoissonNeumannAMDGPU.jl")
