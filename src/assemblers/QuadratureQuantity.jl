@@ -20,8 +20,7 @@ function assemble_quadrature_quantity!(
   fspace = function_space(dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
-  update_bcs!(p)
-  update_field_unknowns!(p.h1_field, dof, Uu)
+  _update_for_assembly!(p, dof, Uu)
   for (b, (field, conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(storage),
     values(fspace.elem_conns), 
