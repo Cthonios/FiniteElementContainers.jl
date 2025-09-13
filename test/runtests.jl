@@ -21,6 +21,7 @@ include("TestFields.jl")
 include("TestFormulations.jl")
 include("TestFunctions.jl")
 include("TestFunctionSpaces.jl")
+include("TestICs.jl")
 include("TestMesh.jl")
 include("TestPhysics.jl")
 

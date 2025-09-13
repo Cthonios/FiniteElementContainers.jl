@@ -18,6 +18,8 @@ export constraint_matrix
 # BCs
 export DirichletBC
 export NeumannBC
+export create_dirichlet_bcs
+export update_field_dirichlet_bcs!
 
 # Connectivities
 export Connectivity
@@ -33,7 +35,6 @@ export DofManager
 export create_field
 export create_unknowns
 export update_dofs!
-export update_field_dirichlet_bcs!
 export update_field_unknowns!
 
 # Formulations
@@ -60,6 +61,12 @@ export ScalarFunction
 export SymmetricTensorFunction
 export TensorFunction
 export VectorFunction
+
+# ICs
+export InitialCondition
+export create_ics
+export update_field_ics!
+export update_ic_values!
 
 # Integrators
 export AbstractIntegrator
@@ -154,6 +161,8 @@ include("Functions.jl")
 include("DofManagers.jl")
 # include("DofManagersNew.jl")
 include("bcs/BoundaryConditions.jl")
+include("ics/InitialConditions.jl")
+
 include("formulations/Formulations.jl")
 include("physics/Physics.jl")
 include("assemblers/Assemblers.jl")
