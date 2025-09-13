@@ -115,26 +115,16 @@ $(TYPEDSIGNATURES)
 TODO add symbol to interface
 """
 function SparseArrays.sparse!(
-  assembler::SparseMatrixAssembler, ::Val{:stiffness};
-  unknowns_only=true
+  assembler::SparseMatrixAssembler, ::Val{:stiffness}
 )
   pattern = assembler.pattern
   storage = assembler.stiffness_storage
-  if unknowns_only
-    return @views SparseArrays.sparse!(
-      pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
-      length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
-      pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
-      pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
-    )
-  # else
-  #   return SparseArrays.sparse!(
-  #     pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
-  #     length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
-  #     pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
-  #     pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
-  #   )
-  end
+  return @views SparseArrays.sparse!(
+    pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
+    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
+    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
+    pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
+  )
 end
 
 """
@@ -152,13 +142,8 @@ function SparseArrays.sparse!(assembler::SparseMatrixAssembler, ::Val{:mass})
   )
 end
 
-function SparseArrays.spdiagm(assembler::SparseMatrixAssembler)
-  return SparseArrays.spdiagm(assembler.constraint_storage)
-end
-
 function constraint_matrix(assembler::SparseMatrixAssembler)
-  # TODO specialize to CPU/GPU
-  return SparseArrays.spdiagm(assembler)
+  return Diagonal(assembler.constraint_storage)
 end
 
 function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)

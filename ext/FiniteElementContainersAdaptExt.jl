@@ -49,26 +49,22 @@ end
 
 # Boundary Conditions
 function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{V}) where V
-  blocks = adapt(to, bk.blocks)
-  side_nodes = adapt(to, bk.side_nodes)
-  return FiniteElementContainers.BCBookKeeping{typeof(side_nodes), typeof(blocks)}(
-    blocks,
+  return FiniteElementContainers.BCBookKeeping(
+    adapt(to, bk.blocks),
     adapt(to, bk.dofs),
     adapt(to, bk.elements),
     adapt(to, bk.nodes),
     adapt(to, bk.sides),
-    side_nodes
+    adapt(to, bk.side_nodes)
   )
 end
 
 function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCContainer)
   bk = adapt(to, bc.bookkeeping)
   vals = adapt(to, bc.vals)
-  return FiniteElementContainers.DirichletBCContainer{
-    typeof(bk), eltype(vals), typeof(vals)
-  }(
-    bk, vals
-  )
+  vals_dot = adapt(to, bc.vals_dot)
+  vals_dot_dot = adapt(to, bc.vals_dot_dot)
+  return FiniteElementContainers.DirichletBCContainer(bk, vals, vals_dot, vals_dot_dot)
 end
 
 function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContainer)
@@ -77,12 +73,7 @@ function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContaine
   surf_conns = adapt(to, bc.surface_conns)
   ref_fe = adapt(to, bc.ref_fe)
   vals = adapt(to, bc.vals)
-  return FiniteElementContainers.NeumannBCContainer{
-    typeof(bk), typeof(el_conns), typeof(surf_conns),
-    typeof(ref_fe), eltype(vals), typeof(vals)
-  }(
-    bk, el_conns, surf_conns, ref_fe, vals
-  )
+  return FiniteElementContainers.NeumannBCContainer(bk, el_conns, surf_conns, ref_fe, vals)
 end
 
 # DofManagers
@@ -116,11 +107,7 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
   coords = adapt(to, fspace.coords)
   elem_conns = adapt(to, fspace.elem_conns)
   ref_fes = adapt(to, fspace.ref_fes)
-  return FunctionSpace(
-    coords, 
-    elem_conns, 
-    ref_fes
-  )
+  return FunctionSpace(coords, elem_conns, ref_fes)
 end
 
 function Adapt.adapt_structure(to, var::T) where T <: FiniteElementContainers.AbstractFunction

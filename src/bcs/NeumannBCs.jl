@@ -35,12 +35,21 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 Internal implementation of dirichlet BCs
 """
-struct NeumannBCContainer{B, C1, C2, R, T, V} <: AbstractBCContainer{B, T, 2, V}
-  bookkeeping::B
+struct NeumannBCContainer{
+  IT <: Integer,
+  VT <: Union{<:Number, <:SVector},
+  IV <: AbstractArray{IT, 1},
+  IM <: AbstractArray{IT, 2},
+  VV <: AbstractArray{VT, 2},
+  C1, # TODO specialize
+  C2, # TODO specialize
+  RE <: ReferenceFE
+} <: AbstractBCContainer{IT, VT, 2, IV, IM, VV}
+  bookkeeping::BCBookKeeping{IT, IV, IM}
   element_conns::C1  
   surface_conns::C2
-  ref_fe::R
-  vals::V
+  ref_fe::RE
+  vals::VV
 end
 
 function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
@@ -165,9 +174,10 @@ function create_neumann_bcs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC
       surface_conns = Connectivity{eltype(surface_conns), typeof(surface_conns), NNPS}(surface_conns)
 
       vals = zeros(SVector{ND, Float64}, NQ, length(bk.sides))
-      new_bc = NeumannBCContainer{
-        typeof(new_bk), typeof(conns), typeof(surface_conns), typeof(ref_fe), eltype(vals), typeof(vals)
-      }(
+      # new_bc = NeumannBCContainer{
+      #   typeof(new_bk), typeof(conns), typeof(surface_conns), typeof(ref_fe), eltype(vals), typeof(vals)
+      # }(
+      new_bc = NeumannBCContainer(
         new_bk, conns, surface_conns, ref_fe, vals
       )
       push!(new_bcs, new_bc)

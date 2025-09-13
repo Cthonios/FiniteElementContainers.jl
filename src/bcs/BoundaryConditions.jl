@@ -1,3 +1,26 @@
+struct VariableNameNotFoundError <: Exception
+end
+
+_var_not_found_err() = throw(VariableNameNotFoundError())
+
+function _dof_index_from_var_name(dof, var_name)
+  dof_index = 0
+  found = false
+  for name in names(dof.var)
+      dof_index = dof_index + 1
+      if var_name == name
+          found = true
+          break
+      end
+  end
+
+  if dof_index == 0 || dof_index > length(names(dof.var))
+    _var_not_found_err()
+  end
+
+  return dof_index
+end
+
 function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
   # chatgpt BS below. Make this not use a dict
   sorted_unique = sort(unique(array))
@@ -15,8 +38,9 @@ for all types of boundary conditions.
 TODO need to add a domain ID for extending to Schwarz
 """
 struct BCBookKeeping{
-  M <: AbstractArray{<:Integer, 2},
-  V <: AbstractArray{<:Integer, 1}
+  I <: Integer,
+  V <: AbstractArray{I, 1},
+  M <: AbstractArray{I, 2}
 }
   blocks::V
   dofs::V
@@ -33,36 +57,9 @@ $(TYPEDSIGNATURES)
 function BCBookKeeping(
   mesh, dof::DofManager, var_name::Symbol, sset_name::Symbol
 )
-  # check if var exists
-  # var_index = 0
-  dof_index = 0
-  found = false
-  # for (vi, var) in enumerate(dof.H1_vars)
-  #   for name in names(var)
-  #     dof_index = dof_index + 1
-  #     if var_name == name
-  #       var_index = vi
-  #       found = true
-  #       break
-  #     end
-  #   end
-  # end
-  for name in names(dof.var)
-    dof_index = dof_index + 1
-    if var_name == name
-      # var_index = vi
-      found = true
-      break
-    end
-  end
+  # get dof index associated with this var
+  dof_index = _dof_index_from_var_name(dof, var_name)
 
-  # some error checking
-  # @assert found == true "Failed to find variable $var_name"
-  # @assert dof_index <= length(mapreduce(x -> names(x), +, dof.H1_vars)) "Found invalid dof index"
-  @assert dof_index <= length(names(dof.var)) "Found invalid dof index"
-
-  # TODO
-  # fspace = dof.H1_vars[var_index].fspace
   fspace = function_space(dof)
 
   # get sset specific fields
@@ -71,7 +68,6 @@ function BCBookKeeping(
   sides = getproperty(mesh.sideset_sides, sset_name)
   side_nodes = getproperty(mesh.sideset_side_nodes, sset_name)
 
-  dofs = Vector{Int64}(undef, 0)
   blocks = Vector{Int64}(undef, 0)
 
   # gather the blocks that are present in this sideset
@@ -86,48 +82,11 @@ function BCBookKeeping(
     end
   end
 
-  # setting up dofs for use in dirichlet bcs
-  # TODO only works for H1
-  # ND, NN = num_dofs_per_node(dof), num_nodes(dof)
-  ND, NN = size(dof)
-  n_total_dofs = ND * NN
-  all_dofs = reshape(1:n_total_dofs, ND, NN)
-  # temp_dofs = all_dofs[dof_index, temp_nodes]
-  temp_dofs = all_dofs[dof_index, nodes]
-  append!(dofs, temp_dofs)
-  # end
+  # setup dofs local to this BC
+  all_dofs = reshape(1:length(dof), size(dof))
+  dofs = all_dofs[dof_index, nodes]
 
-  # now sort and unique this stuff
-  # dof_perm = _unique_sort_perm(dofs)
-  # # el_perm = _unique_sort_perm(elements)
-
-  # # do permutations
-  # # TODO need to do this in different BC types
-  # # since different BC types might want things
-  # # organized differently
-  # # blocks_new = blocks[el_perm]
-  # dofs_new = dofs[dof_perm]
-  # # elements_new = elements[el_perm]
-  # nodes_new = nodes[dof_perm]
-  # # sides_new = sides[el_perm]
-  # # side_nodes_new = side_nodes[:, el_perm]
-
-  # # resize!(blocks, length(blocks_new))
-  # resize!(dofs, length(dofs_new))
-  # # resize!(elements, length(elements_new))
-  # resize!(nodes, length(nodes_new))
-  # # resize!(sides, length(sides_new))
-  # # resize!(side_nodes, size(side_nodes_new)...)
-  # # reshape(side_nodes, size(side_nodes_new))
-
-  # # copyto!(blocks, blocks_new)
-  # copyto!(dofs, dofs_new)
-  # # copyto!(elements, elements_new)
-  # copyto!(nodes, nodes_new)
-  # # copyto!(sides, sides_new)
-  # # copyto!(side_nodes, side_nodes_new)
-
-  return BCBookKeeping{typeof(side_nodes), typeof(blocks)}(
+  return BCBookKeeping(
     blocks, dofs, elements, nodes, sides, side_nodes
   )
 end
@@ -158,10 +117,12 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 abstract type AbstractBCContainer{
-  B <: BCBookKeeping,
-  T <: Union{<:Number, <:SVector},
+  IT <: Integer,
+  VT <: Union{<:Number, <:SVector},
   N,
-  V <: AbstractArray{T, N}
+  IV <: AbstractArray{IT, 1},
+  IM <: AbstractArray{IT, 2},
+  VV <: AbstractArray{VT, N}
 } end
 
 KA.get_backend(x::AbstractBCContainer) = KA.get_backend(x.vals)
@@ -170,6 +131,13 @@ function Base.show(io::IO, bc::AbstractBCContainer)
   println(io, "$(typeof(bc).name.name):")
   println(io, "$(bc.bookkeeping)")
 end
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+abstract type AbstractBCFunction{F} end
 
 """
 $(TYPEDSIGNATURES)
@@ -181,8 +149,6 @@ function update_bc_values!(bcs, funcs, X, t)
     backend = KA.get_backend(bc)
     _update_bc_values!(bc, func, X, t, backend)
   end
-  backend = KA.get_backend(X)
-  KA.synchronize(backend)
   return nothing
 end
 

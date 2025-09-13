@@ -41,7 +41,7 @@ function test_poisson_condensed_bcs()
 
     FiniteElementContainers.update_bc_values!(p)
     for bc in values(p.dirichlet_bcs)
-        FiniteElementContainers._update_bcs!(bc, Uu, KA.get_backend(bc))
+        FiniteElementContainers._update_field_dirichlet_bcs!(Uu, bc, KA.get_backend(bc))
     end
 
     for n in 1:3

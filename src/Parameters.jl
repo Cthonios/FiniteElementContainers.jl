@@ -113,7 +113,6 @@ function Parameters(
   dirichlet_bcs, dirichlet_bc_funcs = create_dirichlet_bcs(
     mesh, assembler.dof, dirichlet_bcs
   )
-  # update_dofs!(assembler.dof, )
 
   if neumann_bcs !== NamedTuple()
     syms = map(x -> Symbol("neumann_bc_$x"), 1:length(neumann_bcs))
@@ -184,13 +183,6 @@ function create_parameters(
   return Parameters(mesh, assembler, physics, props, dirichlet_bcs, neumann_bcs, times)
 end
 
-function update_bcs!(p::Parameters)
-  for bc in values(p.dirichlet_bcs)
-    _update_bcs!(bc, p.h1_field, KA.get_backend(bc))
-  end
-  return nothing
-end
-
 """
 $(TYPEDSIGNATURES)
 This method is used to update the stored bc values.
@@ -213,13 +205,13 @@ function update_dofs!(asm::SparseMatrixAssembler, p::Parameters)
 end
 
 function _update_for_assembly!(p::Parameters, dof::DofManager, Uu)
-  update_bcs!(p)
+  update_field_dirichlet_bcs!(p.h1_field, p.dirichlet_bcs)
   update_field_unknowns!(p.h1_field, dof, Uu)
   return nothing
 end
 
 function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, Vu)
-  update_bcs!(p)
+  update_field_dirichlet_bcs!(p.h1_field, p.dirichlet_bcs)
   update_field_unknowns!(p.h1_field, dof, Uu)
   update_field_unknowns!(p.h1_hvp_scratch_field, dof, Vu)
   return nothing

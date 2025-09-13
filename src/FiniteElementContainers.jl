@@ -32,8 +32,8 @@ export L2QuadratureField
 export DofManager
 export create_field
 export create_unknowns
-export update_bcs!
 export update_dofs!
+export update_field_dirichlet_bcs!
 export update_field_unknowns!
 
 # Formulations
@@ -133,6 +133,7 @@ export MappedSurfaceInterpolants
 import KernelAbstractions as KA
 using Atomix
 using DocStringExtensions
+using ForwardDiff
 using Krylov
 using LinearAlgebra
 using ReferenceFiniteElements
