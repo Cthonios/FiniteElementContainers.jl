@@ -17,7 +17,7 @@ function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
     adapt(to, asm.mass_storage),
     adapt(to, asm.residual_storage),
     adapt(to, asm.residual_unknowns),
-    adapt(to, asm.scalar_quadarature_storage),
+    adapt(to, asm.scalar_quadrature_storage),
     adapt(to, asm.stiffness_storage),
     adapt(to, asm.stiffness_action_storage),
     adapt(to, asm.stiffness_action_unknowns)
