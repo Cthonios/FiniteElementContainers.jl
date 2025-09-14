@@ -19,7 +19,7 @@ struct SparseMatrixAssembler{
   mass_storage::Storage1
   residual_storage::Storage2
   residual_unknowns::Storage1
-  scalar_quadarature_storage::Storage3 # useful for energy like calculations
+  scalar_quadrature_storage::Storage3 # useful for energy like calculations
   stiffness_storage::Storage1
   stiffness_action_storage::Storage2
   stiffness_action_unknowns::Storage1
@@ -110,36 +110,39 @@ function _assemble_element!(
   return nothing
 end
 
-"""
-$(TYPEDSIGNATURES)
-TODO add symbol to interface
-"""
-function SparseArrays.sparse!(
-  assembler::SparseMatrixAssembler, ::Val{:stiffness}
+# TODO this only work on CPU right now
+function _adjust_matrix_entries_for_condensed!(
+  A::SparseMatrixCSC, constraint_storage, ::KA.CPU;
+  penalty_scale = 1.e6
 )
-  pattern = assembler.pattern
-  storage = assembler.stiffness_storage
-  return @views SparseArrays.sparse!(
-    pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
-    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
-    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
-    pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
-  )
-end
+  # first ensure things are the right size
+  @assert size(A, 1) == size(A, 2)
+  @assert length(constraint_storage) == size(A, 2)
 
-"""
-$(TYPEDSIGNATURES)
-TODO add symbol to interface
-"""
-function SparseArrays.sparse!(assembler::SparseMatrixAssembler, ::Val{:mass})
-  pattern = assembler.pattern
-  storage = assembler.mass_storage
-  return @views SparseArrays.sparse!(
-    pattern.Is, pattern.Js, storage[assembler.pattern.unknown_dofs],
-    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
-    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
-    pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
-  )
+  # hacky for now
+  # need a penalty otherwise we get into trouble with
+  # iterative linear solvers even for a simple poisson problem
+  # TODO perhaps this should be optional somehow
+  penalty = penalty_scale * tr(A) / size(A, 2)
+
+  # now modify A => (I - G) * A + G
+  nz = nonzeros(A)
+  rowval = rowvals(A)
+  for j in 1:size(A, 2)
+    col_start = A.colptr[j]
+    col_end   = A.colptr[j + 1] - 1
+    for k in col_start:col_end
+      # for (I - G) * A term
+      nz[k] = (1. - constraint_storage[j]) * nz[k]
+
+      # for + G term
+      if rowval[k] == j
+        @inbounds nz[k] = nz[k] + penalty * constraint_storage[j]
+      end
+    end
+  end
+
+  return nothing
 end
 
 function constraint_matrix(assembler::SparseMatrixAssembler)
@@ -147,11 +150,23 @@ function constraint_matrix(assembler::SparseMatrixAssembler)
 end
 
 function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
-  return SparseArrays.sparse!(assembler, Val{:mass}())
+  M = SparseArrays.sparse!(assembler.pattern, assembler.mass_storage)
+
+  if _is_condensed(assembler.dof)
+    _adjust_matrix_entries_for_condensed!(M, assembler.constraint_storage, KA.get_getbackend(assembler))
+  end
+
+  return M
 end
 
 function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
-  return SparseArrays.sparse!(assembler, Val{:stiffness}())
+  K = SparseArrays.sparse!(assembler.pattern, assembler.stiffness_storage)
+
+  if _is_condensed(assembler.dof)
+    _adjust_matrix_entries_for_condensed!(K, assembler.constraint_storage, KA.get_backend(assembler))
+  end
+
+  return K
 end
 
 # TODO probably only works for H1 fields

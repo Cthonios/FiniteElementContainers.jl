@@ -18,13 +18,13 @@ include("TestPoissonCommon.jl")
 
 # read mesh and relevant quantities
 
-function test_poisson_direct()
+function test_poisson_direct(use_condensed)
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u)
+  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -56,13 +56,13 @@ function test_poisson_direct()
 
 end
 
-function test_poisson_direct_neumman()
+function test_poisson_direct_neumman(use_condensed)
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u)
+  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -101,13 +101,13 @@ function test_poisson_direct_neumman()
 
 end
 
-function test_poisson_iterative()
+function test_poisson_iterative(use_condensed)
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u)
+  asm = SparseMatrixAssembler(u; use_condensed)
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -140,12 +140,16 @@ function test_poisson_iterative()
   display(solver.timer)
 end
 
-@time test_poisson_direct()
-@time test_poisson_direct()
+@time test_poisson_direct(false)
+@time test_poisson_direct(false)
+@time test_poisson_direct(true)
+@time test_poisson_direct(true)
 # @time test_poisson_direct_neumman()
 # @time test_poisson_direct_neumman()
-@time test_poisson_iterative()
-@time test_poisson_iterative()
+@time test_poisson_iterative(false)
+@time test_poisson_iterative(false)
+@time test_poisson_iterative(true)
+@time test_poisson_iterative(true)
 
 # # condensed test
 # mesh = UnstructuredMesh(mesh_file)

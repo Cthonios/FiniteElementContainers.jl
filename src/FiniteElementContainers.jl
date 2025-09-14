@@ -13,6 +13,7 @@ export assemble_matrix_action!
 export assemble_scalar!
 export assemble_stiffness!
 export assemble_vector!
+export assemble_vector_neumann_bc!
 export constraint_matrix
 
 # BCs
@@ -149,6 +150,7 @@ using StaticArrays
 using Tensors
 using TimerOutputs
 
+# hooks for extensions
 function cpu end
 function cuda end
 function rocm end

@@ -5,7 +5,7 @@ function assemble_scalar!(
   assembler, func::F, Uu, p
 ) where F <: Function
   assemble_quadrature_quantity!(
-    assembler.scalar_quadarature_storage, assembler.dof,
+    assembler.scalar_quadrature_storage, assembler.dof,
     func, Uu, p
   )
 end
