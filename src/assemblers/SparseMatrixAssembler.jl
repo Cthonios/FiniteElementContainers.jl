@@ -145,6 +145,7 @@ function _adjust_matrix_entries_for_constraints!(
   return nothing
 end
 
+# COV_EXCL_START
 KA.@kernel function _adjust_matrix_entries_for_constraints_kernel!(
   A, constraint_storage, trA;
   penalty_scale = 1.e6
@@ -169,6 +170,7 @@ KA.@kernel function _adjust_matrix_entries_for_constraints_kernel!(
     end
   end
 end
+# COV_EXCL_STOP
 
 function _adjust_matrix_entries_for_constraints(
   A, constraint_storage, backend::KA.Backend
@@ -183,10 +185,6 @@ function _adjust_matrix_entries_for_constraints(
   kernel! = _adjust_matrix_entries_for_constraints_kernel!(backend)
   kernel!(A, constraint_storage, trA, ndrange = size(A, 2))
   return nothing
-end
-
-function constraint_matrix(assembler::SparseMatrixAssembler)
-  return Diagonal(assembler.constraint_storage)
 end
 
 function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)

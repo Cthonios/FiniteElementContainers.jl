@@ -34,4 +34,19 @@ include("poisson/TestPoissonCommon.jl")
   M = mass(asm)
   R = residual(asm)
   Mv = hvp(asm, Vu)
+
+  asm = SparseMatrixAssembler(u; use_condensed=false)
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+  U = create_unknowns(asm)
+  V = create_unknowns(asm)
+
+  assemble_mass!(asm, mass, U, p)
+  assemble_stiffness!(asm, stiffness, U, p)
+  assemble_matrix_action!(asm, stiffness, U, V, p)
+  assemble_vector!(asm, residual, U, p)
+
+  K = stiffness(asm)
+  M = mass(asm)
+  R = residual(asm)
+  Kv = hvp(asm, V)
 end

@@ -14,7 +14,6 @@ export assemble_scalar!
 export assemble_stiffness!
 export assemble_vector!
 export assemble_vector_neumann_bc!
-export constraint_matrix
 
 # BCs
 export DirichletBC
