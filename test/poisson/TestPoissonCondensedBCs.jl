@@ -37,27 +37,27 @@ function test_poisson_condensed_bcs()
         mesh, asm, physics, props; 
         dirichlet_bcs=dbcs
     )
-    Uu = create_unknowns(asm)
+    # Uu = create_unknowns(asm)
 
-    FiniteElementContainers.update_bc_values!(p)
-    for bc in values(p.dirichlet_bcs)
-        FiniteElementContainers._update_field_dirichlet_bcs!(Uu, bc, KA.get_backend(bc))
-    end
+    # FiniteElementContainers.update_bc_values!(p)
+    # for bc in values(p.dirichlet_bcs)
+    #     FiniteElementContainers._update_field_dirichlet_bcs!(Uu, bc, KA.get_backend(bc))
+    # end
 
-    for n in 1:3
-        assemble_stiffness!(asm, stiffness, Uu, p)
-        assemble_vector!(asm, residual, Uu, p)
-        G = constraint_matrix(asm)
-        K = stiffness(asm)
-        R = residual(asm)
+    # for n in 1:3
+    #     assemble_stiffness!(asm, stiffness, Uu, p)
+    #     assemble_vector!(asm, residual, Uu, p)
+    #     K = stiffness(asm)
+    #     R = residual(asm)
 
-        R_s = (I - G) * R
-        K_s = (I - G) * K + G
+    #     dUu = -K \ R
+    #     Uu = Uu + dUu
+    # end
+    # Uu
 
-        dUu = -K_s \ R_s
-        Uu = Uu + dUu
-    end
-    Uu
+    solver = NewtonSolver(DirectLinearSolver(asm))
+    integrator = QuasiStaticIntegrator(solver)
+    evolve!(integrator, p)
 
     pp = PostProcessor(mesh, output_file, u)
     write_times(pp, 1, 0.0)
@@ -68,9 +68,8 @@ function test_poisson_condensed_bcs()
         @test exodiff(output_file, gold_file)
     end
     rm(output_file; force=true)
-    # display(solver.timer)
-
-    Uu, p
+    display(solver.timer)
 end
 
+test_poisson_condensed_bcs()
 test_poisson_condensed_bcs()

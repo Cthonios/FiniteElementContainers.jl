@@ -8,6 +8,32 @@ $(TYPEDSIGNATURES)
 """
 KA.get_backend(asm::AbstractAssembler) = KA.get_backend(asm.dof)
 
+function _adjust_matrix_action_entries_for_condensed!(
+  Av, constraint_storage, v, ::KA.CPU
+  # TODO do we need a penalty scale here as well?
+)
+  @assert length(Av) == length(constraint_storage)
+  @assert length(v) == length(constraint_storage)
+  # modify Av => (I - G) * Av + Gv
+  # TODO is this the right thing to do? I think so...
+  for i in 1:length(constraint_storage)
+    @inbounds Av[i] = (1. - constraint_storage[i]) * Av[i] + constraint_storage[i] * v[i]
+  end
+  return nothing
+end
+
+function _adjust_vector_entries_for_condensed!(b, constraint_storage, ::KA.CPU)
+  @assert length(b) == length(constraint_storage)
+  # modify b => (I - G) * b + (Gu - g)
+  # but Gu = g, so we don't need that here
+  # unless we want to modify this to support weakly
+  # enforced BCs later
+  for i in 1:length(constraint_storage)
+    @inbounds b[i] = (1. - constraint_storage[i]) * b[i]
+  end
+  return nothing
+end
+
 """
 $(TYPEDSIGNATURES)
 Assembly method for an H1Field, e.g. internal force
@@ -139,13 +165,39 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function hvp(assembler::AbstractAssembler)
-  extract_field_unknowns!(
-    assembler.stiffness_action_unknowns,
-    assembler.dof,
-    assembler.stiffness_action_storage
-  )
-  return assembler.stiffness_action_unknowns
+function hvp(asm::AbstractAssembler)
+  if _is_condensed(asm.dof)
+    _adjust_matrix_action_entries_for_condensed!(
+      asm.stiffness_action_storage, asm.constraint_storage, 
+      KA.get_backend(asm)
+    )
+    return asm.stiffness_action_storage.data
+  else
+    extract_field_unknowns!(
+      asm.stiffness_action_unknowns,
+      asm.dof,
+      asm.stiffness_action_storage
+    )
+    return asm.stiffness_action_unknowns
+  end
+end
+
+# new approach requiring access to the v that makes Hv
+function hvp(asm::AbstractAssembler, v)
+  if _is_condensed(asm.dof)
+    _adjust_matrix_action_entries_for_condensed!(
+      asm.stiffness_action_storage, asm.constraint_storage, v,
+      KA.get_backend(asm)
+    )
+    return asm.stiffness_action_storage.data
+  else
+    extract_field_unknowns!(
+      asm.stiffness_action_unknowns,
+      asm.dof,
+      asm.stiffness_action_storage
+    )
+    return asm.stiffness_action_unknowns
+  end
 end
 
 """
@@ -157,14 +209,23 @@ end
 
 """
 $(TYPEDSIGNATURES)
+assumes assemble_vector! has already been called
 """
 function residual(asm::AbstractAssembler)
-  extract_field_unknowns!(
-    asm.residual_unknowns, 
-    asm.dof, 
-    asm.residual_storage
-  )
-  return asm.residual_unknowns
+  if _is_condensed(asm.dof)
+    _adjust_vector_entries_for_condensed!(
+      asm.residual_storage, asm.constraint_storage,
+      KA.get_backend(asm)
+    )
+    return asm.residual_storage.data
+  else
+    extract_field_unknowns!(
+      asm.residual_unknowns, 
+      asm.dof, 
+      asm.residual_storage
+    )
+    return asm.residual_unknowns
+  end
 end
 
 """

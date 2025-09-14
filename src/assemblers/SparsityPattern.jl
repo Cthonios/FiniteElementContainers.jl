@@ -108,6 +108,15 @@ function SparsityPattern(dof::DofManager)
   )
 end
 
+function SparseArrays.sparse!(pattern::SparsityPattern, storage)
+  return @views SparseArrays.sparse!(
+    pattern.Is, pattern.Js, storage[pattern.unknown_dofs],
+    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
+    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
+    pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
+  )
+end
+
 num_entries(s::SparsityPattern) = length(s.Is)
 
 # NOTE this methods assumes that dof is up to date
