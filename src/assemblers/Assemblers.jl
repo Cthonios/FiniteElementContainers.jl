@@ -22,6 +22,7 @@ function _adjust_matrix_action_entries_for_constraints!(
   return nothing
 end
 
+# COV_EXCL_START
 KA.@kernel function _adjust_matrix_action_entries_for_constraints_kernel!(
   Av, constraint_storage, v
 )
@@ -29,6 +30,7 @@ KA.@kernel function _adjust_matrix_action_entries_for_constraints_kernel!(
   # modify Av => (I - G) * Av + Gv
   @inbounds Av[I] = (1. - constraint_storage[I]) * Av[I] + constraint_storage[I] * v[I]
 end
+# COV_EXCL_STOP
 
 function _adjust_matrix_action_entries_for_constraints!(
   Av, constraint_storage, v, backend::KA.Backend
@@ -52,11 +54,13 @@ function _adjust_vector_entries_for_constraints!(b, constraint_storage, ::KA.CPU
   return nothing
 end
 
+# COV_EXCL_START
 KA.@kernel function _adjust_vector_entries_for_constraints_kernel(b, constraint_storage)
   I = KA.@index(Global)
   # modify b => (I - G) * b + (Gu - g)
   @inbounds b[I] = (1. - constraint_storage[I]) * b[I]
 end
+# COV_EXCL_STOP
 
 function _adjust_vector_entries_for_constraints!(b, constraint_storage, backend::KA.Backend)
   @assert length(b) == length(constraint_storage)
