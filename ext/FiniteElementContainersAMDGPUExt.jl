@@ -21,7 +21,12 @@ function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
   #
 
   # n_dofs = FiniteElementContainers.num_unknowns(asm.dof)
-  n_dofs = length(asm.dof.unknown_dofs)
+  if FiniteElementContainers._is_condensed(asm.dof)
+    n_dofs = length(asm.dof)
+  else
+    n_dofs = length(asm.dof.unknown_dofs)
+  end
+
   return AMDGPU.rocSPARSE.ROCSparseMatrixCSC(
     asm.pattern.csccolptr,
     asm.pattern.cscrowval,

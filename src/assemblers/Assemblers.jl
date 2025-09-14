@@ -8,7 +8,7 @@ $(TYPEDSIGNATURES)
 """
 KA.get_backend(asm::AbstractAssembler) = KA.get_backend(asm.dof)
 
-function _adjust_matrix_action_entries_for_condensed!(
+function _adjust_matrix_action_entries_for_constraints!(
   Av, constraint_storage, v, ::KA.CPU
   # TODO do we need a penalty scale here as well?
 )
@@ -22,7 +22,25 @@ function _adjust_matrix_action_entries_for_condensed!(
   return nothing
 end
 
-function _adjust_vector_entries_for_condensed!(b, constraint_storage, ::KA.CPU)
+KA.@kernel function _adjust_matrix_action_entries_for_constraints_kernel!(
+  Av, constraint_storage, v
+)
+  I = KA.@index(Global)
+  # modify Av => (I - G) * Av + Gv
+  @inbounds Av[I] = (1. - constraint_storage[I]) * Av[I] + constraint_storage[I] * v[I]
+end
+
+function _adjust_matrix_action_entries_for_constraints!(
+  Av, constraint_storage, v, backend::KA.Backend
+)
+  @assert length(Av) == length(constraint_storage)
+  @assert length(v) == length(constraint_storage)
+  kernel! = _adjust_matrix_action_entries_for_constraints_kernel!(backend)
+  kernel!(Av, constraint_storage, v, ndrange = length(Av))
+  return nothing
+end
+
+function _adjust_vector_entries_for_constraints!(b, constraint_storage, ::KA.CPU)
   @assert length(b) == length(constraint_storage)
   # modify b => (I - G) * b + (Gu - g)
   # but Gu = g, so we don't need that here
@@ -31,6 +49,19 @@ function _adjust_vector_entries_for_condensed!(b, constraint_storage, ::KA.CPU)
   for i in 1:length(constraint_storage)
     @inbounds b[i] = (1. - constraint_storage[i]) * b[i]
   end
+  return nothing
+end
+
+KA.@kernel function _adjust_vector_entries_for_constraints_kernel(b, constraint_storage)
+  I = KA.@index(Global)
+  # modify b => (I - G) * b + (Gu - g)
+  @inbounds b[I] = (1. - constraint_storage[I]) * b[I]
+end
+
+function _adjust_vector_entries_for_constraints!(b, constraint_storage, backend::KA.Backend)
+  @assert length(b) == length(constraint_storage)
+  kernel! = _adjust_vector_entries_for_constraints_kernel(backend)
+  kernel!(b, constraint_storage, ndrange = length(b))
   return nothing
 end
 
@@ -162,30 +193,31 @@ function _quadrature_level_state(state::L2QuadratureField, q::Int, e::Int)
   return state_q
 end
 
+
+# function hvp(asm::AbstractAssembler)
+#   if _is_condensed(asm.dof)
+#     _adjust_matrix_action_entries_for_constraints!(
+#       asm.stiffness_action_storage, asm.constraint_storage, 
+#       KA.get_backend(asm)
+#     )
+#     return asm.stiffness_action_storage.data
+#   else
+#     extract_field_unknowns!(
+#       asm.stiffness_action_unknowns,
+#       asm.dof,
+#       asm.stiffness_action_storage
+#     )
+#     return asm.stiffness_action_unknowns
+#   end
+# end
+
+# new approach requiring access to the v that makes Hv
 """
 $(TYPEDSIGNATURES)
 """
-function hvp(asm::AbstractAssembler)
-  if _is_condensed(asm.dof)
-    _adjust_matrix_action_entries_for_condensed!(
-      asm.stiffness_action_storage, asm.constraint_storage, 
-      KA.get_backend(asm)
-    )
-    return asm.stiffness_action_storage.data
-  else
-    extract_field_unknowns!(
-      asm.stiffness_action_unknowns,
-      asm.dof,
-      asm.stiffness_action_storage
-    )
-    return asm.stiffness_action_unknowns
-  end
-end
-
-# new approach requiring access to the v that makes Hv
 function hvp(asm::AbstractAssembler, v)
   if _is_condensed(asm.dof)
-    _adjust_matrix_action_entries_for_condensed!(
+    _adjust_matrix_action_entries_for_constraints!(
       asm.stiffness_action_storage, asm.constraint_storage, v,
       KA.get_backend(asm)
     )
@@ -213,7 +245,7 @@ assumes assemble_vector! has already been called
 """
 function residual(asm::AbstractAssembler)
   if _is_condensed(asm.dof)
-    _adjust_vector_entries_for_condensed!(
+    _adjust_vector_entries_for_constraints!(
       asm.residual_storage, asm.constraint_storage,
       KA.get_backend(asm)
     )

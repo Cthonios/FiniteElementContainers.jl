@@ -17,7 +17,7 @@ bc_func(_, _) = 0.
 
 include("TestPoissonCommon.jl")
 
-function poisson_amdgpu()
+function poisson_amdgpu(use_condensed)
   # do all setup on CPU
   # the mesh for instance is not gpu compatable
   mesh = UnstructuredMesh(mesh_file)
@@ -25,8 +25,7 @@ function poisson_amdgpu()
   physics = Poisson()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  dof = DofManager(u)
-  asm = SparseMatrixAssembler(u)
+  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
 
   dbcs = DirichletBC[
     DirichletBC(:u, :sset_1, bc_func),
@@ -63,7 +62,9 @@ function poisson_amdgpu()
   display(solver.timer)
 end
 
-@time poisson_amdgpu()
-@time poisson_amdgpu()
+@time poisson_amdgpu(false)
+@time poisson_amdgpu(false)
+@time poisson_amdgpu(true)
+@time poisson_amdgpu(true)
 
 # @benchmark poisson_cuda()

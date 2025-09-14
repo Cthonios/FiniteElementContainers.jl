@@ -26,6 +26,8 @@ function assemble_vector!(
       backend
     )
   end
+  
+  return nothing
 end
 
 # CPU Implementation
