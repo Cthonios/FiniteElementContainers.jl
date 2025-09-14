@@ -16,7 +16,12 @@ function CUDA.CUSPARSE.CuSparseMatrixCSC(asm::SparseMatrixAssembler)
   # they are doing the right thing
   # @assert length(asm.pattern.cscnzval) > 0 "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
   # @assert all(x -> x != zero(eltype(asm.pattern.cscnzval)), asm.pattern.cscnzval) "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
-  n_dofs = FiniteElementContainers.num_unknowns(asm.dof)
+  if FiniteElementContainers._is_condensed(asm.dof)
+    n_dofs = length(asm.dof)
+  else
+    n_dofs = FiniteElementContainers.num_unknowns(asm.dof)
+  end
+
   return CUDA.CUSPARSE.CuSparseMatrixCSC(
     asm.pattern.csccolptr,
     asm.pattern.cscrowval,

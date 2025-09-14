@@ -111,7 +111,7 @@ function _assemble_element!(
 end
 
 # TODO this only work on CPU right now
-function _adjust_matrix_entries_for_condensed!(
+function _adjust_matrix_entries_for_constraints!(
   A::SparseMatrixCSC, constraint_storage, ::KA.CPU;
   penalty_scale = 1.e6
 )
@@ -145,6 +145,46 @@ function _adjust_matrix_entries_for_condensed!(
   return nothing
 end
 
+KA.@kernel function _adjust_matrix_entries_for_constraints_kernel!(
+  A, constraint_storage, trA;
+  penalty_scale = 1.e6
+)
+  J = KA.@index(Global)
+
+  penalty = penalty_scale * trA / size(A, 2)
+
+  # now modify A => (I - G) * A + G
+  nz = nonzeros(A)
+  rowval = rowvals(A)
+
+  col_start = A.colptr[J]
+  col_end   = A.colptr[J + 1] - 1
+  for k in col_start:col_end
+    # for (I - G) * A term
+    nz[k] = (1. - constraint_storage[J]) * nz[k]
+
+    # for + G term
+    if rowval[k] == J
+      @inbounds nz[k] = nz[k] + penalty * constraint_storage[J]
+    end
+  end
+end
+
+function _adjust_matrix_entries_for_constraints(
+  A, constraint_storage, backend::KA.Backend
+)
+  # first ensure things are the right size
+  @assert size(A, 1) == size(A, 2)
+  @assert length(constraint_storage) == size(A, 2)
+
+  # get trA ahead of time to save some allocations at kernel level
+  trA = tr(A)
+  
+  kernel! = _adjust_matrix_entries_for_constraints_kernel!(backend)
+  kernel!(A, constraint_storage, trA, ndrange = size(A, 2))
+  return nothing
+end
+
 function constraint_matrix(assembler::SparseMatrixAssembler)
   return Diagonal(assembler.constraint_storage)
 end
@@ -153,7 +193,7 @@ function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
   M = SparseArrays.sparse!(assembler.pattern, assembler.mass_storage)
 
   if _is_condensed(assembler.dof)
-    _adjust_matrix_entries_for_condensed!(M, assembler.constraint_storage, KA.get_getbackend(assembler))
+    _adjust_matrix_entries_for_constraints!(M, assembler.constraint_storage, KA.get_getbackend(assembler))
   end
 
   return M
@@ -163,7 +203,7 @@ function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
   K = SparseArrays.sparse!(assembler.pattern, assembler.stiffness_storage)
 
   if _is_condensed(assembler.dof)
-    _adjust_matrix_entries_for_condensed!(K, assembler.constraint_storage, KA.get_backend(assembler))
+    _adjust_matrix_entries_for_constraints!(K, assembler.constraint_storage, KA.get_backend(assembler))
   end
 
   return K

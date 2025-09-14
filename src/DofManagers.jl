@@ -86,23 +86,12 @@ KA.@kernel function _extract_field_unknowns_kernel!(
 end
 # COV_EXCL_STOP
 
-# COV_EXCL_START
-KA.@kernel function _extract_field_unknowns_kernel!(
-    Uu::V, 
-    dof::DofManager{true, IT, IDs, Var}, 
-    U::AbstractField
-) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
-    N = KA.@index(Global)
-    @inbounds Uu[dof.unknown_dofs[N]] = U[dof.unknown_dofs[N]]
-end
-# COV_EXCL_STOP
-
 function _extract_field_unknowns!(
     Uu::V, 
-    dof::DofManager, 
+    dof::DofManager{false, IT, IDs, Var}, 
     U::AbstractField, 
     backend::KA.Backend
-) where V <: AbstractVector{<:Number}
+) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
     kernel! = _extract_field_unknowns_kernel!(backend)
     kernel!(Uu, dof, U, ndrange = length(Uu))
     return nothing
@@ -118,21 +107,11 @@ function _extract_field_unknowns!(
     return nothing
 end
 
-function _extract_field_unknowns!(
-    Uu::V, 
-    dof::DofManager{true, IT, IDs, Var}, 
-    U::AbstractField, 
-    ::KA.CPU
-) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
-    @views Uu[dof.unknown_dofs] .= U[dof.unknown_dofs]
-    return nothing
-end
-
 function extract_field_unknowns!(
     Uu::V,
-    dof::DofManager,
+    dof::DofManager{false, IT, IDs, Var},
     U::AbstractField
-) where V <: AbstractVector{<:Number}
+) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
     backend = KA.get_backend(dof)
     @assert KA.get_backend(U) == backend
     @assert KA.get_backend(Uu) == backend
@@ -168,7 +147,7 @@ KA.@kernel function _update_field_unknowns_kernel!(
     Uu::V
 ) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
     N = KA.@index(Global)
-    @inbounds U[dof.unknown_dofs[N]] = Uu[N]
+    @inbounds U.data[dof.unknown_dofs[N]] = Uu[N]
 end
 # COV_EXCL_STOP
 
@@ -179,7 +158,7 @@ KA.@kernel function _update_field_unknowns_kernel!(
     Uu::V
 ) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
     N = KA.@index(Global)
-    @inbounds U[dof.unknown_dofs[N]] = Uu[dof.unknown_dofs[N]]
+    @inbounds U.data[dof.unknown_dofs[N]] = Uu[dof.unknown_dofs[N]]
 end
 # COV_EXCL_STOP
   
@@ -190,7 +169,7 @@ function _update_field_unknowns!(
     backend::KA.Backend
 ) where T <: AbstractVector{<:Number}
     kernel! = _update_field_unknowns_kernel!(backend)
-    kernel!(U, dof, Uu, ndrange = length(Uu))
+    kernel!(U, dof, Uu, ndrange = length(dof.unknown_dofs))
     return nothing
 end
   
@@ -223,7 +202,13 @@ function update_field_unknowns!(
     backend = KA.get_backend(dof)
     @assert KA.get_backend(U) == backend
     @assert KA.get_backend(Uu) == backend
-    # @assert length(dof.unknown_dofs) == length(Uu)
+
+    if _is_condensed(dof)
+        @assert length(Uu) == length(U)
+    else
+        @assert length(Uu) == length(dof.unknown_dofs)
+    end
+
     _update_field_unknowns!(U, dof, Uu, backend)
     return nothing
 end
