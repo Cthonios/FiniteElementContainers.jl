@@ -64,11 +64,22 @@ end
 @testset ExtendedTestSet "Mechanics Problem" begin
   include("mechanics/TestMechanicsCommon.jl")
   include("mechanics/TestMechanics.jl")
+
+  cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
+
+  test_mechanics_dirichlet_only(cpu, false, NewtonSolver, DirectLinearSolver)
+  test_mechanics_dirichlet_only(cpu, true, NewtonSolver, DirectLinearSolver)
+  test_mechanics_dirichlet_only(cpu, false, NewtonSolver, cg_solver)
+  test_mechanics_dirichlet_only(cpu, true, NewtonSolver, cg_solver)
+  
   if AMDGPU.functional()
-    include("mechanics/TestMechanicsAMDGPU.jl")
+    test_mechanics_dirichlet_only(rocm, false, NewtonSolver, cg_solver)
+    test_mechanics_dirichlet_only(rocm, true, NewtonSolver, cg_solver)
   end
+
   if CUDA.functional()
-    include("mechanics/TestMechanicsCUDA.jl")
+    test_mechanics_dirichlet_only(cuda, false, NewtonSolver, cg_solver)
+    test_mechanics_dirichlet_only(cuda, true, NewtonSolver, cg_solver)
   end
 end
 
