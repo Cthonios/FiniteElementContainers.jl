@@ -13,8 +13,8 @@ struct SparsityPattern{
   Is::I
   Js::I
   unknown_dofs::I
-  block_sizes::B
-  block_offsets::B
+  block_start_indices::B
+  block_el_level_sizes::B
   # cache arrays
   klasttouch::I
   csrrowptr::I
@@ -46,23 +46,33 @@ function SparsityPattern(dof::DofManager)
 
   # first get total number of entries in a stupid manner
   n_entries = 0
-  block_sizes = Vector{Int64}(undef, n_blocks)
-  block_offsets = Vector{Int64}(undef, n_blocks)
+  block_start_indices = Vector{Int64}(undef, n_blocks)
+  block_el_level_sizes = Vector{Int64}(undef, n_blocks)
 
   # for (n, conn) in enumerate(values(dof.H1_vars[1].fspace.elem_conns))
+  start_carry = 1
   for (n, conn) in enumerate(values(fspace.elem_conns))
     ids = reshape(1:n_total_dofs, ND, NN)
     # TODO do we need this operation?
     conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
     n_entries += size(conn, 1)^2 * size(conn, 2)
-    block_sizes[n] = size(conn, 2)
-    block_offsets[n] = size(conn, 1)^2
+
+    # block_start_indices[n] = size(conn, 2)
+    # if n == 1
+    #   block_start_indices[n] = 1
+    # else
+    #   block_start_indices[n] = carry
+    # end
+    block_start_indices[n] = start_carry
+  
+    start_carry = start_carry + size(conn, 1)^2 * size(conn, 2)
+    block_el_level_sizes[n] = size(conn, 1)^2
   end
 
   # convert to NamedTuples so it's easy to index
   block_syms = keys(fspace.ref_fes)
-  block_sizes = NamedTuple{block_syms}(tuple(block_sizes)...)
-  block_offsets = NamedTuple{block_syms}(tuple(block_offsets)...)
+  block_start_indices = NamedTuple{block_syms}(tuple(block_start_indices)...)
+  block_el_level_sizes = NamedTuple{block_syms}(tuple(block_el_level_sizes)...)
 
   # setup pre-allocated arrays based on number of entries found above
   Is = Vector{Int64}(undef, n_entries)
@@ -100,7 +110,7 @@ function SparsityPattern(dof::DofManager)
   return SparsityPattern(
     Is, Js, 
     unknown_dofs, 
-    block_sizes, block_offsets, 
+    block_start_indices, block_el_level_sizes, 
     # cache arrays
     klasttouch, csrrowptr, csrcolval, csrnzval,
     # additional cache arrays

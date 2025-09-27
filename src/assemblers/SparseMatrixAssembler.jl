@@ -97,12 +97,11 @@ function _assemble_element!(
   pattern::SparsityPattern, storage, K_el::SMatrix, el_id::Int, block_id::Int
 )
   # figure out ids needed to update
-  block_size = values(pattern.block_sizes)[block_id]
-  block_offset = values(pattern.block_offsets)[block_id]
-  # get range of ids
-  start_id = (block_id - 1) * block_size + 
-             (el_id - 1) * block_offset + 1
-  end_id = start_id + block_offset - 1
+  block_start_index = values(pattern.block_start_indices)[block_id]
+  block_el_level_size = values(pattern.block_el_level_sizes)[block_id]
+  start_id = block_start_index + 
+             (el_id - 1) * block_el_level_size
+  end_id = start_id + block_el_level_size - 1
   ids = start_id:end_id
 
   # get appropriate storage and update values

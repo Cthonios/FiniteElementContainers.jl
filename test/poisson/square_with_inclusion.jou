@@ -1,0 +1,38 @@
+reset
+
+create surface rectangle width 1 height 1 zplane
+Surface 1 Move X 0.5 Y 0.5
+
+create surface circle radius 0.25 zplane
+Surface 2 Move X 0.5 Y 0.5
+
+subtract body 2 from body 1 keep_tool
+
+imprint body all
+merge tol 1e-6
+merge all
+
+surface 2 scheme trimesh
+surface 2 size 0.05
+surface 3 size 0.05
+
+mesh surface 3
+mesh surface 2
+
+block 1 add surface 3
+block 2 add surface 2
+
+block 1 name "block_1"
+block 2 name "block_2"
+
+block 1 element type quad4
+block 2 element type tri3
+#block 2 element type quad4
+
+nodeset 1 add curve 1 2 3 4
+nodeset 1 name "boundary"
+sideset 1 add curve 1 2 3 4
+sideset 1 name "boundary"
+
+#export genesis "multi_block_mesh_quad4_quad4.g" overwrite
+export genesis "multi_block_mesh_quad4_tri3.g" overwrite

@@ -28,8 +28,8 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
   Is = adapt(to, asm.Is)
   Js = adapt(to, asm.Js)
   unknown_dofs = adapt(to, asm.unknown_dofs)
-  block_sizes = adapt(to, asm.block_sizes)
-  block_offsets = adapt(to, asm.block_offsets)
+  block_start_indices = adapt(to, asm.block_start_indices)
+  block_el_level_sizes = adapt(to, asm.block_el_level_sizes)
   #
   klasttouch = adapt(to, asm.klasttouch)
   csrrowptr = adapt(to, asm.csrrowptr)
@@ -41,7 +41,7 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
   cscnzval = adapt(to, asm.cscnzval)
   return FiniteElementContainers.SparsityPattern(
     Is, Js,
-    unknown_dofs, block_sizes, block_offsets,
+    unknown_dofs, block_start_indices, block_el_level_sizes,
     klasttouch, csrrowptr, csrcolval, csrnzval,
     csccolptr, cscrowval, cscnzval
   )
