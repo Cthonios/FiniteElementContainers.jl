@@ -187,11 +187,21 @@ function _adjust_matrix_entries_for_constraints(
   return nothing
 end
 
+function _hessian(assembler::SparseMatrixAssembler, ::KA.CPU)
+  H = SparseArrays.sparse!(assembler.pattern, assembler.hessian_storage)
+
+  if _is_condensed(assembler.dof)
+    _adjust_matrix_entries_for_constraints!(H, assembler.constraint_storage, KA.get_backend(assembler))
+  end
+
+  return H
+end
+
 function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
   M = SparseArrays.sparse!(assembler.pattern, assembler.mass_storage)
 
   if _is_condensed(assembler.dof)
-    _adjust_matrix_entries_for_constraints!(M, assembler.constraint_storage, KA.get_getbackend(assembler))
+    _adjust_matrix_entries_for_constraints!(M, assembler.constraint_storage, KA.get_backend(assembler))
   end
 
   return M

@@ -212,3 +212,9 @@ function update_field_unknowns!(
     _update_field_unknowns!(U, dof, Uu, backend)
     return nothing
 end
+
+function update_field_unknowns!(
+    U::F, dof::DofManager, Uu::F
+) where F <: AbstractField
+    update_field_unknowns!(U, dof, Uu.data)
+end

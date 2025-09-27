@@ -29,16 +29,35 @@ include("TestPhysics.jl")
 #   include("eigen/TestEigen.jl")
 # end
 
+# "Regression" tests below
+
 @testset ExtendedTestSet "Poisson problem" begin
   include("poisson/TestPoisson.jl")
-  include("poisson/TestPoissonNeumann.jl")
-  # include("poisson/TestPoissonCondensedBCs.jl")
+
+  cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
+
+  # cpu tests
+  test_poisson_dirichlet(cpu, false, NewtonSolver, DirectLinearSolver)
+  test_poisson_dirichlet(cpu, true, NewtonSolver, DirectLinearSolver)
+  test_poisson_dirichlet(cpu, false, NewtonSolver, cg_solver)
+  test_poisson_dirichlet(cpu, true, NewtonSolver, cg_solver)
+  test_poisson_neumann(cpu, false, NewtonSolver, DirectLinearSolver)
+  test_poisson_neumann(cpu, true, NewtonSolver, DirectLinearSolver)
+  test_poisson_neumann(cpu, false, NewtonSolver, cg_solver)
+  test_poisson_neumann(cpu, true, NewtonSolver, cg_solver)
+  
   if AMDGPU.functional()
-    include("poisson/TestPoissonAMDGPU.jl")
-    include("poisson/TestPoissonNeumannAMDGPU.jl")
+    test_poisson_dirichlet(rocm, false, NewtonSolver, cg_solver)
+    test_poisson_dirichlet(rocm, true, NewtonSolver, cg_solver)
+    test_poisson_neumann(rocm, false, NewtonSolver, cg_solver)
+    test_poisson_neumann(rocm, true, NewtonSolver, cg_solver)
   end
+
   if CUDA.functional()
-    include("poisson/TestPoissonCUDA.jl")
+    test_poisson_dirichlet(cuda, false, NewtonSolver, cg_solver)
+    test_poisson_dirichlet(cuda, true, NewtonSolver, cg_solver)
+    test_poisson_neumann(cuda, false, NewtonSolver, cg_solver)
+    test_poisson_neumann(cuda, true, NewtonSolver, cg_solver)
   end
 end
 

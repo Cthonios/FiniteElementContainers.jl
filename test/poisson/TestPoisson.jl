@@ -18,7 +18,10 @@ include("TestPoissonCommon.jl")
 
 # read mesh and relevant quantities
 
-function test_poisson_direct(use_condensed)
+function test_poisson_dirichlet(
+  dev, use_condensed,
+  nsolver, lsolver
+)
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
@@ -34,18 +37,28 @@ function test_poisson_direct(use_condensed)
     DirichletBC(:u, :sset_4, bc_func),
   ]
 
-  # direct solver test
   # setup the parameters
-  @show p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+
+  if dev != cpu
+    p = p |> dev
+    asm = asm |> dev 
+  end
 
   # setup solver and integrator
-  solver = NewtonSolver(DirectLinearSolver(asm))
+  solver = nsolver(lsolver(asm))
   integrator = QuasiStaticIntegrator(solver)
   evolve!(integrator, p)
 
+  if dev != cpu
+    p = p |> cpu
+  end
+
+  U = p.h1_field
+
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
-  write_field(pp, 1, ("u",), p.h1_field)
+  write_field(pp, 1, ("u",), U)
   close(pp)
 
   if !Sys.iswindows()
@@ -53,10 +66,12 @@ function test_poisson_direct(use_condensed)
   end
   rm(output_file; force=true)
   display(solver.timer)
-
 end
 
-function test_poisson_direct_neumman(use_condensed)
+function test_poisson_neumann(
+  dev, use_condensed,
+  nsolver, lsolver
+)
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson()
@@ -77,123 +92,86 @@ function test_poisson_direct_neumman(use_condensed)
 
   # direct solver test
   # setup the parameters
-  @show p = create_parameters(
+  p = create_parameters(
     mesh, asm, physics, props; 
     dirichlet_bcs=dbcs,
     neumann_bcs=nbcs
   )
 
+  if dev != cpu
+    p = p |> dev
+    asm = asm |> dev 
+  end
+
   # setup solver and integrator
-  solver = NewtonSolver(DirectLinearSolver(asm))
+  solver = nsolver(lsolver(asm))
   integrator = QuasiStaticIntegrator(solver)
   evolve!(integrator, p)
 
-  pp = PostProcessor(mesh, output_file, u)
-  write_times(pp, 1, 0.0)
-  write_field(pp, 1, ("u",), p.h1_field)
-  close(pp)
-
-  if !Sys.iswindows()
-    @test exodiff(output_file, gold_file)
+  if dev != cpu
+    p = p |> cpu
   end
-  rm(output_file; force=true)
-  display(solver.timer)
 
-end
+  # TODO make a neumann gold file
+  # U = p.h1_field
 
-function test_poisson_iterative(use_condensed)
-  mesh = UnstructuredMesh(mesh_file)
-  V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson()
-  props = create_properties(physics)
-  u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed)
+  # pp = PostProcessor(mesh, output_file, u)
+  # write_times(pp, 1, 0.0)
+  # write_field(pp, 1, ("u",), U)
+  # close(pp)
 
-  # setup and update bcs
-  dbcs = DirichletBC[
-    DirichletBC(:u, :sset_1, bc_func),
-    DirichletBC(:u, :sset_2, bc_func),
-    DirichletBC(:u, :sset_3, bc_func),
-    DirichletBC(:u, :sset_4, bc_func),
-  ]
-
-  # iterative solver test
-  # setup the parameters
-  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
-
-  # setup solver and integrator
-  solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
-  integrator = QuasiStaticIntegrator(solver)
-  @time evolve!(integrator, p)
-
-  display(solver.timer)
-
-  pp = PostProcessor(mesh, output_file, u)
-  write_times(pp, 1, 0.0)
-  write_field(pp, 1, ("u",), p.h1_field)
-  close(pp)
-
-  if !Sys.iswindows()
-    @test exodiff(output_file, gold_file)
-  end
-  rm(output_file; force=true)
+  # if !Sys.iswindows()
+  #   @test exodiff(output_file, gold_file)
+  # end
+  # rm(output_file; force=true)
   display(solver.timer)
 end
 
-@time test_poisson_direct(false)
-@time test_poisson_direct(false)
-@time test_poisson_direct(true)
-@time test_poisson_direct(true)
-# @time test_poisson_direct_neumman()
-# @time test_poisson_direct_neumman()
-@time test_poisson_iterative(false)
-@time test_poisson_iterative(false)
-@time test_poisson_iterative(true)
-@time test_poisson_iterative(true)
+# function test_poisson_iterative(dev, use_condensed)
+#   mesh = UnstructuredMesh(mesh_file)
+#   V = FunctionSpace(mesh, H1Field, Lagrange) 
+#   physics = Poisson()
+#   props = create_properties(physics)
+#   u = ScalarFunction(V, :u)
+#   asm = SparseMatrixAssembler(u; use_condensed)
 
-# # condensed test
-# mesh = UnstructuredMesh(mesh_file)
-# V = FunctionSpace(mesh, H1Field, Lagrange) 
-# physics = Poisson()
-# u = ScalarFunction(V, :u)
-# asm = SparseMatrixAssembler(H1Field, u)
-# # pp = PostProcessor(mesh, output_file, u)
+#   # setup and update bcs
+#   dbcs = DirichletBC[
+#     DirichletBC(:u, :sset_1, bc_func),
+#     DirichletBC(:u, :sset_2, bc_func),
+#     DirichletBC(:u, :sset_3, bc_func),
+#     DirichletBC(:u, :sset_4, bc_func),
+#   ]
 
-# # setup and update bcs
-# dbcs = DirichletBC[
-#   DirichletBC(asm.dof, :u, :sset_1, bc_func),
-#   DirichletBC(asm.dof, :u, :sset_2, bc_func),
-#   DirichletBC(asm.dof, :u, :sset_3, bc_func),
-#   DirichletBC(asm.dof, :u, :sset_4, bc_func),
-# ]
-# update_dofs!(asm, dbcs; use_condensed=true)
-# Uu = create_unknowns(asm)
-# Ubc = create_bcs(asm, H1Field)
-# U = create_field(asm, H1Field)
-# update_field!(U, asm, Uu, Ubc)
-# update_field_bcs!(U, asm.dof, dbcs, 0.)
-# assemble!(asm, physics, U, :residual_and_stiffness)
-# K = stiffness(asm)
-# G = constraint_matrix(asm)
-# # @time H = (G + I) * K
-# K[asm.dof.H1_bc_dofs, asm.dof.H1_bc_dofs] .= 1.
-# # R = G * residual(asm)
-# # R = G * asm.residual_storage.vals
-# R = asm.residual_storage
-# R[asm.dof.H1_bc_dofs] .= 0.
-# ΔUu = -K \ R.vals
-# U.vals .= U.vals .+ ΔUu
-# assemble!(asm, physics, U, :residual_and_stiffness)
-# K = stiffness(asm)
-# G = constraint_matrix(asm)
-# # @time H = (G + I) * K
-# K[asm.dof.H1_bc_dofs, asm.dof.H1_bc_dofs] .= 1.
-# # R = G * residual(asm)
-# # R = G * asm.residual_storage.vals
-# R = asm.residual_storage
-# R[asm.dof.H1_bc_dofs] .= 0.
-# ΔUu = -K \ R.vals
-# U.vals .= U.vals .+ ΔUu
-# U
-# # @time H = G * K + G * I
-# # @time H = G * K
+#   # iterative solver test
+#   # setup the parameters
+#   p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+
+#   if dev != cpu
+#     p = p |> dev
+#     asm = asm |> dev 
+#   end
+
+#   # setup solver and integrator
+#   solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
+#   integrator = QuasiStaticIntegrator(solver)
+#   @time evolve!(integrator, p)
+
+#   display(solver.timer)
+
+#   if dev != cpu
+#     p = p |> cpu
+#   end
+
+#   U = p.h1_field
+#   pp = PostProcessor(mesh, output_file, u)
+#   write_times(pp, 1, 0.0)
+#   write_field(pp, 1, ("u",), U)
+#   close(pp)
+
+#   if !Sys.iswindows()
+#     @test exodiff(output_file, gold_file)
+#   end
+#   rm(output_file; force=true)
+#   display(solver.timer)
+# end
