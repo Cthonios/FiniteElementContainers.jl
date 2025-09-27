@@ -133,6 +133,8 @@ function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
   props = NamedTuple{keys(p.properties)}(props)
 
   return FiniteElementContainers.Parameters(
+    adapt(to, p.ics),
+    adapt(to, p.ic_funcs),
     adapt(to, p.dirichlet_bcs),
     adapt(to, p.dirichlet_bc_funcs),
     adapt(to, p.neumann_bcs),
