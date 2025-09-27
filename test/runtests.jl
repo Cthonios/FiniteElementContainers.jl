@@ -54,10 +54,6 @@ include("TestPhysics.jl")
       test_poisson_dirichlet_multi_block_quad4_tri3(rocm, cond, NewtonSolver, cg_solver)
       test_poisson_neumann(rocm, cond, NewtonSolver, cg_solver)
     end
-  #   test_poisson_dirichlet(rocm, false, NewtonSolver, cg_solver)
-  #   test_poisson_dirichlet(rocm, true, NewtonSolver, cg_solver)
-  #   test_poisson_neumann(rocm, false, NewtonSolver, cg_solver)
-  #   test_poisson_neumann(rocm, true, NewtonSolver, cg_solver)
   end
 
   # if CUDA.functional()

@@ -4,6 +4,8 @@ abstract type AbstractParameters end
 struct Parameters{
   RT <: Number, # Real type
   RV <: AbstractArray{RT, 1}, # Real vector type
+  ICCache,
+  ICFuncs,
   DirichletCache, 
   DirichletFuncs, 
   NeumannCache, 
@@ -16,6 +18,8 @@ struct Parameters{
   NH1Fields
 } <: AbstractParameters
   # parameter/solution fields
+  ics::ICCache
+  ic_funcs::ICFuncs
   dirichlet_bcs::DirichletCache
   dirichlet_bc_funcs::DirichletFuncs
   neumann_bcs::NeumannCache
@@ -42,6 +46,7 @@ end
 function Parameters(
   mesh, assembler, physics,
   properties,
+  ics,
   dirichlet_bcs, 
   neumann_bcs, 
   times
@@ -109,6 +114,8 @@ function Parameters(
   state_new = deepcopy(state_old)
   state_old = NamedTuple{keys(physics)}(tuple(state_old...))
   state_new = NamedTuple{keys(physics)}(tuple(state_new...))
+  
+  ics, ic_funcs = create_ics(mesh, assembler.dof, ics)
 
   dirichlet_bcs, dirichlet_bc_funcs = create_dirichlet_bcs(
     mesh, assembler.dof, dirichlet_bcs
@@ -131,6 +138,7 @@ function Parameters(
   end
 
   p = Parameters(
+    ics, ic_funcs,
     dirichlet_bcs, dirichlet_bc_funcs,
     neumann_bcs, neumann_bc_funcs,
     times,
@@ -157,6 +165,10 @@ end
 
 function Base.show(io::IO, parameters::Parameters)
   println(io, "Parameters:")
+  println(io, "Initial Conditions:")
+  for ic in parameter.ics
+    println(io, "$ic")
+  end
   println(io, "Dirichlet Boundary Conditions:")
   for bc in parameters.dirichlet_bcs
     println(io, "$bc")
@@ -176,11 +188,12 @@ end
 
 function create_parameters(
   mesh, assembler, physics, props; 
+  ics=InitialCondition[],
   dirichlet_bcs=DirichletBC[], 
   neumann_bcs=NeumannBC[],
   times=nothing
 )
-  return Parameters(mesh, assembler, physics, props, dirichlet_bcs, neumann_bcs, times)
+  return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, times)
 end
 
 """
