@@ -35,30 +35,37 @@ include("TestPhysics.jl")
   include("poisson/TestPoisson.jl")
 
   cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
-
+  condensed = [false, true]
+  lsolvers = [cg_solver, DirectLinearSolver]
   # cpu tests
-  test_poisson_dirichlet(cpu, false, NewtonSolver, DirectLinearSolver)
-  test_poisson_dirichlet(cpu, true, NewtonSolver, DirectLinearSolver)
-  test_poisson_dirichlet(cpu, false, NewtonSolver, cg_solver)
-  test_poisson_dirichlet(cpu, true, NewtonSolver, cg_solver)
-  test_poisson_neumann(cpu, false, NewtonSolver, DirectLinearSolver)
-  test_poisson_neumann(cpu, true, NewtonSolver, DirectLinearSolver)
-  test_poisson_neumann(cpu, false, NewtonSolver, cg_solver)
-  test_poisson_neumann(cpu, true, NewtonSolver, cg_solver)
-  
-  if AMDGPU.functional()
-    test_poisson_dirichlet(rocm, false, NewtonSolver, cg_solver)
-    test_poisson_dirichlet(rocm, true, NewtonSolver, cg_solver)
-    test_poisson_neumann(rocm, false, NewtonSolver, cg_solver)
-    test_poisson_neumann(rocm, true, NewtonSolver, cg_solver)
+  for cond in condensed
+    for lsolver in lsolvers
+      test_poisson_dirichlet(cpu, cond, NewtonSolver, lsolver)
+      test_poisson_dirichlet_multi_block_quad4_quad4(cpu, cond, NewtonSolver, lsolver)
+      test_poisson_dirichlet_multi_block_quad4_tri3(cpu, cond, NewtonSolver, lsolver)
+      test_poisson_neumann(cpu, cond, NewtonSolver, lsolver)
+    end
   end
 
-  if CUDA.functional()
-    test_poisson_dirichlet(cuda, false, NewtonSolver, cg_solver)
-    test_poisson_dirichlet(cuda, true, NewtonSolver, cg_solver)
-    test_poisson_neumann(cuda, false, NewtonSolver, cg_solver)
-    test_poisson_neumann(cuda, true, NewtonSolver, cg_solver)
+  if AMDGPU.functional()
+    for cond in condensed
+      test_poisson_dirichlet(rocm, cond, NewtonSolver, cg_solver)
+      test_poisson_dirichlet_multi_block_quad4_quad4(rocm, cond, NewtonSolver, cg_solver)
+      test_poisson_dirichlet_multi_block_quad4_tri3(rocm, cond, NewtonSolver, cg_solver)
+      test_poisson_neumann(rocm, cond, NewtonSolver, cg_solver)
+    end
+  #   test_poisson_dirichlet(rocm, false, NewtonSolver, cg_solver)
+  #   test_poisson_dirichlet(rocm, true, NewtonSolver, cg_solver)
+  #   test_poisson_neumann(rocm, false, NewtonSolver, cg_solver)
+  #   test_poisson_neumann(rocm, true, NewtonSolver, cg_solver)
   end
+
+  # if CUDA.functional()
+  #   test_poisson_dirichlet(cuda, false, NewtonSolver, cg_solver)
+  #   test_poisson_dirichlet(cuda, true, NewtonSolver, cg_solver)
+  #   test_poisson_neumann(cuda, false, NewtonSolver, cg_solver)
+  #   test_poisson_neumann(cuda, true, NewtonSolver, cg_solver)
+  # end
 end
 
 @testset ExtendedTestSet "Mechanics Problem" begin

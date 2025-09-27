@@ -137,11 +137,11 @@ KA.@kernel function _assemble_block_matrix_kernel!(
     end
   end
 
-  block_size = values(pattern.block_sizes)[block_id]
-  block_offset = values(pattern.block_offsets)[block_id]
-  start_id = (block_id - 1) * block_size + 
-             (E - 1) * block_offset + 1
-  end_id = start_id + block_offset - 1
+  block_start_index = values(pattern.block_start_indices)[block_id]
+  block_el_level_size = values(pattern.block_el_level_sizes)[block_id]
+  start_id = block_start_index + 
+             (E - 1) * block_el_level_size
+  end_id = start_id + block_el_level_size - 1
   ids = start_id:end_id
   for (i, id) in enumerate(ids)
     Atomix.@atomic field[id] += K_el.data[i]

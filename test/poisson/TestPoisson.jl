@@ -1,3 +1,5 @@
+using Adapt
+using AMDGPU
 using Exodus
 using FiniteElementContainers
 using StaticArrays
@@ -124,5 +126,99 @@ function test_poisson_neumann(
   #   @test exodiff(output_file, gold_file)
   # end
   # rm(output_file; force=true)
+  display(solver.timer)
+end
+
+function test_poisson_dirichlet_multi_block_quad4_quad4(
+  dev, use_condensed,
+  nsolver, lsolver
+)
+  mesh = UnstructuredMesh(Base.source_dir() * "/poisson/multi_block_mesh_quad4_quad4.g")
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson()
+  props = create_properties(physics)
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+
+  # setup and update bcs
+  dbcs = DirichletBC[
+    DirichletBC(:u, :boundary, bc_func)
+  ]
+
+  # setup the parameters
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+
+  if dev != cpu
+    p = p |> dev
+    asm = asm |> dev 
+  end
+
+  # setup solver and integrator
+  solver = nsolver(lsolver(asm))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p)
+
+  if dev != cpu
+    p = p |> cpu
+  end
+
+  U = p.h1_field
+
+  pp = PostProcessor(mesh, output_file, u)
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, ("u",), U)
+  close(pp)
+
+  # if !Sys.iswindows()
+  #   @test exodiff(output_file, gold_file)
+  # end
+  rm(output_file; force=true)
+  display(solver.timer)
+end
+
+function test_poisson_dirichlet_multi_block_quad4_tri3(
+  dev, use_condensed,
+  nsolver, lsolver
+)
+  mesh = UnstructuredMesh(Base.source_dir() * "/poisson/multi_block_mesh_quad4_tri3.g")
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson()
+  props = create_properties(physics)
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+
+  # setup and update bcs
+  dbcs = DirichletBC[
+    DirichletBC(:u, :boundary, bc_func)
+  ]
+
+  # setup the parameters
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+
+  if dev != cpu
+    p = p |> dev
+    asm = asm |> dev 
+  end
+
+  # setup solver and integrator
+  solver = nsolver(lsolver(asm))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p)
+
+  if dev != cpu
+    p = p |> cpu
+  end
+
+  U = p.h1_field
+
+  pp = PostProcessor(mesh, output_file, u)
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, ("u",), U)
+  close(pp)
+
+  # if !Sys.iswindows()
+  #   @test exodiff(output_file, gold_file)
+  # end
+  rm(output_file; force=true)
   display(solver.timer)
 end
