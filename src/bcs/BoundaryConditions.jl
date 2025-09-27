@@ -91,6 +91,33 @@ function BCBookKeeping(
   )
 end
 
+function BCBookKeeping(mesh, sset_name::Symbol)
+    # get sset specific fields
+    elements = getproperty(mesh.sideset_elems, sset_name)
+    nodes = getproperty(mesh.sideset_nodes, sset_name)
+    sides = getproperty(mesh.sideset_sides, sset_name)
+    side_nodes = getproperty(mesh.sideset_side_nodes, sset_name)
+  
+    blocks = Vector{Int64}(undef, 0)
+
+      # gather the blocks that are present in this sideset
+    # TODO this isn't quite right
+    for (n, val) in enumerate(values(mesh.element_id_maps))
+      # note these are the local elem id to the block, e.g. starting from 1.
+      indices_in_sset = indexin(val, elements)
+      filter!(x -> x !== nothing, indices_in_sset)
+      
+      if length(indices_in_sset) > 0
+        append!(blocks, repeat([n], length(indices_in_sset)))
+      end
+    end
+
+    dofs = Vector{Int64}(undef, 0)
+      return BCBookKeeping(
+      blocks, dofs, elements, nodes, sides, side_nodes
+    )
+end
+
 """
 $(TYPEDSIGNATURES)
 """

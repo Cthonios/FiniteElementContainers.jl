@@ -37,6 +37,11 @@ end
 #   setindex!(field.vals, v, (e - 1) * NQ + (q - 1) * NF + n)
 # end
 
+function Base.setindex!(field::L2QuadratureField{T, D, NF, NQ}, v, n::Int, q::Int, e::Int) where {T, D, NF, NQ}
+  setindex!(field.data, v, (e - 1) * NQ + (q - 1) * NF + n)
+  return nothing
+end
+
 function Base.size(field::L2QuadratureField{T, D, NF, NQ}) where {T, D, NF, NQ} 
   if NF == 0
     (NF, NQ, length(field.data) ÷ NQ)

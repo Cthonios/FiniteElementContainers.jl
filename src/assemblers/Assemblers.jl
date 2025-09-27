@@ -215,6 +215,13 @@ end
 #   end
 # end
 
+"""
+$(TYPEDSIGNATURES)
+"""
+function hessian(asm::AbstractAssembler)
+  return _hessian(asm, KA.get_backend(asm))
+end
+
 # new approach requiring access to the v that makes Hv
 """
 $(TYPEDSIGNATURES)

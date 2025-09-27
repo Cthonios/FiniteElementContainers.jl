@@ -140,6 +140,14 @@ function _update_field_dirichlet_bcs!(U, bc::DirichletBCContainer, ::KA.CPU)
   return nothing
 end
 
+function _update_field_dirichlet_bcs!(U, V, bc::DirichletBCContainer, ::KA.CPU)
+  for (dof, val, val_dot) in zip(bc.bookkeeping.dofs, bc.vals, bc.vals_dot)
+    U[dof] = val
+    V[dof] = val_dot
+  end
+  return nothing
+end
+
 function _update_field_dirichlet_bcs!(U, V, A, bc::DirichletBCContainer, ::KA.CPU)
   for (dof, val, val_dot, val_dot_dot) in zip(bc.bookkeeping.dofs, bc.vals, bc.vals_dot, bc.vals_dot_dot)
     U[dof] = val
@@ -186,6 +194,12 @@ function update_field_dirichlet_bcs!(U, bcs::NamedTuple)
     _update_field_dirichlet_bcs!(U, bc, KA.get_backend(bc))
   end
   return nothing
+end
+
+function update_field_dirichlet_bcs!(U, V, bcs::NamedTuple)
+  for bc in values(bcs)
+    _update_field_dirichlet_bcs!(U, V, bc, KA.get_backend(bc))
+  end
 end
 
 function update_field_dirichlet_bcs!(U, V, A, bcs::NamedTuple)
