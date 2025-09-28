@@ -228,7 +228,7 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs)
   use_condensed = _is_condensed(assembler.dof)
 
   if length(dirichlet_bcs) > 0
-    dirichlet_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
+    dirichlet_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs)
     dirichlet_dofs = unique(sort(dirichlet_dofs))
   else
     dirichlet_dofs = Vector{Int}(undef, 0)

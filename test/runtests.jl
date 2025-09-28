@@ -56,12 +56,14 @@ include("TestPhysics.jl")
     end
   end
 
-  # if CUDA.functional()
-  #   test_poisson_dirichlet(cuda, false, NewtonSolver, cg_solver)
-  #   test_poisson_dirichlet(cuda, true, NewtonSolver, cg_solver)
-  #   test_poisson_neumann(cuda, false, NewtonSolver, cg_solver)
-  #   test_poisson_neumann(cuda, true, NewtonSolver, cg_solver)
-  # end
+  if CUDA.functional()
+    for cond in condensed
+      test_poisson_dirichlet(cuda, cond, NewtonSolver, cg_solver)
+      test_poisson_dirichlet_multi_block_quad4_quad4(cuda, cond, NewtonSolver, cg_solver)
+      test_poisson_dirichlet_multi_block_quad4_tri3(cuda, cond, NewtonSolver, cg_solver)
+      test_poisson_neumann(cuda, cond, NewtonSolver, cg_solver)
+    end
+  end
 end
 
 @testset ExtendedTestSet "Mechanics Problem" begin

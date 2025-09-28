@@ -39,7 +39,7 @@ function _assemble_block_vector_neumann_bc!(
   for e in axes(conns, 2)
     x_el = _element_level_fields(X, ref_fe, conns, e)
     R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
-    side = bc.bookkeeping.sides[e]
+    side = bc.sides[e]
     for q in 1:num_quadrature_points(surface_element(ref_fe.element))
       interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)
       Nvec = interps.N_reduced
@@ -54,7 +54,7 @@ function _assemble_block_vector_neumann_bc!(
       R_el = R_el + JxW * Nvec * f_val
     end
     block_id = 1 # doesn't matter for this method
-    el_id = bc.bookkeeping.elements[e]
+    el_id = bc.elements[e]
     @views _assemble_element!(field, R_el, bc.surface_conns[:, e], el_id, block_id)
   end
 end
@@ -83,7 +83,7 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
 
   x_el = _element_level_fields(X, ref_fe, conns, E)
   R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
-  side = bc.bookkeeping.sides[E]
+  side = bc.sides[E]
 
   for q in 1:num_quadrature_points(surface_element(ref_fe.element))
     interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)

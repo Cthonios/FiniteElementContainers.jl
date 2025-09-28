@@ -44,9 +44,12 @@ struct NeumannBCContainer{
   C1, # TODO specialize
   C2, # TODO specialize
   RE <: ReferenceFE
-} <: AbstractBCContainer{IT, VT, 2, IV, IM, VV}
-  bookkeeping::BCBookKeeping{IT, IV, IM}
+} <: AbstractBCContainer
+  # bookkeeping::BCBookKeeping{IT, IV, IM}
   element_conns::C1  
+  elements::IV
+  side_nodes::IM
+  sides::IV
   surface_conns::C2
   ref_fe::RE
   vals::VV
@@ -56,13 +59,13 @@ function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
   ND = size(X, 1)
   NN = num_vertices(bc.ref_fe)
   NNPS = num_vertices(surface_element(bc.ref_fe.element))
-  for (n, e) in enumerate(bc.bookkeeping.elements)
+  for (n, e) in enumerate(bc.elements)
     conn = @views bc.element_conns[:, n]
     X_el = SVector{ND * NN, eltype(X)}(@views X[:, conn])
     X_el = SMatrix{length(X_el) ÷ ND, ND, eltype(X_el), length(X_el)}(X_el...)
 
     for q in 1:num_quadrature_points(surface_element(bc.ref_fe.element))
-      side = bc.bookkeeping.sides[n]
+      side = bc.sides[n]
       interps = MappedSurfaceInterpolants(bc.ref_fe, X_el, q, side)
       X_q = interps.X_q
       bc.vals[q, n] = func(X_q, t)
@@ -77,14 +80,14 @@ KA.@kernel function _update_bc_values_kernel!(bc::NeumannBCContainer, func, X, t
 
   Q, E = KA.@index(Global, NTuple)
   # E = KA.@index(Global)
-  el_id = bc.bookkeeping.elements[E]
+  el_id = bc.elements[E]
 
   conn = @views bc.element_conns[:, E]
   X_el = SVector{ND * NN, eltype(X)}(@views X[:, conn])
   X_el = SMatrix{length(X_el) ÷ ND, ND, eltype(X_el), length(X_el)}(X_el...)
 
   # for q in 1:num_quadrature_points(bc.ref_fe.surface_element)
-  side = bc.bookkeeping.sides[E]
+  side = bc.sides[E]
   interps = MappedSurfaceInterpolants(bc.ref_fe, X_el, Q, side)
   X_q = interps.X_q
   bc.vals[Q, E] = func(X_q, t)
@@ -109,8 +112,11 @@ function create_neumann_bcs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC
   sets = map(x -> x.sset_name, neumann_bcs)
   vars = map(x -> x.var_name, neumann_bcs)
   funcs = map(x -> x.func, neumann_bcs)
-  bks = BCBookKeeping.((mesh,), (dof,), vars, sets)
-  # bks = _split_bookkeeping_by_block(bks)
+
+  # NOTE neumann bcs must be present on a sideset
+  # so that is the only mesh entity that will be
+  # supported for this BC type
+  bks = map((v, s) -> BCBookKeeping(mesh, dof, v; sset_name=s), vars, sets)
   fspace = function_space(dof)
   new_bcs = NeumannBCContainer[]
   new_funcs = Function[]
@@ -178,7 +184,8 @@ function create_neumann_bcs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC
       #   typeof(new_bk), typeof(conns), typeof(surface_conns), typeof(ref_fe), eltype(vals), typeof(vals)
       # }(
       new_bc = NeumannBCContainer(
-        new_bk, conns, surface_conns, ref_fe, vals
+        # new_bk, conns, surface_conns, ref_fe, vals
+        conns, new_bk.elements, new_bk.side_nodes, new_bk.sides, surface_conns, ref_fe, vals
       )
       push!(new_bcs, new_bc)
       push!(new_funcs, func)

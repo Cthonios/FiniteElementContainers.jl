@@ -196,6 +196,12 @@ function create_parameters(
   return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, times)
 end
 
+function initialize!(p::Parameters)
+  update_ic_values!(p.ics, p.ic_funcs, p.h1_coords)
+  update_field_ics!(p.h1_field, p.ics)
+  return nothing
+end
+
 """
 $(TYPEDSIGNATURES)
 This method is used to update the stored bc values.

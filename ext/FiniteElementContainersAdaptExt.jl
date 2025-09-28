@@ -60,20 +60,23 @@ function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{V})
 end
 
 function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCContainer)
-  bk = adapt(to, bc.bookkeeping)
+  dofs = adapt(to, bc.dofs)
+  nodes = adapt(to, bc.nodes)
   vals = adapt(to, bc.vals)
   vals_dot = adapt(to, bc.vals_dot)
   vals_dot_dot = adapt(to, bc.vals_dot_dot)
-  return FiniteElementContainers.DirichletBCContainer(bk, vals, vals_dot, vals_dot_dot)
+  return FiniteElementContainers.DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
 end
 
 function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContainer)
-  bk = adapt(to, bc.bookkeeping)
   el_conns = adapt(to, bc.element_conns)
+  elements = adapt(to, bc.elements)
+  side_nodes = adapt(to, bc.side_nodes)
+  sides = adapt(to, bc.sides)
   surf_conns = adapt(to, bc.surface_conns)
   ref_fe = adapt(to, bc.ref_fe)
   vals = adapt(to, bc.vals)
-  return FiniteElementContainers.NeumannBCContainer(bk, el_conns, surf_conns, ref_fe, vals)
+  return FiniteElementContainers.NeumannBCContainer(el_conns, elements, side_nodes, sides, surf_conns, ref_fe, vals)
 end
 
 # DofManagers
