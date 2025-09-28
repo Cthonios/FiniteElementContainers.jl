@@ -32,14 +32,9 @@ end
 # to "do the right thing" depending upon the field type
 # this is set up
 function InitialConditionContainer(mesh, dof, ic::InitialCondition)
-    block_conns = getproperty(mesh.element_conns, ic.block_name)
-    block_nodes = unique(sort(block_conns.data))
-    dof_index = _dof_index_from_var_name(dof, ic.var_name)
-
-    all_dofs = reshape(1:length(dof), size(dof))
-    block_dofs = all_dofs[dof_index, block_nodes]
-    vals = zeros(length(block_dofs))
-    return InitialConditionContainer(block_dofs, block_nodes, vals)
+    bk = BCBookKeeping(mesh, dof, ic.var_name; block_name=ic.block_name)
+    vals = zeros(length(bk.dofs))
+    return InitialConditionContainer(bk.dofs, bk.nodes, vals)
 end
 
 function Base.length(ic::InitialConditionContainer)

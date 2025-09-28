@@ -1,7 +1,7 @@
 abstract type AbstractDirichletBC{F} <: AbstractBC{F} end
-abstract type AbstractDirichletBCContainer{
-  IT, VT, IV, IM, VV
-} <: AbstractBCContainer{IT, VT, 1, IV, IM, VV} end
+# abstract type AbstractDirichletBCContainer{
+#   IT, VT, IV, IM, VV
+# } <: AbstractBCContainer{IT, VT, 1, IV, IM, VV} end
 
 """
 $(TYPEDEF)
@@ -43,10 +43,10 @@ struct DirichletBCContainer{
   IT <: Integer,
   VT <: Number,
   IV <: AbstractArray{IT, 1},
-  IM <: AbstractArray{IT, 2},
   VV <: AbstractArray{VT, 1}
-} <: AbstractDirichletBCContainer{IT, VT, IV, IM, VV}
-  bookkeeping::BCBookKeeping{IT, IV, IM}
+} <: AbstractBCContainer
+  dofs::IV
+  nodes::IV
   vals::VV
   vals_dot::VV
   vals_dot_dot::VV
@@ -58,7 +58,7 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 function DirichletBCContainer(mesh, dof::DofManager, dbc::DirichletBC)
-  bk = BCBookKeeping(mesh, dof, dbc.var_name, dbc.sset_name)
+  bk = BCBookKeeping(mesh, dof, dbc.var_name, sset_name=dbc.sset_name)
 
   # sort nodes and dofs for dirichlet bc
   dof_perm = _unique_sort_perm(bk.dofs)
@@ -72,11 +72,11 @@ function DirichletBCContainer(mesh, dof::DofManager, dbc::DirichletBC)
   vals = zeros(length(bk.nodes))
   vals_dot = zeros(length(bk.nodes))
   vals_dot_dot = zeros(length(bk.nodes))
-  return DirichletBCContainer(bk, vals, vals_dot, vals_dot_dot)
+  return DirichletBCContainer(bk.dofs, bk.nodes, vals, vals_dot, vals_dot_dot)
 end
 
 function Base.length(bc::DirichletBCContainer)
-  return length(bc.bookkeeping.dofs)
+  return length(bc.dofs)
 end
 
 # need checks on if field types are compatable
@@ -87,7 +87,7 @@ based on the stored function
 """
 function _update_bc_values!(bc::DirichletBCContainer, func, X, t, ::KA.CPU)
   ND = num_fields(X)
-  for (n, node) in enumerate(bc.bookkeeping.nodes)
+  for (n, node) in enumerate(bc.nodes)
     X_temp = @views SVector{ND, eltype(X)}(X[:, node])
     bc.vals[n] = func.func(X_temp, t)
     bc.vals_dot[n] = func.func_dot(X_temp, t)
@@ -104,7 +104,7 @@ GPU kernel for updating stored bc values based on the stored function
 KA.@kernel function _update_bc_values_kernel!(bc::DirichletBCContainer, func, X, t)
   I = KA.@index(Global)
   ND = num_fields(X)
-  node = bc.bookkeeping.nodes[I]
+  node = bc.nodes[I]
 
   # hacky for now, but it works
   # can't do X[:, node] on the GPU, this results in a dynamic
@@ -134,14 +134,14 @@ end
 
 # TODO change below names to be more specific to dbcs
 function _update_field_dirichlet_bcs!(U, bc::DirichletBCContainer, ::KA.CPU)
-  for (dof, val) in zip(bc.bookkeeping.dofs, bc.vals)
+  for (dof, val) in zip(bc.dofs, bc.vals)
     U[dof] = val
   end
   return nothing
 end
 
 function _update_field_dirichlet_bcs!(U, V, bc::DirichletBCContainer, ::KA.CPU)
-  for (dof, val, val_dot) in zip(bc.bookkeeping.dofs, bc.vals, bc.vals_dot)
+  for (dof, val, val_dot) in zip(bc.dofs, bc.vals, bc.vals_dot)
     U[dof] = val
     V[dof] = val_dot
   end
@@ -149,7 +149,7 @@ function _update_field_dirichlet_bcs!(U, V, bc::DirichletBCContainer, ::KA.CPU)
 end
 
 function _update_field_dirichlet_bcs!(U, V, A, bc::DirichletBCContainer, ::KA.CPU)
-  for (dof, val, val_dot, val_dot_dot) in zip(bc.bookkeeping.dofs, bc.vals, bc.vals_dot, bc.vals_dot_dot)
+  for (dof, val, val_dot, val_dot_dot) in zip(bc.dofs, bc.vals, bc.vals_dot, bc.vals_dot_dot)
     U[dof] = val
     V[dof] = val_dot
     A[dof] = val_dot_dot
@@ -160,8 +160,7 @@ end
 # COV_EXCL_START
 KA.@kernel function _update_field_dirichlet_bcs_kernel!(U, bc::DirichletBCContainer)
   I = KA.@index(Global)
-  dof = bc.bookkeeping.dofs[I]
-  # val = bc.vals[I]
+  dof = bc.dofs[I]
   U[dof] = bc.vals[I]
 end
 # COV_EXCL_STOP
@@ -169,7 +168,7 @@ end
 # COV_EXCL_START
 KA.@kernel function _update_field_dirichlet_bcs_kernel!(U, V, A, bc::DirichletBCContainer)
   I = KA.@index(Global)
-  dof = bc.bookkeeping.dofs[I]
+  dof = bc.dofs[I]
   val = bc.vals[I]
   U[dof] = bc.vals[I]
   V[dof] = bc.vals_dot[I]
@@ -232,7 +231,7 @@ function create_dirichlet_bcs(mesh, dof::DofManager, dirichlet_bcs::Vector{<:Dir
   dirichlet_bcs = DirichletBCContainer.((mesh,), (dof,), dirichlet_bcs)
 
   if length(dirichlet_bcs) > 0
-    temp_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
+    temp_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs)
     temp_dofs = unique(sort(temp_dofs))
     update_dofs!(dof, temp_dofs)
   end
