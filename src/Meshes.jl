@@ -67,6 +67,20 @@ end
 $(TYPEDSIGNATURES)
 Dummy method to be overriden for specific mesh file format
 """
+function node_cmaps(::AbstractMesh, rank) 
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
+function node_id_map(::AbstractMesh) 
+  @assert false
+end
+"""
+$(TYPEDSIGNATURES)
+Dummy method to be overriden for specific mesh file format
+"""
 function nodeset(::AbstractMesh, id) 
   @assert false
 end
@@ -245,6 +259,7 @@ struct UnstructuredMesh{
   MeshObj,
   X, 
   EBlockNames, ETypes, EConns, EMaps, 
+  NMap,
   NSetNodes,
   SSetIVs, SSetIMs,
   EdgeConns, FaceConns
@@ -255,6 +270,7 @@ struct UnstructuredMesh{
   element_types::ETypes
   element_conns::EConns
   element_id_maps::EMaps
+  node_id_map::NMap
   nodeset_nodes::NSetNodes # TODO, we can remove this since we're using sidesets now.
   sideset_elems::SSetIVs
   sideset_nodes::SSetIVs
@@ -298,6 +314,9 @@ function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::B
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
   el_id_maps = element_block_id_map.((file,), el_block_ids)
   el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
+
+  # read node id map
+  n_id_map = node_id_map(file)
 
   # read nodesets
   nset_names = Symbol.(nodeset_names(file))
@@ -362,6 +381,7 @@ function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::B
     file,
     nodal_coords, 
     el_block_names, el_types, el_conns, el_id_maps, 
+    n_id_map,
     nset_nodes,
     sset_elems, 
     sset_nodes, 
@@ -385,7 +405,7 @@ $(TYPEDSIGNATURES)
 """
 function UnstructuredMesh(file_name::String; create_edges=false, create_faces=false)
   ext = splitext(file_name)
-  if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
+  if occursin(".g", file_name) || occursin(".e", file_name) || occursin(".exo", file_name)
     return UnstructuredMesh(ExodusMesh, file_name, create_edges, create_faces)
   else
     throw(ErrorException("Unsupported file type with extension $ext"))
