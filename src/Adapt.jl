@@ -1,10 +1,5 @@
-module FiniteElementContainersAdaptExt
-
-using Adapt
-using FiniteElementContainers
-using StaticArrays
-
-FiniteElementContainersAdaptExt.cpu(x) = adapt(Array, x)
+# TODO need to further specialize
+cpu(x) = adapt(Array, x)
 
 # Assemblers
 function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
@@ -24,7 +19,7 @@ function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
   )
 end
 
-function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
+function Adapt.adapt_structure(to, asm::SparsityPattern)
   Is = adapt(to, asm.Is)
   Js = adapt(to, asm.Js)
   unknown_dofs = adapt(to, asm.unknown_dofs)
@@ -39,7 +34,7 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
   csccolptr = adapt(to, asm.csccolptr)
   cscrowval = adapt(to, asm.cscrowval)
   cscnzval = adapt(to, asm.cscnzval)
-  return FiniteElementContainers.SparsityPattern(
+  return SparsityPattern(
     Is, Js,
     unknown_dofs, block_start_indices, block_el_level_sizes,
     klasttouch, csrrowptr, csrcolval, csrnzval,
@@ -48,8 +43,8 @@ function Adapt.adapt_structure(to, asm::FiniteElementContainers.SparsityPattern)
 end
 
 # Boundary Conditions
-function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{V}) where V
-  return FiniteElementContainers.BCBookKeeping(
+function Adapt.adapt_structure(to, bk::BCBookKeeping{V}) where V
+  return BCBookKeeping(
     adapt(to, bk.blocks),
     adapt(to, bk.dofs),
     adapt(to, bk.elements),
@@ -59,16 +54,16 @@ function Adapt.adapt_structure(to, bk::FiniteElementContainers.BCBookKeeping{V})
   )
 end
 
-function Adapt.adapt_structure(to, bc::FiniteElementContainers.DirichletBCContainer)
+function Adapt.adapt_structure(to, bc::DirichletBCContainer)
   dofs = adapt(to, bc.dofs)
   nodes = adapt(to, bc.nodes)
   vals = adapt(to, bc.vals)
   vals_dot = adapt(to, bc.vals_dot)
   vals_dot_dot = adapt(to, bc.vals_dot_dot)
-  return FiniteElementContainers.DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
+  return DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
 end
 
-function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContainer)
+function Adapt.adapt_structure(to, bc::NeumannBCContainer)
   el_conns = adapt(to, bc.element_conns)
   elements = adapt(to, bc.elements)
   side_nodes = adapt(to, bc.side_nodes)
@@ -76,7 +71,7 @@ function Adapt.adapt_structure(to, bc::FiniteElementContainers.NeumannBCContaine
   surf_conns = adapt(to, bc.surface_conns)
   ref_fe = adapt(to, bc.ref_fe)
   vals = adapt(to, bc.vals)
-  return FiniteElementContainers.NeumannBCContainer(el_conns, elements, side_nodes, sides, surf_conns, ref_fe, vals)
+  return NeumannBCContainer(el_conns, elements, side_nodes, sides, surf_conns, ref_fe, vals)
 end
 
 # DofManagers
@@ -113,7 +108,7 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
   return FunctionSpace(coords, elem_conns, ref_fes)
 end
 
-function Adapt.adapt_structure(to, var::T) where T <: FiniteElementContainers.AbstractFunction
+function Adapt.adapt_structure(to, var::T) where T <: AbstractFunction
   syms = names(var)
   fspace = adapt(to, var.fspace)
   type = eval(T.name.name)
@@ -121,7 +116,7 @@ function Adapt.adapt_structure(to, var::T) where T <: FiniteElementContainers.Ab
 end
 
 # parameters
-function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
+function Adapt.adapt_structure(to, p::Parameters)
 
   # need to handle props specially
   props = []
@@ -135,7 +130,7 @@ function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
 
   props = NamedTuple{keys(p.properties)}(props)
 
-  return FiniteElementContainers.Parameters(
+  return Parameters(
     adapt(to, p.ics),
     adapt(to, p.ic_funcs),
     adapt(to, p.dirichlet_bcs),
@@ -155,13 +150,11 @@ function Adapt.adapt_structure(to, p::FiniteElementContainers.Parameters)
   )
 end
 
-function Adapt.adapt_structure(to, p::FiniteElementContainers.TimeStepper)
-  return FiniteElementContainers.TimeStepper(
+function Adapt.adapt_structure(to, p::TimeStepper)
+  return TimeStepper(
     adapt(to, p.time_start),
     adapt(to, p.time_end),
     adapt(to, p.time_current),
     adapt(to, p.Δt)
   )
 end
-
-end # module
