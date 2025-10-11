@@ -28,6 +28,15 @@ function DofManager(var::AbstractFunction; use_condensed::Bool = false)
     }(dirichlet_dofs, unknown_dofs, var)
 end
 
+function Adapt.adapt_structure(to, dof::DofManager{C, IT, IDs, Var}) where {C, IT, IDs, Var}
+    dirichlet_dofs = adapt(to, dof.dirichlet_dofs)
+    unknowns = adapt(to, dof.unknown_dofs)
+    var = adapt(to, dof.var)
+    return DofManager{
+      C, IT, typeof(dirichlet_dofs), typeof(var) 
+    }(dirichlet_dofs, unknowns, var)
+  end
+
 _field_type(dof::DofManager) = eval(typeof(dof.var.fspace.coords).name.name)
 _is_condensed(dof::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = C
 

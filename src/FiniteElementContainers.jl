@@ -17,8 +17,8 @@ export assemble_vector_neumann_bc!
 
 # BCs
 export DirichletBC
+export DirichletBCs
 export NeumannBC
-export create_dirichlet_bcs
 export update_field_dirichlet_bcs!
 
 # Connectivities
@@ -64,7 +64,7 @@ export VectorFunction
 
 # ICs
 export InitialCondition
-export create_ics
+export InitialConditions
 export update_field_ics!
 export update_ic_values!
 
@@ -138,11 +138,13 @@ export MappedSurfaceInterpolants
 
 # dependencies
 import KernelAbstractions as KA
+using Adapt
 using Atomix
 using DocStringExtensions
 using ForwardDiff
 using Krylov
 using LinearAlgebra
+using MPI
 using ReferenceFiniteElements
 using SparseArrays
 using StaticArrays
@@ -154,13 +156,22 @@ function cpu end
 function cuda end
 function rocm end
 
+function communication_graph end
+function decompose_mesh end
+function global_colorings end
+
+# TODO need to further specialize for staticarrays, etc.
+cpu(x) = adapt(Array, x)
+
 # TODO clean this up, make it make sense in an ordered way
+# include("Parallel.jl")
+include("parallel/Parallel.jl")
+
 include("fields/Fields.jl")
 include("Meshes.jl")
 include("FunctionSpaces.jl")
 include("Functions.jl")
 include("DofManagers.jl")
-# include("DofManagersNew.jl")
 include("bcs/BoundaryConditions.jl")
 include("ics/InitialConditions.jl")
 
@@ -174,5 +185,7 @@ include("TimeSteppers.jl")
 include("Parameters.jl")
 include("solvers/Solvers.jl")
 include("integrators/Integrators.jl")
+
+include("Adapt.jl")
 
 end # module

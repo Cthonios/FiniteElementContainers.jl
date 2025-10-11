@@ -55,6 +55,17 @@ struct NeumannBCContainer{
   vals::VV
 end
 
+function Adapt.adapt_structure(to, bc::NeumannBCContainer)
+  el_conns = adapt(to, bc.element_conns)
+  elements = adapt(to, bc.elements)
+  side_nodes = adapt(to, bc.side_nodes)
+  sides = adapt(to, bc.sides)
+  surf_conns = adapt(to, bc.surface_conns)
+  ref_fe = adapt(to, bc.ref_fe)
+  vals = adapt(to, bc.vals)
+  return NeumannBCContainer(el_conns, elements, side_nodes, sides, surf_conns, ref_fe, vals)
+end
+
 function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
   ND = size(X, 1)
   NN = num_vertices(bc.ref_fe)
@@ -99,6 +110,11 @@ function _update_bc_values!(bc::NeumannBCContainer, func, X, t, backend::KA.Back
   kernel!(bc, func, X, t, ndrange=size(bc.vals))
 end
 
+struct NeumannBCs{BCCaches, BCFuncs}
+  bc_caches::BCCaches
+  bc_funcs::BCFuncs
+end
+
 # note this method has the potential to make 
 # bookkeeping.dofs and bookkeeping.nodes nonsensical
 # since we're splitting things off but not properly updating
@@ -108,7 +124,11 @@ end
 
 # TODO below method also currently likely doesn't
 # handle blocks correclty 
-function create_neumann_bcs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
+function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
+  if length(neumann_bcs) == 0
+    return NeumannBCs(NamedTuple(), NamedTuple())
+  end
+
   sets = map(x -> x.sset_name, neumann_bcs)
   vars = map(x -> x.var_name, neumann_bcs)
   funcs = map(x -> x.func, neumann_bcs)
@@ -195,5 +215,17 @@ function create_neumann_bcs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC
   syms = tuple(map(x -> Symbol("neumann_bc_$x"), 1:length(new_bcs))...)
   new_bcs = NamedTuple{syms}(tuple(new_bcs...))
   new_funcs = NamedTuple{syms}(tuple(new_funcs...))
-  return new_bcs, new_funcs
+  return NeumannBCs(new_bcs, new_funcs)
+end
+
+function Adapt.adapt_structure(to, bcs::NeumannBCs)
+  return NeumannBCs(
+    adapt(to, bcs.bc_caches),
+    adapt(to, bcs.bc_funcs)
+  )
+end
+
+function update_bc_values!(bcs::NeumannBCs, X, t)
+  update_bc_values!(bcs.bc_caches, bcs.bc_funcs, X, t)
+  return nothing
 end

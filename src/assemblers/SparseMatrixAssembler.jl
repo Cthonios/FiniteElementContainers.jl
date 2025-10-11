@@ -84,6 +84,23 @@ function SparseMatrixAssembler(var::AbstractFunction; use_condensed::Bool = fals
   return SparseMatrixAssembler(dof)
 end
 
+function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
+  return SparseMatrixAssembler(
+    adapt(to, asm.dof),
+    adapt(to, asm.pattern),
+    adapt(to, asm.constraint_storage),
+    adapt(to, asm.damping_storage),
+    adapt(to, asm.hessian_storage),
+    adapt(to, asm.mass_storage),
+    adapt(to, asm.residual_storage),
+    adapt(to, asm.residual_unknowns),
+    adapt(to, asm.scalar_quadrature_storage),
+    adapt(to, asm.stiffness_storage),
+    adapt(to, asm.stiffness_action_storage),
+    adapt(to, asm.stiffness_action_unknowns)
+  )
+end
+
 function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "SparseMatrixAssembler")
   println(io, "  ", asm.dof)
@@ -228,7 +245,7 @@ function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs)
   use_condensed = _is_condensed(assembler.dof)
 
   if length(dirichlet_bcs) > 0
-    dirichlet_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs)
+    dirichlet_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs.bc_caches)
     dirichlet_dofs = unique(sort(dirichlet_dofs))
   else
     dirichlet_dofs = Vector{Int}(undef, 0)

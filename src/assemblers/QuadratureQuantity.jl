@@ -56,7 +56,8 @@ function _assemble_block_quadrature_quantity!(
   conns::C, block_id::Int, func::Func, ::KA.CPU
 ) where {
   C    <: Connectivity,
-  F1   <: AbstractArray{<:Number, 2},
+  # F1   <: AbstractArray{<:Number, 2},
+  F1   <: AbstractMatrix,
   F2   <: AbstractField,
   F3   <: AbstractField,
   P    <: Union{<:SVector, <:L2ElementField},
@@ -98,7 +99,8 @@ KA.@kernel function _assemble_block_quadrature_quantity_kernel!(
   conns::C, block_id::Int, func::Func
 ) where {
   C    <: Connectivity,
-  F1   <: AbstractArray{<:Number, 2},
+  # F1   <: AbstractArray{<:Number, 2},
+  F1   <: AbstractMatrix,
   F2   <: AbstractField,
   F3   <: AbstractField,
   Func <: Function,
@@ -140,7 +142,8 @@ function _assemble_block_quadrature_quantity!(
   conns::C, block_id::Int, func::Func, backend::KA.Backend
 ) where {
   C    <: Connectivity,
-  F1   <: AbstractArray{<:Number, 2},
+  # F1   <: AbstractArray{<:Number, 2},
+  F1   <: AbstractMatrix,
   F2   <: AbstractField,
   F3   <: AbstractField,
   Func <: Function,

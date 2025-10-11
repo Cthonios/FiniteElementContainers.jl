@@ -37,6 +37,14 @@ function InitialConditionContainer(mesh, dof, ic::InitialCondition)
     return InitialConditionContainer(bk.dofs, bk.nodes, vals)
 end
 
+function Adapt.adapt_structure(to, ic::InitialConditionContainer)
+    return InitialConditionContainer(
+        adapt(to, ic.dofs),
+        adapt(to, ic.locations),
+        adapt(to, ic.vals)
+    )
+end
+
 function Base.length(ic::InitialConditionContainer)
     return length(ic.dofs)
 end
@@ -107,7 +115,7 @@ function _update_field_ics!(U, ic::InitialConditionContainer, backend::KA.Backen
     return nothing
 end
 
-function update_field_ics!(U, ics)
+function update_field_ics!(U, ics::NamedTuple)
     for ic in values(ics)
         _update_field_ics!(U, ic, KA.get_backend(U))
     end
@@ -118,9 +126,15 @@ struct InitialConditionFunction{F}
     func::F
 end
 
-function create_ics(mesh, dof::DofManager, ics::Vector{<:InitialCondition})
+struct InitialConditions{ICCaches, ICFuncs}
+    ic_caches::ICCaches
+    ic_funcs::ICFuncs
+end
+
+function InitialConditions(mesh, dof, ics)
+
     if length(ics) == 0
-        return NamedTuple(), NamedTuple()
+        return InitialConditions(NamedTuple(), NamedTuple())
     end
 
     syms = map(x -> Symbol("initial_condition_$x"), 1:length(ics))
@@ -128,5 +142,22 @@ function create_ics(mesh, dof::DofManager, ics::Vector{<:InitialCondition})
     ic_containers = InitialConditionContainer.((mesh,), (dof,), ics)
 
     ic_containers = NamedTuple{tuple(syms...)}(tuple(ic_containers...))
-    return ic_containers, ic_funcs
+    return InitialConditions(ic_containers, ic_funcs)
+end
+
+function Adapt.adapt_structure(to, ics::InitialConditions)
+    return InitialConditions(
+        adapt(to, ics.ic_caches), 
+        adapt(to, ics.ic_funcs)
+    )
+end
+
+function update_field_ics!(U, ics::InitialConditions)
+    update_field_ics!(U, ics.ic_caches)
+    return nothing
+end
+
+function update_ic_values!(ics, X)
+    update_ic_values!(ics.ic_caches, ics.ic_funcs, X)
+    return nothing
 end

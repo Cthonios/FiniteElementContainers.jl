@@ -1,7 +1,4 @@
 abstract type AbstractDirichletBC{F} <: AbstractBC{F} end
-# abstract type AbstractDirichletBCContainer{
-#   IT, VT, IV, IM, VV
-# } <: AbstractBCContainer{IT, VT, 1, IV, IM, VV} end
 
 """
 $(TYPEDEF)
@@ -73,6 +70,15 @@ function DirichletBCContainer(mesh, dof::DofManager, dbc::DirichletBC)
   vals_dot = zeros(length(bk.nodes))
   vals_dot_dot = zeros(length(bk.nodes))
   return DirichletBCContainer(bk.dofs, bk.nodes, vals, vals_dot, vals_dot_dot)
+end
+
+function Adapt.adapt_structure(to, bc::DirichletBCContainer)
+  dofs = adapt(to, bc.dofs)
+  nodes = adapt(to, bc.nodes)
+  vals = adapt(to, bc.vals)
+  vals_dot = adapt(to, bc.vals_dot)
+  vals_dot_dot = adapt(to, bc.vals_dot_dot)
+  return DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
 end
 
 function Base.length(bc::DirichletBCContainer)
@@ -169,7 +175,6 @@ end
 KA.@kernel function _update_field_dirichlet_bcs_kernel!(U, V, A, bc::DirichletBCContainer)
   I = KA.@index(Global)
   dof = bc.dofs[I]
-  val = bc.vals[I]
   U[dof] = bc.vals[I]
   V[dof] = bc.vals_dot[I]
   A[dof] = bc.vals_dot_dot[I]
@@ -188,25 +193,6 @@ function _update_field_dirichlet_bcs!(U, V, A, bc::DirichletBCContainer, backend
   return nothing
 end
 
-function update_field_dirichlet_bcs!(U, bcs::NamedTuple)
-  for bc in values(bcs)
-    _update_field_dirichlet_bcs!(U, bc, KA.get_backend(bc))
-  end
-  return nothing
-end
-
-function update_field_dirichlet_bcs!(U, V, bcs::NamedTuple)
-  for bc in values(bcs)
-    _update_field_dirichlet_bcs!(U, V, bc, KA.get_backend(bc))
-  end
-end
-
-function update_field_dirichlet_bcs!(U, V, A, bcs::NamedTuple)
-  for bc in values(bcs)
-    _update_field_dirichlet_bcs!(U, V, A, bc, KA.get_backend(bc))
-  end
-end
-
 struct DirichletBCFunction{F1, F2, F3} <: AbstractBCFunction{F1}
   func::F1
   func_dot::F2
@@ -219,7 +205,16 @@ function DirichletBCFunction(func)
   return DirichletBCFunction(func, func_dot, func_dot_dot)
 end
 
-function create_dirichlet_bcs(mesh, dof::DofManager, dirichlet_bcs::Vector{<:DirichletBC})
+struct DirichletBCs{
+  BCCaches <: NamedTuple, 
+  BCFuncs <: NamedTuple
+}
+  bc_caches::BCCaches
+  bc_funcs::BCFuncs
+end
+
+function DirichletBCs(mesh, dof, dirichlet_bcs)
+
   if length(dirichlet_bcs) == 0
     return NamedTuple(), NamedTuple()
   end
@@ -238,5 +233,37 @@ function create_dirichlet_bcs(mesh, dof::DofManager, dirichlet_bcs::Vector{<:Dir
 
   dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
 
-  return dirichlet_bcs, dirichlet_bc_funcs
+  return DirichletBCs(dirichlet_bcs, dirichlet_bc_funcs)
+end
+
+function Adapt.adapt_structure(to, bcs::DirichletBCs)
+  return DirichletBCs(adapt(to, bcs.bc_caches), adapt(to, bcs.bc_funcs))
+end
+
+function Base.length(bcs::DirichletBCs)
+  return length(bcs.bc_caches)
+end
+
+function update_bc_values!(bcs::DirichletBCs, X, t)
+  update_bc_values!(bcs.bc_caches, bcs.bc_funcs, X, t)
+  return nothing
+end
+
+function update_field_dirichlet_bcs!(U, bcs::DirichletBCs)
+  for bc in values(bcs.bc_caches)
+    _update_field_dirichlet_bcs!(U, bc, KA.get_backend(bc))
+  end
+  return nothing
+end
+
+function update_field_dirichlet_bcs!(U, V, bcs::DirichletBCs)
+  for bc in values(bcs.bc_caches)
+    _update_field_dirichlet_bcs!(U, V, bc, KA.get_backend(bc))
+  end
+end
+
+function update_field_dirichlet_bcs!(U, V, A, bcs::DirichletBCs)
+  for bc in values(bcs.bc_caches)
+    _update_field_dirichlet_bcs!(U, V, A, bc, KA.get_backend(bc))
+  end
 end

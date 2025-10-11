@@ -165,6 +165,17 @@ function BCBookKeeping(mesh, sset_name::Symbol)
     )
 end
 
+function Adapt.adapt_structure(to, bk::BCBookKeeping{V}) where V
+  return BCBookKeeping(
+    adapt(to, bk.blocks),
+    adapt(to, bk.dofs),
+    adapt(to, bk.elements),
+    adapt(to, bk.nodes),
+    adapt(to, bk.sides),
+    adapt(to, bk.side_nodes)
+  )
+end
+
 """
 $(TYPEDSIGNATURES)
 """
