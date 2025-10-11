@@ -19,6 +19,7 @@ export assemble_vector_neumann_bc!
 export DirichletBC
 export DirichletBCs
 export NeumannBC
+export NeumannBCs
 export update_field_dirichlet_bcs!
 
 # Connectivities
@@ -164,8 +165,7 @@ function global_colorings end
 cpu(x) = adapt(Array, x)
 
 # TODO clean this up, make it make sense in an ordered way
-# include("Parallel.jl")
-include("parallel/Parallel.jl")
+# include("parallel/Parallel.jl")
 
 include("fields/Fields.jl")
 include("Meshes.jl")
@@ -185,7 +185,5 @@ include("TimeSteppers.jl")
 include("Parameters.jl")
 include("solvers/Solvers.jl")
 include("integrators/Integrators.jl")
-
-include("Adapt.jl")
 
 end # module

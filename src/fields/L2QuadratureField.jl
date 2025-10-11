@@ -16,6 +16,11 @@ function L2QuadratureField(data::A) where A <: AbstractArray{<:Number, 3}
   return L2QuadratureField{eltype(data), typeof(data), NF, NQ}(data)
 end
 
+function Adapt.adapt_structure(to, field::L2QuadratureField{T, D, NF, NQ}) where {T, D, NF, NQ}
+  data = adapt(to, field.data)
+  return L2QuadratureField{T, typeof(data), NF, NQ}(data)
+end
+
 # abstract array interface
 
 function Base.axes(field::L2QuadratureField{T, D, NF, NQ}) where {T, D, NF, NQ}
