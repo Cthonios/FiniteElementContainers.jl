@@ -118,6 +118,29 @@ function SparsityPattern(dof::DofManager)
   )
 end
 
+function Adapt.adapt_structure(to, asm::SparsityPattern)
+  Is = adapt(to, asm.Is)
+  Js = adapt(to, asm.Js)
+  unknown_dofs = adapt(to, asm.unknown_dofs)
+  block_start_indices = adapt(to, asm.block_start_indices)
+  block_el_level_sizes = adapt(to, asm.block_el_level_sizes)
+  #
+  klasttouch = adapt(to, asm.klasttouch)
+  csrrowptr = adapt(to, asm.csrrowptr)
+  csrcolval = adapt(to, asm.csrcolval)
+  csrnzval = adapt(to, asm.csrnzval)
+  #
+  csccolptr = adapt(to, asm.csccolptr)
+  cscrowval = adapt(to, asm.cscrowval)
+  cscnzval = adapt(to, asm.cscnzval)
+  return SparsityPattern(
+    Is, Js,
+    unknown_dofs, block_start_indices, block_el_level_sizes,
+    klasttouch, csrrowptr, csrcolval, csrnzval,
+    csccolptr, cscrowval, cscnzval
+  )
+end
+
 function SparseArrays.sparse!(pattern::SparsityPattern, storage)
   return @views SparseArrays.sparse!(
     pattern.Is, pattern.Js, storage[pattern.unknown_dofs],

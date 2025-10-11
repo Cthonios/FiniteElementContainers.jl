@@ -4,6 +4,13 @@ $(TYPEDFIELDS)
 """
 abstract type AbstractFunction{S, F <: FunctionSpace} end
 
+function Adapt.adapt_structure(to, var::T) where T <: AbstractFunction
+  syms = names(var)
+  fspace = adapt(to, var.fspace)
+  type = eval(T.name.name)
+  return type{syms, typeof(fspace)}(fspace)
+end
+
 """
 $(TYPEDSIGNATURES)
 """

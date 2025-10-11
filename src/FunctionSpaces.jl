@@ -125,6 +125,13 @@ function FunctionSpace(mesh::AbstractMesh, space_type, interp_type; q_degree=2)
   return FunctionSpace(mesh, space_type, interp_type, q_degree)
 end
 
+function Adapt.adapt_structure(to, fspace::FunctionSpace)
+  coords = adapt(to, fspace.coords)
+  elem_conns = adapt(to, fspace.elem_conns)
+  ref_fes = adapt(to, fspace.ref_fes)
+  return FunctionSpace(coords, elem_conns, ref_fes)
+end
+
 function Base.show(io::IO, fspace::FunctionSpace)
   println(io, "FunctionSpace:")
   println(io, "  Type: $(typeof(fspace.coords).name.name)")

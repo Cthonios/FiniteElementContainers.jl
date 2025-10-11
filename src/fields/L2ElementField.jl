@@ -16,6 +16,11 @@ function L2ElementField(data::M) where M <: AbstractMatrix
   return L2ElementField{eltype(data), typeof(data), NF}(data)
 end
 
+function Adapt.adapt_structure(to, field::L2ElementField{T, D, NF}) where {T, D, NF}
+  data = adapt(to, field.data)
+  return L2ElementField{T, typeof(data), NF}(data)
+end
+
 # abstract array interface
 
 function Base.getindex(field::L2ElementField, d::Int, n::Int)

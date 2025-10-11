@@ -4,26 +4,20 @@ abstract type AbstractParameters end
 struct Parameters{
   RT <: Number, # Real type
   RV <: AbstractArray{RT, 1}, # Real vector type
-  ICCache,
-  ICFuncs,
-  DirichletCache, 
-  DirichletFuncs, 
-  NeumannCache, 
-  NeumannFuncs, 
-  Phys, 
-  Props, 
-  S, 
+  ICs <: InitialConditions,
+  DBCs <: DirichletBCs,
+  NBCs <: NeumannBCs,
+  Phys <: NamedTuple, 
+  Props <: NamedTuple, 
+  S <: NamedTuple, 
   # H1Coords, H1
   NDims,
   NH1Fields
 } <: AbstractParameters
   # parameter/solution fields
-  ics::ICCache
-  ic_funcs::ICFuncs
-  dirichlet_bcs::DirichletCache
-  dirichlet_bc_funcs::DirichletFuncs
-  neumann_bcs::NeumannCache
-  neumann_bc_funcs::NeumannFuncs
+  ics::ICs
+  dirichlet_bcs::DBCs
+  neumann_bcs::NBCs
   times::TimeStepper{RV}
   physics::Phys
   properties::Props
@@ -115,22 +109,15 @@ function Parameters(
   state_old = NamedTuple{keys(physics)}(tuple(state_old...))
   state_new = NamedTuple{keys(physics)}(tuple(state_new...))
   
-  ics, ic_funcs = create_ics(mesh, assembler.dof, ics)
-
-  dirichlet_bcs, dirichlet_bc_funcs = create_dirichlet_bcs(
+  ics = InitialConditions(
+    mesh, assembler.dof, ics
+  )
+  dirichlet_bcs = DirichletBCs(
     mesh, assembler.dof, dirichlet_bcs
   )
-
-  if neumann_bcs !== NamedTuple()
-    syms = map(x -> Symbol("neumann_bc_$x"), 1:length(neumann_bcs))
-
-    if length(neumann_bcs) > 1
-      neumann_bcs, neumann_bc_funcs = create_neumann_bcs(mesh, assembler.dof, neumann_bcs)
-    else
-      neumann_bcs = NamedTuple()
-      neumann_bc_funcs = NamedTuple()
-    end
-  end
+  neumann_bcs = NeumannBCs(
+    mesh, assembler.dof, neumann_bcs
+  )
 
   # dummy time stepper for a static problem
   if times === nothing
@@ -138,9 +125,9 @@ function Parameters(
   end
 
   p = Parameters(
-    ics, ic_funcs,
-    dirichlet_bcs, dirichlet_bc_funcs,
-    neumann_bcs, neumann_bc_funcs,
+    ics,
+    dirichlet_bcs,
+    neumann_bcs,
     times,
     physics, 
     properties, 
@@ -161,6 +148,37 @@ function Parameters(
   K = stiffness(assembler)
 
   return p
+end
+
+function Adapt.adapt_structure(to, p::Parameters)
+
+  # need to handle props specially
+  props = []
+  for p in values(p.properties)
+    if isa(p, SArray)
+      push!(props, p)
+    else
+      push!(props, adapt(to, p))
+    end
+  end
+
+  props = NamedTuple{keys(p.properties)}(props)
+
+  return Parameters(
+    adapt(to, p.ics),
+    adapt(to, p.dirichlet_bcs),
+    adapt(to, p.neumann_bcs),
+    adapt(to, p.times),
+    adapt(to, p.physics),
+    props, # TODO this will need an adapt when you get to element level props
+    adapt(to, p.state_old),
+    adapt(to, p.state_new),
+    adapt(to, p.h1_coords),
+    adapt(to, p.h1_field),
+    adapt(to, p.h1_field_old),
+    # scratch fields
+    adapt(to, p.h1_hvp_scratch_field)
+  )
 end
 
 function Base.show(io::IO, parameters::Parameters)
@@ -197,7 +215,7 @@ function create_parameters(
 end
 
 function initialize!(p::Parameters)
-  update_ic_values!(p.ics, p.ic_funcs, p.h1_coords)
+  update_ic_values!(p.ics, p.h1_coords)
   update_field_ics!(p.h1_field, p.ics)
   return nothing
 end
@@ -213,8 +231,8 @@ TODO need to incorporate neumann bc updates
 function update_bc_values!(p::Parameters)
   X = p.h1_coords
   t = current_time(p.times)
-  update_bc_values!(p.dirichlet_bcs, p.dirichlet_bc_funcs, X, t)
-  update_bc_values!(p.neumann_bcs, p.neumann_bc_funcs, X, t)
+  update_bc_values!(p.dirichlet_bcs, X, t)
+  update_bc_values!(p.neumann_bcs, X, t)
   return nothing
 end
 

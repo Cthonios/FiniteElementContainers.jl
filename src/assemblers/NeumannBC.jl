@@ -11,7 +11,7 @@ function assemble_vector_neumann_bc!(
   # TODO should below 2 methods calls be assumed to have
   # been conducted previously?
   _update_for_assembly!(p, assembler.dof, Uu)
-  for bc in values(p.neumann_bcs)
+  for bc in values(p.neumann_bcs.bc_caches)
     backend = KA.get_backend(bc)
     _assemble_block_vector_neumann_bc!(
       storage, p.h1_field, p.h1_coords, t, 

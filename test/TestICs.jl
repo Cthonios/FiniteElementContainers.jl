@@ -13,26 +13,25 @@ function ic_container_init()
     u = VectorFunction(fspace, :displ)
     dof = DofManager(u)
     ic_in = InitialCondition(:displ_x, :block_1, dummy_ic_func_1)
-    # ic_cont = FiniteElementContainers.InitialConditionContainer(mesh, dof, ic_in)
-    ic_conts, ic_funcs = create_ics(mesh, dof, [ic_in])
+    ics = InitialConditions(mesh, dof, [ic_in])
     U = create_field(dof)
-    return ic_conts, ic_funcs, mesh.nodal_coords, U
+    return ics, mesh.nodal_coords, U
 end
 
-function test_ic_update_values(ic_conts, ic_funcs, X)
-    FiniteElementContainers.update_ic_values!(ic_conts, ic_funcs, X)
-    @test all(values(ic_conts)[1].vals .== 3.)
+function test_ic_update_values(ics, X)
+    FiniteElementContainers.update_ic_values!(ics, X)
+    @test all(values(ics.ic_caches)[1].vals .== 3.)
 end
 
-function test_ic_update_field_ics(ic_conts, U)
-    update_field_ics!(U, ic_conts)
+function test_ic_update_field_ics(ics, U)
+    update_field_ics!(U, ics)
     @test all(U[1, :] .== 3.)
     @test all(U[2, :] .== 0.)
 end
 
 @testset ExtendedTestSet "InitialConditions" begin
     test_ic_input()
-    ic_conts, ic_funcs, X, U = ic_container_init()
-    test_ic_update_values(ic_conts, ic_funcs, X)
-    test_ic_update_field_ics(ic_conts, U)
+    ics, X, U = ic_container_init()
+    test_ic_update_values(ics, X)
+    test_ic_update_field_ics(ics, U)
 end

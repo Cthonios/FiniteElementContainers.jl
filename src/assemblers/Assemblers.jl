@@ -197,24 +197,6 @@ function _quadrature_level_state(state::L2QuadratureField, q::Int, e::Int)
   return state_q
 end
 
-
-# function hvp(asm::AbstractAssembler)
-#   if _is_condensed(asm.dof)
-#     _adjust_matrix_action_entries_for_constraints!(
-#       asm.stiffness_action_storage, asm.constraint_storage, 
-#       KA.get_backend(asm)
-#     )
-#     return asm.stiffness_action_storage.data
-#   else
-#     extract_field_unknowns!(
-#       asm.stiffness_action_unknowns,
-#       asm.dof,
-#       asm.stiffness_action_storage
-#     )
-#     return asm.stiffness_action_unknowns
-#   end
-# end
-
 """
 $(TYPEDSIGNATURES)
 """

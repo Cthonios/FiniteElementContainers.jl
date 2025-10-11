@@ -16,6 +16,11 @@ function H1Field(data::M) where M <: AbstractMatrix
   return H1Field{eltype(data), typeof(data), NF}(data)
 end
 
+function Adapt.adapt_structure(to, field::H1Field{T, D, NF}) where {T, D, NF}
+  data = adapt(to, field.data)
+  return H1Field{T, typeof(data), NF}(data)
+end
+
 # abstract array interface
 
 function Base.getindex(field::H1Field, d::Int, n::Int)
