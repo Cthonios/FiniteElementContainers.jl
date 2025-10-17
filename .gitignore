@@ -8,4 +8,6 @@
 *.e
 *.swp
 *.vtu
-
+*.g.nem
+*.g.pex
+*.g.*.*
