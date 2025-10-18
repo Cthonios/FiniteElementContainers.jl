@@ -19,7 +19,7 @@ function CUDA.CUSPARSE.CuSparseMatrixCSC(asm::SparseMatrixAssembler)
   if FiniteElementContainers._is_condensed(asm.dof)
     n_dofs = length(asm.dof)
   else
-    n_dofs = FiniteElementContainers.num_unknowns(asm.dof)
+    n_dofs = length(asm.dof.unknown_dofs)
   end
 
   return CUDA.CUSPARSE.CuSparseMatrixCSC(
