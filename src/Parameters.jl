@@ -184,17 +184,11 @@ end
 function Base.show(io::IO, parameters::Parameters)
   println(io, "Parameters:")
   println(io, "Initial Conditions:")
-  for ic in parameter.ics
-    println(io, "$ic")
-  end
+  println(io, parameters.ics)
   println(io, "Dirichlet Boundary Conditions:")
-  for bc in parameters.dirichlet_bcs
-    println(io, "$bc")
-  end
+  println(io, parameters.dirichlet_bcs)
   println(io, "Neumann Boundary Conditions:")
-  for bc in parameters.neumann_bcs
-    println(io, "$bc")
-  end
+  println(io, parameters.neumann_bcs)
   println(io, parameters.times)
   println(io, "Physics:")
   for (physics, props) in zip(parameters.physics, parameters.properties)

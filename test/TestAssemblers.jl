@@ -50,4 +50,7 @@ include("poisson/TestPoissonCommon.jl")
   M = mass(asm)
   R = residual(asm)
   Kv = hvp(asm, V)
+
+  # mainly just to test the show method for parameters
+  @show p
 end
