@@ -66,6 +66,14 @@ function Adapt.adapt_structure(to, bc::NeumannBCContainer)
   return NeumannBCContainer(el_conns, elements, side_nodes, sides, surf_conns, ref_fe, vals)
 end
 
+function Base.show(io::IO, bc::NeumannBCContainer)
+  println(io, "$(typeof(bc).name.name):")
+  # println(io, "Blocks                    = $(unique(bk.blocks))")
+  println(io, "  Number of active elements = $(length(bc.elements))")
+  println(io, "  Number of active nodes    = $(length(bc.side_nodes))")
+  println(io, "  Number of active sides    = $(length(bc.sides))")
+end
+
 function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
   ND = size(X, 1)
   NN = num_vertices(bc.ref_fe)

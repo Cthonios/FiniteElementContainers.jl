@@ -85,6 +85,12 @@ function Base.length(bc::DirichletBCContainer)
   return length(bc.dofs)
 end
 
+function Base.show(io::IO, bc::DirichletBCContainer)
+  println(io, "$(typeof(bc).name.name):")
+  println(io, "  Number of active dofs     = $(length(bc.dofs))")
+  println(io, "  Number of active nodes    = $(length(bc.nodes))")
+end
+
 # need checks on if field types are compatable
 """
 $(TYPEDSIGNATURES)
@@ -242,6 +248,14 @@ end
 
 function Base.length(bcs::DirichletBCs)
   return length(bcs.bc_caches)
+end
+
+function Base.show(io::IO, bcs::DirichletBCs)
+  for (n, (cache, func)) in enumerate(zip(bcs.bc_caches, bcs.bc_funcs))
+    show(io, "Dirichlet_BC_$n")
+    show(io, cache)
+    show(io, func)
+  end
 end
 
 function update_bc_values!(bcs::DirichletBCs, X, t)

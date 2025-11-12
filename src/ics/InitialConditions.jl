@@ -49,6 +49,11 @@ function Base.length(ic::InitialConditionContainer)
     return length(ic.dofs)
 end
 
+function Base.show(io::IO, ic::InitialConditionContainer)
+    println(io, "$(typeof(ic).name.name):")
+    println(io, "  Number of active dofs = $(length(ic.dofs))")
+end
+
 KA.get_backend(ic::InitialConditionContainer) = KA.get_backend(ic.dofs)
 
 function _update_ic_values!(ic::InitialConditionContainer, func, X, ::KA.CPU)
@@ -150,6 +155,14 @@ function Adapt.adapt_structure(to, ics::InitialConditions)
         adapt(to, ics.ic_caches), 
         adapt(to, ics.ic_funcs)
     )
+end
+
+function Base.show(io::IO, ics::InitialConditions)
+    for (n, (cache, func)) in enumerate(zip(ics.ic_caches, ics.ic_funcs))
+        show(io, "IC_$n")
+        show(io, cache)
+        show(io, func)
+    end
 end
 
 function update_field_ics!(U, ics::InitialConditions)

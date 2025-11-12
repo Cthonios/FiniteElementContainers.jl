@@ -165,29 +165,13 @@ function BCBookKeeping(mesh, sset_name::Symbol)
     )
 end
 
-function Adapt.adapt_structure(to, bk::BCBookKeeping{V}) where V
-  return BCBookKeeping(
-    adapt(to, bk.blocks),
-    adapt(to, bk.dofs),
-    adapt(to, bk.elements),
-    adapt(to, bk.nodes),
-    adapt(to, bk.sides),
-    adapt(to, bk.side_nodes)
-  )
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-KA.get_backend(bk::BCBookKeeping) = KA.get_backend(bk.blocks)
-
-function Base.show(io::IO, bk::BCBookKeeping)
-  println(io, "Blocks                    = $(unique(bk.blocks))")
-  println(io, "Number of active dofs     = $(length(bk.dofs))")
-  println(io, "Number of active elements = $(length(bk.elements))")
-  println(io, "Number of active nodes    = $(length(bk.nodes))")
-  println(io, "Number of active sides    = $(length(bk.sides))")
-end
+# function Base.show(io::IO, bk::BCBookKeeping)
+#   println(io, "Blocks                    = $(unique(bk.blocks))")
+#   println(io, "Number of active dofs     = $(length(bk.dofs))")
+#   println(io, "Number of active elements = $(length(bk.elements))")
+#   println(io, "Number of active nodes    = $(length(bk.nodes))")
+#   println(io, "Number of active sides    = $(length(bk.sides))")
+# end
 
 """
 $(TYPEDEF)
@@ -212,11 +196,6 @@ $(TYPEDFIELDS)
 abstract type AbstractBCContainer end
 
 KA.get_backend(x::AbstractBCContainer) = KA.get_backend(x.vals)
-
-function Base.show(io::IO, bc::AbstractBCContainer)
-  println(io, "$(typeof(bc).name.name):")
-  println(io, "$(bc.bookkeeping)")
-end
 
 """
 $(TYPEDEF)

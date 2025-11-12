@@ -15,6 +15,7 @@ function test_dirichlet_bc_container_init()
   dof = DofManager(u)
   bc_in = DirichletBC(:displ_x, :sset_1, dummy_func_1)
   bc = FiniteElementContainers.DirichletBCContainer(mesh, dof, bc_in)
+  @show bc
 end
 
 function test_neumann_bc_input()
@@ -31,6 +32,7 @@ function test_neumann_bc_container_init()
   dof = DofManager(u)
   bc_in = NeumannBC(:displ, :sset_1, dummy_func_2)
   bc = FiniteElementContainers.NeumannBCContainer(mesh, dof, bc_in)
+  @show bc
 end
 
 @testset ExtendedTestSet "BoundaryConditions" begin
