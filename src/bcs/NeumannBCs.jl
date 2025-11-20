@@ -25,8 +25,8 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
-function NeumannBC(var_name::String, sset_name::Symbol, func::Function)
-  return NeumannBC{typeof(func)}(Symbol(var_name), Symbol(sset_name), func)
+function NeumannBC(var_name::String, sset_name::String, func::Function)
+  return NeumannBC(Symbol(var_name), Symbol(sset_name), func)
 end
 
 """
@@ -37,10 +37,9 @@ Internal implementation of dirichlet BCs
 """
 struct NeumannBCContainer{
   IT <: Integer,
-  VT <: Union{<:Number, <:SVector},
   IV <: AbstractArray{IT, 1},
   IM <: AbstractArray{IT, 2},
-  VV <: AbstractArray{VT, 2},
+  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
   C1, # TODO specialize
   C2, # TODO specialize
   RE <: ReferenceFE
@@ -52,7 +51,7 @@ struct NeumannBCContainer{
   sides::IV
   surface_conns::C2
   ref_fe::RE
-  vals::VV
+  vals::RV
 end
 
 function Adapt.adapt_structure(to, bc::NeumannBCContainer)
@@ -118,7 +117,10 @@ function _update_bc_values!(bc::NeumannBCContainer, func, X, t, backend::KA.Back
   kernel!(bc, func, X, t, ndrange=size(bc.vals))
 end
 
-struct NeumannBCs{BCCaches, BCFuncs}
+struct NeumannBCs{
+  BCCaches <: NamedTuple, 
+  BCFuncs  <: NamedTuple
+}
   bc_caches::BCCaches
   bc_funcs::BCFuncs
 end

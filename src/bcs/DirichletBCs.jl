@@ -37,16 +37,14 @@ $(TYPEDFIELDS)
 Internal implementation of dirichlet BCs
 """
 struct DirichletBCContainer{
-  IT <: Integer,
-  VT <: Number,
-  IV <: AbstractArray{IT, 1},
-  VV <: AbstractArray{VT, 1}
+  IV <: AbstractArray{<:Integer, 1},
+  RV <: AbstractArray{<:Number, 1}
 } <: AbstractBCContainer
   dofs::IV
   nodes::IV
-  vals::VV
-  vals_dot::VV
-  vals_dot_dot::VV
+  vals::RV
+  vals_dot::RV
+  vals_dot_dot::RV
 end
 
 """
@@ -212,10 +210,11 @@ function DirichletBCFunction(func)
 end
 
 struct DirichletBCs{
-  BCCaches <: NamedTuple, 
+  IV      <: AbstractArray{<:Integer, 1},
+  RV      <: AbstractArray{<:Number, 1},
   BCFuncs <: NamedTuple
 }
-  bc_caches::BCCaches
+  bc_caches::Vector{DirichletBCContainer{IV, RV}}
   bc_funcs::BCFuncs
 end
 
@@ -237,13 +236,16 @@ function DirichletBCs(mesh, dof, dirichlet_bcs)
     update_dofs!(dof, temp_dofs)
   end
 
-  dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
+  # dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
 
   return DirichletBCs(dirichlet_bcs, dirichlet_bc_funcs)
 end
 
 function Adapt.adapt_structure(to, bcs::DirichletBCs)
-  return DirichletBCs(adapt(to, bcs.bc_caches), adapt(to, bcs.bc_funcs))
+  return DirichletBCs(
+    map(x -> adapt(to, x), bcs.bc_caches),
+    adapt(to, bcs.bc_funcs)
+  )
 end
 
 function Base.length(bcs::DirichletBCs)

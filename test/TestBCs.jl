@@ -6,6 +6,10 @@ function test_dirichlet_bc_input()
   @test bc.var_name == :my_var
   @test bc.sset_name == :my_sset
   @test typeof(bc.func) == typeof(dummy_func_1)
+  bc = DirichletBC("my_var", "my_sset", dummy_func_1)
+  @test bc.var_name == :my_var
+  @test bc.sset_name == :my_sset
+  @test typeof(bc.func) == typeof(dummy_func_1)
 end
 
 function test_dirichlet_bc_container_init()
@@ -23,6 +27,10 @@ function test_neumann_bc_input()
   @test bc.var_name == :my_var
   @test bc.sset_name == :my_sset
   @test typeof(bc.func) == typeof(dummy_func_2)
+  bc = NeumannBC("my_var", "my_sset", dummy_func_1)
+  @test bc.var_name == :my_var
+  @test bc.sset_name == :my_sset
+  @test typeof(bc.func) == typeof(dummy_func_1)
 end
 
 function test_neumann_bc_container_init()

@@ -4,19 +4,19 @@ abstract type AbstractParameters end
 struct Parameters{
   RT <: Number, # Real type
   RV <: AbstractArray{RT, 1}, # Real vector type
-  ICs <: InitialConditions,
-  DBCs <: DirichletBCs,
+  IV <: AbstractArray{<:Integer, 1},
+  ICFuncs <: NamedTuple,
+  DBCFuncs <: NamedTuple,
   NBCs <: NeumannBCs,
   Phys <: NamedTuple, 
   Props <: NamedTuple, 
   S <: NamedTuple, 
-  # H1Coords, H1
   NDims,
   NH1Fields
 } <: AbstractParameters
   # parameter/solution fields
-  ics::ICs
-  dirichlet_bcs::DBCs
+  ics::InitialConditions{IV, RV, ICFuncs}
+  dirichlet_bcs::DirichletBCs{IV, RV, DBCFuncs}
   neumann_bcs::NBCs
   times::TimeStepper{RV}
   physics::Phys
@@ -57,7 +57,7 @@ function Parameters(
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
     # syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
-    syms = keys(function_space(assembler.dof).elem_conns)
+    syms = keys(function_space(assembler.dof).ref_fes)
     physics = map(x -> physics, syms)
     physics = NamedTuple{tuple(syms...)}(tuple(physics...))
   else
@@ -67,7 +67,7 @@ function Parameters(
 
   if isa(properties, AbstractArray)
     # syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
-    syms = keys(function_space(assembler.dof).elem_conns)
+    syms = keys(function_space(assembler.dof).ref_fes)
     properties = map(x -> properties, syms)
     properties = NamedTuple{tuple(syms...)}(tuple(properties...))
   else
@@ -89,6 +89,7 @@ function Parameters(
     )
     NE = size(
       getfield(function_space(assembler.dof).elem_conns, key),
+      # function_space(assembler.dof).elem_conns[key],
       2
     )
 

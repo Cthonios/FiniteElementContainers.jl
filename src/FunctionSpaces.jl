@@ -25,7 +25,7 @@ function _setup_ref_fes(mesh::AbstractMesh, interp_type, q_degree)
   block_names = mesh.element_block_names
   ref_fes = ReferenceFE[]
   for elem_name in mesh.element_types
-    elem_type = elem_type_map[uppercase(elem_name)]
+    elem_type = elem_type_map[uppercase(String(elem_name))]
     ref_fe = ReferenceFE(elem_type{interp_type, q_degree}())
     push!(ref_fes, ref_fe)
   end

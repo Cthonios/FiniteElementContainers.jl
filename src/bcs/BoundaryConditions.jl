@@ -80,7 +80,6 @@ function BCBookKeeping(
 
   # get dof index associated with this var
   dof_index = _dof_index_from_var_name(dof, var_name)
-  fspace = function_space(dof)
 
   # get sset specific fields
   all_dofs = reshape(1:length(dof), size(dof))
@@ -94,25 +93,24 @@ function BCBookKeeping(
     conns = getproperty(mesh.element_conns, block_name)
     nodes = sort(unique(conns.data))
     dofs = all_dofs[dof_index, nodes]
-    elements = getproperty(mesh.element_id_maps, block_name)
+    elements = mesh.element_id_maps[block_name]
     # below 2 don't make sense for other mesh entity types
     sides = Vector{Int64}(undef, 0)
     side_nodes = Matrix{Int64}(undef, 0, 0)
   elseif nset_name !== nothing
     # for this case we only setup the "nodes" and "dofs"
     blocks = Vector{Int64}(undef, 0) # TODO we could eventually put the blocks present here
-    nodes = getproperty(mesh.nodeset_nodes, nset_name)
+    nodes = mesh.nodeset_nodes[nset_name]
     dofs = all_dofs[dof_index, nodes]
     elements = Vector{Int64}(undef, 0) # TODO we could eventually put the elements present here
     # below 2 don't make sense for other mesh entity types
     sides = Vector{Int64}(undef, 0)
     side_nodes = Matrix{Int64}(undef, 0, 0)
   elseif sset_name !== nothing
-
-    elements = getproperty(mesh.sideset_elems, sset_name)
-    nodes = getproperty(mesh.sideset_nodes, sset_name)
-    sides = getproperty(mesh.sideset_sides, sset_name)
-    side_nodes = getproperty(mesh.sideset_side_nodes, sset_name)
+    elements = mesh.sideset_elems[sset_name]
+    nodes = mesh.sideset_nodes[sset_name]
+    sides = mesh.sideset_sides[sset_name]
+    side_nodes = mesh.sideset_side_nodes[sset_name]
 
     blocks = Vector{Int64}(undef, 0)
 
@@ -137,41 +135,6 @@ function BCBookKeeping(
     blocks, dofs, elements, nodes, sides, side_nodes
   )
 end
-
-function BCBookKeeping(mesh, sset_name::Symbol)
-    # get sset specific fields
-    elements = getproperty(mesh.sideset_elems, sset_name)
-    nodes = getproperty(mesh.sideset_nodes, sset_name)
-    sides = getproperty(mesh.sideset_sides, sset_name)
-    side_nodes = getproperty(mesh.sideset_side_nodes, sset_name)
-  
-    blocks = Vector{Int64}(undef, 0)
-
-      # gather the blocks that are present in this sideset
-    # TODO this isn't quite right
-    for (n, val) in enumerate(values(mesh.element_id_maps))
-      # note these are the local elem id to the block, e.g. starting from 1.
-      indices_in_sset = indexin(val, elements)
-      filter!(x -> x !== nothing, indices_in_sset)
-      
-      if length(indices_in_sset) > 0
-        append!(blocks, repeat([n], length(indices_in_sset)))
-      end
-    end
-
-    dofs = Vector{Int64}(undef, 0)
-      return BCBookKeeping(
-      blocks, dofs, elements, nodes, sides, side_nodes
-    )
-end
-
-# function Base.show(io::IO, bk::BCBookKeeping)
-#   println(io, "Blocks                    = $(unique(bk.blocks))")
-#   println(io, "Number of active dofs     = $(length(bk.dofs))")
-#   println(io, "Number of active elements = $(length(bk.elements))")
-#   println(io, "Number of active nodes    = $(length(bk.nodes))")
-#   println(io, "Number of active sides    = $(length(bk.sides))")
-# end
 
 """
 $(TYPEDEF)
