@@ -23,9 +23,9 @@ function CUDA.CUSPARSE.CuSparseMatrixCSC(asm::SparseMatrixAssembler)
   end
 
   return CUDA.CUSPARSE.CuSparseMatrixCSC(
-    asm.pattern.csccolptr,
-    asm.pattern.cscrowval,
-    asm.pattern.cscnzval,
+    asm.matrix_pattern.csccolptr,
+    asm.matrix_pattern.cscrowval,
+    asm.matrix_pattern.cscnzval,
     (n_dofs, n_dofs)
   )
 end

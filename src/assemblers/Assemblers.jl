@@ -88,32 +88,32 @@ function _assemble_element!(global_val::H1Field, local_val, conn, e, b)
   return nothing
 end
 
-function _check_backends(assembler, U, X, state_old, state_new, conns)
-  backend = KA.get_backend(assembler)
-  # TODO add get_backend method of ref_fe
-  @assert backend == KA.get_backend(U)
-  @assert backend == KA.get_backend(X)
-  @assert backend == KA.get_backend(conns)
-  @assert backend == KA.get_backend(state_old)
-  @assert backend == KA.get_backend(state_new)
-  # props will be complicated...
-  # TODO
-  return backend
-end
+# function _check_backends(assembler, U, X, state_old, state_new, conns)
+#   backend = KA.get_backend(assembler)
+#   # TODO add get_backend method of ref_fe
+#   @assert backend == KA.get_backend(U)
+#   @assert backend == KA.get_backend(X)
+#   @assert backend == KA.get_backend(conns)
+#   @assert backend == KA.get_backend(state_old)
+#   @assert backend == KA.get_backend(state_new)
+#   # props will be complicated...
+#   # TODO
+#   return backend
+# end
 
-function _check_backends(assembler, U, V, X, state_old, state_new, conns)
-  backend = KA.get_backend(assembler)
-  # TODO add get_backend method of ref_fe
-  @assert backend == KA.get_backend(U)
-  @assert backend == KA.get_backend(V)
-  @assert backend == KA.get_backend(X)
-  @assert backend == KA.get_backend(conns)
-  @assert backend == KA.get_backend(state_old)
-  @assert backend == KA.get_backend(state_new)
-  # props will be complicated...
-  # TODO
-  return backend
-end
+# function _check_backends(assembler, U, V, X, state_old, state_new, conns)
+#   backend = KA.get_backend(assembler)
+#   # TODO add get_backend method of ref_fe
+#   @assert backend == KA.get_backend(U)
+#   @assert backend == KA.get_backend(V)
+#   @assert backend == KA.get_backend(X)
+#   @assert backend == KA.get_backend(conns)
+#   @assert backend == KA.get_backend(state_old)
+#   @assert backend == KA.get_backend(state_new)
+#   # props will be complicated...
+#   # TODO
+#   return backend
+# end
 
 """
 $(TYPEDSIGNATURES)
@@ -145,6 +145,13 @@ $(TYPEDSIGNATURES)
   NxNDof = NNPE * ND
   u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns[:, e]])
   return u_el
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+@inline function _element_level_properties(props::AbstractArray, ::Int)
+  return props
 end
 
 """
@@ -261,7 +268,7 @@ function stiffness(assembler::AbstractAssembler)
 end
 
 # some utilities
-include("SparsityPattern.jl")
+include("SparsityPatterns.jl")
 
 # types
 include("MatrixFreeAssembler.jl")

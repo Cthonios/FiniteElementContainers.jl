@@ -5,7 +5,7 @@ Book-keeping struct for sparse matrices in FEM settings.
 This has all the information to construct a sparse matrix for either
 case where you want to eliminate fixed-dofs or not.
 """
-struct SparsityPattern{
+struct SparseMatrixPattern{
   I <: AbstractArray{Int, 1},
   B,
   R <: AbstractArray{Float64, 1}
@@ -27,19 +27,14 @@ struct SparsityPattern{
 end
 
 # TODO won't work for H(div) or H(curl) yet
-function SparsityPattern(dof::DofManager)
+function SparseMatrixPattern(dof::DofManager)
 
   # get number of dofs for creating cache arrays
 
   # TODO this line needs to be specialized for aribitrary fields
   # it's hardcoded for H1 firght now.
-  # ND, NN = num_dofs_per_node(dof), num_nodes(dof)
   ND, NN = size(dof)
   n_total_dofs = NN * ND
-
-  # vars = _dof_manager_vars(dof, type)
-  # n_blocks = length(vars[1].fspace.ref_fes)
-  # n_blocks = length(dof.H1_vars[1].fspace.ref_fes)
 
   fspace = function_space(dof)
   n_blocks = length(fspace.ref_fes)
@@ -51,18 +46,13 @@ function SparsityPattern(dof::DofManager)
 
   # for (n, conn) in enumerate(values(dof.H1_vars[1].fspace.elem_conns))
   start_carry = 1
+  ids = reshape(1:n_total_dofs, ND, NN)
   for (n, conn) in enumerate(values(fspace.elem_conns))
-    ids = reshape(1:n_total_dofs, ND, NN)
+    # ids = reshape(1:n_total_dofs, ND, NN)
     # TODO do we need this operation?
     conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
     n_entries += size(conn, 1)^2 * size(conn, 2)
 
-    # block_start_indices[n] = size(conn, 2)
-    # if n == 1
-    #   block_start_indices[n] = 1
-    # else
-    #   block_start_indices[n] = carry
-    # end
     block_start_indices[n] = start_carry
   
     start_carry = start_carry + size(conn, 1)^2 * size(conn, 2)
@@ -82,7 +72,7 @@ function SparsityPattern(dof::DofManager)
   # now loop over function spaces and elements
   n = 1
   for conn in values(fspace.elem_conns)
-    ids = reshape(1:n_total_dofs, ND, NN)
+    # ids = reshape(1:n_total_dofs, ND, NN)
     # TODO do we need this?
     block_conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
 
@@ -107,7 +97,7 @@ function SparsityPattern(dof::DofManager)
   cscrowval = Vector{Int64}(undef, 0)
   cscnzval  = Vector{Float64}(undef, 0)
 
-  return SparsityPattern(
+  return SparseMatrixPattern(
     Is, Js, 
     unknown_dofs, 
     block_start_indices, block_el_level_sizes, 
@@ -118,7 +108,7 @@ function SparsityPattern(dof::DofManager)
   )
 end
 
-function Adapt.adapt_structure(to, asm::SparsityPattern)
+function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   Is = adapt(to, asm.Is)
   Js = adapt(to, asm.Js)
   unknown_dofs = adapt(to, asm.unknown_dofs)
@@ -133,7 +123,7 @@ function Adapt.adapt_structure(to, asm::SparsityPattern)
   csccolptr = adapt(to, asm.csccolptr)
   cscrowval = adapt(to, asm.cscrowval)
   cscnzval = adapt(to, asm.cscnzval)
-  return SparsityPattern(
+  return SparseMatrixPattern(
     Is, Js,
     unknown_dofs, block_start_indices, block_el_level_sizes,
     klasttouch, csrrowptr, csrcolval, csrnzval,
@@ -141,7 +131,7 @@ function Adapt.adapt_structure(to, asm::SparsityPattern)
   )
 end
 
-function SparseArrays.sparse!(pattern::SparsityPattern, storage)
+function SparseArrays.sparse!(pattern::SparseMatrixPattern, storage)
   return @views SparseArrays.sparse!(
     pattern.Is, pattern.Js, storage[pattern.unknown_dofs],
     length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
@@ -150,13 +140,13 @@ function SparseArrays.sparse!(pattern::SparsityPattern, storage)
   )
 end
 
-num_entries(s::SparsityPattern) = length(s.Is)
+num_entries(s::SparseMatrixPattern) = length(s.Is)
 
 # NOTE this methods assumes that dof is up to date
 # NOTE this method also only resizes unknown_dofs
 # in the pattern object, that means that things
 # like Is, Js, etc. need to be viewed into or sliced
-function _update_dofs!(pattern::SparsityPattern, dof, dirichlet_dofs)
+function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
   n_total_dofs = length(dof) - length(dirichlet_dofs)
 
   # remove me
@@ -199,3 +189,53 @@ function _update_dofs!(pattern::SparsityPattern, dof, dirichlet_dofs)
 
   return nothing
 end
+
+struct SparseVectorPattern{
+  I <: AbstractArray{Int, 1}
+}
+  Is::I
+  unknown_dofs::I
+end
+
+function SparseVectorPattern(dof::DofManager)
+  ND, NN = size(dof)
+  n_total_dofs = NN * ND
+  ids = reshape(1:n_total_dofs, ND, NN)
+
+  fspace = function_space(dof)
+
+  n_entries = 0
+  for (n, conn) in enumerate(values(fspace.elem_conns))
+    # TODO do we need this operation?
+    conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
+    n_entries += size(conn, 1)^2 * size(conn, 2)
+  end
+
+  # setup pre-allocated arrays based on number of entries
+  Is = Vector{Int64}(undef, n_entries)
+  unknown_dofs = Vector{Int64}(undef, n_entries)
+
+  n = 1
+  for conn in values(fspace.elem_conns)
+    block_conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
+
+    for e in axes(block_conn, 2)
+      conn = @views block_conn[:, e]
+      for temp in conn
+        Is[n] = temp
+        unknown_dofs[n] = n
+        n += 1
+      end
+    end
+  end
+
+  return SparseVectorPattern(Is, unknown_dofs)
+end
+
+function Adapt.adapt_structure(to, pattern::SparseVectorPattern)
+  return SparseVectorPattern(
+    adapt(to, pattern.Is),
+    adapt(to, pattern.unknown_dofs)
+  )
+end
+

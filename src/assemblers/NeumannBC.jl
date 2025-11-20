@@ -1,16 +1,31 @@
-# # below method implicitly will not zero out arrays
 """
 $(TYPEDSIGNATURES)
 """
 function assemble_vector_neumann_bc!(
   assembler, Uu, p
 )
-  storage = assembler.residual_storage
+  assemble_vector_neumann_bc!(
+    assembler.residual_storage, 
+    assembler.dof,
+    Uu, p
+  )
+  return nothing
+end
+
+# # below method implicitly will not zero out arrays
+"""
+$(TYPEDSIGNATURES)
+"""
+function assemble_vector_neumann_bc!(
+  # assembler, Uu, p
+  storage, dof, Uu, p
+)
+  # storage = assembler.residual_storage
   # do not zero!
   t = current_time(p.times)
   # TODO should below 2 methods calls be assumed to have
   # been conducted previously?
-  _update_for_assembly!(p, assembler.dof, Uu)
+  _update_for_assembly!(p, dof, Uu)
   for bc in values(p.neumann_bcs.bc_caches)
     backend = KA.get_backend(bc)
     _assemble_block_vector_neumann_bc!(

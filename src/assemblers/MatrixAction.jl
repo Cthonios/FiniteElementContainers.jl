@@ -1,12 +1,30 @@
+"""
+$(TYPEDSIGNATURES)
+"""
 function assemble_matrix_action!(
-  assembler, func, Uu, Vu, p
+  assembler, func::F, Uu, Vu, p
+) where F <: Function
+  assemble_matrix_action!(
+    assembler.stiffness_action_storage,
+    assembler.dof,
+    func, Uu, Vu, p
+  )
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function assemble_matrix_action!(
+  # assembler, func, Uu, Vu, p
+  storage, dof, func, Uu, Vu, p
 )
-  storage = assembler.stiffness_action_storage
+  # storage = assembler.stiffness_action_storage
   fill!(storage, zero(eltype(storage)))
-  fspace = function_space(assembler.dof)
+  fspace = function_space(dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
-  _update_for_assembly!(p, assembler.dof, Uu, Vu)
+  _update_for_assembly!(p, dof, Uu, Vu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
@@ -14,7 +32,8 @@ function assemble_matrix_action!(
     values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_hvp_scratch_field, p.h1_coords, state_old, state_new, conns)
+    # backend = _check_backends(assembler, p.h1_field, p.h1_hvp_scratch_field, p.h1_coords, state_old, state_new, conns)
+    backend = KA.get_backend(p.h1_field)
     _assemble_block_matrix_action!(
       storage, block_physics, ref_fe, 
       p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field, p.h1_coords, state_old, state_new, props, t, Δt,
@@ -44,7 +63,8 @@ function _assemble_block_matrix_action!(
   F2   <: AbstractField,
   F3   <: AbstractField,
   F4   <: AbstractField,
-  P    <: Union{<:SVector, <:L2ElementField},
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
   Func <: Function,
   Phys <: AbstractPhysics, 
   R    <: ReferenceFE,
@@ -93,7 +113,8 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
   F3   <: AbstractField,
   F4   <: AbstractField,
   Func <: Function,
-  P    <: Union{<:SVector, <:L2ElementField},
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
   Phys <: AbstractPhysics,
   R    <: ReferenceFE,
   S    <: L2QuadratureField,
@@ -149,7 +170,8 @@ function _assemble_block_matrix_action!(
   F3   <: AbstractField,
   F4   <: AbstractField,
   Func <: Function,
-  P    <: Union{<:SVector, <:L2ElementField},
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
   Phys <: AbstractPhysics,
   R    <: ReferenceFE,
   S    <: L2QuadratureField,

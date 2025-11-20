@@ -4,12 +4,24 @@ $(TYPEDSIGNATURES)
 function assemble_vector!(
   assembler, func::F, Uu, p
 ) where F <: Function
-  storage = assembler.residual_storage
+  assemble_vector!(
+    assembler.residual_storage, assembler.dof,
+    func, Uu, p
+  )
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function assemble_vector!(
+  storage, dof, func::F, Uu, p
+) where F <: Function
   fill!(storage, zero(eltype(storage)))
-  fspace = function_space(assembler.dof)
+  fspace = function_space(dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
-  _update_for_assembly!(p, assembler.dof, Uu)
+  _update_for_assembly!(p, dof, Uu)
   for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
     values(fspace.elem_conns), 
     values(p.physics),
@@ -17,7 +29,7 @@ function assemble_vector!(
     values(p.properties)
   ))
     ref_fe = values(fspace.ref_fes)[b]
-    backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
+    backend = KA.get_backend(p.h1_field)
     _assemble_block_vector!(
       storage, block_physics, ref_fe, 
       p.h1_field, p.h1_field_old, p.h1_coords, state_old, state_new, props, t, Δt,
@@ -50,7 +62,8 @@ function _assemble_block_vector!(
   F1   <: AbstractField,
   F2   <: AbstractField,
   F3   <: AbstractField,
-  P    <: Union{<:SVector, <:L2ElementField},
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
   Func <: Function,
   Phys <: AbstractPhysics, 
   R    <: ReferenceFE,
@@ -99,7 +112,8 @@ KA.@kernel function _assemble_block_vector_kernel!(
   F2   <: AbstractField,
   F3   <: AbstractField,
   Func <: Function,
-  P    <: Union{<:SVector, <:L2ElementField},
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
   Phys <: AbstractPhysics,
   R    <: ReferenceFE,
   S    <: L2QuadratureField,
@@ -154,7 +168,8 @@ function _assemble_block_vector!(
   F2   <: AbstractField,
   F3   <: AbstractField,
   Func <: Function,
-  P    <: Union{<:SVector, <:L2ElementField},
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
   Phys <: AbstractPhysics,
   R    <: ReferenceFE,
   S    <: L2QuadratureField,
