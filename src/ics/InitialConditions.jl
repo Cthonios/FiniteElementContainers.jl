@@ -141,7 +141,7 @@ end
 function InitialConditions(mesh, dof, ics)
 
     if length(ics) == 0
-        ic_caches = Vector{InitialConditionContainer{Vector{Int}, Vector{Float64}}}(undef, 0)
+        ic_caches = InitialConditionContainer{Vector{Int}, Vector{Float64}}[]
         ic_funcs = NamedTuple()
     else
         ic_caches = InitialConditionContainer.((mesh,), (dof,), ics)
@@ -152,8 +152,21 @@ function InitialConditions(mesh, dof, ics)
 end
 
 function Adapt.adapt_structure(to, ics::InitialConditions)
+    # NOTE
+    # below logic is needed due to improper
+    # adapt mapping for an empty array in julia 1.10/1.11
+    # where Vector{T}(undef, 0) gets mappend to Vector{Any}
+    if length(ics.ic_caches) > 0
+        ic_caches = map(x -> adapt(to, x), ics.ic_caches)
+    else
+        temp_int = adapt(to, zeros(Int, 0))
+        temp_floats = adapt(to, zeros(Float64, 0))
+        ic_caches = InitialConditionContainer{typeof(temp_int), typeof(temp_floats)}[]
+
+    end
+
     return InitialConditions(
-        map(x -> adapt(to, x), ics.ic_caches),
+        ic_caches,
         adapt(to, ics.ic_funcs)
     )
 end
