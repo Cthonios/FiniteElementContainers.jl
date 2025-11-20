@@ -2,7 +2,7 @@ function assemble_mass!(
   assembler, func::F, Uu, p
 ) where F <: Function
   assemble_matrix!(
-    assembler.mass_storage, assembler.pattern, assembler.dof,
+    assembler.mass_storage, assembler.matrix_pattern, assembler.dof,
     func, Uu, p
   )
 end
@@ -11,7 +11,7 @@ function assemble_stiffness!(
   assembler, func::F, Uu, p
 ) where F <: Function
   assemble_matrix!(
-    assembler.stiffness_storage, assembler.pattern, assembler.dof,
+    assembler.stiffness_storage, assembler.matrix_pattern, assembler.dof,
     func, Uu, p
   )
 end
@@ -71,8 +71,9 @@ function _assemble_block_matrix!(
   F2   <: AbstractField,
   F3   <: AbstractField,
   Func <: Function,
-  P    <: Union{<:SVector, <:L2ElementField},
-  Patt <: SparsityPattern,
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
+  Patt <: SparseMatrixPattern,
   Phys <: AbstractPhysics,
   R    <: ReferenceFE,
   S    <: L2QuadratureField,
@@ -113,8 +114,9 @@ KA.@kernel function _assemble_block_matrix_kernel!(
   F2   <: AbstractField,
   F3   <: AbstractField,
   Func <: Function,
-  P    <: Union{<:SVector, <:L2ElementField},
-  Patt <: SparsityPattern,
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
+  Patt <: SparseMatrixPattern,
   Phys <: AbstractPhysics,
   R    <: ReferenceFE,
   S    <: L2QuadratureField,
@@ -166,8 +168,9 @@ function _assemble_block_matrix!(
   F2   <: AbstractField,
   F3   <: AbstractField,
   Func <: Function,
-  P    <: Union{<:SVector, <:L2ElementField},
-  Patt <: SparsityPattern,
+  # P    <: Union{<:SVector, <:L2ElementField},
+  P    <: AbstractArray,
+  Patt <: SparseMatrixPattern,
   Phys <: AbstractPhysics,
   R    <: ReferenceFE,
   S    <: L2QuadratureField,

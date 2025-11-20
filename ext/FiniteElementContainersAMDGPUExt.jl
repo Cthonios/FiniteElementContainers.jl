@@ -14,7 +14,7 @@ FiniteElementContainers.rocm(x) = Adapt.adapt_structure(ROCArray, x)
 function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
   # Not sure if the line below is right on AMD
   @assert typeof(get_backend(asm)) <: ROCBackend "Assembler is not on a AMDGPU device"
-  @assert length(asm.pattern.cscnzval) > 0 "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
+  @assert length(asm.matrix_pattern.cscnzval) > 0 "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
 
   # below assertion isn't corect
   # @assert all(x -> x != zero(eltype(asm.pattern.cscnzval)), asm.pattern.cscnzval) "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
@@ -28,14 +28,14 @@ function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
   end
 
   return AMDGPU.rocSPARSE.ROCSparseMatrixCSC(
-    asm.pattern.csccolptr,
-    asm.pattern.cscrowval,
-    asm.pattern.cscnzval,
+    asm.matrix_pattern.csccolptr,
+    asm.matrix_pattern.cscrowval,
+    asm.matrix_pattern.cscnzval,
     (n_dofs, n_dofs)
   )
 end
 
-function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, backend::ROCBackend)
+function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::ROCBackend)
   stiffness = AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm)
   return stiffness
 end

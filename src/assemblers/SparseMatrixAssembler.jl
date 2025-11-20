@@ -5,24 +5,29 @@ General sparse matrix assembler that can handle first or second order
 problems in time. 
 """
 struct SparseMatrixAssembler{
-  Dof      <: DofManager, 
-  Pattern  <: SparsityPattern, 
-  Storage1 <: AbstractArray{<:Number, 1},
-  Storage2 <: AbstractField,
-  Storage3 <: NamedTuple
-} <: AbstractAssembler{Dof}
-  dof::Dof
-  pattern::Pattern
-  constraint_storage::Storage1
-  damping_storage::Storage1
-  hessian_storage::Storage1
-  mass_storage::Storage1
-  residual_storage::Storage2
-  residual_unknowns::Storage1
-  scalar_quadrature_storage::Storage3 # useful for energy like calculations
-  stiffness_storage::Storage1
-  stiffness_action_storage::Storage2
-  stiffness_action_unknowns::Storage1
+  Condensed,
+  NumArrDims,
+  NumFields,
+  BlockPattern      <: NamedTuple,
+  IV                <: AbstractArray{Int, 1},
+  RV                <: AbstractArray{Float64, 1},
+  Var               <: AbstractFunction,
+  FieldStorage      <: AbstractField{Float64, NumArrDims, RV, NumFields}, # should we make 2 not hardcoded? E.g. for 
+  QuadratureStorage <: NamedTuple
+} <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
+  dof::DofManager{Condensed, Int, IV, Var}
+  matrix_pattern::SparseMatrixPattern{IV, BlockPattern, RV}
+  vector_pattern::SparseVectorPattern{IV}
+  constraint_storage::RV
+  damping_storage::RV
+  hessian_storage::RV
+  mass_storage::RV
+  residual_storage::FieldStorage
+  residual_unknowns::RV
+  scalar_quadrature_storage::QuadratureStorage # useful for energy like calculations
+  stiffness_storage::RV
+  stiffness_action_storage::FieldStorage
+  stiffness_action_unknowns::RV
 end
 
 # TODO this will not work for other than single H1 spaces
@@ -33,22 +38,20 @@ e.g. ```H1Field```.
 Can be used to create block arrays for mixed FEM problems.
 """
 function SparseMatrixAssembler(dof::DofManager)
-  pattern = SparsityPattern(dof)
-  # constraint_storage = zeros(length(dof))
-  # ND, NN = num_dofs_per_node(dof), num_nodes(dof)
+  matrix_pattern = SparseMatrixPattern(dof)
+  vector_pattern = SparseVectorPattern(dof)
+
   ND, NN = size(dof)
   n_total_dofs = ND * NN
   constraint_storage = zeros(n_total_dofs)
-  # constraint_storage = zeros(_dof_manager_vars(dof, type))
   constraint_storage[dof.dirichlet_dofs] .= 1.
-  # fill!(constraint_storage, )
-  # residual_storage = zeros(length(dof))
-  damping_storage = zeros(num_entries(pattern))
-  hessian_storage = zeros(num_entries(pattern))
-  mass_storage = zeros(num_entries(pattern))
+
+  damping_storage = zeros(num_entries(matrix_pattern))
+  hessian_storage = zeros(num_entries(matrix_pattern))
+  mass_storage = zeros(num_entries(matrix_pattern))
   residual_storage = create_field(dof)
   residual_unknowns = create_unknowns(dof)
-  stiffness_storage = zeros(num_entries(pattern))
+  stiffness_storage = zeros(num_entries(matrix_pattern))
   stiffness_action_storage = create_field(dof)
   stiffness_action_unknowns = create_unknowns(dof)
 
@@ -59,15 +62,13 @@ function SparseMatrixAssembler(dof::DofManager)
   for (key, val) in pairs(fspace.ref_fes)
     NQ = ReferenceFiniteElements.num_quadrature_points(val)
     NE = size(getfield(fspace.elem_conns, key), 2)
-    syms = map(x -> Symbol("quadrature_field_$x"), 1:NQ)
     field = L2ElementField(zeros(Float64, NQ, NE))
     push!(scalar_quadarature_storage, field)
-    # push!(scalar_quadarature_storage, zeros(Float64, NQ, NE))
   end
   scalar_quadarature_storage = NamedTuple{keys(fspace.ref_fes)}(tuple(scalar_quadarature_storage...))
 
   return SparseMatrixAssembler(
-    dof, pattern, 
+    dof, matrix_pattern, vector_pattern,
     constraint_storage, 
     damping_storage, 
     hessian_storage,
@@ -87,7 +88,8 @@ end
 function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
   return SparseMatrixAssembler(
     adapt(to, asm.dof),
-    adapt(to, asm.pattern),
+    adapt(to, asm.matrix_pattern),
+    adapt(to, asm.vector_pattern),
     adapt(to, asm.constraint_storage),
     adapt(to, asm.damping_storage),
     adapt(to, asm.hessian_storage),
@@ -111,7 +113,7 @@ $(TYPEDSIGNATURES)
 Specialization of of ```_assemble_element!``` for ```SparseMatrixAssembler```.
 """
 function _assemble_element!(
-  pattern::SparsityPattern, storage, K_el::SMatrix, el_id::Int, block_id::Int
+  pattern::SparseMatrixPattern, storage, K_el::SMatrix, el_id::Int, block_id::Int
 )
   # figure out ids needed to update
   block_start_index = values(pattern.block_start_indices)[block_id]
@@ -214,7 +216,7 @@ function _hessian(assembler::SparseMatrixAssembler, ::KA.CPU)
 end
 
 function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
-  M = SparseArrays.sparse!(assembler.pattern, assembler.mass_storage)
+  M = SparseArrays.sparse!(assembler.matrix_pattern, assembler.mass_storage)
 
   if _is_condensed(assembler.dof)
     _adjust_matrix_entries_for_constraints!(M, assembler.constraint_storage, KA.get_backend(assembler))
@@ -224,7 +226,7 @@ function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
 end
 
 function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
-  K = SparseArrays.sparse!(assembler.pattern, assembler.stiffness_storage)
+  K = SparseArrays.sparse!(assembler.matrix_pattern, assembler.stiffness_storage)
 
   if _is_condensed(assembler.dof)
     _adjust_matrix_entries_for_constraints!(K, assembler.constraint_storage, KA.get_backend(assembler))
@@ -282,7 +284,7 @@ function _update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) wher
   resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
   resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
 
-  _update_dofs!(assembler.pattern, assembler.dof, dirichlet_dofs)
+  _update_dofs!(assembler.matrix_pattern, assembler.dof, dirichlet_dofs)
 
   return nothing
 end
