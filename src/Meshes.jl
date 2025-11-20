@@ -257,25 +257,25 @@ $(TYPEDFIELDS)
 """
 struct UnstructuredMesh{
   MeshObj,
-  X, 
-  EBlockNames, ETypes, EConns, EMaps, 
-  NMap,
-  NSetNodes,
-  SSetIVs, SSetIMs,
-  EdgeConns, FaceConns
+  ND,
+  RT <: Number,
+  IT <: Integer,
+  EConns,
+  EdgeConns,
+  FaceConns
 } <: AbstractMesh
   mesh_obj::MeshObj
-  nodal_coords::X
-  element_block_names::EBlockNames
-  element_types::ETypes
+  nodal_coords::H1Field{RT, Vector{RT}, ND}
+  element_block_names::Vector{Symbol}
+  element_types::Vector{Symbol}
   element_conns::EConns
-  element_id_maps::EMaps
-  node_id_map::NMap
-  nodeset_nodes::NSetNodes # TODO, we can remove this since we're using sidesets now.
-  sideset_elems::SSetIVs
-  sideset_nodes::SSetIVs
-  sideset_sides::SSetIVs
-  sideset_side_nodes::SSetIMs
+  element_id_maps::Dict{Symbol, Vector{IT}}
+  node_id_map::Vector{IT}
+  nodeset_nodes::Dict{Symbol, Vector{IT}}
+  sideset_elems::Dict{Symbol, Vector{IT}}
+  sideset_nodes::Dict{Symbol, Vector{IT}}
+  sideset_sides::Dict{Symbol, Vector{IT}}
+  sideset_side_nodes::Dict{Symbol, Matrix{IT}}
   # new additions
   edge_conns::EdgeConns
   face_conns::FaceConns
@@ -307,30 +307,32 @@ function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::B
   el_block_ids = element_block_ids(file)
   el_block_names = element_block_names(file)
   el_block_names = Symbol.(el_block_names)
-  el_types = element_type.((file,), el_block_ids)
-  el_types = NamedTuple{tuple(el_block_names...)}(tuple(el_types...))
+  el_types = Symbol.(element_type.((file,), el_block_ids))
   el_conns = element_connectivity.((file,), el_block_ids)
+  # el_conns = Dict(zip(el_block_names, el_conns))
   el_conns = map(Connectivity, el_conns)
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
   el_id_maps = element_block_id_map.((file,), el_block_ids)
-  el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
+  el_id_maps = Dict(zip(el_block_names, el_id_maps))
+  # el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
 
   # read node id map
-  n_id_map = node_id_map(file)
+  n_id_map = convert.(Int64, node_id_map(file))
 
   # read nodesets
   nset_names = Symbol.(nodeset_names(file))
   nsets = nodesets(file, nodeset_ids(file))
-  nset_nodes = NamedTuple{tuple(nset_names...)}(tuple(nsets...))
+  nset_nodes = Dict(zip(nset_names, nsets))
 
-  # read sidesets
+  # read sidesets 
   sset_names = Symbol.(sideset_names(file))
   ssets = sidesets(file, sideset_ids(file))
 
-  sset_elems = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[1], ssets)...))
-  sset_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[2], ssets)...))
-  sset_sides = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[3], ssets)...))
-  sset_side_nodes = NamedTuple{tuple(sset_names...)}(tuple(map(x -> x[4], ssets)...))
+  sset_elems = Dict(zip(sset_names, map(x -> x[1], ssets)))
+  sset_nodes = Dict(zip(sset_names, map(x -> x[2], ssets)))
+  sset_sides = Dict(zip(sset_names, map(x -> x[3], ssets)))
+  sset_side_nodes = Dict(zip(sset_names, map(x -> x[4], ssets)))
+
 
   # TODO also add edges/faces for sidesets, this may be tricky...
 

@@ -16,10 +16,8 @@ function InitialCondition(var_name::String, block_name::String, func::Function)
 end
 
 struct InitialConditionContainer{
-    IT <: Integer,
-    RT <: Number,
-    IV <: AbstractArray{IT, 1},
-    RV <: AbstractArray{RT, 1}
+    IV <: AbstractArray{<:Integer, 1},
+    RV <: AbstractArray{<:Number, 1}
 } <: AbstractInitialConditionContainer
     dofs::IV
     locations::IV
@@ -120,7 +118,7 @@ function _update_field_ics!(U, ic::InitialConditionContainer, backend::KA.Backen
     return nothing
 end
 
-function update_field_ics!(U, ics::NamedTuple)
+function update_field_ics!(U, ics::Vector{<:InitialConditionContainer})
     for ic in values(ics)
         _update_field_ics!(U, ic, KA.get_backend(U))
     end
@@ -131,28 +129,44 @@ struct InitialConditionFunction{F}
     func::F
 end
 
-struct InitialConditions{ICCaches, ICFuncs}
-    ic_caches::ICCaches
+struct InitialConditions{
+    IV      <: AbstractArray{<:Integer, 1},
+    RV      <: AbstractArray{<:Number, 1},
+    ICFuncs <: NamedTuple
+}
+    ic_caches::Vector{InitialConditionContainer{IV, RV}}
     ic_funcs::ICFuncs
 end
 
 function InitialConditions(mesh, dof, ics)
 
     if length(ics) == 0
-        return InitialConditions(NamedTuple(), NamedTuple())
+        ic_caches = InitialConditionContainer{Vector{Int}, Vector{Float64}}[]
+        ic_funcs = NamedTuple()
+    else
+        ic_caches = InitialConditionContainer.((mesh,), (dof,), ics)
+        syms = map(x -> Symbol("initial_condition_$x"), 1:length(ics))
+        ic_funcs = NamedTuple{tuple(syms...)}(map(x -> InitialConditionFunction(x.func), ics))
     end
-
-    syms = map(x -> Symbol("initial_condition_$x"), 1:length(ics))
-    ic_funcs = NamedTuple{tuple(syms...)}(map(x -> InitialConditionFunction(x.func), ics))
-    ic_containers = InitialConditionContainer.((mesh,), (dof,), ics)
-
-    ic_containers = NamedTuple{tuple(syms...)}(tuple(ic_containers...))
-    return InitialConditions(ic_containers, ic_funcs)
+    return InitialConditions(ic_caches, ic_funcs)
 end
 
 function Adapt.adapt_structure(to, ics::InitialConditions)
+    # NOTE
+    # below logic is needed due to improper
+    # adapt mapping for an empty array in julia 1.10/1.11
+    # where Vector{T}(undef, 0) gets mappend to Vector{Any}
+    if length(ics.ic_caches) > 0
+        ic_caches = map(x -> adapt(to, x), ics.ic_caches)
+    else
+        temp_int = adapt(to, zeros(Int, 0))
+        temp_floats = adapt(to, zeros(Float64, 0))
+        ic_caches = InitialConditionContainer{typeof(temp_int), typeof(temp_floats)}[]
+
+    end
+
     return InitialConditions(
-        adapt(to, ics.ic_caches), 
+        ic_caches,
         adapt(to, ics.ic_funcs)
     )
 end

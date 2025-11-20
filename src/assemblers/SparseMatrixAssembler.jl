@@ -62,6 +62,7 @@ function SparseMatrixAssembler(dof::DofManager)
   for (key, val) in pairs(fspace.ref_fes)
     NQ = ReferenceFiniteElements.num_quadrature_points(val)
     NE = size(getfield(fspace.elem_conns, key), 2)
+    # NE = size(fspace.elem_conns[key], 2)
     field = L2ElementField(zeros(Float64, NQ, NE))
     push!(scalar_quadarature_storage, field)
   end
