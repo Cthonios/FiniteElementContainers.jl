@@ -145,7 +145,6 @@ using DocStringExtensions
 using ForwardDiff
 using Krylov
 using LinearAlgebra
-using MPI
 using ReferenceFiniteElements
 using SparseArrays
 using StaticArrays

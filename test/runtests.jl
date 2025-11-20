@@ -5,8 +5,8 @@ using CUDA
 using Exodus
 using FiniteElementContainers
 using ForwardDiff
-# using JET
 using LinearAlgebra
+using MPI
 using ReferenceFiniteElements
 using StaticArrays
 using Tensors
