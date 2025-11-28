@@ -22,20 +22,26 @@ function assemble_vector!(
   t = current_time(p.times)
   Δt = time_step(p.times)
   _update_for_assembly!(p, dof, Uu)
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+  for (
+    conns, 
+    block_physics, ref_fe,
+    state_old, state_new, props
+  ) in zip(
     values(fspace.elem_conns), 
-    values(p.physics),
+    values(p.physics), values(fspace.ref_fes),
     values(p.state_old), values(p.state_new),
     values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
+  )
     backend = KA.get_backend(p.h1_field)
     _assemble_block_vector!(
-      storage, block_physics, ref_fe, 
-      p.h1_field, p.h1_field_old, p.h1_coords, state_old, state_new, props, t, Δt,
-      conns, b, 
+      backend,
+      storage,
+      conns,
       func,
-      backend
+      block_physics, ref_fe,
+      p.h1_coords, t, Δt,
+      p.h1_field, p.h1_field_old,
+      state_old, state_new, props
     )
   end
   
@@ -53,22 +59,18 @@ TODO improve typing of fields to ensure they mathc up in terms of function
   spaces
 """
 function _assemble_block_vector!(
-  field::F1, physics::Phys, ref_fe::R, 
-  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, 
-  func::Func, ::KA.CPU
+  ::KA.CPU,
+  field::AbstractField, 
+  conns::Connectivity,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution,
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractField,
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Func <: Function,
-  Phys <: AbstractPhysics, 
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
@@ -80,7 +82,6 @@ function _assemble_block_vector!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
-      # R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
       R_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
       R_el = R_el + R_q
       # update state here
@@ -89,7 +90,7 @@ function _assemble_block_vector!(
       end
     end
     
-    @views _assemble_element!(field, R_el, conns[:, e], e, block_id)
+    @views _assemble_element!(field, R_el, conns[:, e])
   end
 end
 
@@ -103,22 +104,17 @@ TODO mark const fields
 """
 # COV_EXCL_START
 KA.@kernel function _assemble_block_vector_kernel!(
-  field::F1, physics::Phys, ref_fe::R, 
-  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, 
-  func::Func
+  field::AbstractField, 
+  conns::Connectivity,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution,
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractField,
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  Func <: Function,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Phys <: AbstractPhysics,
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
   E = KA.@index(Global)
 
@@ -131,7 +127,6 @@ KA.@kernel function _assemble_block_vector_kernel!(
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
-    # R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
     R_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
     R_el = R_el + R_q
     # update state here
@@ -160,29 +155,29 @@ using KernelAbstractions and Atomix for eliminating race conditions
 TODO add state variables and physics properties
 """
 function _assemble_block_vector!(
-  field::F1, physics::Phys, ref_fe::R, 
-  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, 
-  func::Func, backend::KA.Backend
+  backend::KA.Backend,
+  field::AbstractField, 
+  conns::Connectivity,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution,
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractField,
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  Func <: Function,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Phys <: AbstractPhysics,
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
   kernel! = _assemble_block_vector_kernel!(backend)
   kernel!(
-    field, physics, ref_fe, 
-    U, U_old, X, state_old, state_new, props, t, Δt,
-    conns, block_id,
-    func, ndrange=size(conns, 2)
+    field, 
+    conns,
+    func,
+    physics, ref_fe, 
+    X, t, Δt,
+    U, U_old,
+    state_old, state_new, props,
+    ndrange=size(conns, 2)
   )
   return nothing
 end

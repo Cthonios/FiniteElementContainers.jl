@@ -16,29 +16,33 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble_matrix_action!(
-  # assembler, func, Uu, Vu, p
   storage, dof, func, Uu, Vu, p
 )
-  # storage = assembler.stiffness_action_storage
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
   t = current_time(p.times)
   Δt = time_step(p.times)
   _update_for_assembly!(p, dof, Uu, Vu)
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+  for (
+    conns, 
+    block_physics, ref_fe,
+    state_old, state_new, props
+  ) in zip(
     values(fspace.elem_conns), 
-    values(p.physics),
+    values(p.physics), values(fspace.ref_fes),
     values(p.state_old), values(p.state_new),
     values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
-    # backend = _check_backends(assembler, p.h1_field, p.h1_hvp_scratch_field, p.h1_coords, state_old, state_new, conns)
+  )
     backend = KA.get_backend(p.h1_field)
     _assemble_block_matrix_action!(
-      storage, block_physics, ref_fe, 
-      p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field, p.h1_coords, state_old, state_new, props, t, Δt,
-      conns, b, func,
-      backend
+      backend,
+      storage,
+      conns,
+      func,
+      block_physics, ref_fe,
+      p.h1_coords, t, Δt,
+      p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field,
+      state_old, state_new, props
     )
   end
 end
@@ -54,22 +58,18 @@ TODO improve typing of fields to ensure they mathc up in terms of function
   spaces
 """
 function _assemble_block_matrix_action!(
-  field::F1, physics::Phys, ref_fe::R, 
-  U::F2, U_old::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, func::Func, ::KA.CPU
+  ::KA.CPU,
+  field::AbstractField, 
+  conns::Connectivity,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution, V::Solution,
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractField,
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  F4   <: AbstractField,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Func <: Function,
-  Phys <: AbstractPhysics, 
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
@@ -89,7 +89,7 @@ function _assemble_block_matrix_action!(
       end
     end
     Kv_el = K_el * v_el
-    @views _assemble_element!(field, Kv_el, conns[:, e], e, block_id)
+    @views _assemble_element!(field, Kv_el, conns[:, e])
   end
 end
 
@@ -103,22 +103,17 @@ TODO mark const fields
 """
 # COV_EXCL_START
 KA.@kernel function _assemble_block_matrix_action_kernel!(
-  field::F1, physics::Phys, ref_fe::R, 
-  U::F2, U_old::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, func::Func
+  field::AbstractField, 
+  conns::Connectivity,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution, V::Solution,
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractField,
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  F4   <: AbstractField,
-  Func <: Function,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Phys <: AbstractPhysics,
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
   E = KA.@index(Global)
 
@@ -160,28 +155,29 @@ using KernelAbstractions and Atomix for eliminating race conditions
 TODO add state variables and physics properties
 """
 function _assemble_block_matrix_action!(
-  field::F1, physics::Phys, ref_fe::R, 
-  U::F2, U_old::F2, V::F3, X::F4, state_old::S, state_new::S, props::P, t::T, Δt::T,
-  conns::C, block_id::Int, func::Func, backend::KA.Backend
+  backend::KA.Backend,
+  field::AbstractField, 
+  conns::Connectivity,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution, V::Solution,
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractField,
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  F4   <: AbstractField,
-  Func <: Function,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Phys <: AbstractPhysics,
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
   kernel! = _assemble_block_matrix_action_kernel!(backend)
   kernel!(
-    field, physics, ref_fe, 
-    U, U_old, V, X, state_old, state_new, props, t, Δt,
-    conns, block_id, func, ndrange=size(conns, 2)
+    field, 
+    conns,
+    func,
+    physics, ref_fe, 
+    X, t, Δt,
+    U, U_old, V, 
+    state_old, state_new, props, t, Δt,
+    ndrange=size(conns, 2)
   )
   return nothing
 end
