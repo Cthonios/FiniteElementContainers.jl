@@ -8,7 +8,7 @@ struct SparseMatrixAssembler{
   Condensed,
   NumArrDims,
   NumFields,
-  BlockPattern      <: NamedTuple,
+  # BlockPattern      <: NamedTuple,
   IV                <: AbstractArray{Int, 1},
   RV                <: AbstractArray{Float64, 1},
   Var               <: AbstractFunction,
@@ -16,7 +16,8 @@ struct SparseMatrixAssembler{
   QuadratureStorage <: NamedTuple
 } <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
   dof::DofManager{Condensed, Int, IV, Var}
-  matrix_pattern::SparseMatrixPattern{IV, BlockPattern, RV}
+  # matrix_pattern::SparseMatrixPattern{IV, BlockPattern, RV}
+  matrix_pattern::SparseMatrixPattern{IV, RV}
   vector_pattern::SparseVectorPattern{IV}
   constraint_storage::RV
   damping_storage::RV
@@ -107,26 +108,6 @@ end
 function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "SparseMatrixAssembler")
   println(io, "  ", asm.dof)
-end
-
-"""
-$(TYPEDSIGNATURES)
-Specialization of of ```_assemble_element!``` for ```SparseMatrixAssembler```.
-"""
-function _assemble_element!(
-  pattern::SparseMatrixPattern, storage, K_el::SMatrix, el_id::Int, block_id::Int
-)
-  # figure out ids needed to update
-  block_start_index = values(pattern.block_start_indices)[block_id]
-  block_el_level_size = values(pattern.block_el_level_sizes)[block_id]
-  start_id = block_start_index + 
-             (el_id - 1) * block_el_level_size
-  end_id = start_id + block_el_level_size - 1
-  ids = start_id:end_id
-
-  # get appropriate storage and update values
-  @views storage[ids] += K_el[:]
-  return nothing
 end
 
 # TODO this only work on CPU right now

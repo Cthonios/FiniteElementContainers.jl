@@ -17,20 +17,18 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble_vector_neumann_bc!(
-  # assembler, Uu, p
   storage, dof, Uu, p
 )
-  # storage = assembler.residual_storage
   # do not zero!
-  t = current_time(p.times)
   # TODO should below 2 methods calls be assumed to have
   # been conducted previously?
   _update_for_assembly!(p, dof, Uu)
   for bc in values(p.neumann_bcs.bc_caches)
     backend = KA.get_backend(bc)
     _assemble_block_vector_neumann_bc!(
-      storage, p.h1_field, p.h1_coords, t, 
-      bc, backend
+      backend, storage,
+      p.h1_field, p.h1_coords,
+      bc
     )
   end
 end
@@ -39,15 +37,10 @@ end
 $(TYPEDSIGNATURES)
 """
 function _assemble_block_vector_neumann_bc!(
-  field::F1, U::F2, X::F3, t::T,
-  bc::N, ::KA.CPU
-) where {
-  F1 <: AbstractField,
-  F2 <: AbstractField,
-  F3 <: AbstractField,
-  T  <: Number,
-  N  <: NeumannBCContainer
-}
+  ::KA.CPU,
+  field::AbstractField, U::AbstractField, X::AbstractField,
+  bc::NeumannBCContainer
+)
   conns = bc.element_conns
   ref_fe = bc.ref_fe
 
@@ -68,9 +61,8 @@ function _assemble_block_vector_neumann_bc!(
 
       R_el = R_el + JxW * Nvec * f_val
     end
-    block_id = 1 # doesn't matter for this method
-    el_id = bc.elements[e]
-    @views _assemble_element!(field, R_el, bc.surface_conns[:, e], el_id, block_id)
+
+    @views _assemble_element!(field, R_el, bc.surface_conns[:, e])
   end
 end
 
@@ -82,15 +74,9 @@ TODO mark const fields
 """
 # COV_EXCL_START
 KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
-  field::F1, U::F2, X::F3, t::T,
-  bc::N
-) where {
-  F1 <: AbstractField,
-  F2 <: AbstractField,
-  F3 <: AbstractField,
-  T  <: Number,
-  N  <: NeumannBCContainer
-}
+  field::AbstractField, U::AbstractField, X::AbstractField,
+  bc::NeumannBCContainer
+)
 
   E = KA.@index(Global)
   conns = bc.element_conns
@@ -130,18 +116,14 @@ end
 $(TYPEDSIGNATURES)
 """
 function _assemble_block_vector_neumann_bc!(
-  field::F1, U::F2, X::F3, t::T,
-  bc::N, backend::KA.Backend
-) where {
-  F1 <: AbstractField,
-  F2 <: AbstractField,
-  F3 <: AbstractField,
-  T  <: Number,
-  N  <: NeumannBCContainer
-}
+  backend::KA.Backend,
+  field::AbstractField, 
+  U::AbstractField, X::AbstractField,
+  bc::NeumannBCContainer
+)
   kernel! = _assemble_block_vector_neumann_bc_kernel!(backend)
   kernel!(
-    field, U, X, t, bc, ndrange=size(bc.vals, 2)
+    field, U, X, bc, ndrange=size(bc.vals, 2)
   )
   return nothing
 end

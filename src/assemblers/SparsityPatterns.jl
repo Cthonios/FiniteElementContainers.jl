@@ -7,14 +7,16 @@ case where you want to eliminate fixed-dofs or not.
 """
 struct SparseMatrixPattern{
   I <: AbstractArray{Int, 1},
-  B,
+  # B,
   R <: AbstractArray{Float64, 1}
 }
   Is::I
   Js::I
   unknown_dofs::I
-  block_start_indices::B
-  block_el_level_sizes::B
+  # block_start_indices::B
+  # block_el_level_sizes::B
+  block_start_indices::Vector{Int}
+  block_el_level_sizes::Vector{Int}
   # cache arrays
   klasttouch::I
   csrrowptr::I
@@ -60,9 +62,9 @@ function SparseMatrixPattern(dof::DofManager)
   end
 
   # convert to NamedTuples so it's easy to index
-  block_syms = keys(fspace.ref_fes)
-  block_start_indices = NamedTuple{block_syms}(tuple(block_start_indices)...)
-  block_el_level_sizes = NamedTuple{block_syms}(tuple(block_el_level_sizes)...)
+  # block_syms = keys(fspace.ref_fes)
+  # block_start_indices = NamedTuple{block_syms}(tuple(block_start_indices)...)
+  # block_el_level_sizes = NamedTuple{block_syms}(tuple(block_el_level_sizes)...)
 
   # setup pre-allocated arrays based on number of entries found above
   Is = Vector{Int64}(undef, n_entries)
@@ -112,8 +114,8 @@ function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   Is = adapt(to, asm.Is)
   Js = adapt(to, asm.Js)
   unknown_dofs = adapt(to, asm.unknown_dofs)
-  block_start_indices = adapt(to, asm.block_start_indices)
-  block_el_level_sizes = adapt(to, asm.block_el_level_sizes)
+  # block_start_indices = adapt(to, asm.block_start_indices)
+  # block_el_level_sizes = adapt(to, asm.block_el_level_sizes)
   #
   klasttouch = adapt(to, asm.klasttouch)
   csrrowptr = adapt(to, asm.csrrowptr)
@@ -125,7 +127,7 @@ function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   cscnzval = adapt(to, asm.cscnzval)
   return SparseMatrixPattern(
     Is, Js,
-    unknown_dofs, block_start_indices, block_el_level_sizes,
+    unknown_dofs, asm.block_start_indices, asm.block_el_level_sizes,
     klasttouch, csrrowptr, csrcolval, csrnzval,
     csccolptr, cscrowval, cscnzval
   )
@@ -138,6 +140,29 @@ function SparseArrays.sparse!(pattern::SparseMatrixPattern, storage)
     pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
     pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
   )
+end
+
+"""
+$(TYPEDSIGNATURES)
+Specialization of of ```_assemble_element!``` for ```SparseMatrixAssembler```.
+"""
+function _assemble_element!(
+  storage, K_el::SMatrix, 
+  el_id::Int,
+  block_start_index::Int, block_el_level_size::Int
+)
+  # figure out ids needed to update
+  start_id = block_start_index + 
+             (el_id - 1) * block_el_level_size
+  end_id = start_id + block_el_level_size - 1
+  ids = start_id:end_id
+
+  # get appropriate storage and update values
+  # @views storage[ids] += K_el[:]
+  for (i, id) in enumerate(ids)
+    storage[id] += K_el.data[i]
+  end
+  return nothing
 end
 
 num_entries(s::SparseMatrixPattern) = length(s.Is)

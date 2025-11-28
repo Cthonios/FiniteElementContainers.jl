@@ -22,32 +22,36 @@ Note this is hard coded to storing the assembled sparse matrix in
 the stiffness_storage field of assembler.
 """
 function assemble_matrix!(
-  # assembler, func::F, Uu, p, ::Type{H1Field};
-  # storage_sym=Val{:stiffness_storage}()
   storage, pattern, dof, func::F, Uu, p
 ) where F <: Function
-  # storage = getfield(assembler, storage_sym)
-  # storage = _get_storage(assembler, storage_sym)
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
   t = current_time(p.times)
   dt = time_step(p.times)
   _update_for_assembly!(p, dof, Uu)
-  for (b, (conns, block_physics, state_old, state_new, props)) in enumerate(zip(
+  for (
+    conns, block_start_index, block_el_level_size,
+    block_physics, ref_fe, 
+    state_old, state_new, props
+  ) in zip(
     values(fspace.elem_conns), 
-    values(p.physics),
+    values(pattern.block_start_indices),
+    values(pattern.block_el_level_sizes),
+    values(p.physics), values(fspace.ref_fes),
     values(p.state_old), values(p.state_new),
-    values(p.properties)
-  ))
-    ref_fe = values(fspace.ref_fes)[b]
+    values(p.properties),
+  )
     # TODO re-enable back-end checking
-    # backend = _check_backends(assembler, p.h1_field, p.h1_coords, state_old, state_new, conns)
     backend = KA.get_backend(p.h1_field)
     _assemble_block_matrix!(
-      storage, pattern, block_physics, ref_fe,
-      p.h1_field, p.h1_field_old, p.h1_coords, state_old, state_new, props, t, dt,
-      conns, b, func,
-      backend
+      backend,
+      storage,
+      conns, block_start_index, block_el_level_size,
+      func,
+      block_physics, ref_fe,
+      p.h1_coords, t, dt,
+      p.h1_field, p.h1_field_old, 
+      state_old, state_new, props
     )
   end
 end
@@ -62,22 +66,18 @@ with no threading.
 TODO add state variables and physics properties
 """
 function _assemble_block_matrix!(
-  field::F1, pattern::Patt, physics::Phys, ref_fe::R,
-  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, dt::T,
-  conns::C, block_id::Int, func::Func, ::KA.CPU
+  ::KA.CPU,
+  field::AbstractArray{<:Number, 1}, 
+  conns::Connectivity, block_start_index::Int, block_el_level_size::Int,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, dt::T,
+  U::Solution, U_old::Solution, 
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractArray{<:Number, 1},
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  Func <: Function,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Patt <: SparseMatrixPattern,
-  Phys <: AbstractPhysics,
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
 
   for e in axes(conns, 2)
@@ -90,14 +90,13 @@ function _assemble_block_matrix!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
-      # K_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
       K_q, state_new_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el)
       K_el = K_el + K_q
       for s in 1:length(state_old)
         state_new[s, q, e] = state_new_q[s]
       end
     end
-    @views _assemble_element!(pattern, field, K_el, e, block_id)
+    _assemble_element!(field, K_el, e, block_start_index, block_el_level_size)
   end
   return nothing
 end
@@ -106,22 +105,17 @@ end
 # GPU implementation
 # COV_EXCL_START
 KA.@kernel function _assemble_block_matrix_kernel!(
-  field::F1, pattern::Patt, physics::Phys, ref_fe::R,
-  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, dt::T,
-  conns::C, block_id::Int, func::Func
+  field::AbstractArray{<:Number, 1}, 
+  conns::Connectivity, block_start_index::Int, block_el_level_size::Int,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, dt::T,
+  U::Solution, U_old::Solution, 
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractArray{<:Number, 1},
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  Func <: Function,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Patt <: SparseMatrixPattern,
-  Phys <: AbstractPhysics,
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
   E = KA.@index(Global)
 
@@ -133,7 +127,6 @@ KA.@kernel function _assemble_block_matrix_kernel!(
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
-    # K_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, dt)
     K_q, state_new_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el)
     K_el = K_el + K_q
     for s in 1:length(state_old)
@@ -141,15 +134,17 @@ KA.@kernel function _assemble_block_matrix_kernel!(
     end
   end
 
-  block_start_index = values(pattern.block_start_indices)[block_id]
-  block_el_level_size = values(pattern.block_el_level_sizes)[block_id]
-  start_id = block_start_index + 
-             (E - 1) * block_el_level_size
-  end_id = start_id + block_el_level_size - 1
-  ids = start_id:end_id
-  for (i, id) in enumerate(ids)
-    Atomix.@atomic field[id] += K_el.data[i]
-  end
+  # leaving here just in case
+  # block_start_index = values(pattern.block_start_indices)[block_id]
+  # block_el_level_size = values(pattern.block_el_level_sizes)[block_id]
+  # start_id = block_start_index + 
+  #            (E - 1) * block_el_level_size
+  # end_id = start_id + block_el_level_size - 1
+  # ids = start_id:end_id
+  # for (i, id) in enumerate(ids)
+  #   Atomix.@atomic field[id] += K_el.data[i]
+  # end
+  _assemble_element!(field, K_el, E, block_start_index, block_el_level_size)
 end
 # COV_EXCL_STOP
 
@@ -161,28 +156,29 @@ using KernelAbstractions and Atomix for eliminating race conditions
 TODO add state variables and physics properties
 """
 function _assemble_block_matrix!(
-  field::F1, pattern::Patt, physics::Phys, ref_fe::R,
-  U::F2, U_old::F2, X::F3, state_old::S, state_new::S, props::P, t::T, dt::T,
-  conns::C, block_id::Int, func::Func, backend::KA.Backend
+  backend::KA.Backend,
+  field::AbstractArray{<:Number, 1}, 
+  conns::Connectivity, block_start_index::Int, block_el_level_size::Int,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, dt::T,
+  U::Solution, U_old::Solution, 
+  state_old::S, state_new::S, props::AbstractArray
 ) where {
-  C    <: Connectivity,
-  F1   <: AbstractArray{<:Number, 1},
-  F2   <: AbstractField,
-  F3   <: AbstractField,
-  Func <: Function,
-  # P    <: Union{<:SVector, <:L2ElementField},
-  P    <: AbstractArray,
-  Patt <: SparseMatrixPattern,
-  Phys <: AbstractPhysics,
-  R    <: ReferenceFE,
-  S    <: L2QuadratureField,
-  T    <: Number
+  T        <: Number,
+  Solution <: AbstractField,
+  S        <: L2QuadratureField
 }
   kernel! = _assemble_block_matrix_kernel!(backend)
   kernel!(
-    field, pattern, physics, ref_fe,
-    U, U_old, X, state_old, state_new, props, t, dt,
-    conns, block_id, func, ndrange=size(conns, 2)
+    field,
+    conns, block_start_index, block_el_level_size, 
+    func,
+    physics, ref_fe,
+    X, t, dt,
+    U, U_old, 
+    state_old, state_new, props,
+    ndrange=size(conns, 2)
   )
   return nothing
 end

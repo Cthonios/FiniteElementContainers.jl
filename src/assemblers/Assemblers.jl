@@ -75,7 +75,7 @@ Assembly method for an H1Field, e.g. internal force
 Called on a single element e for a given block b where local_val
 has already been constructed from quadrature contributions.
 """
-function _assemble_element!(global_val::H1Field, local_val, conn, e, b)
+function _assemble_element!(global_val::H1Field, local_val, conn)
   n_dofs = size(global_val, 1)
   for i in axes(conn, 1)
     for d in 1:n_dofs
@@ -87,33 +87,6 @@ function _assemble_element!(global_val::H1Field, local_val, conn, e, b)
   end
   return nothing
 end
-
-# function _check_backends(assembler, U, X, state_old, state_new, conns)
-#   backend = KA.get_backend(assembler)
-#   # TODO add get_backend method of ref_fe
-#   @assert backend == KA.get_backend(U)
-#   @assert backend == KA.get_backend(X)
-#   @assert backend == KA.get_backend(conns)
-#   @assert backend == KA.get_backend(state_old)
-#   @assert backend == KA.get_backend(state_new)
-#   # props will be complicated...
-#   # TODO
-#   return backend
-# end
-
-# function _check_backends(assembler, U, V, X, state_old, state_new, conns)
-#   backend = KA.get_backend(assembler)
-#   # TODO add get_backend method of ref_fe
-#   @assert backend == KA.get_backend(U)
-#   @assert backend == KA.get_backend(V)
-#   @assert backend == KA.get_backend(X)
-#   @assert backend == KA.get_backend(conns)
-#   @assert backend == KA.get_backend(state_old)
-#   @assert backend == KA.get_backend(state_new)
-#   # props will be complicated...
-#   # TODO
-#   return backend
-# end
 
 """
 $(TYPEDSIGNATURES)
