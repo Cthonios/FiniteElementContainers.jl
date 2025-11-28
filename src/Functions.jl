@@ -110,6 +110,8 @@ function TensorFunction(fspace::FunctionSpace, sym; use_spatial_dimension=false)
       :_yz, :_xz, :_xy, 
       :_zy, :_zx, :_yx
     ]
+  else
+    @assert false "TensorFunction likely doesn't make sense for ND not 2 or 3"
   end
 
   syms = ()
@@ -158,6 +160,8 @@ function SymmetricTensorFunction(fspace::FunctionSpace, sym; use_spatial_dimensi
       :_xx, :_yy, :_zz, 
       :_yz, :_xz, :_xy,
     ]
+  else
+    @assert false "SymmetricTensorFunction likely doesn't make sense for ND not 2 or 3."
   end
 
   # finally set up component symbols

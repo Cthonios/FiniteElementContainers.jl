@@ -80,7 +80,8 @@ function _assemble_block_vector!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
-      R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
+      # R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
+      R_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
       R_el = R_el + R_q
       # update state here
       for s in 1:length(state_old)
@@ -130,7 +131,8 @@ KA.@kernel function _assemble_block_vector_kernel!(
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
-    R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
+    # R_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
+    R_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
     R_el = R_el + R_q
     # update state here
     for s in 1:length(state_old)

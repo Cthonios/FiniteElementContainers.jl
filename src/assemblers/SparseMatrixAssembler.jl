@@ -207,7 +207,7 @@ function _adjust_matrix_entries_for_constraints(
 end
 
 function _hessian(assembler::SparseMatrixAssembler, ::KA.CPU)
-  H = SparseArrays.sparse!(assembler.pattern, assembler.hessian_storage)
+  H = SparseArrays.sparse!(assembler.matrix_pattern, assembler.hessian_storage)
 
   if _is_condensed(assembler.dof)
     _adjust_matrix_entries_for_constraints!(H, assembler.constraint_storage, KA.get_backend(assembler))

@@ -77,7 +77,7 @@ function _assemble_block_quadrature_quantity!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
-      e_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
+      e_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
       field[q, e] = e_q
       # update state here
       for s in 1:length(state_old)
@@ -122,7 +122,7 @@ KA.@kernel function _assemble_block_quadrature_quantity_kernel!(
   KA.Extras.@unroll for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
-    e_q, state_new_q = func(physics, interps, u_el, x_el, state_old_q, props_el, t, Δt)
+    e_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
     @inbounds field[q, E] = e_q
     for s in 1:length(state_old)
       @inbounds state_new[s, q, E] = state_new_q[s]
