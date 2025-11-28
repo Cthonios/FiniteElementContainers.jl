@@ -5,7 +5,7 @@ struct Poisson <: AbstractPhysics{1, 0, 0}
 end
 
 @inline function FiniteElementContainers.energy(
-  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
+  physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
@@ -15,7 +15,7 @@ end
 end
 
 @inline function FiniteElementContainers.mass(
-  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
+  physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
@@ -24,7 +24,7 @@ end
 end
 
 @inline function FiniteElementContainers.residual(
-  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
+  physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
 )
   # interps = MappedInterpolants(interps, x_el)
   interps = map_interpolants(interps, x_el)
@@ -35,7 +35,7 @@ end
 end
 
 @inline function FiniteElementContainers.stiffness(
-  physics::Poisson, interps, u_el, x_el, state_old_q, props_el, t, dt
+  physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
 )
   # interps = MappedInterpolants(interps, x_el)
   interps = map_interpolants(interps, x_el)

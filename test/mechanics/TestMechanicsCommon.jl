@@ -35,7 +35,7 @@ end
 end
 
 @inline function FiniteElementContainers.energy(
-  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, t, dt
+  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
@@ -50,7 +50,7 @@ end
 
 # note for CUDA things crash without inline
 @inline function FiniteElementContainers.residual(
-  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, t, dt
+  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
@@ -68,7 +68,7 @@ end
 end
 
 @inline function FiniteElementContainers.stiffness(  
-  physics::Mechanics, interps, u_el, x_el, state_old_q, props_el, t, dt
+  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps

@@ -129,6 +129,8 @@ function BCBookKeeping(
     # setup dofs local to this BC
     # all_dofs = reshape(1:length(dof), size(dof))
     dofs = all_dofs[dof_index, nodes]
+  else
+    @assert false "Either you need to provide a nodeset, sideset or block"
   end
 
   return BCBookKeeping(

@@ -84,7 +84,7 @@ end
 
 function _update_ic_values!(ic::InitialConditionContainer, func, X, backend::KA.Backend)
     kernel! = _update_ic_values_kernel!(backend)
-    kernel!(ic, func, X, ndrange = length(bc))
+    kernel!(ic, func, X, ndrange = length(ic))
     return nothing
 end
 
