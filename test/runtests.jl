@@ -11,7 +11,7 @@ using ReferenceFiniteElements
 using StaticArrays
 using Tensors
 using Test
-using TestSetExtensions
+# using TestSetExtensions
 
 include("TestAssemblers.jl")
 include("TestBCs.jl")
@@ -22,6 +22,7 @@ include("TestFormulations.jl")
 include("TestFunctions.jl")
 include("TestFunctionSpaces.jl")
 include("TestICs.jl")
+include("TestIntegrals.jl")
 include("TestMesh.jl")
 include("TestPhysics.jl")
 
@@ -31,7 +32,7 @@ include("TestPhysics.jl")
 
 # "Regression" tests below
 
-@testset ExtendedTestSet "Poisson problem" begin
+@testset "Poisson problem" begin
   include("poisson/TestPoisson.jl")
 
   cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
@@ -66,7 +67,7 @@ include("TestPhysics.jl")
   end
 end
 
-@testset ExtendedTestSet "Mechanics Problem" begin
+@testset "Mechanics Problem" begin
   include("mechanics/TestMechanicsCommon.jl")
   include("mechanics/TestMechanics.jl")
 
@@ -88,7 +89,7 @@ end
   end
 end
 
-@testset ExtendedTestSet "Aqua" begin
+@testset "Aqua" begin
   Aqua.test_all(FiniteElementContainers; ambiguities=false)
 end
 

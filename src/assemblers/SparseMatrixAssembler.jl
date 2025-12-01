@@ -8,7 +8,6 @@ struct SparseMatrixAssembler{
   Condensed,
   NumArrDims,
   NumFields,
-  # BlockPattern      <: NamedTuple,
   IV                <: AbstractArray{Int, 1},
   RV                <: AbstractArray{Float64, 1},
   Var               <: AbstractFunction,
@@ -16,7 +15,6 @@ struct SparseMatrixAssembler{
   QuadratureStorage <: NamedTuple
 } <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
   dof::DofManager{Condensed, Int, IV, Var}
-  # matrix_pattern::SparseMatrixPattern{IV, BlockPattern, RV}
   matrix_pattern::SparseMatrixPattern{IV, RV}
   vector_pattern::SparseVectorPattern{IV}
   constraint_storage::RV

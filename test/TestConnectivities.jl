@@ -1,4 +1,4 @@
-@testset ExtendedTestSet "Connectivities" begin
+function test_connectivities()
   conn_in = [
     1 5 9;
     2 6 10;
@@ -41,4 +41,8 @@
   # conn_temp = connectivity(conn)
   # conn_temp = connectivity(conn, 1)
   # @test SVector{4, Int64}(conn_temp[:, 1]) ≈ conn_in[:, 1]
+end
+
+@testset "Connectivities" begin
+  test_connectivities()
 end

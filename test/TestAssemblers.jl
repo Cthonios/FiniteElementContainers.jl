@@ -4,8 +4,7 @@ bc_func(_, _) = 0.
 # reinclude
 include("poisson/TestPoissonCommon.jl") 
 
-
-@testset ExtendedTestSet "Sparse matrix assembler" begin
+function test_sparse_matrix_assembler()
   # create very simple poisson problem
   mesh_file = "./poisson/poisson.g"
   mesh = UnstructuredMesh(mesh_file)
@@ -53,4 +52,8 @@ include("poisson/TestPoissonCommon.jl")
 
   # mainly just to test the show method for parameters
   @show p
+end
+
+@testset "Sparse matrix assembler" begin
+  test_sparse_matrix_assembler()
 end

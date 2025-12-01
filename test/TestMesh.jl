@@ -11,14 +11,15 @@ function test_structured_mesh()
   ]
 end
 
-@testset ExtendedTestSet "Mesh" begin
-  test_structured_mesh()
-end
+# @testset ExtendedTestSet "Mesh" begin
+#   test_structured_mesh()
+# end
 
 struct DummyMesh <: FiniteElementContainers.AbstractMesh
 end
 
 # @test ExtendedTestSet "Mesh definition" begin
+function test_bad_mesh_methods()
   mesh = DummyMesh()
   @test_throws AssertionError coordinates(mesh)
   @test_throws AssertionError element_block_id_map(mesh, 1)
@@ -36,11 +37,17 @@ end
   @test_throws AssertionError sidesets(mesh)
   @test_throws AssertionError sideset_ids(mesh)
   @test_throws AssertionError sideset_names(mesh)
-# end
+end
 
 function test_bad_mesh_file_type()
   file_name = "some_file.badext"
   @test_throws ErrorException UnstructuredMesh(file_name)
 end
 
-test_bad_mesh_file_type()
+# test_bad_mesh_file_type()
+
+@testset "Mesh" begin
+  test_bad_mesh_file_type()
+  test_bad_mesh_methods()
+  test_structured_mesh()
+end

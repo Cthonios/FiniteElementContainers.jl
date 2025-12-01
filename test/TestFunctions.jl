@@ -1,4 +1,4 @@
-@testset ExtendedTestSet "Functions" begin
+function test_functions()
   mesh = UnstructuredMesh("poisson/poisson.g")
   fspace = FunctionSpace(mesh, H1Field, Lagrange)
 
@@ -31,4 +31,8 @@
   @show u
   @test length(u) == 3
   @test names(u) == (:u_xx, :u_yy, :u_xy)
+end
+
+@testset "Functions" begin
+  test_functions()
 end

@@ -1,4 +1,4 @@
-@testset ExtendedTestSet "L2 Element Field" begin
+function test_l2_element_field()
   data = rand(2, 20)
   field = L2ElementField(data)
 
@@ -31,7 +31,7 @@
   end
 end
 
-@testset ExtendedTestSet "H1 Field" begin
+function test_h1_field()
   data = rand(2, 20)
   field = H1Field(data)
   
@@ -63,7 +63,7 @@ end
   end
 end
 
-@testset ExtendedTestSet "Quadrature Field" begin
+function test_l2_quadrature_field()
   data = rand(Float64, 2, 3, 100)
   field = L2QuadratureField(data)
 
@@ -93,4 +93,10 @@ end
   field = L2QuadratureField(data)
   @test size(field) == (0, 3, 0)
   @test axes(field) == (Base.OneTo(0), Base.OneTo(3), Base.OneTo(0))
+end
+
+@testset "Fields" begin
+  test_h1_field()
+  test_l2_element_field()
+  test_l2_quadrature_field()
 end

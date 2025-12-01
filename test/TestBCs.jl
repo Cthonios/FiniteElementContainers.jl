@@ -43,7 +43,7 @@ function test_neumann_bc_container_init()
   @show bc
 end
 
-@testset ExtendedTestSet "BoundaryConditions" begin
+@testset "BoundaryConditions" begin
   test_dirichlet_bc_input()
   test_dirichlet_bc_container_init()
   test_neumann_bc_input()
