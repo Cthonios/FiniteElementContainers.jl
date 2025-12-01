@@ -1,12 +1,11 @@
 abstract type AbstractIntegral{
     A         <: AbstractAssembler,
-    Cache     <: Union{<:NamedTuple, <:AbstractField},
     Integrand <: Function
 } end
 
 function integrate end
 
-struct ScalarIntegral{A, C, I} <: AbstractIntegral{A, C, I}
+struct ScalarIntegral{A, I, C <: NamedTuple} <: AbstractIntegral{A, I}
     assembler::A
     cache::C
     integrand::I
@@ -25,9 +24,36 @@ function ScalarIntegral(asm, integrand)
     return ScalarIntegral(asm, cache, integrand)
 end
 
+# function gradient(integral::ScalarIntegral)
+#     # func(physics, interps, x, t, dt, u, u_n, state_old, props) = ForwardDiff.gradient(
+#     #     z -> integral.integrand(physics, interps, x, t, dt, z, u_n, state_old, props)[1],
+#     # )
+#     function integrand_grad(physics, interps, x, t, dt, u, u_n, state_old, props)
+#         return ForwardDiff.gradient()
+#     # return VectorIntegral
+# end
+
 function integrate(integral::ScalarIntegral, U, p)
     cache, dof = integral.cache, integral.assembler.dof
     func = integral.integrand
     assemble_quadrature_quantity!(cache, dof, func, U, p)
     return mapreduce(sum, sum, values(cache))
+end
+
+struct VectorIntegral{A, I, C <: AbstractField} <: AbstractIntegral{A, I}
+    assembler::A
+    cache::C
+    integrand::I
+end
+
+function VectorIntegral(asm, integrand)
+    cache = create_field(asm)
+    return VectorIntegral(asm, cache, integrand)
+end
+
+function integrate(integral::VectorIntegral, U, p)
+    cache, dof = integral.cache, integral.assembler.dof
+    func = integral.integrand
+    assemble_vector!(cache, dof, func, U, p)
+    return cache
 end
