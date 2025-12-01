@@ -1,15 +1,11 @@
-f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
-bc_func(_, _) = 0.
-# TODO this creates a warning during testing due to
-# reinclude
-include("poisson/TestPoissonCommon.jl") 
-
 function test_sparse_matrix_assembler()
   # create very simple poisson problem
   mesh_file = "./poisson/poisson.g"
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson()
+  f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+  bc_func(_, _) = 0.
+  physics = Poisson(f)
   props = SVector{0, Float64}()
   u = ScalarFunction(V, :u)
   @show asm = SparseMatrixAssembler(u)

@@ -13,6 +13,11 @@ using Tensors
 using Test
 # using TestSetExtensions
 
+# put these first so we can use these
+# physics in other tests
+include("mechanics/TestMechanicsCommon.jl")
+include("poisson/TestPoissonCommon.jl")
+
 include("TestAssemblers.jl")
 include("TestBCs.jl")
 include("TestConnectivities.jl")
@@ -33,6 +38,7 @@ include("TestPhysics.jl")
 # "Regression" tests below
 
 @testset "Poisson problem" begin
+  # include("poisson/TestPoissonCommon.jl")
   include("poisson/TestPoisson.jl")
 
   cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
@@ -68,7 +74,7 @@ include("TestPhysics.jl")
 end
 
 @testset "Mechanics Problem" begin
-  include("mechanics/TestMechanicsCommon.jl")
+  # include("mechanics/TestMechanicsCommon.jl")
   include("mechanics/TestMechanics.jl")
 
   cg_solver = x -> IterativeLinearSolver(x, :CgSolver)

@@ -16,7 +16,7 @@ f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 bc_func(_, _) = 0.
 bc_func_neumann(_, _) = SVector{1, Float64}(1.)
 
-include("TestPoissonCommon.jl")
+# include("TestPoissonCommon.jl")
 
 # read mesh and relevant quantities
 
@@ -26,7 +26,7 @@ function test_poisson_dirichlet(
 )
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson()
+  physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
@@ -76,7 +76,7 @@ function test_poisson_neumann(
 )
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson()
+  physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
@@ -135,7 +135,7 @@ function test_poisson_dirichlet_multi_block_quad4_quad4(
 )
   mesh = UnstructuredMesh(Base.source_dir() * "/poisson/multi_block_mesh_quad4_quad4.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson()
+  physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
@@ -182,7 +182,7 @@ function test_poisson_dirichlet_multi_block_quad4_tri3(
 )
   mesh = UnstructuredMesh(Base.source_dir() * "/poisson/multi_block_mesh_quad4_tri3.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson()
+  physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
