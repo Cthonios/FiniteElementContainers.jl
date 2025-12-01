@@ -50,7 +50,6 @@ SparseArrays = "1"
 StaticArrays = "1"
 Tensors = "1"
 Test = "1"
-TestSetExtensions = "2"
 TimerOutputs = "0.5"
 julia = "1"
 
@@ -62,7 +61,6 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
-TestSetExtensions = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"
 
 [targets]
-test = ["AMDGPU", "Aqua", "CUDA", "Exodus", "MPI", "Test", "TestSetExtensions"]
+test = ["AMDGPU", "Aqua", "CUDA", "Exodus", "MPI", "Test"]

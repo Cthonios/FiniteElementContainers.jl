@@ -178,6 +178,28 @@ function Base.show(io::IO, ::SymmetricTensorFunction{S, F}) where {S, F}
   println(io, "  names: $S")
 end
 
+struct GeneralFunction{S, F} <: AbstractFunction{S, F}
+  fspace::F
+end
+
+function GeneralFunction(args...)
+  fspace = args[1].fspace
+  for arg in args
+    @assert typeof(arg.fspace) == typeof(fspace)
+  end
+  # syms = mapreduce(names, vcat, args)
+  syms = ()
+  for arg in args
+    syms = (syms..., names(arg)...)
+  end
+  # @show syms
+  return GeneralFunction{syms, typeof(fspace)}(fspace)
+end
+
+function Base.show(io::IO, ::GeneralFunction{S, F}) where {S, F}
+  println(io, "GeneralFunction:")
+  println(io, "  names: $S")
+end
 
 # struct StateFunction{S, F, NS, NQ} <: AbstractFunction{S, F}
 #   fspace::F

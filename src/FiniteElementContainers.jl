@@ -182,6 +182,7 @@ include("PostProcessors.jl")
 #
 include("TimeSteppers.jl")
 include("Parameters.jl")
+include("integrals/Integrals.jl")
 include("solvers/Solvers.jl")
 include("integrators/Integrators.jl")
 

@@ -61,7 +61,7 @@ end
 #   @test FiniteElementContainers.num_bcs(dof) == 5
 # end
 
-@testset ExtendedTestSet "DofManager" begin
+@testset "DofManager" begin
   # mesh = FileMesh(FiniteElementContainers.ExodusMesh, "./poisson/poisson.g")
   mesh = UnstructuredMesh("./poisson/poisson.g")
   fspace = FunctionSpace(mesh, H1Field, Lagrange)

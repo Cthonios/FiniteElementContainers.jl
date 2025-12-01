@@ -369,7 +369,7 @@ function test_three_dimensional(∇N_X, ∇u_q, A_q)
 end
 
 # TODO test formulations on various element types
-@testset ExtendedTestSet "Formulations" begin
+function test_formulations()
   X = [
     0.0 0.0;
     1.0 0.0;
@@ -396,4 +396,8 @@ end
   ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
   ∇u_q = SMatrix{3, 3, Float64, 9}((1., 2., 3., 4., 5., 6., 7., 8., 9.))
   test_three_dimensional(∇N_X, ∇u_q, A_q)
+end
+
+@testset "Formulations" begin
+  test_formulations()
 end

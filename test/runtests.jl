@@ -11,7 +11,12 @@ using ReferenceFiniteElements
 using StaticArrays
 using Tensors
 using Test
-using TestSetExtensions
+# using TestSetExtensions
+
+# put these first so we can use these
+# physics in other tests
+include("mechanics/TestMechanicsCommon.jl")
+include("poisson/TestPoissonCommon.jl")
 
 include("TestAssemblers.jl")
 include("TestBCs.jl")
@@ -22,17 +27,14 @@ include("TestFormulations.jl")
 include("TestFunctions.jl")
 include("TestFunctionSpaces.jl")
 include("TestICs.jl")
+include("TestIntegrals.jl")
 include("TestMesh.jl")
 include("TestPhysics.jl")
 
-# @testset ExtendedTestSet "Eigen problem" begin
-#   include("eigen/TestEigen.jl")
-# end
-
 # "Regression" tests below
-
-@testset ExtendedTestSet "Poisson problem" begin
-  include("poisson/TestPoisson.jl")
+function test_poisson()
+# @testset "Poisson problem" begin
+  # include("poisson/TestPoisson.jl")
 
   cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
   condensed = [false, true]
@@ -66,9 +68,9 @@ include("TestPhysics.jl")
   end
 end
 
-@testset ExtendedTestSet "Mechanics Problem" begin
-  include("mechanics/TestMechanicsCommon.jl")
-  include("mechanics/TestMechanics.jl")
+# @testset "Mechanics Problem" begin
+function test_mechanics()
+  # include("mechanics/TestMechanics.jl")
 
   cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
 
@@ -88,12 +90,13 @@ end
   end
 end
 
-@testset ExtendedTestSet "Aqua" begin
-  Aqua.test_all(FiniteElementContainers; ambiguities=false)
+@testset "Regression tests" begin
+  include("poisson/TestPoisson.jl")
+  @testset "Poisson" test_poisson()
+  include("mechanics/TestMechanics.jl")
+  @testset "Mechanics" test_mechanics()
 end
 
-# getting an error from FileMesh.num_nodes for some reason. No method
-# @testset ExtendedTestSet "JET" begin
-#   JET.test_package(FiniteElementContainers; target_defined_modules=true)
-#   # JET.test_package(FiniteElementContainers)
-# end
+@testset "Aqua" begin
+  Aqua.test_all(FiniteElementContainers; ambiguities=false)
+end

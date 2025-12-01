@@ -29,7 +29,7 @@ function test_ic_update_field_ics(ics, U)
     @test all(U[2, :] .== 0.)
 end
 
-@testset ExtendedTestSet "InitialConditions" begin
+@testset "InitialConditions" begin
     test_ic_input()
     ics, X, U = ic_container_init()
     test_ic_update_values(ics, X)
