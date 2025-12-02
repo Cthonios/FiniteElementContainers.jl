@@ -70,7 +70,7 @@ function _assemble_block_vector!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
@@ -82,12 +82,9 @@ function _assemble_block_vector!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
-      R_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
+      state_new_q = _quadrature_level_state(state_new, q, e)
+      R_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       R_el = R_el + R_q
-      # update state here
-      for s in 1:length(state_old)
-        state_new[s, q, e] = state_new_q[s]
-      end
     end
     
     @views _assemble_element!(field, R_el, conns[:, e])
@@ -114,7 +111,7 @@ KA.@kernel function _assemble_block_vector_kernel!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
   E = KA.@index(Global)
 
@@ -127,12 +124,9 @@ KA.@kernel function _assemble_block_vector_kernel!(
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
-    R_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
+    state_new_q = _quadrature_level_state(state_new, q, E)
+    R_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, state_new_q, props_el)
     R_el = R_el + R_q
-    # update state here
-    for s in 1:length(state_old)
-      state_new[s, q, E] = state_new_q[s]
-    end
   end
 
   # now assemble atomically
@@ -166,7 +160,7 @@ function _assemble_block_vector!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
   kernel! = _assemble_block_vector_kernel!(backend)
   kernel!(

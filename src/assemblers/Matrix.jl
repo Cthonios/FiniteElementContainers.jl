@@ -77,7 +77,7 @@ function _assemble_block_matrix!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
 
   for e in axes(conns, 2)
@@ -90,11 +90,9 @@ function _assemble_block_matrix!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
-      K_q, state_new_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el)
+      state_new_q = _quadrature_level_state(state_new, q, e)
+      K_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       K_el = K_el + K_q
-      for s in 1:length(state_old)
-        state_new[s, q, e] = state_new_q[s]
-      end
     end
     _assemble_element!(field, K_el, e, block_start_index, block_el_level_size)
   end
@@ -115,7 +113,7 @@ KA.@kernel function _assemble_block_matrix_kernel!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
   E = KA.@index(Global)
 
@@ -127,11 +125,9 @@ KA.@kernel function _assemble_block_matrix_kernel!(
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
-    K_q, state_new_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el)
+    state_new_q = _quadrature_level_state(state_new, q, E)
+    K_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
     K_el = K_el + K_q
-    for s in 1:length(state_old)
-      state_new[s, q, E] = state_new_q[s]
-    end
   end
 
   # leaving here just in case
@@ -167,7 +163,7 @@ function _assemble_block_matrix!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
   kernel! = _assemble_block_matrix_kernel!(backend)
   kernel!(

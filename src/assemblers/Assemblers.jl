@@ -79,7 +79,6 @@ function _assemble_element!(global_val::H1Field, local_val, conn)
   n_dofs = size(global_val, 1)
   for i in axes(conn, 1)
     for d in 1:n_dofs
-      # n = 2 * i + d
       global_id = n_dofs * (conn[i] - 1) + d
       local_id = n_dofs * (i - 1) + d
       global_val[global_id] += local_val[local_id]
@@ -167,13 +166,16 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function _quadrature_level_state(state::L2QuadratureField, q::Int, e::Int)
-  NS = size(state, 1)
-  if NS > 0
-    state_q = @views SVector{size(state, 1), eltype(state)}(state[:, q, e])
-  else
-    state_q = SVector{0, eltype(state)}()
-  end
+function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::Int)
+  # NS = size(state, 1)
+  # if NS > 0
+  #   state_q = @views SVector{size(state, 1), eltype(state)}(state[:, q, e])
+  # else
+  #   state_q = SVector{0, eltype(state)}()
+  # end
+  # return state_q
+  # NS = size(state, 1)
+  state_q = view(state, :, q, e)
   return state_q
 end
 

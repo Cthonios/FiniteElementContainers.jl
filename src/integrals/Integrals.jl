@@ -20,18 +20,18 @@ function ScalarIntegral(asm, integrand)
         field = L2ElementField(zeros(Float64, NQ, NE))
         push!(cache, field)
     end
-    cache = NamedTuple{keys(fspace.ref_fes)}(tuple(scalar_quadarature_storage...))
+    cache = NamedTuple{keys(fspace.ref_fes)}(tuple(cache...))
     return ScalarIntegral(asm, cache, integrand)
 end
 
-# function gradient(integral::ScalarIntegral)
-#     # func(physics, interps, x, t, dt, u, u_n, state_old, props) = ForwardDiff.gradient(
-#     #     z -> integral.integrand(physics, interps, x, t, dt, z, u_n, state_old, props)[1],
-#     # )
-#     function integrand_grad(physics, interps, x, t, dt, u, u_n, state_old, props)
-#         return ForwardDiff.gradient()
-#     # return VectorIntegral
-# end
+function gradient(integral::ScalarIntegral)
+    func(physics, interps, x, t, dt, u, u_n, state_old, state_new, props) = ForwardDiff.gradient(
+        z -> integral.integrand(physics, interps, x, t, dt, z, u_n, state_old, state_new, props),
+        u
+    )
+    cache = create_field(integral.assembler)
+    return VectorIntegral(integral.assembler, cache, func)
+end
 
 function integrate(integral::ScalarIntegral, U, p)
     cache, dof = integral.cache, integral.assembler.dof
