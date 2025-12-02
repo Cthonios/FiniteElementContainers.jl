@@ -35,7 +35,7 @@ end
 end
 
 @inline function FiniteElementContainers.energy(
-  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
+  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
@@ -45,12 +45,12 @@ end
   ∇u_q = modify_field_gradients(physics.formulation, ∇u_q)
   # constitutive
   ψ_q = strain_energy(∇u_q, state_old_q, props_el, dt)
-  return JxW * ψ_q, state_old_q
+  return JxW * ψ_q
 end
 
 # note for CUDA things crash without inline
 @inline function FiniteElementContainers.residual(
-  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
+  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
@@ -64,11 +64,11 @@ end
   P_q = extract_stress(physics.formulation, P_q)
   G_q = discrete_gradient(physics.formulation, ∇N_X)
   f_q = G_q * P_q
-  return JxW * f_q[:], state_old_q
+  return JxW * f_q[:]
 end
 
 @inline function FiniteElementContainers.stiffness(  
-  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, props_el
+  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
@@ -83,7 +83,7 @@ end
   # turn into voigt notation
   K_q = extract_stiffness(physics.formulation, K_q)
   G_q = discrete_gradient(physics.formulation, ∇N_X)
-  return JxW * G_q * K_q * G_q', state_old_q
+  return JxW * G_q * K_q * G_q'
   # K_q = ForwardDiff.hessian(z -> energy(physics, interps, z, x_el, state_old_q, props_el, t, dt)[1], u_el)
   # @show K_q
   # return K_q, state_old_q

@@ -74,9 +74,9 @@ function Parameters(
     @assert isa(properties, NamedTuple)
   end
 
-  # state_old = Array{Float64, 3}[]
+  state_old = Array{Float64, 3}[]
   # properties = []
-  state_old = L2QuadratureField[]
+  # state_old = L2QuadratureField[]
   for (key, val) in pairs(physics)
     # create properties for this block physics
     # TODO specialize to allow for element level properties
@@ -99,7 +99,7 @@ function Parameters(
         state_old_temp[:, q, e] = create_initial_state(val)
       end
     end
-    state_old_temp = L2QuadratureField(state_old_temp)
+    # state_old_temp = L2QuadratureField(state_old_temp)
 
     push!(state_old, state_old_temp)
   end

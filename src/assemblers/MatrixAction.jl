@@ -69,7 +69,7 @@ function _assemble_block_matrix_action!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
   for e in axes(conns, 2)
     x_el = _element_level_fields_flat(X, ref_fe, conns, e)
@@ -81,12 +81,9 @@ function _assemble_block_matrix_action!(
     for q in 1:num_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
-      K_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
+      state_new_q = _quadrature_level_state(state_new, q, e)
+      K_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       K_el = K_el + K_q
-      # update state here
-      for s in 1:length(state_old)
-        state_new[s, q, e] = state_new_q[s]
-      end
     end
     Kv_el = K_el * v_el
     @views _assemble_element!(field, Kv_el, conns[:, e])
@@ -113,7 +110,7 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
   E = KA.@index(Global)
 
@@ -126,12 +123,9 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
   for q in 1:num_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
-    K_q, state_new_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, props_el)
+    state_new_q = _quadrature_level_state(state_new, q, E)
+    K_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, state_new_q, props_el)
     K_el = K_el + K_q
-    # update state here
-    for s in 1:length(state_old)
-      state_new[s, q, E] = state_new_q[s]
-    end
   end
   Kv_el = K_el * v_el
 
@@ -166,7 +160,7 @@ function _assemble_block_matrix_action!(
 ) where {
   T        <: Number,
   Solution <: AbstractField,
-  S        <: L2QuadratureField
+  S        #<: L2QuadratureField
 }
   kernel! = _assemble_block_matrix_action_kernel!(backend)
   kernel!(
