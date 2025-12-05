@@ -35,28 +35,7 @@ function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
   )
 end
 
-
-function FiniteElementContainers._adjust_matrix_entries_for_constraints!(
-  A, constraint_storage, backend::ROCBackend;
-  penalty_scale = 1.e6
-)
-  # first ensure things are the right size
-  @assert size(A, 1) == size(A, 2)
-  @assert length(constraint_storage) == size(A, 2)
-
-  # trA = _trace(A)
-  @warn "Currently hacking penalty to be zero until we implement trA on AMDGPU"
-  # trA = zero(eltype(A))
-  trA = 0.0
-
-  kernel! = FiniteElementContainers._adjust_matrix_entries_for_constraints_kernel!(backend)
-  kernel!(A, constraint_storage, trA, penalty_scale, ndrange = size(A, 2))
-  return nothing
-end
-
 function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::ROCBackend)
-  # stiffness = AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm)
-  # return stiffness
   K = AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm)
 
   if FiniteElementContainers._is_condensed(asm.dof)
