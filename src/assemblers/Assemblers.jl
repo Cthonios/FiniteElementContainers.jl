@@ -8,67 +8,6 @@ $(TYPEDSIGNATURES)
 """
 KA.get_backend(asm::AbstractAssembler) = KA.get_backend(asm.dof)
 
-function _adjust_matrix_action_entries_for_constraints!(
-  Av, constraint_storage, v, ::KA.CPU
-  # TODO do we need a penalty scale here as well?
-)
-  @assert length(Av) == length(constraint_storage)
-  @assert length(v) == length(constraint_storage)
-  # modify Av => (I - G) * Av + Gv
-  # TODO is this the right thing to do? I think so...
-  for i in 1:length(constraint_storage)
-    @inbounds Av[i] = (1. - constraint_storage[i]) * Av[i] + constraint_storage[i] * v[i]
-  end
-  return nothing
-end
-
-# COV_EXCL_START
-KA.@kernel function _adjust_matrix_action_entries_for_constraints_kernel!(
-  Av, constraint_storage, v
-)
-  I = KA.@index(Global)
-  # modify Av => (I - G) * Av + Gv
-  @inbounds Av[I] = (1. - constraint_storage[I]) * Av[I] + constraint_storage[I] * v[I]
-end
-# COV_EXCL_STOP
-
-function _adjust_matrix_action_entries_for_constraints!(
-  Av, constraint_storage, v, backend::KA.Backend
-)
-  @assert length(Av) == length(constraint_storage)
-  @assert length(v) == length(constraint_storage)
-  kernel! = _adjust_matrix_action_entries_for_constraints_kernel!(backend)
-  kernel!(Av, constraint_storage, v, ndrange = length(Av))
-  return nothing
-end
-
-function _adjust_vector_entries_for_constraints!(b, constraint_storage, ::KA.CPU)
-  @assert length(b) == length(constraint_storage)
-  # modify b => (I - G) * b + (Gu - g)
-  # but Gu = g, so we don't need that here
-  # unless we want to modify this to support weakly
-  # enforced BCs later
-  for i in 1:length(constraint_storage)
-    @inbounds b[i] = (1. - constraint_storage[i]) * b[i]
-  end
-  return nothing
-end
-
-# COV_EXCL_START
-KA.@kernel function _adjust_vector_entries_for_constraints_kernel(b, constraint_storage)
-  I = KA.@index(Global)
-  # modify b => (I - G) * b + (Gu - g)
-  @inbounds b[I] = (1. - constraint_storage[I]) * b[I]
-end
-# COV_EXCL_STOP
-
-function _adjust_vector_entries_for_constraints!(b, constraint_storage, backend::KA.Backend)
-  @assert length(b) == length(constraint_storage)
-  kernel! = _adjust_vector_entries_for_constraints_kernel(backend)
-  kernel!(b, constraint_storage, ndrange = length(b))
-  return nothing
-end
-
 """
 $(TYPEDSIGNATURES)
 Assembly method for an H1Field, e.g. internal force
@@ -243,11 +182,13 @@ function stiffness(assembler::AbstractAssembler)
 end
 
 # some utilities
+include("Constraints.jl")
 include("SparsityPatterns.jl")
 
 # types
 include("MatrixFreeAssembler.jl")
 include("SparseMatrixAssembler.jl")
+# include("SparseMatrixAssemblerNew.jl")
 
 # methods
 include("Matrix.jl")

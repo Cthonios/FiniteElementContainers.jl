@@ -264,3 +264,4 @@ function Adapt.adapt_structure(to, pattern::SparseVectorPattern)
   )
 end
 
+num_entries(pattern::SparseVectorPattern) = length(pattern.Is)

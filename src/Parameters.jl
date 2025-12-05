@@ -231,7 +231,7 @@ function update_bc_values!(p::Parameters)
   return nothing
 end
 
-function update_dofs!(asm::SparseMatrixAssembler, p::Parameters)
+function update_dofs!(asm::AbstractAssembler, p::Parameters)
   update_dofs!(asm, p.dirichlet_bcs)
   return nothing
 end

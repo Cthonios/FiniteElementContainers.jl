@@ -108,83 +108,6 @@ function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "  ", asm.dof)
 end
 
-# TODO this only work on CPU right now
-function _adjust_matrix_entries_for_constraints!(
-  A::SparseMatrixCSC, constraint_storage, ::KA.CPU;
-  penalty_scale = 1.e6
-)
-  # first ensure things are the right size
-  @assert size(A, 1) == size(A, 2)
-  @assert length(constraint_storage) == size(A, 2)
-
-  # hacky for now
-  # need a penalty otherwise we get into trouble with
-  # iterative linear solvers even for a simple poisson problem
-  # TODO perhaps this should be optional somehow
-  penalty = penalty_scale * tr(A) / size(A, 2)
-
-  # now modify A => (I - G) * A + G
-  nz = nonzeros(A)
-  rowval = rowvals(A)
-  for j in 1:size(A, 2)
-    col_start = A.colptr[j]
-    col_end   = A.colptr[j + 1] - 1
-    for k in col_start:col_end
-      # for (I - G) * A term
-      nz[k] = (1. - constraint_storage[j]) * nz[k]
-
-      # for + G term
-      if rowval[k] == j
-        @inbounds nz[k] = nz[k] + penalty * constraint_storage[j]
-      end
-    end
-  end
-
-  return nothing
-end
-
-# COV_EXCL_START
-KA.@kernel function _adjust_matrix_entries_for_constraints_kernel!(
-  A, constraint_storage, trA;
-  penalty_scale = 1.e6
-)
-  J = KA.@index(Global)
-
-  penalty = penalty_scale * trA / size(A, 2)
-
-  # now modify A => (I - G) * A + G
-  nz = nonzeros(A)
-  rowval = rowvals(A)
-
-  col_start = A.colptr[J]
-  col_end   = A.colptr[J + 1] - 1
-  for k in col_start:col_end
-    # for (I - G) * A term
-    nz[k] = (1. - constraint_storage[J]) * nz[k]
-
-    # for + G term
-    if rowval[k] == J
-      @inbounds nz[k] = nz[k] + penalty * constraint_storage[J]
-    end
-  end
-end
-# COV_EXCL_STOP
-
-function _adjust_matrix_entries_for_constraints(
-  A, constraint_storage, backend::KA.Backend
-)
-  # first ensure things are the right size
-  @assert size(A, 1) == size(A, 2)
-  @assert length(constraint_storage) == size(A, 2)
-
-  # get trA ahead of time to save some allocations at kernel level
-  trA = tr(A)
-  
-  kernel! = _adjust_matrix_entries_for_constraints_kernel!(backend)
-  kernel!(A, constraint_storage, trA, ndrange = size(A, 2))
-  return nothing
-end
-
 function _hessian(assembler::SparseMatrixAssembler, ::KA.CPU)
   H = SparseArrays.sparse!(assembler.matrix_pattern, assembler.hessian_storage)
 
@@ -223,7 +146,7 @@ end
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
 
-function update_dofs!(assembler::SparseMatrixAssembler, dirichlet_bcs)
+function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
   use_condensed = _is_condensed(assembler.dof)
 
   if length(dirichlet_bcs) > 0
@@ -249,7 +172,7 @@ end
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
 
-function _update_dofs_condensed!(assembler::SparseMatrixAssembler)
+function _update_dofs_condensed!(assembler::AbstractAssembler)
   assembler.constraint_storage[assembler.dof.unknown_dofs] .= 0.
   assembler.constraint_storage[assembler.dof.dirichlet_dofs] .= 1.
   return nothing
