@@ -2,6 +2,7 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://cthonios.github.io/FiniteElementContainers.jl/) 
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://cthonios.github.io/FiniteElementContainers.jl/dev/) 
 [![Build Status](https://github.com/Cthonios/FiniteElementContainers.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Cthonios/FiniteElementContainers.jl/actions/workflows/CI.yml?query=branch%3Amain) 
+[![CUDA](https://github.com/Cthonios/FiniteElementContainers.jl/actions/workflows/CI_CUDA.yml/badge.svg?branch=main)](https://github.com/Cthonios/FiniteElementContainers.jl/actions/workflows/CI_CUDA.yml?query=branch%3Amain) 
 [![ROCm](https://github.com/Cthonios/FiniteElementContainers.jl/actions/workflows/CI_ROCM.yml/badge.svg?branch=main)](https://github.com/Cthonios/FiniteElementContainers.jl/actions/workflows/CI_ROCM.yml?query=branch%3Amain) 
 [![Coverage](https://codecov.io/gh/Cthonios/FiniteElementContainers.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Cthonios/FiniteElementContainers.jl)
 
