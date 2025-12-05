@@ -35,11 +35,10 @@ end
   
 # COV_EXCL_START
 KA.@kernel function _adjust_matrix_entries_for_constraints_kernel!(
-    A, constraint_storage, trA;
-    penalty_scale = 1.e6
+    A, constraint_storage, trA,
+    penalty_scale
 )
     J = KA.@index(Global)
-  
     penalty = penalty_scale * trA / size(A, 2)
   
     # now modify A => (I - G) * A + G
@@ -61,7 +60,8 @@ end
 # COV_EXCL_STOP
   
 function _adjust_matrix_entries_for_constraints(
-    A, constraint_storage, backend::KA.Backend
+    A, constraint_storage, backend::KA.Backend;
+    penalty_scale = 1.e6
 )
     # first ensure things are the right size
     @assert size(A, 1) == size(A, 2)
@@ -69,9 +69,9 @@ function _adjust_matrix_entries_for_constraints(
   
     # get trA ahead of time to save some allocations at kernel level
     trA = tr(A)
-    
+
     kernel! = _adjust_matrix_entries_for_constraints_kernel!(backend)
-    kernel!(A, constraint_storage, trA, ndrange = size(A, 2))
+    kernel!(A, constraint_storage, trA, penalty_scale, ndrange = size(A, 2))
     return nothing
 end
 
