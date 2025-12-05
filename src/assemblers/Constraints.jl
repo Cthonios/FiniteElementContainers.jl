@@ -1,5 +1,6 @@
 # util for sparse matrices on gpus
 # TODO make non-allocating through some mapreduce functionality
+# COV_EXCL_START
 KA.@kernel function __sptrace_kernel!(diagA, colptr, rowvals, nz)
     J = KA.@index(Global)
     col_start = colptr[J]
@@ -10,6 +11,7 @@ KA.@kernel function __sptrace_kernel!(diagA, colptr, rowvals, nz)
         end
     end
 end
+# COV_EXCL_STOP
 
 function __sptrace(A)
     backend = KA.get_backend(A)
