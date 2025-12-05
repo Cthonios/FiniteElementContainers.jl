@@ -1,3 +1,26 @@
+# util for sparse matrices on gpus
+# TODO make non-allocating through some mapreduce functionality
+# COV_EXCL_START
+KA.@kernel function __sptrace_kernel!(diagA, colptr, rowvals, nz)
+    J = KA.@index(Global)
+    col_start = colptr[J]
+    col_end   = colptr[J + 1] - 1
+    for k in col_start:col_end
+        if rowvals[k] == J
+            diagA[J] = nz[k]
+        end
+    end
+end
+# COV_EXCL_STOP
+
+function __sptrace(A)
+    backend = KA.get_backend(A)
+    diagA = KA.zeros(backend, eltype(A), size(A, 1))
+    kernel! = __sptrace_kernel!(backend)
+    kernel!(diagA, A.colPtr, A.rowVal, A.nzVal, ndrange = size(A, 2))
+    return sum(diagA)
+end
+
 # TODO this only work on CPU right now
 function _adjust_matrix_entries_for_constraints!(
     A::SparseMatrixCSC, constraint_storage, ::KA.CPU;
@@ -35,43 +58,41 @@ end
   
 # COV_EXCL_START
 KA.@kernel function _adjust_matrix_entries_for_constraints_kernel!(
-    A, constraint_storage, trA;
-    penalty_scale = 1.e6
+    colptr, rowvals, nz, size_A_2,
+    constraint_storage, trA, penalty_scale
 )
     J = KA.@index(Global)
-  
-    penalty = penalty_scale * trA / size(A, 2)
+    penalty = penalty_scale * trA / size_A_2
   
     # now modify A => (I - G) * A + G
-    nz = nonzeros(A)
-    rowval = rowvals(A)
   
-    col_start = A.colptr[J]
-    col_end   = A.colptr[J + 1] - 1
+    col_start = colptr[J]
+    col_end   = colptr[J + 1] - 1
     for k in col_start:col_end
         # for (I - G) * A term
         nz[k] = (1. - constraint_storage[J]) * nz[k]
 
         # for + G term
-        if rowval[k] == J
+        if rowvals[k] == J
             @inbounds nz[k] = nz[k] + penalty * constraint_storage[J]
         end
     end
 end
 # COV_EXCL_STOP
   
-function _adjust_matrix_entries_for_constraints(
-    A, constraint_storage, backend::KA.Backend
+function _adjust_matrix_entries_for_constraints!(
+    A, constraint_storage, backend::KA.Backend;
+    penalty_scale = 1.e6
 )
     # first ensure things are the right size
     @assert size(A, 1) == size(A, 2)
     @assert length(constraint_storage) == size(A, 2)
   
     # get trA ahead of time to save some allocations at kernel level
-    trA = tr(A)
-    
+    trA = __sptrace(A)
+
     kernel! = _adjust_matrix_entries_for_constraints_kernel!(backend)
-    kernel!(A, constraint_storage, trA, ndrange = size(A, 2))
+    kernel!(A.colPtr, A.rowVal, A.nzVal, size(A, 2), constraint_storage, trA, penalty_scale, ndrange = size(A, 2))
     return nothing
 end
 

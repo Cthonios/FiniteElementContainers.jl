@@ -1,3 +1,19 @@
+function test_sparse_matrix_gpu_trace()
+  A = SparseMatrixCSC(rand(10, 10))
+  trA_check = tr(A)
+
+  if AMDGPU.functional()
+    A_gpu = adapt(ROCArray, A)
+  elseif CUDA.functional()
+    A_gpu = adapt(CuArray, A)
+  else
+    return nothing
+  end
+
+  trA = FiniteElementContainers.__sptrace(A_gpu)
+  @test trA ≈ trA_check
+end
+
 function test_sparse_matrix_assembler()
   # create very simple poisson problem
   mesh_file = "./poisson/poisson.g"
@@ -51,5 +67,6 @@ function test_sparse_matrix_assembler()
 end
 
 @testset "Sparse matrix assembler" begin
+  test_sparse_matrix_gpu_trace()
   test_sparse_matrix_assembler()
 end

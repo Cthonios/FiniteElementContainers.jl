@@ -36,8 +36,14 @@ function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
 end
 
 function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::ROCBackend)
-  stiffness = AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm)
-  return stiffness
+  K = AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm)
+
+  if FiniteElementContainers._is_condensed(asm.dof)
+    FiniteElementContainers._adjust_matrix_entries_for_constraints!(
+      K, asm.constraint_storage, get_backend(asm)
+    )
+  end
+  return K
 end
 
 end # module
