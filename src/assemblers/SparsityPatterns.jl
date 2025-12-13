@@ -233,7 +233,7 @@ function SparseVectorPattern(dof::DofManager)
   for (n, conn) in enumerate(values(fspace.elem_conns))
     # TODO do we need this operation?
     conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
-    n_entries += size(conn, 1)^2 * size(conn, 2)
+    n_entries += size(conn, 1) * size(conn, 2)
   end
 
   # setup pre-allocated arrays based on number of entries

@@ -5,7 +5,7 @@ struct PostProcessor{O}
   field_output_db::O
 end
 
-function PostProcessor(mesh::AbstractMesh, output_file::String, vars...)
+function PostProcessor(mesh, output_file::String, vars...)
   copy_mesh(mesh.mesh_obj.file_name, output_file)
   db_type = typeof(mesh.mesh_obj)#.name.name
   # field_output_db = FileMesh(output_file)
@@ -16,7 +16,7 @@ function PostProcessor(mesh::AbstractMesh, output_file::String, vars...)
   end
 
   ext = splitext(output_file)
-  if ext[2] == ".g" || ext[2] == ".e" || ext[2] == ".exo"
+  if occursin(".g", output_file) || occursin(".e", output_file) || occursin(".exo", output_file)
     pp = PostProcessor(ExodusMesh, output_file, vars...)
   else
     throw(ErrorException("Unsupported file type with extension $ext"))
