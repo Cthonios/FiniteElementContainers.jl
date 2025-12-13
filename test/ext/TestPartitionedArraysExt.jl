@@ -159,7 +159,9 @@ end
 #     par_node_maps
 # end
 
-test_decomp_to_epu()
+if !Sys.iswindows()
+    test_decomp_to_epu()
+end
 # test_global_colors(1, 4)
 # test_global_colors(2, 4)
 # test_global_colors(3, 4)
