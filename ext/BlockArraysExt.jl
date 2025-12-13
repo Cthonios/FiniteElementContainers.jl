@@ -1,4 +1,4 @@
-module FiniteElementContainersBlockArraysExt
+module BlockArraysExt
 
 using BlockArrays
 using FiniteElementContainers
