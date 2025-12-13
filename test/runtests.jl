@@ -2,11 +2,11 @@ using Adapt
 using AMDGPU
 using Aqua
 using CUDA
-using Exodus
 using FiniteElementContainers
 using ForwardDiff
 using LinearAlgebra
 using MPI
+using PartitionedArrays
 using ReferenceFiniteElements
 using SparseArrays
 using StaticArrays
@@ -43,28 +43,19 @@ function test_poisson()
   # cpu tests
   for cond in condensed
     for lsolver in lsolvers
-      test_poisson_dirichlet(cpu, cond, NewtonSolver, lsolver)
-      test_poisson_dirichlet_multi_block_quad4_quad4(cpu, cond, NewtonSolver, lsolver)
-      test_poisson_dirichlet_multi_block_quad4_tri3(cpu, cond, NewtonSolver, lsolver)
-      test_poisson_neumann(cpu, cond, NewtonSolver, lsolver)
+      test_poisson(cpu, cond, NewtonSolver, lsolver)
     end
   end
 
   if AMDGPU.functional()
     for cond in condensed
-      test_poisson_dirichlet(rocm, cond, NewtonSolver, cg_solver)
-      test_poisson_dirichlet_multi_block_quad4_quad4(rocm, cond, NewtonSolver, cg_solver)
-      test_poisson_dirichlet_multi_block_quad4_tri3(rocm, cond, NewtonSolver, cg_solver)
-      test_poisson_neumann(rocm, cond, NewtonSolver, cg_solver)
+      test_poisson(rocm, cond, NewtonSolver, cg_solver)
     end
   end
 
   if CUDA.functional()
     for cond in condensed
-      test_poisson_dirichlet(cuda, cond, NewtonSolver, cg_solver)
-      test_poisson_dirichlet_multi_block_quad4_quad4(cuda, cond, NewtonSolver, cg_solver)
-      test_poisson_dirichlet_multi_block_quad4_tri3(cuda, cond, NewtonSolver, cg_solver)
-      test_poisson_neumann(cuda, cond, NewtonSolver, cg_solver)
+      test_poisson(cuda, cond, NewtonSolver, cg_solver)
     end
   end
 end
@@ -96,6 +87,10 @@ end
   @testset "Poisson" test_poisson()
   include("mechanics/TestMechanics.jl")
   @testset "Mechanics" test_mechanics()
+end
+
+@testset "Extension tests" begin
+  include("ext/TestPartitionedArraysExt.jl")
 end
 
 @testset "Aqua" begin

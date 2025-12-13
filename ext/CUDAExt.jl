@@ -1,4 +1,4 @@
-module FiniteElementContainersCUDAExt
+module CUDAExt
 
 using Adapt
 using CUDA

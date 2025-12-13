@@ -1,30 +1,23 @@
-module FiniteElementContainersExodusExt
-
-using DocStringExtensions
-using Exodus
-using FiniteElementContainers
-using Tensors
-
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-function FiniteElementContainers.FileMesh(::Type{<:FiniteElementContainers.ExodusMesh}, file_name::String)
+function FileMesh(::ExodusMesh, file_name::String)
   exo = ExodusDatabase(file_name, "r")
   return FileMesh{typeof(exo)}(file_name, exo)
 end
 
-function FiniteElementContainers._mesh_file_type(::Type{FiniteElementContainers.ExodusMesh})
+function _mesh_file_type(::Type{ExodusMesh})
   return ExodusDatabase
 end
 
-function FiniteElementContainers.num_dimensions(
+function num_dimensions(
   mesh::FileMesh{ExodusDatabase{M, I, B, F}}
 )::Int32 where {M, I, B, F}
   return Exodus.num_dimensions(mesh.mesh_obj.init)
 end
 
-function FiniteElementContainers.num_nodes(
+function num_nodes(
   mesh::FileMesh{<:ExodusDatabase}
 )::Int32
   return Exodus.num_nodes(mesh.mesh_obj.init)
@@ -33,67 +26,67 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.element_block_id_map(mesh::FileMesh{<:ExodusDatabase}, id)
+function element_block_id_map(mesh::FileMesh{<:ExodusDatabase}, id)
   return convert.(Int64, Exodus.read_block_id_map(mesh.mesh_obj, id))
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.element_block_ids(mesh::FileMesh{<:ExodusDatabase})
+function element_block_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, Block)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.element_block_names(mesh::FileMesh{<:ExodusDatabase})
+function element_block_names(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_names(mesh.mesh_obj, Block)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.node_cmaps(mesh::FileMesh{<:ExodusDatabase}, rank)
+function node_cmaps(mesh::FileMesh{<:ExodusDatabase}, rank)
   return Exodus.read_node_cmaps(rank, mesh.mesh_obj)
 end
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.nodeset_ids(mesh::FileMesh{<:ExodusDatabase})
+function nodeset_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, NodeSet)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.nodeset_names(mesh::FileMesh{<:ExodusDatabase})
+function nodeset_names(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_names(mesh.mesh_obj, NodeSet)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.sideset_ids(mesh::FileMesh{<:ExodusDatabase})
+function sideset_ids(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_ids(mesh.mesh_obj, SideSet)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.sideset_names(mesh::FileMesh{<:ExodusDatabase})
+function sideset_names(mesh::FileMesh{<:ExodusDatabase})
   return Exodus.read_names(mesh.mesh_obj, SideSet)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function FiniteElementContainers.coordinates(mesh::FileMesh{ExodusDatabase{M, I, B, F}})::Matrix{F} where {M, I, B, F} 
+function coordinates(mesh::FileMesh{ExodusDatabase{M, I, B, F}})::Matrix{F} where {M, I, B, F} 
   coords = Exodus.read_coordinates(mesh.mesh_obj)
   return coords
 end
 
-function FiniteElementContainers.element_connectivity(
+function element_connectivity(
   mesh::FileMesh{<:ExodusDatabase},
   id::Integer
 ) 
@@ -102,7 +95,7 @@ function FiniteElementContainers.element_connectivity(
   return convert.(Int64, block.conn)
 end
 
-function FiniteElementContainers.element_connectivity(
+function element_connectivity(
   mesh::FileMesh{<:ExodusDatabase},
   name::String
 ) 
@@ -112,7 +105,7 @@ function FiniteElementContainers.element_connectivity(
 end
 
 
-function FiniteElementContainers.element_type(
+function element_type(
   mesh::FileMesh{<:ExodusDatabase},
   id::Integer
 ) 
@@ -120,7 +113,7 @@ function FiniteElementContainers.element_type(
   return block.elem_type
 end
 
-function FiniteElementContainers.element_type(
+function element_type(
   mesh::FileMesh{<:ExodusDatabase},
   name::String
 ) 
@@ -128,17 +121,17 @@ function FiniteElementContainers.element_type(
   return block.elem_type
 end
 
-function FiniteElementContainers.copy_mesh(file_1::String, file_2::String)
+function copy_mesh(file_1::String, file_2::String)
   Exodus.copy_mesh(file_1, file_2)
 end
 
-function FiniteElementContainers.node_id_map(
+function node_id_map(
   mesh::FileMesh{<:ExodusDatabase}
 )
   return read_id_map(mesh.mesh_obj, NodeMap)
 end
 
-function FiniteElementContainers.nodeset(
+function nodeset(
   mesh::FileMesh{<:ExodusDatabase},
   id::Integer
 ) 
@@ -146,14 +139,14 @@ function FiniteElementContainers.nodeset(
   return sort!(convert.(Int64, nset.nodes))
 end
 
-function FiniteElementContainers.nodesets(
+function nodesets(
   mesh::FileMesh{<:ExodusDatabase},
   ids
 ) 
-  return FiniteElementContainers.nodeset.((mesh,), ids)
+  return nodeset.((mesh,), ids)
 end
 
-function FiniteElementContainers.sideset(
+function sideset(
   mesh::FileMesh{<:ExodusDatabase},
   id::Integer
 ) 
@@ -180,16 +173,19 @@ function FiniteElementContainers.sideset(
   return elems[perm], nodes, sides[perm], side_nodes
 end
 
-function FiniteElementContainers.sidesets(
+function sidesets(
   mesh::FileMesh{<:ExodusDatabase},
   ids
 ) 
-  return FiniteElementContainers.sideset.((mesh,), ids)
+  return sideset.((mesh,), ids)
 end
 
+
+# TODO move below stuff to PostProcessor.jl since we'll always want to output
+# to exodus.
 # PostProcessor implementations
-function FiniteElementContainers.PostProcessor(
-  ::Type{<:FiniteElementContainers.ExodusMesh},
+function PostProcessor(
+  ::Type{<:ExodusMesh},
   file_name::String, 
   vars...
 )
@@ -206,7 +202,7 @@ function FiniteElementContainers.PostProcessor(
       append!(element_var_names, names(var))
     # L2QuadratureField case below
     elseif isa(var.fspace.coords, NamedTuple)
-      max_q_points = mapreduce(FiniteElementContainers.num_quadrature_points, maximum, values(var.fspace.ref_fes))
+      max_q_points = mapreduce(num_quadrature_points, maximum, values(var.fspace.ref_fes))
       temp_names = Symbol[]
       for name in names(var)
         for q in 1:max_q_points
@@ -243,14 +239,14 @@ function FiniteElementContainers.PostProcessor(
   return PostProcessor(exo)
 end
 
-function FiniteElementContainers.write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:Number})
+function write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:Number})
   for q in axes(field, 1)
     var_name = String(field_name) * "_$q"
     write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, field[q, :])
   end
 end
 
-function FiniteElementContainers.write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:SymmetricTensor{2, 3, <:Number, 6}})
+function write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:SymmetricTensor{2, 3, <:Number, 6}})
   exts = ("xx", "yy", "zz", "yz", "xz", "xy")
   for (n, ext) in enumerate(exts)
     for q in axes(field, 1)
@@ -261,7 +257,7 @@ function FiniteElementContainers.write_field(pp::PostProcessor, time_index, bloc
   end
 end
 
-function FiniteElementContainers.write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:Tensor{2, 3, <:Number, 9}})
+function write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:Tensor{2, 3, <:Number, 9}})
   exts = ("xx", "yy", "zz", "yz", "xz", "xy", "zy", "zx", "yx")
   for (n, ext) in enumerate(exts)
     for q in axes(field, 1)
@@ -272,7 +268,7 @@ function FiniteElementContainers.write_field(pp::PostProcessor, time_index, bloc
   end
 end
 
-function FiniteElementContainers.write_field(pp::PostProcessor, time_index::Int, field_names, field::H1Field)
+function write_field(pp::PostProcessor, time_index::Int, field_names, field::H1Field)
   @assert length(field_names) == num_fields(field)
   for n in axes(field, 1)
     name = String(field_names[n])
@@ -280,7 +276,7 @@ function FiniteElementContainers.write_field(pp::PostProcessor, time_index::Int,
   end
 end
 
-function FiniteElementContainers.write_field(pp::PostProcessor, time_index::Int, field_names, field::NamedTuple)
+function write_field(pp::PostProcessor, time_index::Int, field_names, field::NamedTuple)
   @assert length(field_names) == length(field)
   field_names = String.(field_names)
   for (block, val) in field
@@ -290,8 +286,6 @@ function FiniteElementContainers.write_field(pp::PostProcessor, time_index::Int,
   end
 end
 
-function FiniteElementContainers.write_times(pp::PostProcessor, time_index::Int, time_val::Float64)
+function write_times(pp::PostProcessor, time_index::Int, time_val::Float64)
   Exodus.write_time(pp.field_output_db, time_index, time_val)
 end
-
-end # module

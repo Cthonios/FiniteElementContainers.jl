@@ -1,4 +1,4 @@
-module FiniteElementContainersAMDGPUExt
+module AMDGPUExt
 
 using Adapt
 using AMDGPU

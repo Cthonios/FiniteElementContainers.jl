@@ -76,6 +76,7 @@ export evolve!
 
 # Meshes
 export FileMesh
+export StructuredMesh
 export UnstructuredMesh
 export coordinates
 export element_block_id_map
@@ -142,6 +143,7 @@ import KernelAbstractions as KA
 using Adapt
 using Atomix
 using DocStringExtensions
+using Exodus
 using ForwardDiff
 using Krylov
 using LinearAlgebra
@@ -157,17 +159,24 @@ function cuda end
 function rocm end
 
 function communication_graph end
+function create_partition end
 function decompose_mesh end
 function global_colorings end
+function _dofs_exo_to_par_dicts end
+function _elems_exo_to_par_dicts end
+function _exo_to_par_dicts end
+function _global_elem_to_global_node end
+function _global_node_to_global_elem end
+function _renumber_mesh end
 
 # TODO need to further specialize for staticarrays, etc.
 cpu(x) = adapt(Array, x)
 
 # TODO clean this up, make it make sense in an ordered way
 # include("parallel/Parallel.jl")
-
+include("PostProcessors.jl")
 include("fields/Fields.jl")
-include("Meshes.jl")
+include("meshes/Meshes.jl")
 include("FunctionSpaces.jl")
 include("Functions.jl")
 include("DofManagers.jl")
@@ -177,8 +186,6 @@ include("ics/InitialConditions.jl")
 include("formulations/Formulations.jl")
 include("physics/Physics.jl")
 include("assemblers/Assemblers.jl")
-include("PostProcessors.jl")
-
 #
 include("TimeSteppers.jl")
 include("Parameters.jl")

@@ -221,7 +221,12 @@ end
 function DirichletBCs(mesh, dof, dirichlet_bcs)
 
   if length(dirichlet_bcs) == 0
-    return NamedTuple(), NamedTuple()
+    # return NamedTuple(), NamedTuple()
+    bc_caches = DirichletBCContainer{Vector{Int}, Vector{Float64}}[]
+    # ti = typeof(identity)
+    # bc_funcs = DirichletBCFunction{ti, ti, ti}[]
+    bc_funcs = NamedTuple()
+    return DirichletBCs(bc_caches, bc_funcs)
   end
 
   syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
