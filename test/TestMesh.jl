@@ -1,9 +1,25 @@
-using FiniteElementContainers
-using Test
 function test_structured_mesh()
   # testing bad input
   @test_throws ArgumentError StructuredMesh("bad element", (0., 0.), (1., 1.), (3, 3))
   @test_throws BoundsError StructuredMesh("tri3", (0., 0.), (0., 1.), (3, 3))
+
+  # Hex8 test
+  mesh = StructuredMesh("hex", (0., 0., 0.), (1., 1., 1.), (3, 3, 3))
+  coords = mesh.nodal_coords
+  @test all(coords[2, mesh.nodeset_nodes[:bottom]] .≈ 0.)
+  @test all(coords[1, mesh.nodeset_nodes[:right]] .≈ 1.)
+  @test all(coords[3, mesh.nodeset_nodes[:front]] .≈ 1.)
+  @test all(coords[2, mesh.nodeset_nodes[:top]] .≈ 1.)
+  @test all(coords[1, mesh.nodeset_nodes[:left]] .≈ 0.)
+  @test all(coords[3, mesh.nodeset_nodes[:back]] .≈ 0.)
+
+  # currently failing TODO fix this
+  # @test all(coords[2, mesh.sideset_nodes[:bottom]] .≈ 0.)
+  # @test all(coords[1, mesh.sideset_nodes[:right]] .≈ 1.)
+  # @test all(coords[3, mesh.sideset_nodes[:front]] .≈ 1.)
+  # @test all(coords[2, mesh.sideset_nodes[:top]] .≈ 1.)
+  # @test all(coords[1, mesh.sideset_nodes[:left]] .≈ 0.)
+  # @test all(coords[3, mesh.sideset_nodes[:right]] .≈ 0.)
 
   # Quad4 test
   mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (3, 3))
@@ -51,9 +67,24 @@ function test_structured_mesh()
   @show mesh
 end
 
-# @testset ExtendedTestSet "Mesh" begin
-#   test_structured_mesh()
-# end
+function test_write_mesh()
+  mesh = StructuredMesh("hex", (0., 0., 0.), (1., 1., 1.), (3, 3, 3))
+  FiniteElementContainers.write_to_file(mesh, "shex.exo")
+  rm("shex.exo", force = true)
+
+  mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (3, 3))
+  FiniteElementContainers.write_to_file(mesh, "squad.exo")
+  rm("squad.exo", force = true)
+
+  mesh = StructuredMesh("tri", (0., 0.), (1., 1.), (3, 3))
+  FiniteElementContainers.write_to_file(mesh, "stri.exo")
+  rm("stri.exo", force = true)
+
+  # TODO eventually put an exodiff test below
+  mesh = UnstructuredMesh("poisson/poisson.g")
+  FiniteElementContainers.write_to_file(mesh, "umesh.exo")
+  rm("umesh.exo")
+end
 
 struct DummyMesh <: FiniteElementContainers.AbstractMesh
 end
@@ -84,10 +115,9 @@ function test_bad_mesh_file_type()
   @test_throws ErrorException UnstructuredMesh(file_name)
 end
 
-# test_bad_mesh_file_type()
-
 @testset "Mesh" begin
   test_bad_mesh_file_type()
   test_bad_mesh_methods()
   test_structured_mesh()
+  test_write_mesh()
 end

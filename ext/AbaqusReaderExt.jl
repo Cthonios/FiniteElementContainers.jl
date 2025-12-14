@@ -117,6 +117,7 @@ function _get_command_data(lines, command_line_ids, comment_line_ids, command_id
                     n = n + 1
                     continue
                 end
+                @show lines[n]
                 for node in split(lines[n], ',')
                     try
                         push!(temp_nodes, parse(Int, node))

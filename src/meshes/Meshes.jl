@@ -1,4 +1,4 @@
-elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.AbstractElementType}}(
+const elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.AbstractElementType}}(
   "HEX"     => Hex8,
   "HEX8"    => Hex8,
   "QUAD"    => Quad4,
@@ -24,8 +24,6 @@ $(TYPEDEF)
 """
 abstract type AbstractMesh end
 
-
-
 """
 $(TYPEDSIGNATURES)
 Returns file name for an mesh type
@@ -45,8 +43,6 @@ struct FileMesh{MeshObj} <: AbstractMesh
   file_name::String
   mesh_obj::MeshObj
 end
-
-
 
 function _create_edges!(all_edges, block_edges, el_to_nodes, ref_fe)
   local_edge_to_nodes = ref_fe.edge_nodes
@@ -95,6 +91,68 @@ end
 #   end
 #   return nothing
 # end
+
+# TODO might need to be careful about int types below
+function write_to_file(mesh::AbstractMesh, file_name::String; force::Bool = false)
+  if force && isfile(file_name)
+    Base.rm(file_name; force = true)
+  end
+
+  # initialization parameters
+  num_dim, num_nodes = size(mesh.nodal_coords)
+  num_elems          = mapreduce(x -> size(x, 2), +, values(mesh.element_conns))
+  num_elem_blks      = length(mesh.element_conns)
+  # num_side_sets      = length(mesh.sideset_elems)
+  num_node_sets      = length(mesh.nodeset_nodes)
+  num_side_sets      = 0
+  # num_node_sets      = 0
+
+  # make init
+  init = Initialization{Int32}(
+    num_dim, num_nodes, num_elems,
+    num_elem_blks, num_node_sets, num_side_sets
+  )
+
+  # create exo
+  exo = ExodusDatabase{Int32, Int32, Int32, eltype(mesh.nodal_coords)}(
+    file_name, "w", init
+  )
+
+  # write coordinates
+  coords = mesh.nodal_coords |> collect
+  write_coordinates(exo, coords)
+
+  # write node map
+  write_id_map(exo, NodeMap, convert.(Int32, mesh.node_id_map))
+
+  # write block names
+  write_names(exo, Block, map(String, mesh.element_block_names))
+
+  # TODO write block id maps
+  for n in axes(mesh.element_block_names, 1)
+    write_block(exo, n, String(mesh.element_types[n]), values(mesh.element_conns)[n] |> collect)
+  end
+
+  # write nodesets
+  names = keys(mesh.nodeset_nodes) |> collect
+  for (n, name) in enumerate(names)
+    nodes = mesh.nodeset_nodes[name]
+    nset = NodeSet(Int32(n), convert.(Int32, nodes))
+    write_set(exo, nset)
+  end
+  names = map(String, names)
+  write_names(exo, NodeSet, names)
+
+  # TODO write nodesets
+  names = keys(mesh.sideset_elems) |> collect
+  for (n, name) in enumerate(names)
+    elems = mesh.sideset_elems[name]
+    nodes = mesh.sideset_nodes[name]
+    sides = mesh.sideset_sides[name]
+  end
+
+  close(exo)
+end
 
 include("StructuredMesh.jl")
 include("UnstructuredMesh.jl")
