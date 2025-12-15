@@ -68,7 +68,8 @@ function test_structured_mesh()
 end
 
 function test_write_mesh()
-  mesh = StructuredMesh("hex", (0., 0., 0.), (1., 1., 1.), (3, 3, 3))
+  # show below is to cover Base.show in tests
+  @show mesh = StructuredMesh("hex", (0., 0., 0.), (1., 1., 1.), (3, 3, 3))
   FiniteElementContainers.write_to_file(mesh, "shex.exo")
   rm("shex.exo", force = true)
 

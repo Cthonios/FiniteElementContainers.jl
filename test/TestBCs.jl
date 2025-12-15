@@ -43,9 +43,25 @@ function test_neumann_bc_container_init()
   @show bc
 end
 
+function test_periodic_bc_input()
+  bc = PeriodicBC(:my_var, :x, :my_sset_1, :my_sset_2, dummy_func_1)
+  @test bc.var_name == :my_var
+  @test bc.direction == :x
+  @test bc.side_a_sset == :my_sset_1
+  @test bc.side_b_sset == :my_sset_2
+  @test typeof(bc.func) == typeof(dummy_func_1)
+  bc = PeriodicBC("my_var", "x", "my_sset_1", "my_sset_2", dummy_func_1)
+  @test bc.var_name == :my_var
+  @test bc.direction == :x
+  @test bc.side_a_sset == :my_sset_1
+  @test bc.side_b_sset == :my_sset_2
+  @test typeof(bc.func) == typeof(dummy_func_1)
+end
+
 @testset "BoundaryConditions" begin
   test_dirichlet_bc_input()
   test_dirichlet_bc_container_init()
   test_neumann_bc_input()
   # test_neumann_bc_container_init()
+  test_periodic_bc_input()
 end

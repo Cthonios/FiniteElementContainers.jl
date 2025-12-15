@@ -4,6 +4,7 @@ using Aqua
 using CUDA
 using FiniteElementContainers
 using ForwardDiff
+using Krylov
 using LinearAlgebra
 using MPI
 using PartitionedArrays
@@ -12,12 +13,12 @@ using SparseArrays
 using StaticArrays
 using Tensors
 using Test
-# using TestSetExtensions
 
 # put these first so we can use these
 # physics in other tests
 include("mechanics/TestMechanicsCommon.jl")
 include("poisson/TestPoissonCommon.jl")
+include("poisson/TestPoissonPBCs.jl")
 
 include("TestAssemblers.jl")
 include("TestBCs.jl")
@@ -46,6 +47,7 @@ function test_poisson()
       test_poisson(cpu, cond, NewtonSolver, lsolver)
     end
   end
+  test_poisson_pbcs()
 
   if AMDGPU.functional()
     for cond in condensed
