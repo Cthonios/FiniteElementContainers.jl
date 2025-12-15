@@ -20,6 +20,8 @@ export DirichletBC
 export DirichletBCs
 export NeumannBC
 export NeumannBCs
+export PeriodicBC
+export PeriodicBCs
 export update_field_dirichlet_bcs!
 
 # Connectivities
@@ -180,7 +182,9 @@ include("meshes/Meshes.jl")
 include("FunctionSpaces.jl")
 include("Functions.jl")
 include("DofManagers.jl")
+
 include("bcs/BoundaryConditions.jl")
+include("constraints/Constraints.jl")
 include("ics/InitialConditions.jl")
 
 include("formulations/Formulations.jl")

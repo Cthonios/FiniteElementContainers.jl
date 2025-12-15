@@ -221,10 +221,7 @@ end
 function DirichletBCs(mesh, dof, dirichlet_bcs)
 
   if length(dirichlet_bcs) == 0
-    # return NamedTuple(), NamedTuple()
     bc_caches = DirichletBCContainer{Vector{Int}, Vector{Float64}}[]
-    # ti = typeof(identity)
-    # bc_funcs = DirichletBCFunction{ti, ti, ti}[]
     bc_funcs = NamedTuple()
     return DirichletBCs(bc_caches, bc_funcs)
   end
@@ -235,13 +232,9 @@ function DirichletBCs(mesh, dof, dirichlet_bcs)
   )
   dirichlet_bcs = DirichletBCContainer.((mesh,), (dof,), dirichlet_bcs)
 
-  if length(dirichlet_bcs) > 0
-    temp_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs)
-    temp_dofs = unique(sort(temp_dofs))
-    update_dofs!(dof, temp_dofs)
-  end
-
-  # dirichlet_bcs = NamedTuple{tuple(syms...)}(tuple(dirichlet_bcs...))
+  temp_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs)
+  temp_dofs = unique(sort(temp_dofs))
+  update_dofs!(dof, temp_dofs)
 
   return DirichletBCs(dirichlet_bcs, dirichlet_bc_funcs)
 end

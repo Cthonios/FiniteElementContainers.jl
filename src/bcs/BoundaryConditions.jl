@@ -183,4 +183,5 @@ function update_bc_values!(bcs, funcs, X, t)
 end
 
 include("DirichletBCs.jl")
+include("PeriodicBCs.jl")
 include("NeumannBCs.jl")

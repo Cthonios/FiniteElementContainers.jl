@@ -24,6 +24,31 @@ $(TYPEDEF)
 """
 abstract type AbstractMesh end
 
+function Base.show(io::IO, mesh::AbstractMesh)
+  println(io, typeof(mesh).name.name, ":")
+  println(io, "  Number of dimensions = $(size(mesh.nodal_coords, 1))")
+  println(io, "  Number of nodes      = $(size(mesh.nodal_coords, 2))")
+
+  println(io, "  Element Blocks:")
+  for (conn, name, type) in zip(mesh.element_conns, mesh.element_block_names, mesh.element_types)
+    println(io, "    $name:")
+    println(io, "      Element type       = $type")
+    println(io, "      Number of elements = $(size(conn, 2))")
+  end
+
+  println(io, "  Node sets:")
+  for (name, nodes) in mesh.nodeset_nodes
+    println(io, "    $name:")
+    println(io, "      Number of nodes = $(length(nodes))")
+  end
+
+  println(io, "  Side sets:")
+  for (name, sides) in mesh.sideset_sides
+    println(io, "    $name:")
+    println(io, "      Number of elements = $(length(sides))")
+  end
+end
+
 """
 $(TYPEDSIGNATURES)
 Returns file name for an mesh type

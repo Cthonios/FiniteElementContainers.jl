@@ -71,15 +71,6 @@ function StructuredMesh(element_type, mins, maxs, counts)
     )
 end
 
-function Base.show(io::IO, mesh::StructuredMesh)
-    println(io, "StructuredMesh:")
-    println(io, "  Number of dimensions = $(size(mesh.nodal_coords, 1))")
-    println(io, "  Number of nodes      = $(size(mesh.nodal_coords, 2))")
-    println(io, "  Number of elements   = $(size(mesh.element_conns[:block_1], 2))")
-    println(io, "  Element type         = $(mesh.element_types[1])")
-
-end
-
 function _hex8_structured_mesh_data(mins, maxs, counts)
     N_x, N_y, N_z = counts
     E_x = N_x - 1
