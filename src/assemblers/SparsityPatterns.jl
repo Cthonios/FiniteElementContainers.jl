@@ -7,14 +7,11 @@ case where you want to eliminate fixed-dofs or not.
 """
 struct SparseMatrixPattern{
   I <: AbstractArray{Int, 1},
-  # B,
   R <: AbstractArray{Float64, 1}
 }
   Is::I
   Js::I
   unknown_dofs::I
-  # block_start_indices::B
-  # block_el_level_sizes::B
   block_start_indices::Vector{Int}
   block_el_level_sizes::Vector{Int}
   # cache arrays
@@ -60,11 +57,6 @@ function SparseMatrixPattern(dof::DofManager)
     start_carry = start_carry + size(conn, 1)^2 * size(conn, 2)
     block_el_level_sizes[n] = size(conn, 1)^2
   end
-
-  # convert to NamedTuples so it's easy to index
-  # block_syms = keys(fspace.ref_fes)
-  # block_start_indices = NamedTuple{block_syms}(tuple(block_start_indices)...)
-  # block_el_level_sizes = NamedTuple{block_syms}(tuple(block_el_level_sizes)...)
 
   # setup pre-allocated arrays based on number of entries found above
   Is = Vector{Int64}(undef, n_entries)
@@ -140,29 +132,6 @@ function SparseArrays.sparse!(pattern::SparseMatrixPattern, storage)
     pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
     pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
   )
-end
-
-"""
-$(TYPEDSIGNATURES)
-Specialization of of ```_assemble_element!``` for ```SparseMatrixAssembler```.
-"""
-function _assemble_element!(
-  storage, K_el::SMatrix, 
-  el_id::Int,
-  block_start_index::Int, block_el_level_size::Int
-)
-  # figure out ids needed to update
-  start_id = block_start_index + 
-             (el_id - 1) * block_el_level_size
-  end_id = start_id + block_el_level_size - 1
-  ids = start_id:end_id
-
-  # get appropriate storage and update values
-  # @views storage[ids] += K_el[:]
-  for (i, id) in enumerate(ids)
-    storage[id] += K_el.data[i]
-  end
-  return nothing
 end
 
 num_entries(s::SparseMatrixPattern) = length(s.Is)

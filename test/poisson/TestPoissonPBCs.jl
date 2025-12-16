@@ -46,7 +46,7 @@ function test_poisson_pbcs()
     for n in 1:10
         U = sol[1:nu]
         λ = sol[nu+1:end]
-        assemble_vector!(asm.residual_storage, asm.dof, residual, U, p)
+        assemble_vector!(asm.residual_storage, asm.vector_pattern, asm.dof, residual, U, p)
         R_u = residual(asm) + C' * λ
         R_c = C * U
         R = vcat(R_u, R_c)
