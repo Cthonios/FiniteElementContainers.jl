@@ -22,9 +22,9 @@ function assemble_vector_neumann_bc!(
   # do not zero!
   # TODO should below 2 methods calls be assumed to have
   # been conducted previously?
+  backend = KA.get_backend(p.h1_field)
   _update_for_assembly!(p, dof, Uu)
   for bc in values(p.neumann_bcs.bc_caches)
-    backend = KA.get_backend(bc)
     _assemble_block_vector_neumann_bc!(
       backend, storage,
       p.h1_field, p.h1_coords,
@@ -62,7 +62,7 @@ function _assemble_block_vector_neumann_bc!(
       R_el = R_el + JxW * Nvec * f_val
     end
 
-    @views _assemble_element!(field, R_el, bc.surface_conns[:, e])
+    @views _assemble_element!(field, R_el, bc.surface_conns, e, 0, 0)
   end
 end
 
@@ -100,15 +100,7 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
     R_el = R_el + JxW * Nvec * f_val
   end
 
-  # now assemble atomically
-  n_dofs = size(field, 1)
-  for i in 1:size(bc.surface_conns, 1)
-    for d in 1:n_dofs
-      global_id = n_dofs * (bc.surface_conns[i, E] - 1) + d
-      local_id = n_dofs * (i - 1) + d
-      Atomix.@atomic field.data[global_id] += R_el[local_id]
-    end
-  end
+  _assemble_element!(field, R_el, bc.surface_conns, E, 0, 0)
 end
 # COV_EXCL_STOP
 

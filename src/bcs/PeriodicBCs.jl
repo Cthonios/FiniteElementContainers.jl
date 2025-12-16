@@ -171,6 +171,33 @@ function _constraint_matrix(dof::DofManager, pbcs::PeriodicBCs)
     return sparse(Is, Js, Vs)
 end
 
+function _constraint_matrix_mask(dof_manager::DofManager, pbc::PeriodicBCs)
+    Is, Js, Vs = Int[], Int[], Float64[]
+    side_a_dofs = mapreduce(x -> x.side_a_dofs, vcat, pbc.bc_caches)
+    side_b_dofs = mapreduce(x -> x.side_b_dofs, vcat, pbc.bc_caches)
+    # @show length(side_a_dofs)
+    for dof in 1:length(dof_manager)
+        if dof in side_b_dofs
+            id = findfirst(isequal(dof), side_b_dofs)
+            if id > length(dof_manager)
+                @assert false
+            end
+            # push!(Is, dof)
+            # push!(Js, side_a_dofs[id])
+            # push!(Vs, 1.)
+
+            push!(Is, dof)
+            push!(Js, side_b_dofs[id])
+            push!(Vs, 1.)
+        else
+            push!(Is, dof)
+            push!(Js, dof)
+            push!(Vs, 1.)
+        end
+    end
+    return sparse(Is, Js, Vs)
+end
+
 function _create_constraint_field(dof::DofManager, pbcs::PeriodicBCs)
     n_constraints = mapreduce(x -> length(x.side_a_dofs), +, pbcs.bc_caches)
     return zeros(n_constraints)
