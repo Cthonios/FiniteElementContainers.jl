@@ -71,6 +71,13 @@ export InitialConditions
 export update_field_ics!
 export update_ic_values!
 
+# Integrals
+export MatrixIntegral
+export ScalarIntegral
+export VectorIntegral
+export integrate
+export remove_fixed_dofs!
+
 # Integrators
 export AbstractIntegrator
 export QuasiStaticIntegrator
@@ -115,6 +122,7 @@ export map_interpolants
 export num_properties
 export num_states
 export reshape_element_level_field
+export unpack_field
 
 export energy
 export hvp

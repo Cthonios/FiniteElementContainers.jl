@@ -72,6 +72,42 @@ $(TYPEDSIGNATURES)
   return SMatrix{NDof, N, T, NxNDof}(u_el)
 end
 
+"""
+$(TYPEDSIGNATURES)
+Unpacks a single fields values from a SMatrix.
+This is useful for extracting specific components
+from an interpolated field gradient at a
+quadrature point ∇u_q.
+
+Return a SVector
+"""
+@inline function unpack_field(field::SMatrix{M, N, T, L}, dof::Int) where {M, N, T <: Number, L}
+  ids = SVector{N, Int}(1:N)
+  return SVector{N, T}(field[dof, ids])
+end
+
+"""
+$(TYPEDSIGNATURES)
+Unpacks a range of fields values from a SMatrix.
+This is useful for extracting specific components
+from an interpolated field gradient at a
+quadrature point ∇u_q.
+
+returns a SMatrix.
+
+Note the Val{D} that is a necessary input. This is
+crucial for performance with ```StaticArrays```.
+"""
+@inline function unpack_field(
+  field::SMatrix{M, N, T, L}, dof_start::Int, dof_end::Int,
+  ::Val{D}
+) where {M, N, T <: Number, L, D}
+  @assert D == dof_end - dof_start + 1 "Number of expected dofs wrapped in Val is not equal to dof_end - dof_start"
+  ids = SVector{N, Int}(1:N)
+  dofs = SVector{D, Int}(dof_start:dof_end)
+  return SMatrix{D, N, T, D * N}(field[dofs, ids])
+end
+
 # Can we make something that makes interfacing with kernels easier?
 # How can we make something like this work nicely with AD?
 # struct PhysicsQuadratureState{T, ND, NN, NF, NP, NS, NDxNF, NNxND, NNxNNxND}

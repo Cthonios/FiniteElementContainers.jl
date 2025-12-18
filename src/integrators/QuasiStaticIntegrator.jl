@@ -18,5 +18,9 @@ function evolve!(integrator::QuasiStaticIntegrator, p)
   update_bc_values!(p)
   solve!(integrator.solver, integrator.solution, p)
   KA.synchronize(KA.get_backend(integrator))
+  # the call below will ensure the return fields have bcs properly enfroced
+  # before being saved as the old solution for the next step.
+  _update_for_assembly!(p, integrator.solver.linear_solver.assembler.dof, integrator.solution)
+  p.h1_field_old.data .= p.h1_field.data
   return nothing
 end

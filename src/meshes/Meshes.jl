@@ -8,6 +8,7 @@ const elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.AbstractElemen
   "TRI3"    => Tri3,
   "TRI6"    => Tri6,
   "TET"     => Tet4,
+  "TETRA"   => Tet4,
   "TETRA4"  => Tet4,
   "TETRA10" => Tet10
 )
