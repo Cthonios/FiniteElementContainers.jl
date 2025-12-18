@@ -48,7 +48,9 @@ function CUDA.CUSPARSE.CuSparseMatrixCSC(asm::SparseMatrixAssembler)
 end
 
 function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::CUDABackend)
-  K = CUDA.CUSPARSE.CuSparseMatrixCSC(asm)
+  K = CUDA.CUSPARSE.CuSparseMatrixCSC(
+    CUDA.CUSPARSE.CuSparseMatrixCOO(asm)
+  )
   if FiniteElementContainers._is_condensed(asm.dof)
     FiniteElementContainers._adjust_matrix_entries_for_constraints!(
       K, asm.constraint_storage, get_backend(asm)
