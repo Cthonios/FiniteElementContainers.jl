@@ -139,14 +139,13 @@ function Parameters(
   )
 
   update_dofs!(assembler, p)
-  Uu = create_unknowns(assembler.dof)
+  # Uu = create_unknowns(assembler.dof)
 
-  # assemble the stiffness at least once for 
-  # making easier to use on GPU
-  # assemble!(assembler, Uu, p, Val{:stiffness}(), H1Field)
-  # TODO should we also assemble mass if necessary?
-  assemble_stiffness!(assembler, stiffness, Uu, p)
-  K = stiffness(assembler)
+  # # assemble the stiffness at least once for 
+  # # making easier to use on GPU
+  # # TODO should we also assemble mass if necessary?
+  # assemble_stiffness!(assembler, stiffness, Uu, p)
+  # K = stiffness(assembler)
 
   return p
 end

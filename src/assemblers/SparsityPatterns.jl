@@ -23,6 +23,8 @@ struct SparseMatrixPattern{
   csccolptr::I
   cscrowval::I
   cscnzval::R
+  # trying something new
+  permutation::I
 end
 
 # TODO won't work for H(div) or H(curl) yet
@@ -91,15 +93,25 @@ function SparseMatrixPattern(dof::DofManager)
   cscrowval = Vector{Int64}(undef, 0)
   cscnzval  = Vector{Float64}(undef, 0)
 
-  return SparseMatrixPattern(
+  # set permutation
+  ks = map((i, j) -> (i, j), Is, Js)
+  permutation = sortperm(ks)
+
+  pattern = SparseMatrixPattern(
     Is, Js, 
     unknown_dofs, 
     block_start_indices, block_el_level_sizes, 
     # cache arrays
     klasttouch, csrrowptr, csrcolval, csrnzval,
     # additional cache arrays
-    csccolptr, cscrowval, cscnzval
+    csccolptr, cscrowval, cscnzval,
+    permutation
   )
+
+  # # assemble this once here with a dummy vector
+  # Vs_temp = zeros(length(Is))
+  # SparseArrays.sparse!(pattern, Vs_temp)
+  return pattern
 end
 
 function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
@@ -117,11 +129,12 @@ function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   csccolptr = adapt(to, asm.csccolptr)
   cscrowval = adapt(to, asm.cscrowval)
   cscnzval = adapt(to, asm.cscnzval)
+  perm = adapt(to, asm.permutation)
   return SparseMatrixPattern(
     Is, Js,
     unknown_dofs, asm.block_start_indices, asm.block_el_level_sizes,
     klasttouch, csrrowptr, csrcolval, csrnzval,
-    csccolptr, cscrowval, cscnzval
+    csccolptr, cscrowval, cscnzval, perm
   )
 end
 
@@ -180,6 +193,11 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
   # resize!(assembler.pattern.csrnzval, length(assembler.pattern.Is))
   resize!(pattern.csrcolval, length(pattern.Is))
   resize!(pattern.csrnzval, length(pattern.Is))
+
+  ks = map((i, j) -> (i, j), pattern.Is, pattern.Js)
+  permutation = sortperm(ks)
+  resize!(pattern.permutation, length(permutation))
+  pattern.permutation .= permutation
 
   return nothing
 end

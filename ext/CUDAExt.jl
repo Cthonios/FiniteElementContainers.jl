@@ -7,6 +7,23 @@ using KernelAbstractions
 
 FiniteElementContainers.cuda(x) = adapt(CuArray, x)
 
+function CUDA.CUSPARSE.CuSparseMatrixCOO(asm::SparseMatrixAssembler)
+  @assert typeof(get_backend(asm)) <: CUDABackend
+
+  if FiniteElementContainers._is_condensed(asm.dof)
+    n_dofs = length(asm.dof)
+  else
+    n_dofs = length(asm.dof.unknown_dofs)
+  end
+  rows, cols = asm.matrix_pattern.Is, asm.matrix_pattern.Js
+  vals = asm.stiffness_storage[asm.matrix_pattern.unknown_dofs]
+  perm = asm.matrix_pattern.permutation
+  return CUDA.CUSPARSE.CuSparseMatrixCOO(
+    rows[perm], cols[perm], vals[perm],
+    (n_dofs, n_dofs), length(asm.matrix_pattern.Is)
+  )
+end
+
 # this method need to have the assembler initialized first
 # if the stored values in asm.pattern.cscnzval or zero
 # CUDA will error out
@@ -31,7 +48,9 @@ function CUDA.CUSPARSE.CuSparseMatrixCSC(asm::SparseMatrixAssembler)
 end
 
 function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::CUDABackend)
-  K = CUDA.CUSPARSE.CuSparseMatrixCSC(asm)
+  K = CUDA.CUSPARSE.CuSparseMatrixCSC(
+    CUDA.CUSPARSE.CuSparseMatrixCOO(asm)
+  )
   if FiniteElementContainers._is_condensed(asm.dof)
     FiniteElementContainers._adjust_matrix_entries_for_constraints!(
       K, asm.constraint_storage, get_backend(asm)

@@ -1,26 +1,33 @@
 abstract type AbstractIntegral{
-    A         <: AbstractAssembler,
-    Integrand <: Function
+    A <: AbstractAssembler,
+    C,
+    I <: Function
 } end
+
+function Adapt.adapt_storage(to, int::AbstractIntegral)
+    return eval(typeof(int).name.name)(
+        adapt(to, int.assembler),
+        adapt(to, int.cache),
+        int.integrand
+    )
+end
+
+KA.get_backend(int::AbstractIntegral) = KA.get_backend(int.cache)
 
 function integrate end
 
-struct ScalarIntegral{A, I, C <: NamedTuple} <: AbstractIntegral{A, I}
+function (integral::AbstractIntegral)(U, p)
+    return integrate(integral, U, p)
+end
+
+struct ScalarIntegral{A, C <: NamedTuple, I} <: AbstractIntegral{A, C, I}
     assembler::A
     cache::C
     integrand::I
 end
 
 function ScalarIntegral(asm, integrand)
-    fspace = function_space(asm.dof)
-    cache = Matrix{Float64}[]
-    for (key, val) in pairs(fspace.ref_fes)
-        NQ = ReferenceFiniteElements.num_quadrature_points(val)
-        NE = size(getfield(fspace.elem_conns, key), 2)
-        field = L2ElementField(zeros(Float64, NQ, NE))
-        push!(cache, field)
-    end
-    cache = NamedTuple{keys(fspace.ref_fes)}(tuple(cache...))
+    cache = create_assembler_cache(asm, AssembledScalar())
     return ScalarIntegral(asm, cache, integrand)
 end
 
@@ -36,24 +43,76 @@ end
 function integrate(integral::ScalarIntegral, U, p)
     cache, dof = integral.cache, integral.assembler.dof
     func = integral.integrand
-    assemble_quadrature_quantity!(cache, dof, func, U, p)
+    assemble_quadrature_quantity!(cache, dof, nothing, func, U, p)
     return mapreduce(sum, sum, values(cache))
 end
 
-struct VectorIntegral{A, I, C <: AbstractField} <: AbstractIntegral{A, I}
+struct MatrixIntegral{A, C <: AbstractVector, I} <: AbstractIntegral{A, C, I}
+    assembler::A
+    cache::C
+    integrand::I
+end
+
+function MatrixIntegral(asm, integrand)
+    cache = create_assembler_cache(asm, AssembledMatrix())
+    return MatrixIntegral(asm, cache, integrand)
+end
+
+function integrate(integral::MatrixIntegral, U, p)
+    assemble_matrix!(
+        integral.cache, 
+        integral.assembler.matrix_pattern,
+        integral.assembler.dof,
+        integral.integrand,
+        U, p
+    )
+    return SparseArrays.sparse!(
+        integral.assembler.matrix_pattern,
+        integral.cache
+    )
+end
+
+function remove_fixed_dofs!(integral::MatrixIntegral)
+    backend = KA.get_backend(integral)
+
+    # TODO change API so we don't need to
+    # bring this guy to life
+    A = SparseArrays.sparse!(
+        integral.assembler.matrix_pattern,
+        integral.cache
+    )
+    _adjust_matrix_entries_for_constraints!(
+        A, integral.assembler.constraint_storage, backend
+    )
+    return nothing
+end
+
+struct VectorIntegral{A, C <: AbstractField, I} <: AbstractIntegral{A, C, I}
     assembler::A
     cache::C
     integrand::I
 end
 
 function VectorIntegral(asm, integrand)
-    cache = create_field(asm)
+    cache = create_assembler_cache(asm, AssembledVector())
     return VectorIntegral(asm, cache, integrand)
 end
 
 function integrate(integral::VectorIntegral, U, p)
-    cache, dof = integral.cache, integral.assembler.dof
-    func = integral.integrand
-    assemble_vector!(cache, dof, func, U, p)
-    return cache
+    assemble_vector!(
+        integral.cache, 
+        integral.assembler.vector_pattern,
+        integral.assembler.dof,
+        integral.integrand,
+        U, p
+    )
+    return integral.cache
+end
+
+function remove_fixed_dofs!(integral::VectorIntegral)
+    backend = KA.get_backend(integral)
+    _adjust_vector_entries_for_constraints!(
+        integral.cache, integral.assembler.constraint_storage, backend
+    )
+    return nothing
 end
