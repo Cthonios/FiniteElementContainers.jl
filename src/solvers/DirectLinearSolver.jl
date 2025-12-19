@@ -32,3 +32,30 @@ function solve!(solver::DirectLinearSolver, Uu, p)
   map!((x, y) -> x + y, Uu, Uu, solver.ΔUu)
   return nothing
 end
+# struct DirectLinearSolver{
+#   U <: AbstractArray,
+#   A <: MatrixIntegral,
+#   b <: VectorIntegral,
+#   P
+# }
+#   Δu::U
+#   matrix::A
+#   vector::b
+#   precon::P
+#   timer::TimerOutput
+# end
+
+# function DirectLinearSolver(A::MatrixIntegral, b::VectorIntegral)
+#   precon = I
+#   ΔUu = create_unknowns(A)
+#   return DirectLinearSolver(Δu, A, b, precon, TimerOutput())
+# end
+
+# function solve!(solver::DirectLinearSolver, u, p)
+#   R = solver.matrix(u, p)
+#   K = solver.vector(u, p)
+#   # TODO need bcs as well
+#   solver.Δu .= -K \ R
+#   map!((x, y) -> x + y, u, u, solver.Δu)
+#   return nothing 
+# end

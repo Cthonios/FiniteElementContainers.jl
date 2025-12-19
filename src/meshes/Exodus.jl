@@ -202,7 +202,7 @@ function PostProcessor(
       append!(element_var_names, names(var))
     # L2QuadratureField case below
     elseif isa(var.fspace.coords, NamedTuple)
-      max_q_points = mapreduce(num_quadrature_points, maximum, values(var.fspace.ref_fes))
+      max_q_points = map(num_quadrature_points, values(var.fspace.ref_fes)) |> maximum
       temp_names = Symbol[]
       for name in names(var)
         for q in 1:max_q_points

@@ -1,5 +1,7 @@
 abstract type AbstractDirichletBC{F} <: AbstractBC{F} end
 
+const EntityName = Union{Nothing, Symbol}
+
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -8,7 +10,9 @@ User facing API to define a ```DirichletBC````.
 """
 struct DirichletBC{F} <: AbstractDirichletBC{F}
   func::F
-  sset_name::Symbol
+  block_name::EntityName
+  nset_name::EntityName
+  sset_name::EntityName
   var_name::Symbol
 end
 
@@ -17,8 +21,13 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
-function DirichletBC(var_name::Symbol, sset_name::Symbol, func::Function)
-  return DirichletBC(func, sset_name, var_name)
+function DirichletBC(
+  var_name::Symbol, func::Function;
+  block_name::EntityName = nothing,
+  nodeset_name::EntityName = nothing,
+  sideset_name::EntityName = nothing
+)
+  return DirichletBC(func, block_name, nodeset_name, sideset_name, var_name)
 end
 
 """
@@ -26,8 +35,25 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
-function DirichletBC(var_name::String, sset_name::String, func::Function)
-  return DirichletBC(Symbol(var_name), Symbol(sset_name), func)
+function DirichletBC(
+  var_name::String, func::Function;
+  block_name::Union{Nothing, String} = nothing,
+  nodeset_name::Union{Nothing, String} = nothing,
+  sideset_name::Union{Nothing, String} = nothing
+)
+  # return DirichletBC(Symbol(var_name), Symbol(sset_name), func)
+  if block_name !== nothing
+    block_name = Symbol(block_name)
+  end
+  
+  if nodeset_name !== nothing
+    nodeset_name = Symbol(nodeset_name)
+  end
+
+  if sideset_name !== nothing
+    sideset_name = Symbol(sideset_name)
+  end
+  return DirichletBC(func, block_name, nodeset_name, sideset_name, Symbol(var_name))
 end
 
 """
@@ -53,7 +79,17 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 function DirichletBCContainer(mesh, dof::DofManager, dbc::DirichletBC)
-  bk = BCBookKeeping(mesh, dof, dbc.var_name, sset_name=dbc.sset_name)
+  if dbc.block_name !== nothing
+    bk = BCBookKeeping(mesh, dof, dbc.var_name, block_name=dbc.block_name)
+  elseif dbc.nset_name !== nothing
+    bk = BCBookKeeping(mesh, dof, dbc.var_name, nset_name=dbc.nset_name)
+  elseif dbc.sset_name !== nothing
+    bk = BCBookKeeping(mesh, dof, dbc.var_name, sset_name=dbc.sset_name)
+  else
+    @assert false
+  end
+
+  # bk = BCBookKeeping(mesh, dof, dbc.var_name, sset_name=dbc.sset_name)
 
   # sort nodes and dofs for dirichlet bc
   dof_perm = _unique_sort_perm(bk.dofs)

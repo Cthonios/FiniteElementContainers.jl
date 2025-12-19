@@ -26,10 +26,10 @@ function test_sparse_matrix_assembler()
   u = ScalarFunction(V, :u)
   @show asm = SparseMatrixAssembler(u)
   dbcs = DirichletBC[
-    DirichletBC(:u, :sset_1, bc_func),
-    DirichletBC(:u, :sset_2, bc_func),
-    DirichletBC(:u, :sset_3, bc_func),
-    DirichletBC(:u, :sset_4, bc_func),
+    DirichletBC(:u, bc_func; sideset_name = :sset_1),
+    DirichletBC(:u, bc_func; sideset_name = :sset_2),
+    DirichletBC(:u, bc_func; sideset_name = :sset_3),
+    DirichletBC(:u, bc_func; sideset_name = :sset_4),
   ]
   p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
   FiniteElementContainers.initialize!(p)

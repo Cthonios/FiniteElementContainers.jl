@@ -24,10 +24,10 @@ function test_mechanics_dirichlet_only(
   asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
 
   dbcs = DirichletBC[
-    DirichletBC(:displ_x, :sset_3, fixed),
-    DirichletBC(:displ_y, :sset_3, fixed),
-    DirichletBC(:displ_x, :sset_1, fixed),
-    DirichletBC(:displ_y, :sset_1, displace),
+    DirichletBC(:displ_x, fixed; sideset_name = :sset_3),
+    DirichletBC(:displ_y, fixed; sideset_name = :sset_3),
+    DirichletBC(:displ_x, fixed; sideset_name = :sset_1),
+    DirichletBC(:displ_y, displace; sideset_name = :sset_1),
   ]
 
   # pre-setup some scratch arrays

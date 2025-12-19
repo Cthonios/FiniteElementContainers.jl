@@ -135,7 +135,7 @@ function _adjust_vector_entries_for_constraints!(b, constraint_storage, ::KA.CPU
     # modify b => (I - G) * b + (Gu - g)
     # but Gu = g, so we don't need that here
     # unless we want to modify this to support weakly
-    # enforced BCs later
+    # enforced BCs later TODO
     for i in 1:length(constraint_storage)
         @inbounds b[i] = (1. - constraint_storage[i]) * b[i]
     end

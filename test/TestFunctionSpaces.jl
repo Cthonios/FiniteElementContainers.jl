@@ -88,6 +88,11 @@ end
 #   # # )
 # end
 
+
+function test_bad_interp_type(mesh)
+  @test_throws MethodError FunctionSpace(mesh, H1Field, :SomethingNotSupported)
+end
+
 function test_fspace_h1_field(mesh)
   @show fspace = FunctionSpace(mesh, H1Field, Lagrange)
 end
@@ -109,6 +114,7 @@ function test_function_spaces()
   # coords = H1Field(coords)
 
   mesh = UnstructuredMesh("mechanics/mechanics.g")
+  test_bad_interp_type(mesh)
   test_fspace_h1_field(mesh)
   test_fspace_l2_element_field(mesh)
   test_fspace_l2_quadrature_field(mesh)
