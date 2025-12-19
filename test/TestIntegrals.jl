@@ -6,7 +6,7 @@ function test_scalar_integral()
     asm = SparseMatrixAssembler(u)
     f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
     physics = Poisson(f)
-    integral = FiniteElementContainers.ScalarIntegral(asm, energy)
+    integral = FiniteElementContainers.ScalarCellIntegral(asm, energy)
     grad_integral = FiniteElementContainers.gradient(integral)
 end
 

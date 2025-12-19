@@ -72,11 +72,11 @@ export update_field_ics!
 export update_ic_values!
 
 # Integrals
-export MatrixIntegral
-export ScalarIntegral
-export VectorIntegral
-export integrate
-export remove_fixed_dofs!
+# export MatrixIntegral
+# export ScalarIntegral
+# export VectorIntegral
+# export integrate
+# export remove_fixed_dofs!
 
 # Integrators
 export AbstractIntegrator
