@@ -37,6 +37,9 @@ function UnstructuredMesh(file_type::AbstractMeshType, file_name::String, create
   return UnstructuredMesh(file, create_edges, create_faces)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::Bool) where T
 
   # read nodal coordinates

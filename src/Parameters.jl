@@ -1,6 +1,16 @@
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
 abstract type AbstractParameters end
 
 # TODO need to break up bcs to different field types
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
 struct Parameters{
   RT <: Number, # Real type
   RV <: AbstractArray{RT, 1}, # Real vector type
@@ -37,6 +47,9 @@ end
 # 3. figure out how to handle function pointers on the GPU - done
 # 4. add different fspace types
 # 5. convert vectors of dbcs/nbcs into namedtuples - done
+"""
+$(TYPEDSIGNATURES)
+"""
 function Parameters(
   mesh, assembler, physics,
   properties,
@@ -208,6 +221,9 @@ function create_parameters(
   return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, times)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function initialize!(p::Parameters)
   update_ic_values!(p.ics, p.h1_coords)
   update_field_ics!(p.h1_field, p.ics)
@@ -230,6 +246,9 @@ function update_bc_values!(p::Parameters)
   return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function update_dofs!(asm::AbstractAssembler, p::Parameters)
   update_dofs!(asm, p.dirichlet_bcs)
   return nothing
@@ -248,6 +267,9 @@ function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, Vu)
   return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function update_time!(p::Parameters)
   fill!(p.times.time_current, current_time(p.times) + time_step(p.times))
   return nothing

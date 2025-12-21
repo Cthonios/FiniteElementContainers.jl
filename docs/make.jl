@@ -28,6 +28,13 @@ makedocs(;
     ),
     pages=[
         "Home"                => "index.md",
+        "Tutorial"            => [
+            "1 Poisson Equation"             => "tutorials/1_poisson_equation.md",
+            "2 Advection-Diffusion Equation" => "tutorials/2_advection_diffusion_equation.md",
+            "3 Coupled Problem"              => "tutorials/3_coupled_problem.md",
+            "4 Transient Problem"            => "tutorials/4_transient_problem.md",
+            "5 Solid Mechanics"              => "tutorials/5_solid_mechanics.md"
+        ],
         "Assemblers"          => "assemblers.md",
         "Boundary Conditions" => "boundary_conditions.md",
         "DofManager"          => "dof_manager.md",

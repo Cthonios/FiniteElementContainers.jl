@@ -1,3 +1,4 @@
+using AMDGPU
 using FiniteElementContainers
 using ForwardDiff
 using LinearAlgebra
@@ -67,17 +68,20 @@ function simulate()
         ScalarFunction(V, :v)
     )
 
-    asm = SparseMatrixAssembler(u; use_condensed=true)
+    asm = SparseMatrixAssembler(u; use_condensed=false)
     dbcs = [
-        DirichletBC(:u, :bottom, two_func)
-        DirichletBC(:u, :top, zero_func)
-        DirichletBC(:v, :bottom, one_func)
-        DirichletBC(:v, :top, zero_func)
+        DirichletBC(:u, two_func; sideset_name = :bottom)
+        DirichletBC(:u, zero_func; sideset_name = :top)
+        DirichletBC(:v, one_func; sideset_name = :bottom)
+        DirichletBC(:v, zero_func; sideset_name = :top)
     ]
     U = create_field(asm)
     p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
 
-    solver = NewtonSolver(DirectLinearSolver(asm))
+    p = p |> rocm
+    asm = asm |> rocm
+
+    solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
     integrator = QuasiStaticIntegrator(solver)
     evolve!(integrator, p)
 
@@ -96,6 +100,7 @@ function simulate()
     #     @show n norm(R) norm(ΔU)
     # end
 
+    p = p |> cpu
     U = p.h1_field
 
     pp = PostProcessor(mesh, "output.e", u)

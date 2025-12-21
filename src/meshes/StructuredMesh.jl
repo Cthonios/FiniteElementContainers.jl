@@ -1,3 +1,8 @@
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
 struct StructuredMesh{
     ND,
     RT <: Number,

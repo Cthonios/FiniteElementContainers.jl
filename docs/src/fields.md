@@ -8,18 +8,18 @@ Fields serve as loose wrappers around ```AbstractArray``` subtypes such that the
 All fields are subtypes of the abstract type ```AbstractField```
 ```@repl
 using FiniteElementContainers
-AbstractField
+FiniteElementContainers.AbstractField
 ```
 
 ## Example - H1Field a.k.a. NodalField
 We can set up a ```H1Field``` in one of two ways. The simplest constructor form can be used as follows
 ```@repl h1field
 using FiniteElementContainers
-field = H1Field(rand(2, 10), (:field_1, :field_2))
+field = H1Field(rand(2, 10))
 ```
 This is stored in a vectorized way as can be seen above
 ```@repl h1field
-field.vals
+field.data
 ```
 Fields can be indexed like regular arrays, e.g.
 ```@repl h1field
@@ -29,11 +29,6 @@ field[1, 1]
 field[1, :]
 ```
 etc.
-
-But they can also be indexed by the symbols provided during construction
-```@repl h1field
-field[:field_1]
-```
 
 ## Abstract type
 The base type for fields is the ```AbstractField``` abstract type. 

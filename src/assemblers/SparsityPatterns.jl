@@ -1,10 +1,10 @@
-"""
-$(TYPEDEF)
-$(TYPEDFIELDS)
-Book-keeping struct for sparse matrices in FEM settings.
-This has all the information to construct a sparse matrix for either
-case where you want to eliminate fixed-dofs or not.
-"""
+# """
+# $(TYPEDEF)
+# $(TYPEDFIELDS)
+# Book-keeping struct for sparse matrices in FEM settings.
+# This has all the information to construct a sparse matrix for either
+# case where you want to eliminate fixed-dofs or not.
+# """
 struct SparseMatrixPattern{
   I <: AbstractArray{Int, 1},
   R <: AbstractArray{Float64, 1}

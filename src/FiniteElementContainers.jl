@@ -60,6 +60,7 @@ export num_elements
 # export num_q_points
 
 # Functions
+export GeneralFunction
 export ScalarFunction
 export SymmetricTensorFunction
 export TensorFunction
