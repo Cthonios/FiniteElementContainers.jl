@@ -1,5 +1,6 @@
 using FiniteElementContainers
 using LinearAlgebra
+using AMDGPU
 
 # physics code we actually need to implement
 struct Transient <: AbstractPhysics{1, 0, 0}
@@ -41,8 +42,8 @@ function simulate()
     u = ScalarFunction(V, :u)
     asm = SparseMatrixAssembler(u; use_condensed=true)
     dbcs = [
-        DirichletBC(:u, :bottom, zero_func)
-        DirichletBC(:u, :top, one_func)
+        DirichletBC(:u, zero_func; sideset_name = :bottom)
+        DirichletBC(:u, one_func; sideset_name = :top)
     ]
     U = create_field(asm)
     p = create_parameters(
@@ -50,6 +51,11 @@ function simulate()
         dirichlet_bcs = dbcs,
         times = times
     )
+
+    # do it on the GPU whoo!
+    p = p |> rocm
+    asm = asm |> rocm
+
     solver = NewtonSolver(DirectLinearSolver(asm))
     integrator = QuasiStaticIntegrator(solver)
     pp = PostProcessor(mesh, "output.e", u)
@@ -57,7 +63,11 @@ function simulate()
     n = 1
     while times.time_current[1] < 75.0
         evolve!(integrator, p)
-        U = p.h1_field
+
+        # move to cpu for writing
+        # U = p.h1_field
+        p_cpu = p |> cpu
+        U = p_cpu.h1_field
         write_times(pp, n, times.time_current[1])
         write_field(pp, n, ("u",), U)
         n = n + 1

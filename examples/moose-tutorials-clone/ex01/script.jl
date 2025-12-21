@@ -40,8 +40,8 @@ function simulate()
     u = ScalarFunction(V, :u)
     asm = SparseMatrixAssembler(u; use_condensed=true)
     dbcs = [
-        DirichletBC(:u, :bottom, one_func)
-        DirichletBC(:u, :top, zero_func)
+        DirichletBC(:u, one_func; sideset_name = :bottom)
+        DirichletBC(:u, zero_func; sideset_name = :top)
     ]
     U = create_field(asm)
     p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
@@ -51,15 +51,15 @@ function simulate()
     # evolve!(integrator, p)
 
     FiniteElementContainers.update_bc_values!(p)
-    residual_int = VectorIntegral(asm, residual)
-    stiffness_int = MatrixIntegral(asm, stiffness)
+    residual_int = FiniteElementContainers.VectorCellIntegral(asm, residual)
+    stiffness_int = FiniteElementContainers.MatrixCellIntegral(asm, stiffness)
 
     K = stiffness_int(U, p)
-    remove_fixed_dofs!(stiffness_int)
+    FiniteElementContainers.remove_fixed_dofs!(stiffness_int)
 
     for n in 1:2
         R = residual_int(U, p)
-        remove_fixed_dofs!(residual_int)
+        FiniteElementContainers.remove_fixed_dofs!(residual_int)
         ΔU = -K \ R.data
         U.data .+= ΔU
         @show n norm(R) norm(ΔU)

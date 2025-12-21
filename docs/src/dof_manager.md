@@ -18,10 +18,11 @@ mesh = UnstructuredMesh("../../test/poisson/poisson.g")
 V = FunctionSpace(mesh, H1Field, Lagrange)
 u = VectorFunction(V, :u)
 t = ScalarFunction(V, :t)
+f = FiniteElementContainers.GeneralFunction(u, t)
 ```
 Now we can supply these variables to the ```DofManager``` which takes varargs as inputs
 ```@repl dof
-dof = DofManager(u, t)
+dof = DofManager(f)
 ```
 The print methods for this struct show simple metadata about the current dofs for each possible function space.
 
@@ -33,10 +34,10 @@ field = create_unknowns(dof)
 We can create fields of the right size from the ```DofManager``` with the following methods
 
 ```@repl dof
-field = create_field(dof, H1Field)
+field = create_field(dof)
 ```
 
-These methods take the backed of ```dof``` into account to ensure that the fields or unknowns produced are on the same device, e.g. CPU/GPU if ```dof``` is on the CPU/GPU.
+These methods take the backend of ```dof``` into account to ensure that the fields or unknowns produced are on the same device, e.g. CPU/GPU if ```dof``` is on the CPU/GPU.
 
 This struct is created with all dofs initially set as unknown. To modify the unknowns we can do the following
 
