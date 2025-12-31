@@ -91,7 +91,7 @@ function BCBookKeeping(
     # TODO eventually set the blocks, could be useful maybe?
     blocks = Vector{Int64}(undef, 0)
     conns = getproperty(mesh.element_conns, block_name)
-    nodes = sort(unique(conns.data))
+    nodes = sort(unique(conns))
     dofs = all_dofs[dof_index, nodes]
     elements = mesh.element_id_maps[block_name]
     # below 2 don't make sense for other mesh entity types

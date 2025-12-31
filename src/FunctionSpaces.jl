@@ -1,3 +1,21 @@
+# const default_p = Dict{String, Int}(
+
+# )
+const _default_q = Dict{String, Int}(
+  "HEX"     => 2,
+  "HEX8"    => 2,
+  "QUAD"    => 2,
+  "QUAD4"   => 2,
+  "QUAD9"   => 2,
+  "TRI"     => 2,
+  "TRI3"    => 2,
+  "TRI6"    => 2,
+  "TET"     => 2,
+  "TETRA"   => 2,
+  "TETRA4"  => 2,
+  "TETRA10" => 2
+)
+
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -21,11 +39,14 @@ struct FunctionSpace{
   ref_fes::RefFEs
 end
 
-function _setup_ref_fes(mesh::AbstractMesh, interp_type, q_degree)
+function _setup_ref_fes(mesh::AbstractMesh, interp_type, q_degree = nothing)
   block_names = mesh.element_block_names
   ref_fes = ReferenceFE[]
   for elem_name in mesh.element_types
     elem_type = elem_type_map[uppercase(String(elem_name))]
+    if q_degree === nothing
+      q_degree = _default_q[uppercase(String(elem_name))]
+    end
     ref_fe = ReferenceFE(elem_type{interp_type, q_degree}())
     push!(ref_fes, ref_fe)
   end
@@ -50,8 +71,8 @@ function _setup_quad_coords(mesh, X, conns, ref_fe)
   return coords_temp
 end
 
-function FunctionSpace(mesh::AbstractMesh, ::Type{H1Field}, interp_type, q_degree)
-  ref_fes = _setup_ref_fes(mesh, interp_type, q_degree)
+function FunctionSpace(mesh::AbstractMesh, ::Type{H1Field}, interp_type, _)
+  ref_fes = _setup_ref_fes(mesh, interp_type)#, q_degree)
 
   if interp_type == Lagrange
     coords = mesh.nodal_coords
@@ -121,7 +142,8 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{L2QuadratureField}, interp_typ
   )
 end
 
-function FunctionSpace(mesh::AbstractMesh, space_type, interp_type; q_degree=2)
+# # TODO create default q_degrees for element types instead
+function FunctionSpace(mesh::AbstractMesh, space_type, interp_type; q_degree=nothing)
   return FunctionSpace(mesh, space_type, interp_type, q_degree)
 end
 
@@ -138,11 +160,4 @@ function Base.show(io::IO, fspace::FunctionSpace)
   for (key, ref_fe) in enumerate(fspace.ref_fes)
     println(io, "    Block: $key")
   end
-end
-
-function map_shape_function_gradients(X, ∇N_ξ)
-  J     = (X * ∇N_ξ)'
-  J_inv = inv(J)
-  ∇N_X  = (J_inv * ∇N_ξ')'
-  return ∇N_X
 end

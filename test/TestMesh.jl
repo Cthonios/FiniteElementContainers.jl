@@ -1,3 +1,69 @@
+using FiniteElementContainers
+using Test
+
+function test_amr_mesh()
+  mesh = StructuredMesh("tri", (0., 0.), (1., 1.), (5, 5))
+  amr = FiniteElementContainers.AMRMesh(mesh)
+
+  @test length(unique(amr.edges)) == length(amr.edges)
+
+  # test edge adj validity
+  for (el, er) in amr.edge2adjelem[:block_1]
+    @test el > 0
+    @test er >= -1
+  end
+  is_boundary_edge(e) = edge2elem[e][2] == -1
+
+  for e in axes(amr.elem2edge[:block_1], 2)
+    for le in axes(amr.elem2edge[:block_1], 1)
+      eid = amr.elem2edge[:block_1][le, e]
+      @test e in amr.edge2adjelem[:block_1][eid]
+    end
+  end
+
+  @test all(1 .≤ amr.ref_edges[:block_1] .≤ 3)
+
+  for e in axes(values(amr.element_conns)[1], 2)
+    gid = amr.elem2edge[:block_1][amr.ref_edges[:block_1][e], e]
+    @test gid > 0
+  end
+
+  
+  # some simple refinement tests
+  coords = H1Field([
+    0.0 1.0 0.0;
+    0.0 0.0 1.0
+  ])
+
+  conns = L2ElementField{Int64, Vector{Int64}, 3}([1, 2, 3])
+  ref_edge = [3]  # edge (1,2)
+  # elem2edge, edge2elem = build_edges(conns)
+  edge_dict = Dict{NTuple{2, Int}, Int}()
+  edges, elem2edge, edge2adjelem = FiniteElementContainers._create_edges!(edge_dict, conns)
+
+  edge_midpoint = Dict{Int, Int}()
+
+  nodeset_nodes = Dict(:nset_all => [1, 2, 3])
+  FiniteElementContainers._refine_element!(
+      coords, conns, ref_edge,
+      # elem2edge, edge_midpoint,
+      elem2edge, edge2adjelem, 
+      nodeset_nodes,
+      edge_midpoint,
+      1
+  )
+
+  @test size(conns) == (3, 2)
+  @test size(coords, 2) == 4
+  @test length(nodeset_nodes[:nset_all]) == 4
+  # @test sum(triangle_area.(conns)) ≈ 0.5
+
+  refine = 1:size(amr.element_conns[:block_1], 2) |> collect
+  refine = [1, 5, 7]
+  FiniteElementContainers._refine!(amr, refine)
+  FiniteElementContainers.write_to_file(amr, "atri.exo"; force = true)
+end
+
 function test_structured_mesh()
   # testing bad input
   @test_throws ArgumentError StructuredMesh("bad element", (0., 0.), (1., 1.), (3, 3))
@@ -82,7 +148,8 @@ function test_write_mesh()
   rm("stri.exo", force = true)
 
   # TODO eventually put an exodiff test below
-  mesh = UnstructuredMesh("poisson/poisson.g")
+  dir = Base.source_dir()
+  mesh = UnstructuredMesh("$dir/poisson/poisson.g")
   FiniteElementContainers.write_to_file(mesh, "umesh.exo")
   rm("umesh.exo")
 end
@@ -117,6 +184,7 @@ function test_bad_mesh_file_type()
 end
 
 @testset "Mesh" begin
+  test_amr_mesh()
   test_bad_mesh_file_type()
   test_bad_mesh_methods()
   test_structured_mesh()

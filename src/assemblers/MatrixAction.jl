@@ -62,7 +62,7 @@ TODO improve typing of fields to ensure they mathc up in terms of function
 function _assemble_block_matrix_action!(
   ::KA.CPU,
   field::AbstractField, 
-  conns::Connectivity, b1, b2,
+  conns::Conn, b1, b2,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
@@ -71,6 +71,7 @@ function _assemble_block_matrix_action!(
   return_type
 ) where {
   T        <: Number,
+  Conn     <: AbstractArray,
   Solution <: AbstractField,
   S        #<: L2QuadratureField
 }
@@ -106,7 +107,7 @@ TODO mark const fields
 # COV_EXCL_START
 KA.@kernel function _assemble_block_matrix_action_kernel!(
   field::AbstractField, 
-  conns::Connectivity, b1, b2,
+  conns::Conn, b1, b2,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
@@ -115,6 +116,7 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
   return_type
 ) where {
   T        <: Number,
+  Conn     <: AbstractArray,
   Solution <: AbstractField,
   S        #<: L2QuadratureField
 }
@@ -160,7 +162,7 @@ TODO add state variables and physics properties
 function _assemble_block_matrix_action!(
   backend::KA.Backend,
   field::AbstractField, 
-  conns::Connectivity, b1, b2,
+  conns::Conn, b1, b2,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
@@ -169,6 +171,7 @@ function _assemble_block_matrix_action!(
   return_type
 ) where {
   T        <: Number,
+  Conn     <: AbstractArray,
   Solution <: AbstractField,
   S        #<: L2QuadratureField
 }

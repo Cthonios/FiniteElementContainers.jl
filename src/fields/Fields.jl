@@ -40,6 +40,10 @@ function Base.size(field::AbstractField{T, 2, D, NF}) where {T, D, NF}
   return (NF, NN)
 end
 
+function Base.unique(field::AbstractField)
+  return unique(field.data)
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -58,6 +62,8 @@ end
 include("H1Field.jl")
 include("L2ElementField.jl")
 include("L2QuadratureField.jl")
+
+include("L2Field.jl")
 
 # some specialization
 include("Connectivity.jl")

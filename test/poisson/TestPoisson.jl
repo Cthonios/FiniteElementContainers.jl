@@ -150,8 +150,8 @@ function test_poisson_neumann(
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, :sset_3, bc_func_neumann),
-    NeumannBC(:u, :sset_4, bc_func_neumann)
+    NeumannBC(:u, bc_func_neumann, :sset_3),
+    NeumannBC(:u, bc_func_neumann, :sset_4)
   ]
 
   # direct solver test
@@ -405,8 +405,8 @@ function test_poisson_neumann_structured_mesh_quad4(
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, :top, bc_func_neumann),
-    NeumannBC(:u, :left, bc_func_neumann)
+    NeumannBC(:u, bc_func_neumann, :top),
+    NeumannBC(:u, bc_func_neumann, :left)
   ]
 
   # direct solver test
@@ -464,8 +464,8 @@ function test_poisson_neumann_structured_mesh_tri3(
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, :top, bc_func_neumann),
-    NeumannBC(:u, :left, bc_func_neumann)
+    NeumannBC(:u, bc_func_neumann, :top),
+    NeumannBC(:u, bc_func_neumann, :left)
   ]
 
   # direct solver test

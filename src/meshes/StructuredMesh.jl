@@ -61,6 +61,7 @@ function StructuredMesh(element_type, mins, maxs, counts)
     element_types = Symbol[element_type]
     element_id_maps = Dict(:block_1 => 1:size(element_conns, 2) |> collect)
     element_conns = Dict(:block_1 => L2ElementField(element_conns))
+    # element_conns = Dict(:block_1 => element_conns)
     node_id_map = 1:size(nodal_coords, 2) |> collect
 
     element_conns = NamedTuple(element_conns)

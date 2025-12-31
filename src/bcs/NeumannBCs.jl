@@ -8,25 +8,24 @@ struct NeumannBC{F} <: AbstractBC{F}
   func::F
   sset_name::Symbol
   var_name::Symbol
+
+  """
+  $(TYPEDEF)
+  $(TYPEDSIGNATURES)
+  $(TYPEDFIELDS)
+  """
+  function NeumannBC(var_name::Symbol, func, sset_name::Symbol)
+    new{typeof(func)}(func, sset_name, var_name)
+  end
 end
 
-# TODO need to hack the var_name thing
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
-function NeumannBC(var_name::Symbol, sset_name::Symbol, func::Function)
-  return NeumannBC{typeof(func)}(func, sset_name, var_name)
-end
-
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-function NeumannBC(var_name::String, sset_name::String, func::Function)
-  return NeumannBC(Symbol(var_name), Symbol(sset_name), func)
+function NeumannBC(var_name::String, func::Function, sset_name::String)
+  return NeumannBC(Symbol(var_name), func, Symbol(sset_name))
 end
 
 """

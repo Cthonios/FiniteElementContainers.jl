@@ -59,11 +59,11 @@ function test_dirichlet_bc_container_init()
 end
 
 function test_neumann_bc_input()
-  bc = NeumannBC(:my_var, :my_sset, dummy_func_2)
+  bc = NeumannBC(:my_var, dummy_func_2, :my_sset)
   @test bc.var_name == :my_var
   @test bc.sset_name == :my_sset
   @test typeof(bc.func) == typeof(dummy_func_2)
-  bc = NeumannBC("my_var", "my_sset", dummy_func_1)
+  bc = NeumannBC("my_var", dummy_func_1, "my_sset")
   @test bc.var_name == :my_var
   @test bc.sset_name == :my_sset
   @test typeof(bc.func) == typeof(dummy_func_1)
@@ -74,19 +74,19 @@ function test_neumann_bc_container_init()
   fspace = FunctionSpace(mesh, H1Field, Lagrange)
   u = VectorFunction(fspace, :displ)
   dof = DofManager(u)
-  bc_in = NeumannBC(:displ, :sset_1, dummy_func_2)
+  bc_in = NeumannBC(:displ, dummy_func_2, :sset_1)
   bc = FiniteElementContainers.NeumannBCContainer(mesh, dof, bc_in)
   @show bc
 end
 
 function test_periodic_bc_input()
-  bc = PeriodicBC(:my_var, :x, :my_sset_1, :my_sset_2, dummy_func_1)
+  bc = PeriodicBC(:my_var, :x, dummy_func_1, :my_sset_1, :my_sset_2)
   @test bc.var_name == :my_var
   @test bc.direction == :x
   @test bc.side_a_sset == :my_sset_1
   @test bc.side_b_sset == :my_sset_2
   @test typeof(bc.func) == typeof(dummy_func_1)
-  bc = PeriodicBC("my_var", "x", "my_sset_1", "my_sset_2", dummy_func_1)
+  bc = PeriodicBC("my_var", "x", dummy_func_1, "my_sset_1", "my_sset_2")
   @test bc.var_name == :my_var
   @test bc.direction == :x
   @test bc.side_a_sset == :my_sset_1

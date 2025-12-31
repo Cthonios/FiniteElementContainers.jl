@@ -306,7 +306,7 @@ function _assemble_block!(
   ::KA.CPU,
   # field::AbstractArray{<:Number, 1}, 
   field,
-  conns::Connectivity, block_start_index::Int, block_el_level_size::Int,
+  conns::Conn, block_start_index::Int, block_el_level_size::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
@@ -315,6 +315,7 @@ function _assemble_block!(
   return_type::R
 ) where {
   T        <: Number,
+  Conn     <: AbstractArray,
   Solution <: AbstractField,
   S,       #<: L2QuadratureField
   R        <: AssembledReturnType
@@ -344,7 +345,7 @@ end
 KA.@kernel function _assemble_block_kernel!(
   # field::AbstractArray{<:Number, 1}, 
   field,
-  conns::Connectivity, block_start_index::Int, block_el_level_size::Int,
+  conns::Conn, block_start_index::Int, block_el_level_size::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
@@ -353,6 +354,7 @@ KA.@kernel function _assemble_block_kernel!(
   return_type::R
 ) where {
   T        <: Number,
+  Conn     <: AbstractArray,
   Solution <: AbstractField,
   S,       #<: L2QuadratureField
   R        <: AssembledReturnType

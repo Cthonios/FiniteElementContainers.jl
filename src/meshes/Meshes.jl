@@ -13,6 +13,22 @@ const elem_type_map = Dict{String, Type{<:ReferenceFiniteElements.AbstractElemen
   "TETRA10" => Tet10
 )
 
+const elem_type_map_2 = Dict{String, Type{<:ReferenceFiniteElements.AbstractElementType}}(
+  # "HEX"     => Hex8,
+  # "HEX8"    => Hex8,
+  # only support on simple mesh types for now
+  "QUAD"    => Quad,
+  "QUAD4"   => Quad,
+  # "QUAD9"   => Quad,
+  # "TRI"     => Tri3,
+  # "TRI3"    => Tri3,
+  # "TRI6"    => Tri6,
+  # "TET"     => Tet4,
+  # "TETRA"   => Tet4,
+  # "TETRA4"  => Tet4,
+  # "TETRA10" => Tet10
+) 
+
 # different mesh types
 abstract type AbstractMeshType end
 struct AbaqusMesh <: AbstractMeshType
@@ -69,54 +85,6 @@ struct FileMesh{MeshObj} <: AbstractMesh
   file_name::String
   mesh_obj::MeshObj
 end
-
-function _create_edges!(all_edges, block_edges, el_to_nodes, ref_fe)
-  local_edge_to_nodes = ref_fe.edge_nodes
-
-  # loop over all elements connectivity
-  for e in axes(el_to_nodes, 2)
-    el_nodes = el_to_nodes[:, e]
-    el_edges = map(x -> el_nodes[x], local_edge_to_nodes)
-    # loop over edges
-    local_edges = ()
-    for edge in el_edges
-      sorted_edge = sort(edge).data
-      if !haskey(all_edges, sorted_edge)
-        all_edges[sorted_edge] = length(all_edges) + 1
-        local_edges = (local_edges..., length(all_edges) + 1)
-      else
-        local_edges = (local_edges..., all_edges[sorted_edge])
-      end
-    end
-    push!(block_edges, local_edges)
-  end
-  return nothing
-end
-
-# this one isn't quite working
-# function _create_faces!(all_faces, block_faces, el_to_nodes, ref_fe)
-#   local_face_to_nodes = ref_fe.face_nodes
-#   # display(local_face_to_nodes)
-#   # loop over all elements connectivity
-#   for e in axes(el_to_nodes, 2)
-#     el_nodes = el_to_nodes[:, e]
-#     el_faces = map(x -> el_nodes[x], local_face_to_nodes)
-#     # display(el_faces)
-#     # loop over faces
-#     local_faces = ()
-#     for face in el_faces
-#       sorted_face = sort(face).data
-#       if !haskey(all_faces, sorted_face)
-#         all_faces[sorted_face] = length(all_faces)
-#         local_faces = (local_faces..., length(all_faces))
-#       else
-#         local_faces = (local_faces..., all_faces[sorted_face])
-#       end
-#     end
-#     push!(block_faces, local_faces)
-#   end
-#   return nothing
-# end
 
 # TODO might need to be careful about int types below
 function write_to_file(mesh::AbstractMesh, file_name::String; force::Bool = false)
@@ -180,5 +148,63 @@ function write_to_file(mesh::AbstractMesh, file_name::String; force::Bool = fals
   close(exo)
 end
 
+@inline _canonical_edge(i, j) = i < j ? (i, j) : (j, i)
+
+# coords coming in are nodal coords
+# TODO currently assumes linear elements coming in
+function _create_edges(conns)
+  edge_dict = Dict{NTuple{2, Int}, Int}()
+  edges = Dict{Symbol, Vector{NTuple{2, Int}}}()
+  elem2edge = Dict{Symbol, Matrix{Int}}()
+  edge2adjelem = Dict{Symbol, Vector{NTuple{2, Int}}}()
+  for (key, conns) in pairs(conns)
+    temp1, temp2, temp3 = _create_edges!(edge_dict, conns)
+    edges[key] = temp1
+    elem2edge[key] = temp2
+    edge2adjelem[key] = temp3
+  end
+  
+  edges = reduce(vcat, values(edges)) |> unique
+  return edges, elem2edge, edge2adjelem
+end
+
+# TODO currently assumes tri3 elements
+function _create_edges!(edge_dict, conns)
+    @assert size(conns, 1) == 3 "Only Tri3 elements supported currently"
+    edges = NTuple{2, Int}[]
+    elem2edge = Matrix{Int}(undef, 3, size(conns, 2))
+    edge2elem = NTuple{2, Int}[]
+
+    for e in axes(conns, 2)
+        n1, n2, n3 = conns[:, e]
+        local_edges = (
+            (n2, n3),
+            (n3, n1),
+            (n1, n2),
+        )
+
+        for le = 1:3
+            key = _canonical_edge(local_edges[le]...)
+        
+            if haskey(edge_dict, key)
+                edge_id = edge_dict[key]
+                eL, eR = edge2elem[edge_id]
+                @assert eR == -1  # no non-manifold edges
+                edge2elem[edge_id] = (eL, e)
+            else
+                edge_id = length(edges) + 1
+                edge_dict[key] = edge_id
+                push!(edges, key)
+                push!(edge2elem, (e, -1))
+            end
+        
+            elem2edge[le, e] = edge_id
+        end
+    end
+    return edges, elem2edge, edge2elem
+end
+
+
+include("AMRMesh.jl")
 include("StructuredMesh.jl")
 include("UnstructuredMesh.jl")
