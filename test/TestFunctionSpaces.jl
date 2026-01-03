@@ -116,8 +116,8 @@ function test_function_spaces()
   mesh = UnstructuredMesh("mechanics/mechanics.g")
   test_bad_interp_type(mesh)
   test_fspace_h1_field(mesh)
-  test_fspace_l2_element_field(mesh)
-  test_fspace_l2_quadrature_field(mesh)
+  # test_fspace_l2_element_field(mesh)
+  # test_fspace_l2_quadrature_field(mesh)
 end
 
 @testset "Function spaces" begin

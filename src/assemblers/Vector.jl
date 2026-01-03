@@ -25,12 +25,15 @@ function assemble_vector!(
   Δt = time_step(p.times)
   _update_for_assembly!(p, dof, Uu)
   return_type = AssembledVector()
+  conns = fspace.elem_conns.data
   for (
-    conns,
+    # conns,
+    nelem, coffset,
     block_physics, ref_fe,
     state_old, state_new, props
   ) in zip(
-    values(fspace.elem_conns), 
+    values(fspace.elem_conns.nelems),
+    values(fspace.elem_conns.offsets), 
     values(p.physics), values(fspace.ref_fes),
     values(p.state_old), values(p.state_new),
     values(p.properties)
@@ -38,7 +41,8 @@ function assemble_vector!(
     _assemble_block!(
       backend,
       storage,
-      conns, 0, 0, # NOTE these are never used for vectors
+      conns, nelem, coffset, 
+      0, 0, # NOTE these are never used for vectors
       # TODO eventually we'll need them if we want to use sparse vectors
       func,
       block_physics, ref_fe,

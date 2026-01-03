@@ -45,7 +45,8 @@ function _assemble_block_vector_neumann_bc!(
   ref_fe = bc.ref_fe
 
   for e in axes(conns, 2)
-    x_el = _element_level_fields(X, ref_fe, conns, e)
+    conn = @views conns[:, e]
+    x_el = _element_level_fields(X, ref_fe, conn)#s, e)
     R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
     side = bc.sides[e]
     for q in 1:num_quadrature_points(surface_element(ref_fe.element))
@@ -82,7 +83,8 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
   conns = bc.element_conns
   ref_fe = bc.ref_fe
 
-  x_el = _element_level_fields(X, ref_fe, conns, E)
+  conn = @views conns[:, E]
+  x_el = _element_level_fields(X, ref_fe, conn)#s, E)
   R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
   side = bc.sides[E]
 

@@ -90,7 +90,7 @@ function Parameters(
   state_old = Array{Float64, 3}[]
   # properties = []
   # state_old = L2QuadratureField[]
-  for (key, val) in pairs(physics)
+  for (b, (key, val)) in enumerate(pairs(physics))
     # create properties for this block physics
     # TODO specialize to allow for element level properties
     # push!(properties, create_properties(val))
@@ -100,11 +100,12 @@ function Parameters(
     NQ = ReferenceFiniteElements.num_quadrature_points(
       getfield(function_space(assembler.dof).ref_fes, key)
     )
-    NE = size(
-      getfield(function_space(assembler.dof).elem_conns, key),
-      # function_space(assembler.dof).elem_conns[key],
-      2
-    )
+    # NE = size(
+    #   getfield(function_space(assembler.dof).elem_conns, key),
+    #   # function_space(assembler.dof).elem_conns[key],
+    #   2
+    # )
+    NE = num_elements(function_space(assembler.dof), b)
 
     state_old_temp = zeros(NS, NQ, NE)
     for e in 1:NE

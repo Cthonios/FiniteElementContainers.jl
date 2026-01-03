@@ -181,7 +181,9 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
       # TODO we need to be careful for higher order elements
       # conns = Vector{eltype(new_elements)}(undef, 0)
       # TODO fix this to get blocks correctly
-      conns = values(fspace.elem_conns)[block][:, bk.elements]
+      # conns = values(fspace.elem_conns)[block][:, bk.elements]
+      # conns = connectivity(fspace, block)
+      conns = values(mesh.element_conns)[block][:, bk.elements]
       # @show size(conns)
       # display(conns)
       # TODO get field set up properly
@@ -204,9 +206,12 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
         end
       end
 
-      conns = Connectivity(conns)
-      # surface_conns = Connectivity{NNPS, length(new_bk.elements)}(surface_conns)
-      surface_conns = Connectivity{eltype(surface_conns), typeof(surface_conns), NNPS}(surface_conns)
+      # conns = Connectivity(conns)
+      # # surface_conns = Connectivity{NNPS, length(new_bk.elements)}(surface_conns)
+      # surface_conns = Connectivity{eltype(surface_conns), typeof(surface_conns), NNPS}(surface_conns)
+
+      conns = L2ElementField(conns)
+      surface_conns = L2ElementField{eltype(surface_conns), typeof(surface_conns), NNPS}(surface_conns)
 
       vals = zeros(SVector{ND, Float64}, NQ, length(bk.sides))
       # new_bc = NeumannBCContainer{

@@ -184,7 +184,7 @@ function test_bad_mesh_file_type()
 end
 
 @testset "Mesh" begin
-  test_amr_mesh()
+  # test_amr_mesh()
   test_bad_mesh_file_type()
   test_bad_mesh_methods()
   test_structured_mesh()

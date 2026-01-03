@@ -30,12 +30,13 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct FunctionSpace{
+  IT <: Integer,
+  IV <: AbstractVector{IT},
   Coords,
-  ElemConns,
   RefFEs
 } <: AbstractFunctionSpace
   coords::Coords
-  elem_conns::ElemConns
+  elem_conns::Connectivity{IT, IV}
   ref_fes::RefFEs
 end
 
@@ -80,67 +81,69 @@ function FunctionSpace(mesh::AbstractMesh, ::Type{H1Field}, interp_type, _)
     throw(ErrorException("Unssuported interp_type $interp_type"))
   end
 
-  # create dof conns arrays
+  conns = [values(mesh.element_conns)...]
+  conns = Connectivity(conns)
 
   return FunctionSpace(
     coords, 
-    mesh.element_conns,
+    # mesh.element_conns,
+    conns,
     ref_fes
   )
 end
 
 # TODO this isn't correct currently. Need to have coords be the element centroids,
 # not the collection of element level coordinates
-function FunctionSpace(mesh::AbstractMesh, ::Type{L2ElementField}, interp_type, _)
-  ref_fes = _setup_ref_fes(mesh, interp_type, 1) # 1 for element centroid. TODO will this work on all elements?
+# function FunctionSpace(mesh::AbstractMesh, ::Type{L2ElementField}, interp_type, _)
+#   ref_fes = _setup_ref_fes(mesh, interp_type, 1) # 1 for element centroid. TODO will this work on all elements?
 
-  coords_syms = Symbol[]
-  coords_vals = Array{Float64, 3}[]
+#   coords_syms = Symbol[]
+#   coords_vals = Array{Float64, 3}[]
 
-  # TODO fix this loop
-  for (n, (block_name, conns)) in enumerate(pairs(mesh.element_conns))
-    ref_fe = ref_fes[n]
-    X_elems = mesh.nodal_coords[:, conns]
-    coords_temp = _setup_quad_coords(mesh, X_elems, conns, ref_fe)
-    # recyling L2QuadratureField method below, just need the field/element slices
-    coords_temp = coords_temp[:, 1, :]
-    push!(coords_syms, block_name)
-    push!(coords_vals, X_elems)
-  end
+#   # TODO fix this loop
+#   for (n, (block_name, conns)) in enumerate(pairs(mesh.element_conns))
+#     ref_fe = ref_fes[n]
+#     X_elems = mesh.nodal_coords[:, conns]
+#     coords_temp = _setup_quad_coords(mesh, X_elems, conns, ref_fe)
+#     # recyling L2QuadratureField method below, just need the field/element slices
+#     coords_temp = coords_temp[:, 1, :]
+#     push!(coords_syms, block_name)
+#     push!(coords_vals, X_elems)
+#   end
 
-  coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
+#   coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
 
-  return FunctionSpace(
-    coords,
-    nothing, # TODO what makes sense here?
-    ref_fes
-  )
-end
+#   return FunctionSpace(
+#     coords,
+#     nothing, # TODO what makes sense here?
+#     ref_fes
+#   )
+# end
 
-# need to optimize this constructor
-function FunctionSpace(mesh::AbstractMesh, ::Type{L2QuadratureField}, interp_type, q_degree)
-  ref_fes = _setup_ref_fes(mesh, interp_type, q_degree)
+# # need to optimize this constructor
+# function FunctionSpace(mesh::AbstractMesh, ::Type{L2QuadratureField}, interp_type, q_degree)
+#   ref_fes = _setup_ref_fes(mesh, interp_type, q_degree)
 
-  coords_syms = Symbol[]
-  coords_vals = Array{Float64, 3}[]
+#   coords_syms = Symbol[]
+#   coords_vals = Array{Float64, 3}[]
 
-  for (n, (block_name, conns)) in enumerate(pairs(mesh.element_conns))
-    ref_fe = ref_fes[n]
-    X_elems = mesh.nodal_coords[:, conns]
-    coords_temp = _setup_quad_coords(mesh, X_elems, conns, ref_fe)
-    push!(coords_syms, block_name)
-    push!(coords_vals, coords_temp)
-  end
+#   for (n, (block_name, conns)) in enumerate(pairs(mesh.element_conns))
+#     ref_fe = ref_fes[n]
+#     X_elems = mesh.nodal_coords[:, conns]
+#     coords_temp = _setup_quad_coords(mesh, X_elems, conns, ref_fe)
+#     push!(coords_syms, block_name)
+#     push!(coords_vals, coords_temp)
+#   end
 
-  coords_vals = L2QuadratureField.(coords_vals)
-  coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
+#   coords_vals = L2QuadratureField.(coords_vals)
+#   coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
 
-  return FunctionSpace(
-    coords,
-    nothing, # TODO what makes sense here?
-    ref_fes
-  )
-end
+#   return FunctionSpace(
+#     coords,
+#     nothing, # TODO what makes sense here?
+#     ref_fes
+#   )
+# end
 
 # # TODO create default q_degrees for element types instead
 function FunctionSpace(mesh::AbstractMesh, space_type, interp_type; q_degree=nothing)
@@ -160,4 +163,16 @@ function Base.show(io::IO, fspace::FunctionSpace)
   for (key, ref_fe) in enumerate(fspace.ref_fes)
     println(io, "    Block: $key")
   end
+end
+
+function connectivity(fspace::FunctionSpace, b::Int)
+  return connectivity(fspace.elem_conns, b)
+end
+
+function num_blocks(fspace::FunctionSpace)
+  return num_blocks(fspace.elem_conns)
+end
+
+function num_elements(fspace::FunctionSpace, b::Int)
+  return num_elements(fspace.elem_conns, b)
 end

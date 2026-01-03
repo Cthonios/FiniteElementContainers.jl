@@ -47,7 +47,8 @@ function _assemble_element!(
   n_dofs = size(storage, 1)
   for d in axes(storage, 1)
     for n in axes(conns, 1)
-      global_id = n_dofs * (conns[n, el_id] - 1) + d
+      # global_id = n_dofs * (conns[n, el_id] - 1) + d
+      global_id = n_dofs * (conns[n] - 1) + d
       local_id = n_dofs * (n - 1) + d
       Atomix.@atomic storage.data[global_id] += R_el[local_id]
     end
@@ -110,6 +111,10 @@ end
 create_field(asm::AbstractAssembler) = create_field(asm.dof)
 create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
 
+@inline function _element_level_connectivity(conns, e)
+  return @views conns[:, e]
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -121,6 +126,14 @@ $(TYPEDSIGNATURES)
   return u_el
 end
 
+@inline function _element_level_fields(U::H1Field, ref_fe, conns)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns])
+  return u_el
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -129,6 +142,14 @@ $(TYPEDSIGNATURES)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
   NxNDof = NNPE * ND
   u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns[:, e]])
+  return u_el
+end
+
+@inline function _element_level_fields_flat(U::H1Field, ref_fe, conns)
+  ND = size(U, 1)
+  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+  NxNDof = NNPE * ND
+  u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns])
   return u_el
 end
 
@@ -306,7 +327,8 @@ function _assemble_block!(
   ::KA.CPU,
   # field::AbstractArray{<:Number, 1}, 
   field,
-  conns::Conn, block_start_index::Int, block_el_level_size::Int,
+  conns::Conn, nelem::Int, coffset::Int,
+  block_start_index::Int, block_el_level_size::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
@@ -321,10 +343,11 @@ function _assemble_block!(
   R        <: AssembledReturnType
 }
 
-  for e in axes(conns, 2)
-    x_el = _element_level_fields_flat(X, ref_fe, conns, e)
-    u_el = _element_level_fields_flat(U, ref_fe, conns, e)
-    u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
+  for e in 1:nelem
+    conn = connectivity(ref_fe, conns, e, coffset)
+    x_el = _element_level_fields_flat(X, ref_fe, conn)#s, e)
+    u_el = _element_level_fields_flat(U, ref_fe, conn)#s, e)
+    u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)#s, e)
     props_el = _element_level_properties(props, e)
     val_el = _element_scratch(return_type, ref_fe, U)
 
@@ -335,7 +358,7 @@ function _assemble_block!(
       val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
     end
-    _assemble_element!(field, val_el, conns, e, block_start_index, block_el_level_size)
+    _assemble_element!(field, val_el, conn, e, block_start_index, block_el_level_size)
   end
   return nothing
 end
@@ -345,7 +368,8 @@ end
 KA.@kernel function _assemble_block_kernel!(
   # field::AbstractArray{<:Number, 1}, 
   field,
-  conns::Conn, block_start_index::Int, block_el_level_size::Int,
+  conns::Conn, coffset::Int,
+  block_start_index::Int, block_el_level_size::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
@@ -360,10 +384,10 @@ KA.@kernel function _assemble_block_kernel!(
   R        <: AssembledReturnType
 }
   E = KA.@index(Global)
-
-  x_el = _element_level_fields_flat(X, ref_fe, conns, E)
-  u_el = _element_level_fields_flat(U, ref_fe, conns, E)
-  u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
+  conn = connectivity(ref_fe, conns, E, coffset)
+  x_el = _element_level_fields_flat(X, ref_fe, conn)
+  u_el = _element_level_fields_flat(U, ref_fe, conn)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
   props_el = _element_level_properties(props, E)
   val_el = _element_scratch(return_type, ref_fe, U)
   for q in 1:num_quadrature_points(ref_fe)
@@ -374,7 +398,7 @@ KA.@kernel function _assemble_block_kernel!(
     val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, E)
   end
 
-  _assemble_element!(field, val_el, conns, E, block_start_index, block_el_level_size)
+  _assemble_element!(field, val_el, conn, E, block_start_index, block_el_level_size)
 end
 # COV_EXCL_STOP
 
@@ -382,7 +406,8 @@ end
 function _assemble_block!(
   backend::KA.Backend, 
   field, 
-  conns, block_start_index, block_el_level_size,
+  conns, nelem, coffset::Int,
+  block_start_index, block_el_level_size,
   func,
   physics, ref_fe,
   X, t, dt, U, U_old, state_old, state_new, props,
@@ -391,14 +416,15 @@ function _assemble_block!(
   kernel! = _assemble_block_kernel!(backend)
   kernel!(
     field,
-    conns, block_start_index, block_el_level_size, 
+    conns, coffset,
+    block_start_index, block_el_level_size, 
     func,
     physics, ref_fe,
     X, t, dt,
     U, U_old, 
     state_old, state_new, props,
     return_type,
-    ndrange=size(conns, 2)
+    ndrange = nelem
   )
   return nothing
 end
@@ -416,12 +442,12 @@ function create_assembler_cache(
 )
   vals = L2ElementField[]
   fspace = function_space(asm.dof)
-  for (conn, ref_fe) in zip(values(fspace.elem_conns), values(fspace.ref_fes))
+  for (b, ref_fe) in enumerate(values(fspace.ref_fes))
     NQ = ReferenceFiniteElements.num_quadrature_points(ref_fe)
-    NE = size(conn, 2)
+    NE = num_elements(fspace, b)
     push!(vals, L2ElementField(zeros(Float64, NQ, NE)))
   end
-  return NamedTuple{keys(fspace.elem_conns)}(tuple(vals...))
+  return NamedTuple{keys(fspace.ref_fes)}(tuple(vals...))
 end
 
 function create_assembler_cache(

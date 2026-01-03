@@ -144,11 +144,12 @@ end
 # COV_EXCL_START
 KA.@kernel function _extract_field_unknowns_kernel!(
     Uu::V, 
-    dof::DofManager{false, IT, IDs, Var}, 
+    # dof::DofManager{false, IT, IDs, Var}, 
+    unknown_dofs::IDs,
     U::AbstractField
-) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
+) where {V <: AbstractVector{<:Number}, IDs}
     N = KA.@index(Global)
-    @inbounds Uu[N] = U[dof.unknown_dofs[N]]
+    @inbounds Uu[N] = U[unknown_dofs[N]]
 end
 # COV_EXCL_STOP
 
@@ -159,7 +160,7 @@ function _extract_field_unknowns!(
     backend::KA.Backend
 ) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
     kernel! = _extract_field_unknowns_kernel!(backend)
-    kernel!(Uu, dof, U, ndrange = length(Uu))
+    kernel!(Uu, dof.unknown_dofs, U, ndrange = length(Uu))
     return nothing
 end
 
@@ -219,36 +220,45 @@ function update_dofs!(dof::DofManager, dirichlet_dofs::V) where V <: AbstractArr
     return nothing
 end
 
-# COV_EXCL_START
-KA.@kernel function _update_field_unknowns_kernel!(
-    U::AbstractField, 
-    dof::DofManager{false, IT, IDs, Var}, 
-    Uu::V
-) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
-    N = KA.@index(Global)
-    @inbounds U.data[dof.unknown_dofs[N]] = Uu[N]
-end
-# COV_EXCL_STOP
+# # COV_EXCL_START
+# KA.@kernel function _update_field_unknowns_kernel!(
+#     U::AbstractField, 
+#     dof::DofManager{false, IT, IDs, Var}, 
+#     Uu::V
+# ) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
+#     N = KA.@index(Global)
+#     @inbounds U.data[dof.unknown_dofs[N]] = Uu[N]
+# end
+# # COV_EXCL_STOP
 
 # COV_EXCL_START
 KA.@kernel function _update_field_unknowns_kernel!(
     U::AbstractField, 
-    dof::DofManager{true, IT, IDs, Var}, 
-    Uu::V
-) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
+    # dof::DofManager{true, IT, IDs, Var}, 
+    unknown_dofs::IDs,
+    Uu::V,
+    flag::Bool
+) where {V <: AbstractVector{<:Number}, IDs}
     N = KA.@index(Global)
-    @inbounds U.data[dof.unknown_dofs[N]] = Uu[dof.unknown_dofs[N]]
+    if flag
+        @inbounds U.data[unknown_dofs[N]] = Uu[unknown_dofs[N]]
+    else
+        @inbounds U.data[unknown_dofs[N]] = Uu[N]
+    end
 end
 # COV_EXCL_STOP
   
 function _update_field_unknowns!(
     U::AbstractField, 
-    dof::DofManager, 
+    dof::DofManager{flag, IT, IDs, Var}, 
     Uu::T, 
     backend::KA.Backend
-) where T <: AbstractVector{<:Number}
+) where {
+    T <: AbstractVector{<:Number},
+    flag, IT, IDs, Var
+}
     kernel! = _update_field_unknowns_kernel!(backend)
-    kernel!(U, dof, Uu, ndrange = length(dof.unknown_dofs))
+    kernel!(U, dof.unknown_dofs, Uu, flag, ndrange = length(dof.unknown_dofs))
     return nothing
 end
   
