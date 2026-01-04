@@ -94,12 +94,12 @@ function test_structured_mesh()
     0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
     0.0 0.0 0.0 0.5 0.5 0.5 1.0 1.0 1.0
   ])
-  @test mesh.element_conns[:block_1] ≈ L2ElementField([
+  @test mesh.element_conns[:block_1] ≈ [
     1 4 2 5;
     2 5 3 6;
     5 8 6 9;
     4 7 5 8
-  ])
+  ]
   @test all(coords[2, mesh.nodeset_nodes[:bottom]] .≈ 0.)
   @test all(coords[1, mesh.nodeset_nodes[:right]] .≈ 1.)
   @test all(coords[2, mesh.nodeset_nodes[:top]] .≈ 1.)
@@ -115,11 +115,11 @@ function test_structured_mesh()
     0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
     0.0 0.0 0.0 0.5 0.5 0.5 1.0 1.0  1.0
   ])
-  @test mesh.element_conns[:block_1] ≈ L2ElementField([
+  @test mesh.element_conns[:block_1] ≈ [
     1 1 4 4 2 2 5 5;
     2 5 5 8 3 6 6 9;
     5 4 8 7 6 5 9 8
-  ])
+  ]
   @test all(coords[2, mesh.nodeset_nodes[:bottom]] .≈ 0.)
   @test all(coords[1, mesh.nodeset_nodes[:right]] .≈ 1.)
   @test all(coords[2, mesh.nodeset_nodes[:top]] .≈ 1.)

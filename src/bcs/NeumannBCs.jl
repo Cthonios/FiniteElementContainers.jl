@@ -38,19 +38,16 @@ struct NeumannBCContainer{
   IT <: Integer,
   IV <: AbstractArray{IT, 1},
   IM <: AbstractArray{IT, 2},
-  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  C1, # TODO specialize
-  C2, # TODO specialize
+  VV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
   RE <: ReferenceFE
 } <: AbstractBCContainer
-  # bookkeeping::BCBookKeeping{IT, IV, IM}
-  element_conns::C1  
+  element_conns::Connectivity{IT, IV}
   elements::IV
   side_nodes::IM
   sides::IV
-  surface_conns::C2
+  surface_conns::Connectivity{IT, IV}
   ref_fe::RE
-  vals::RV
+  vals::VV
 end
 
 function Adapt.adapt_structure(to, bc::NeumannBCContainer)
@@ -77,7 +74,8 @@ function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
   NN = num_vertices(bc.ref_fe)
   NNPS = num_vertices(surface_element(bc.ref_fe.element))
   for (n, e) in enumerate(bc.elements)
-    conn = @views bc.element_conns[:, n]
+    # conn = @views bc.element_conns[:, n]
+    conn = connectivity(bc.ref_fe, bc.element_conns.data, n, 1)
     X_el = SVector{ND * NN, eltype(X)}(@views X[:, conn])
     X_el = SMatrix{length(X_el) ÷ ND, ND, eltype(X_el), length(X_el)}(X_el...)
 
@@ -90,30 +88,39 @@ function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
   end
 end
 
-KA.@kernel function _update_bc_values_kernel!(bc::NeumannBCContainer, func, X, t)
+KA.@kernel function _update_bc_values_kernel!(
+  # bc::NeumannBCContainer, func, X, t
+  vals, func, X, t,
+  ref_fe, elements, element_conns, sides
+)
   ND = size(X, 1)
-  NN = num_vertices(bc.ref_fe)
-  NNPS = num_vertices(surface_element(bc.ref_fe.element))
+  NN = num_vertices(ref_fe)
+  NNPS = num_vertices(surface_element(ref_fe.element))
 
   Q, E = KA.@index(Global, NTuple)
   # E = KA.@index(Global)
-  el_id = bc.elements[E]
+  el_id = elements[E]
 
-  conn = @views bc.element_conns[:, E]
+  # conn = @views element_conns[:, E]
+  conn = connectivity(ref_fe, element_conns, E, 1)
   X_el = SVector{ND * NN, eltype(X)}(@views X[:, conn])
   X_el = SMatrix{length(X_el) ÷ ND, ND, eltype(X_el), length(X_el)}(X_el...)
 
   # for q in 1:num_quadrature_points(bc.ref_fe.surface_element)
-  side = bc.sides[E]
-  interps = MappedSurfaceInterpolants(bc.ref_fe, X_el, Q, side)
+  side = sides[E]
+  interps = MappedSurfaceInterpolants(ref_fe, X_el, Q, side)
   X_q = interps.X_q
-  bc.vals[Q, E] = func(X_q, t)
+  vals[Q, E] = func(X_q, t)
   # end
 end
 
 function _update_bc_values!(bc::NeumannBCContainer, func, X, t, backend::KA.Backend)
   kernel! = _update_bc_values_kernel!(backend)
-  kernel!(bc, func, X, t, ndrange=size(bc.vals))
+  kernel!(
+    bc.vals, func, X, t, 
+    bc.ref_fe, bc.elements, bc.element_conns.data, bc.sides,
+    ndrange = size(bc.vals)
+  )
 end
 
 struct NeumannBCs{
@@ -210,8 +217,9 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
       # # surface_conns = Connectivity{NNPS, length(new_bk.elements)}(surface_conns)
       # surface_conns = Connectivity{eltype(surface_conns), typeof(surface_conns), NNPS}(surface_conns)
 
-      conns = L2ElementField(conns)
-      surface_conns = L2ElementField{eltype(surface_conns), typeof(surface_conns), NNPS}(surface_conns)
+      conns = Connectivity([conns])
+      surface_conns = reshape(surface_conns, NNPS, length(surface_conns) ÷ NNPS)
+      surface_conns = Connectivity([surface_conns])
 
       vals = zeros(SVector{ND, Float64}, NQ, length(bk.sides))
       # new_bc = NeumannBCContainer{

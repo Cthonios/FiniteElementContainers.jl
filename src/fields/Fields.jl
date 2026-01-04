@@ -59,11 +59,6 @@ function num_fields(::AbstractField{T, N, D, NF}) where {T, N, D, NF}
 end
 
 # actual implementations
-include("H1Field.jl")
-include("L2ElementField.jl")
-include("L2QuadratureField.jl")
-
-include("L2Field.jl")
-
-# some specialization
 include("Connectivity.jl")
+include("H1Field.jl")
+include("L2Field.jl")

@@ -25,28 +25,23 @@ function assemble_matrix_action!(
   Δt = time_step(p.times)
   _update_for_assembly!(p, dof, Uu, Vu)
   return_type = AssembledVector()
-  conns = fspace.elem_conns.data
-  for (
-    nelem, coffset, 
-    block_physics, ref_fe,
-    state_old, state_new, props
-  ) in zip(
-    values(fspace.elem_conns.nelems),
-    values(fspace.elem_conns.offsets), 
+  conns = fspace.elem_conns
+  for (b, (
+    block_physics, ref_fe, props
+  )) in enumerate(zip(
     values(p.physics), values(fspace.ref_fes),
-    values(p.state_old), values(p.state_new),
     values(p.properties)
-  )
+  ))
     _assemble_block_matrix_action!(
       backend,
       storage,
-      conns, nelem, coffset,
+      conns.data, conns.nelems[b], conns.offsets[b],
       0, 0,
       func,
       block_physics, ref_fe,
       p.h1_coords, t, Δt,
       p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field,
-      state_old, state_new, props,
+      block_view(p.state_old, b), block_view(p.state_new, b), props,
       return_type
     )
   end

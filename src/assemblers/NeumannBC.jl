@@ -28,7 +28,8 @@ function assemble_vector_neumann_bc!(
     _assemble_block_vector_neumann_bc!(
       backend, storage,
       p.h1_field, p.h1_coords,
-      bc
+      bc.element_conns.data, bc.ref_fe, bc.sides, bc.vals,
+      bc.element_conns.nelems[1] 
     )
   end
 end
@@ -39,31 +40,28 @@ $(TYPEDSIGNATURES)
 function _assemble_block_vector_neumann_bc!(
   ::KA.CPU,
   field::AbstractField, U::AbstractField, X::AbstractField,
-  bc::NeumannBCContainer
+  conns, ref_fe, sides, vals, nelem
 )
-  conns = bc.element_conns
-  ref_fe = bc.ref_fe
-
-  for e in axes(conns, 2)
-    conn = @views conns[:, e]
+  for e in 1:nelem
+    conn = connectivity(ref_fe, conns, e, 1)
     x_el = _element_level_fields(X, ref_fe, conn)#s, e)
     R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
-    side = bc.sides[e]
+    side = sides[e]
     for q in 1:num_quadrature_points(surface_element(ref_fe.element))
       interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)
       Nvec = interps.N_reduced
       JxW = interps.JxW
 
       # TODO Clean this up
-      f_val = bc.vals[q, e]
+      f_val = vals[q, e]
       if length(f_val) == 1
         f_val = f_val[1]
       end
 
       R_el = R_el + JxW * Nvec * f_val
     end
-
-    @views _assemble_element!(field, R_el, bc.surface_conns, e, 0, 0)
+    surf_conns = surface_connectivity(ref_fe, conns, e, 1)
+    @views _assemble_element!(field, R_el, surf_conns, e, 0, 0)
   end
 end
 
@@ -76,17 +74,14 @@ TODO mark const fields
 # COV_EXCL_START
 KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
   field::AbstractField, U::AbstractField, X::AbstractField,
-  bc::NeumannBCContainer
+  conns, ref_fe, sides, vals
 )
-
   E = KA.@index(Global)
-  conns = bc.element_conns
-  ref_fe = bc.ref_fe
 
-  conn = @views conns[:, E]
+  conn = connectivity(ref_fe, conns, E, 1)
   x_el = _element_level_fields(X, ref_fe, conn)#s, E)
   R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
-  side = bc.sides[E]
+  side = sides[E]
 
   for q in 1:num_quadrature_points(surface_element(ref_fe.element))
     interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)
@@ -94,7 +89,7 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
     JxW = interps.JxW
 
     # TODO Clean this up
-    f_val = bc.vals[q, E]
+    f_val = vals[q, E]
     if length(f_val) == 1
       f_val = f_val[1]
     end
@@ -102,7 +97,8 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
     R_el = R_el + JxW * Nvec * f_val
   end
 
-  _assemble_element!(field, R_el, bc.surface_conns, E, 0, 0)
+  surf_conns = surface_connectivity(ref_fe, conns, E, 1)
+  _assemble_element!(field, R_el, surf_conns, E, 0, 0)
 end
 # COV_EXCL_STOP
 
@@ -113,11 +109,13 @@ function _assemble_block_vector_neumann_bc!(
   backend::KA.Backend,
   field::AbstractField, 
   U::AbstractField, X::AbstractField,
-  bc::NeumannBCContainer
+  conns, ref_fe, sides, vals, nelem
 )
   kernel! = _assemble_block_vector_neumann_bc_kernel!(backend)
   kernel!(
-    field, U, X, bc, ndrange=size(bc.vals, 2)
+    field, U, X,
+    conns, ref_fe, sides, vals,
+    ndrange = nelem
   )
   return nothing
 end

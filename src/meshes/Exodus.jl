@@ -198,7 +198,7 @@ function PostProcessor(
   for var in vars
     if isa(var.fspace.coords, H1Field)
       append!(nodal_var_names, names(var))
-    elseif isa(var.fspace.coords, L2ElementField)
+    elseif isa(var.fspace.coords, L2Field)
       append!(element_var_names, names(var))
     # L2QuadratureField case below
     elseif isa(var.fspace.coords, NamedTuple)

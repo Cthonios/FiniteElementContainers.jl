@@ -19,8 +19,7 @@ struct Parameters{
   DBCFuncs <: NamedTuple,
   NBCs <: NeumannBCs,
   Phys <: NamedTuple, 
-  Props <: NamedTuple, 
-  S <: NamedTuple, 
+  Props <: NamedTuple,  
   NDims,
   NH1Fields
 } <: AbstractParameters
@@ -31,8 +30,8 @@ struct Parameters{
   times::TimeStepper{RV}
   physics::Phys
   properties::Props
-  state_old::S
-  state_new::S
+  state_old::L2Field{RT, RV}
+  state_new::L2Field{RT, RV}
   h1_coords::H1Field{RT, RV, NDims}
   h1_field::H1Field{RT, RV, NH1Fields}
   h1_field_old::H1Field{RT, RV, NH1Fields}
@@ -64,12 +63,8 @@ function Parameters(
   h1_field_old = create_field(assembler)
   h1_hvp = create_field(assembler)
 
-  # TODO
-  # properties = nothing
-
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
-    # syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
     syms = keys(function_space(assembler.dof).ref_fes)
     physics = map(x -> physics, syms)
     physics = NamedTuple{tuple(syms...)}(tuple(physics...))
@@ -79,7 +74,6 @@ function Parameters(
   end
 
   if isa(properties, AbstractArray)
-    # syms = keys(values(assembler.dof.H1_vars)[1].fspace.elem_conns)
     syms = keys(function_space(assembler.dof).ref_fes)
     properties = map(x -> properties, syms)
     properties = NamedTuple{tuple(syms...)}(tuple(properties...))
@@ -88,23 +82,12 @@ function Parameters(
   end
 
   state_old = Array{Float64, 3}[]
-  # properties = []
-  # state_old = L2QuadratureField[]
   for (b, (key, val)) in enumerate(pairs(physics))
-    # create properties for this block physics
-    # TODO specialize to allow for element level properties
-    # push!(properties, create_properties(val))
-
     # create state variables for this block physics
     NS = num_states(val)
     NQ = ReferenceFiniteElements.num_quadrature_points(
       getfield(function_space(assembler.dof).ref_fes, key)
     )
-    # NE = size(
-    #   getfield(function_space(assembler.dof).elem_conns, key),
-    #   # function_space(assembler.dof).elem_conns[key],
-    #   2
-    # )
     NE = num_elements(function_space(assembler.dof), b)
 
     state_old_temp = zeros(NS, NQ, NE)
@@ -113,17 +96,16 @@ function Parameters(
         state_old_temp[:, q, e] = create_initial_state(val)
       end
     end
-    # state_old_temp = L2QuadratureField(state_old_temp)
-
     push!(state_old, state_old_temp)
   end
 
-  # properties = NamedTuple{keys(physics)}(tuple(properties...))
-
   state_new = deepcopy(state_old)
-  state_old = NamedTuple{keys(physics)}(tuple(state_old...))
-  state_new = NamedTuple{keys(physics)}(tuple(state_new...))
+  # state_old = NamedTuple{keys(physics)}(tuple(state_old...))
+  # state_new = NamedTuple{keys(physics)}(tuple(state_new...))
   
+  state_old = L2Field(state_old)
+  state_new = L2Field(state_new)
+
   ics = InitialConditions(
     mesh, assembler.dof, ics
   )
@@ -209,7 +191,7 @@ function Base.show(io::IO, parameters::Parameters)
     println(io, physics)
     println(io, "Props = $props")
   end
-  println("Number of active state variables = $(mapreduce(x -> length(x), sum, values(parameters.state_old)))")
+  println("Number of active state variables = $(length(parameters.state_old.data))")
 end
 
 function create_parameters(

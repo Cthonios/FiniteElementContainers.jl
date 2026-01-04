@@ -61,7 +61,7 @@ function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::B
   el_types = Symbol.(element_type.((file,), el_block_ids))
   el_conns = element_connectivity.((file,), el_block_ids)
   # el_conns = Dict(zip(el_block_names, el_conns))
-  el_conns = map(L2ElementField, el_conns)
+  # el_conns = map(L2ElementField, el_conns)
   el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
   el_id_maps = element_block_id_map.((file,), el_block_ids)
   el_id_maps = Dict(zip(el_block_names, el_id_maps))

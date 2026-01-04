@@ -1,14 +1,17 @@
 """
 $(TYPEDEF)
 """
-struct Connectivity{T <: Integer, D <: AbstractVector{T}}# <: AbstractArray{T, 1}
+struct Connectivity{
+    T <: Integer, 
+    D <: AbstractVector{T}
+}
     data::D
     nepes::Vector{T}
     nelems::Vector{T}
     offsets::Vector{T}
 end
 
-function Connectivity(mats::Vector{<:AbstractArray})
+function Connectivity(mats::Vector{<:AbstractArray{<:Integer, 2}})
     nepes = map(x -> size(x, 1), mats)
     nelems = map(x -> size(x, 2), mats)
     offsets = Vector{eltype(nepes)}(undef, 0)
@@ -51,4 +54,13 @@ end
 
 function num_elements(conn::Connectivity, b::Int)
     return conn.nelems[b]
+end
+
+@inline function surface_connectivity(ref_fe::ReferenceFE, conn_data, e::Int, boffset::Int)
+    NNPE = ReferenceFiniteElements.num_vertices(
+        ReferenceFiniteElements.surface_element(ref_fe.element)
+    )
+    base = boffset + (e - 1) * NNPE
+    data = ntuple(i -> conn_data[base + i - 1], NNPE)
+    return SVector{NNPE, Int}(data)
 end

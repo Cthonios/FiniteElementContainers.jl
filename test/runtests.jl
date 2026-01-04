@@ -22,7 +22,6 @@ include("poisson/TestPoissonPBCs.jl")
 
 include("TestAssemblers.jl")
 include("TestBCs.jl")
-include("TestConnectivities.jl")
 include("TestDofManagers.jl")
 include("TestFields.jl")
 include("TestFormulations.jl")

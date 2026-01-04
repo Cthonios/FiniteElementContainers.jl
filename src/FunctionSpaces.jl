@@ -72,82 +72,36 @@ function _setup_quad_coords(mesh, X, conns, ref_fe)
   return coords_temp
 end
 
-function FunctionSpace(mesh::AbstractMesh, ::Type{H1Field}, interp_type, _)
-  ref_fes = _setup_ref_fes(mesh, interp_type)#, q_degree)
-
-  if interp_type == Lagrange
-    coords = mesh.nodal_coords
-  else
-    throw(ErrorException("Unssuported interp_type $interp_type"))
-  end
+function FunctionSpace(
+  mesh::AbstractMesh, ::Type{H1Field}, ::Type{Lagrange}; 
+  q_degree = nothing
+)
+  ref_fes = _setup_ref_fes(mesh, Lagrange, q_degree)
 
   conns = [values(mesh.element_conns)...]
   conns = Connectivity(conns)
 
-  return FunctionSpace(
-    coords, 
-    # mesh.element_conns,
-    conns,
-    ref_fes
-  )
+  return FunctionSpace(mesh.nodal_coords, conns, ref_fes)
 end
 
-# TODO this isn't correct currently. Need to have coords be the element centroids,
-# not the collection of element level coordinates
-# function FunctionSpace(mesh::AbstractMesh, ::Type{L2ElementField}, interp_type, _)
-#   ref_fes = _setup_ref_fes(mesh, interp_type, 1) # 1 for element centroid. TODO will this work on all elements?
+function FunctionSpace(
+  mesh::AbstractMesh, ::Type{L2Field}, ::Type{Lagrange};
+  q_degree = nothing
+)
+  ref_fes = _setup_ref_fes(mesh, Lagrange, q_degree)
 
-#   coords_syms = Symbol[]
-#   coords_vals = Array{Float64, 3}[]
+  conns = [values(mesh.element_conns)...]
+  coords = L2Field(map(x -> mesh.nodal_coords[:, x], [values(mesh.element_conns)...]))
 
-#   # TODO fix this loop
-#   for (n, (block_name, conns)) in enumerate(pairs(mesh.element_conns))
-#     ref_fe = ref_fes[n]
-#     X_elems = mesh.nodal_coords[:, conns]
-#     coords_temp = _setup_quad_coords(mesh, X_elems, conns, ref_fe)
-#     # recyling L2QuadratureField method below, just need the field/element slices
-#     coords_temp = coords_temp[:, 1, :]
-#     push!(coords_syms, block_name)
-#     push!(coords_vals, X_elems)
-#   end
+  new_conns = Array{Int, 2}[]
+  offset = 1
+  for conn in conns
+    push!(new_conns, reshape(offset:offset + length(conn) - 1, size(conn)...))
+    offset += size(conn, 1) * size(conn, 2)
+  end
+  conns = Connectivity(new_conns)
 
-#   coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
-
-#   return FunctionSpace(
-#     coords,
-#     nothing, # TODO what makes sense here?
-#     ref_fes
-#   )
-# end
-
-# # need to optimize this constructor
-# function FunctionSpace(mesh::AbstractMesh, ::Type{L2QuadratureField}, interp_type, q_degree)
-#   ref_fes = _setup_ref_fes(mesh, interp_type, q_degree)
-
-#   coords_syms = Symbol[]
-#   coords_vals = Array{Float64, 3}[]
-
-#   for (n, (block_name, conns)) in enumerate(pairs(mesh.element_conns))
-#     ref_fe = ref_fes[n]
-#     X_elems = mesh.nodal_coords[:, conns]
-#     coords_temp = _setup_quad_coords(mesh, X_elems, conns, ref_fe)
-#     push!(coords_syms, block_name)
-#     push!(coords_vals, coords_temp)
-#   end
-
-#   coords_vals = L2QuadratureField.(coords_vals)
-#   coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
-
-#   return FunctionSpace(
-#     coords,
-#     nothing, # TODO what makes sense here?
-#     ref_fes
-#   )
-# end
-
-# # TODO create default q_degrees for element types instead
-function FunctionSpace(mesh::AbstractMesh, space_type, interp_type; q_degree=nothing)
-  return FunctionSpace(mesh, space_type, interp_type, q_degree)
+  return FunctionSpace(coords, conns, ref_fes)
 end
 
 function Adapt.adapt_structure(to, fspace::FunctionSpace)

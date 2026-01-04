@@ -31,31 +31,23 @@ function assemble_matrix!(
   dt = time_step(p.times)
   _update_for_assembly!(p, dof, Uu)
   return_type = AssembledMatrix()
-  conns = fspace.elem_conns.data
-  for (
-    nelem, coffset,
-    block_start_index, block_el_level_size,
-    block_physics, ref_fe, 
-    state_old, state_new, props
-  ) in zip(
-    values(fspace.elem_conns.nelems),
-    values(fspace.elem_conns.offsets), 
-    values(pattern.block_start_indices),
-    values(pattern.block_el_level_sizes),
+  conns = fspace.elem_conns
+  for (b, (
+    block_physics, ref_fe, props
+  )) in enumerate(zip(
     values(p.physics), values(fspace.ref_fes),
-    values(p.state_old), values(p.state_new),
     values(p.properties),
-  )
+  ))
     _assemble_block!(
       backend,
       storage,
-      conns, nelem, coffset,       
-      block_start_index, block_el_level_size,
+      conns.data, conns.nelems[b], conns.offsets[b],
+      pattern.block_start_indices[b], pattern.block_el_level_sizes[b],
       func,
       block_physics, ref_fe,
       p.h1_coords, t, dt,
       p.h1_field, p.h1_field_old, 
-      state_old, state_new, props,
+      block_view(p.state_old, b), block_view(p.state_new, b), props,
       return_type
     )
   end

@@ -170,14 +170,6 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_level_properties(props::L2ElementField, e::Int)
-  props_e = @views SVector{size(props, 1), eltype(props)}(props[:, e])
-  return props_e
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
 @inline function _element_scratch_matrix(ref_fe, U)
   ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
@@ -440,12 +432,12 @@ function create_assembler_cache(
   asm::AbstractAssembler,
   ::AssembledScalar
 )
-  vals = L2ElementField[]
+  vals = Matrix{Float64}[]
   fspace = function_space(asm.dof)
   for (b, ref_fe) in enumerate(values(fspace.ref_fes))
     NQ = ReferenceFiniteElements.num_quadrature_points(ref_fe)
     NE = num_elements(fspace, b)
-    push!(vals, L2ElementField(zeros(Float64, NQ, NE)))
+    push!(vals, zeros(Float64, NQ, NE))
   end
   return NamedTuple{keys(fspace.ref_fes)}(tuple(vals...))
 end
