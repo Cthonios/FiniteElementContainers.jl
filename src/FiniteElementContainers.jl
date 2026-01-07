@@ -30,8 +30,7 @@ export connectivity
 
 # Fields
 export H1Field
-export L2ElementField
-export L2QuadratureField
+export L2Field
 
 # DofManager
 export DofManager
@@ -101,7 +100,6 @@ export nodeset_names
 export num_dimensions
 export num_fields
 export num_nodes
-export num_nodes_per_element
 export sideset
 export sidesets
 export sideset_ids

@@ -38,7 +38,7 @@ function SparseMatrixPattern(dof::DofManager)
   n_total_dofs = NN * ND
 
   fspace = function_space(dof)
-  n_blocks = length(fspace.ref_fes)
+  n_blocks = num_blocks(fspace)
 
   # first get total number of entries in a stupid manner
   n_entries = 0
@@ -48,16 +48,18 @@ function SparseMatrixPattern(dof::DofManager)
   # for (n, conn) in enumerate(values(dof.H1_vars[1].fspace.elem_conns))
   start_carry = 1
   ids = reshape(1:n_total_dofs, ND, NN)
-  for (n, conn) in enumerate(values(fspace.elem_conns))
+  # for (n, conn) in enumerate(values(fspace.elem_conns))
+  for b in 1:num_blocks(fspace)
     # ids = reshape(1:n_total_dofs, ND, NN)
     # TODO do we need this operation?
+    conn = connectivity(fspace, b)
     conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
     n_entries += size(conn, 1)^2 * size(conn, 2)
 
-    block_start_indices[n] = start_carry
+    block_start_indices[b] = start_carry
   
     start_carry = start_carry + size(conn, 1)^2 * size(conn, 2)
-    block_el_level_sizes[n] = size(conn, 1)^2
+    block_el_level_sizes[b] = size(conn, 1)^2
   end
 
   # setup pre-allocated arrays based on number of entries found above
@@ -67,7 +69,9 @@ function SparseMatrixPattern(dof::DofManager)
 
   # now loop over function spaces and elements
   n = 1
-  for conn in values(fspace.elem_conns)
+  # for conn in values(fspace.elem_conns)
+  for b in 1:num_blocks(fspace)
+    conn = connectivity(fspace, b)
     # ids = reshape(1:n_total_dofs, ND, NN)
     # TODO do we need this?
     block_conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
@@ -166,7 +170,8 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
   fspace = function_space(dof)
 
   n = 1
-  for conns in values(fspace.elem_conns)
+  for b in 1:num_blocks(fspace)
+    conns = connectivity(fspace, b)
     dof_conns = @views reshape(ids[:, conns], ND * size(conns, 1), size(conns, 2))
 
     for e in 1:size(conns, 2)
@@ -217,7 +222,8 @@ function SparseVectorPattern(dof::DofManager)
   fspace = function_space(dof)
 
   n_entries = 0
-  for (n, conn) in enumerate(values(fspace.elem_conns))
+  for b in 1:num_blocks(fspace)
+    conn = connectivity(fspace, b)
     # TODO do we need this operation?
     conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
     n_entries += size(conn, 1) * size(conn, 2)
@@ -228,7 +234,8 @@ function SparseVectorPattern(dof::DofManager)
   unknown_dofs = Vector{Int64}(undef, n_entries)
 
   n = 1
-  for conn in values(fspace.elem_conns)
+  for b in 1:num_blocks(fspace)
+    conn = connectivity(fspace, b)
     block_conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
 
     for e in axes(block_conn, 2)

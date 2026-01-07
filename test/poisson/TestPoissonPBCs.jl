@@ -23,8 +23,8 @@ function test_poisson_pbcs()
     p = create_parameters(mesh, asm, physics, props)
 
     pbcs = PeriodicBCs(mesh, dof, PeriodicBC[
-        PeriodicBC(:u, :x, :sset_1, :sset_3, zero_func)
-        PeriodicBC(:u, :y, :sset_2, :sset_4, zero_func)
+        PeriodicBC(:u, :x, zero_func, :sset_1, :sset_3)
+        PeriodicBC(:u, :y, zero_func, :sset_2, :sset_4)
     ])
 
     U = create_unknowns(dof)

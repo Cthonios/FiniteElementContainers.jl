@@ -31,9 +31,10 @@ f(_, _) = 0.0
 one_func(_, _) = 1.0
 zero_func(_, _) = 0.0
 
-function simulate()
+# function simulate()
     # load a mesh
-    mesh = UnstructuredMesh("mug.e")
+    mesh_file = Base.source_dir() * "/mug.e"
+    mesh = UnstructuredMesh(mesh_file)
     V = FunctionSpace(mesh, H1Field, Lagrange)
     physics = Poisson(f)
     props = create_properties(physics)
@@ -71,6 +72,6 @@ function simulate()
     write_times(pp, 1, 0.0)
     write_field(pp, 1, ("u",), U)
     close(pp)
-end
+# end
 
-simulate()
+# simulate()

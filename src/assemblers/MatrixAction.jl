@@ -25,25 +25,23 @@ function assemble_matrix_action!(
   Δt = time_step(p.times)
   _update_for_assembly!(p, dof, Uu, Vu)
   return_type = AssembledVector()
-  for (
-    conns, 
-    block_physics, ref_fe,
-    state_old, state_new, props
-  ) in zip(
-    values(fspace.elem_conns), 
+  conns = fspace.elem_conns
+  for (b, (
+    block_physics, ref_fe, props
+  )) in enumerate(zip(
     values(p.physics), values(fspace.ref_fes),
-    values(p.state_old), values(p.state_new),
     values(p.properties)
-  )
+  ))
     _assemble_block_matrix_action!(
       backend,
       storage,
-      conns, 0, 0,
+      conns.data, conns.nelems[b], conns.offsets[b],
+      0, 0,
       func,
       block_physics, ref_fe,
       p.h1_coords, t, Δt,
       p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field,
-      state_old, state_new, props,
+      block_view(p.state_old, b), block_view(p.state_new, b), props,
       return_type
     )
   end
@@ -62,7 +60,8 @@ TODO improve typing of fields to ensure they mathc up in terms of function
 function _assemble_block_matrix_action!(
   ::KA.CPU,
   field::AbstractField, 
-  conns::Connectivity, b1, b2,
+  conns::Conn, nelem, coffset,
+  b1, b2,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
@@ -71,14 +70,16 @@ function _assemble_block_matrix_action!(
   return_type
 ) where {
   T        <: Number,
+  Conn     <: AbstractArray,
   Solution <: AbstractField,
   S        #<: L2QuadratureField
 }
-  for e in axes(conns, 2)
-    x_el = _element_level_fields_flat(X, ref_fe, conns, e)
-    u_el = _element_level_fields_flat(U, ref_fe, conns, e)
-    u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, e)
-    v_el = _element_level_fields_flat(V, ref_fe, conns, e)
+  for e in 1:nelem
+    conn = connectivity(ref_fe, conns, e, coffset)
+    x_el = _element_level_fields_flat(X, ref_fe, conn)#s, e)
+    u_el = _element_level_fields_flat(U, ref_fe, conn)#s, e)
+    u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)#s, e)
+    v_el = _element_level_fields_flat(V, ref_fe, conn)#s, e)
     props_el = _element_level_properties(props, e)
     K_el = _element_scratch_matrix(ref_fe, U)
     for q in 1:num_quadrature_points(ref_fe)
@@ -91,7 +92,7 @@ function _assemble_block_matrix_action!(
     Kv_el = K_el * v_el
     # @views _assemble_element!(field, Kv_el, conns[:, e])
     # zeros aren't need for this case of this method
-    @views _assemble_element!(field, Kv_el, conns, e, 0, 0)
+    @views _assemble_element!(field, Kv_el, conn, e, 0, 0)
   end
 end
 
@@ -106,7 +107,8 @@ TODO mark const fields
 # COV_EXCL_START
 KA.@kernel function _assemble_block_matrix_action_kernel!(
   field::AbstractField, 
-  conns::Connectivity, b1, b2,
+  conns::Conn, coffset,
+  b1, b2,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
@@ -115,15 +117,16 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
   return_type
 ) where {
   T        <: Number,
+  Conn     <: AbstractArray,
   Solution <: AbstractField,
   S        #<: L2QuadratureField
 }
   E = KA.@index(Global)
-
-  x_el = _element_level_fields_flat(X, ref_fe, conns, E)
-  u_el = _element_level_fields_flat(U, ref_fe, conns, E)
-  u_el_old = _element_level_fields_flat(U_old, ref_fe, conns, E)
-  v_el = _element_level_fields_flat(V, ref_fe, conns, E)
+  conn = connectivity(ref_fe, conn, E, coffset)
+  x_el = _element_level_fields_flat(X, ref_fe, conn)#s, E)
+  u_el = _element_level_fields_flat(U, ref_fe, conn)#s, E)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)#s, E)
+  v_el = _element_level_fields_flat(V, ref_fe, conn)#s, E)
   props_el = _element_level_properties(props, E)
   K_el = _element_scratch_matrix(ref_fe, U)
   for q in 1:num_quadrature_points(ref_fe)
@@ -146,7 +149,7 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
   # end
   # zeros are there since that method needs ints for
   # matrix case
-  _assemble_element!(field, Kv_el, conns, E, 0, 0)
+  _assemble_element!(field, Kv_el, conn, E, 0, 0)
 end
 # COV_EXCL_STOP
 
@@ -160,7 +163,8 @@ TODO add state variables and physics properties
 function _assemble_block_matrix_action!(
   backend::KA.Backend,
   field::AbstractField, 
-  conns::Connectivity, b1, b2,
+  conns::Conn, nelem, coffset,
+  b1, b2,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
@@ -169,20 +173,22 @@ function _assemble_block_matrix_action!(
   return_type
 ) where {
   T        <: Number,
+  Conn     <: AbstractArray,
   Solution <: AbstractField,
   S        #<: L2QuadratureField
 }
   kernel! = _assemble_block_matrix_action_kernel!(backend)
   kernel!(
     field, 
-    conns, b1, b2,
+    conns, coffset,
+    b1, b2,
     func,
     physics, ref_fe, 
     X, t, Δt,
     U, U_old, V, 
     state_old, state_new, props, t, Δt,
     return_type,
-    ndrange=size(conns, 2)
+    ndrange = nelem
   )
   return nothing
 end

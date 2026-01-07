@@ -377,7 +377,8 @@ function test_formulations()
     0.0 1.0
   ]'
   ref_fe = ReferenceFE(Quad4{Lagrange, 1}())
-  ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
+  ∇N_X = ReferenceFiniteElements.MappedInterpolants(ref_fe, X, 1).∇N_X
+  # ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
   ∇u_q = SMatrix{2, 2, Float64, 4}((1., 2., 3., 4.))
   A_q = Tensor{4, 3, Float64, 81}(reshape(1:81, 9, 9)')
   test_incompressible_plane_stress(∇N_X, ∇u_q, A_q)
@@ -393,7 +394,8 @@ function test_formulations()
     0.0 1.0 1.0;
   ]'
   ref_fe = ReferenceFE(Hex8{Lagrange, 1}())
-  ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
+  # ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
+  ∇N_X = ReferenceFiniteElements.MappedInterpolants(ref_fe, X, 1).∇N_X
   ∇u_q = SMatrix{3, 3, Float64, 9}((1., 2., 3., 4., 5., 6., 7., 8., 9.))
   test_three_dimensional(∇N_X, ∇u_q, A_q)
 end

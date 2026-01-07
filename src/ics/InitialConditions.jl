@@ -5,14 +5,14 @@ struct InitialCondition{F} <: AbstractInitialCondition{F}
     block_name::Symbol
     func::F
     var_name::Symbol
+
+    function InitialCondition(var_name::Symbol, func, block_name::Symbol)
+        new{typeof(func)}(block_name, func, var_name)
+    end
 end
 
-function InitialCondition(var_name::Symbol, block_name::Symbol, func::Function)
-    return InitialCondition(block_name, func, var_name)
-end
-
-function InitialCondition(var_name::String, block_name::String, func::Function)
-    return InitialCondition(Symbol(var_name), Symbol(block_name), func)
+function InitialCondition(var_name::String, func::Function, block_name::String)
+    return InitialCondition(Symbol(var_name), func, Symbol(block_name))
 end
 
 struct InitialConditionContainer{

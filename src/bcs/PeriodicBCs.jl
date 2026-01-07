@@ -8,8 +8,9 @@ end
 
 function PeriodicBC(
     var_name::String, direction::String, 
+    func,
     side_a_sset::String, side_b_sset::String,
-    func
+    # func
 )
     return PeriodicBC(
         Symbol(direction), func, 
@@ -20,8 +21,9 @@ end
 
 function PeriodicBC(
     var_name::Symbol, direction::Symbol, 
+    func,
     side_a_sset::Symbol, side_b_sset::Symbol,
-    func
+    # func
 )
     return PeriodicBC(direction, func, side_a_sset, side_b_sset, var_name)
 end

@@ -1,3 +1,21 @@
+# const default_p = Dict{String, Int}(
+
+# )
+const _default_q = Dict{String, Int}(
+  "HEX"     => 2,
+  "HEX8"    => 2,
+  "QUAD"    => 2,
+  "QUAD4"   => 2,
+  "QUAD9"   => 2,
+  "TRI"     => 2,
+  "TRI3"    => 2,
+  "TRI6"    => 2,
+  "TET"     => 2,
+  "TETRA"   => 2,
+  "TETRA4"  => 2,
+  "TETRA10" => 2
+)
+
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -12,20 +30,24 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct FunctionSpace{
+  IT <: Integer,
+  IV <: AbstractVector{IT},
   Coords,
-  ElemConns,
   RefFEs
 } <: AbstractFunctionSpace
   coords::Coords
-  elem_conns::ElemConns
+  elem_conns::Connectivity{IT, IV}
   ref_fes::RefFEs
 end
 
-function _setup_ref_fes(mesh::AbstractMesh, interp_type, q_degree)
+function _setup_ref_fes(mesh::AbstractMesh, interp_type, q_degree = nothing)
   block_names = mesh.element_block_names
   ref_fes = ReferenceFE[]
   for elem_name in mesh.element_types
     elem_type = elem_type_map[uppercase(String(elem_name))]
+    if q_degree === nothing
+      q_degree = _default_q[uppercase(String(elem_name))]
+    end
     ref_fe = ReferenceFE(elem_type{interp_type, q_degree}())
     push!(ref_fes, ref_fe)
   end
@@ -50,79 +72,36 @@ function _setup_quad_coords(mesh, X, conns, ref_fe)
   return coords_temp
 end
 
-function FunctionSpace(mesh::AbstractMesh, ::Type{H1Field}, interp_type, q_degree)
-  ref_fes = _setup_ref_fes(mesh, interp_type, q_degree)
+function FunctionSpace(
+  mesh::AbstractMesh, ::Type{H1Field}, ::Type{Lagrange}; 
+  q_degree = nothing
+)
+  ref_fes = _setup_ref_fes(mesh, Lagrange, q_degree)
 
-  if interp_type == Lagrange
-    coords = mesh.nodal_coords
-  else
-    throw(ErrorException("Unssuported interp_type $interp_type"))
-  end
+  conns = [values(mesh.element_conns)...]
+  conns = Connectivity(conns)
 
-  # create dof conns arrays
-
-  return FunctionSpace(
-    coords, 
-    mesh.element_conns,
-    ref_fes
-  )
+  return FunctionSpace(mesh.nodal_coords, conns, ref_fes)
 end
 
-# TODO this isn't correct currently. Need to have coords be the element centroids,
-# not the collection of element level coordinates
-function FunctionSpace(mesh::AbstractMesh, ::Type{L2ElementField}, interp_type, _)
-  ref_fes = _setup_ref_fes(mesh, interp_type, 1) # 1 for element centroid. TODO will this work on all elements?
+function FunctionSpace(
+  mesh::AbstractMesh, ::Type{L2Field}, ::Type{Lagrange};
+  q_degree = nothing
+)
+  ref_fes = _setup_ref_fes(mesh, Lagrange, q_degree)
 
-  coords_syms = Symbol[]
-  coords_vals = Array{Float64, 3}[]
+  conns = [values(mesh.element_conns)...]
+  coords = L2Field(map(x -> mesh.nodal_coords[:, x], [values(mesh.element_conns)...]))
 
-  # TODO fix this loop
-  for (n, (block_name, conns)) in enumerate(pairs(mesh.element_conns))
-    ref_fe = ref_fes[n]
-    X_elems = mesh.nodal_coords[:, conns]
-    coords_temp = _setup_quad_coords(mesh, X_elems, conns, ref_fe)
-    # recyling L2QuadratureField method below, just need the field/element slices
-    coords_temp = coords_temp[:, 1, :]
-    push!(coords_syms, block_name)
-    push!(coords_vals, X_elems)
+  new_conns = Array{Int, 2}[]
+  offset = 1
+  for conn in conns
+    push!(new_conns, reshape(offset:offset + length(conn) - 1, size(conn)...))
+    offset += size(conn, 1) * size(conn, 2)
   end
+  conns = Connectivity(new_conns)
 
-  coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
-
-  return FunctionSpace(
-    coords,
-    nothing, # TODO what makes sense here?
-    ref_fes
-  )
-end
-
-# need to optimize this constructor
-function FunctionSpace(mesh::AbstractMesh, ::Type{L2QuadratureField}, interp_type, q_degree)
-  ref_fes = _setup_ref_fes(mesh, interp_type, q_degree)
-
-  coords_syms = Symbol[]
-  coords_vals = Array{Float64, 3}[]
-
-  for (n, (block_name, conns)) in enumerate(pairs(mesh.element_conns))
-    ref_fe = ref_fes[n]
-    X_elems = mesh.nodal_coords[:, conns]
-    coords_temp = _setup_quad_coords(mesh, X_elems, conns, ref_fe)
-    push!(coords_syms, block_name)
-    push!(coords_vals, coords_temp)
-  end
-
-  coords_vals = L2QuadratureField.(coords_vals)
-  coords = NamedTuple{tuple(coords_syms...)}(tuple(coords_vals...))
-
-  return FunctionSpace(
-    coords,
-    nothing, # TODO what makes sense here?
-    ref_fes
-  )
-end
-
-function FunctionSpace(mesh::AbstractMesh, space_type, interp_type; q_degree=2)
-  return FunctionSpace(mesh, space_type, interp_type, q_degree)
+  return FunctionSpace(coords, conns, ref_fes)
 end
 
 function Adapt.adapt_structure(to, fspace::FunctionSpace)
@@ -140,9 +119,14 @@ function Base.show(io::IO, fspace::FunctionSpace)
   end
 end
 
-function map_shape_function_gradients(X, ∇N_ξ)
-  J     = (X * ∇N_ξ)'
-  J_inv = inv(J)
-  ∇N_X  = (J_inv * ∇N_ξ')'
-  return ∇N_X
+function connectivity(fspace::FunctionSpace, b::Int)
+  return connectivity(fspace.elem_conns, b)
+end
+
+function num_blocks(fspace::FunctionSpace)
+  return num_blocks(fspace.elem_conns)
+end
+
+function num_elements(fspace::FunctionSpace, b::Int)
+  return num_elements(fspace.elem_conns, b)
 end
