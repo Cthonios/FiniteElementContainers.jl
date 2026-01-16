@@ -4,6 +4,7 @@ using Aqua
 using CUDA
 using FiniteElementContainers
 using ForwardDiff
+using Gmsh
 using Krylov
 using LinearAlgebra
 using MPI
@@ -90,7 +91,7 @@ end
   @testset "Mechanics" test_mechanics()
 end
 
-@testset "Extension tests" begin
+@testset "Non-mesh Extension tests" begin
   include("ext/TestPartitionedArraysExt.jl")
 end
 

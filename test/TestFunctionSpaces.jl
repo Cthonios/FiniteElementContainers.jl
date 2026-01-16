@@ -88,9 +88,11 @@ end
 #   # # )
 # end
 
+struct SomethingNotSupported <: ReferenceFiniteElements.AbstractPolynomialType
+end
 
 function test_bad_interp_type(mesh)
-  @test_throws MethodError FunctionSpace(mesh, H1Field, :SomethingNotSupported)
+  @test_throws MethodError FunctionSpace(mesh, H1Field, SomethingNotSupported)
 end
 
 function test_fspace_h1_field(mesh)

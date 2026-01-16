@@ -7,11 +7,12 @@ problems in time.
 struct SparseMatrixAssembler{
   Condensed,
   NumArrDims,
-  NumFields,
+  # NumFields,
   IV                <: AbstractArray{Int, 1},
   RV                <: AbstractArray{Float64, 1},
   Var               <: AbstractFunction,
-  FieldStorage      <: AbstractField{Float64, NumArrDims, RV, NumFields}, # should we make 2 not hardcoded? E.g. for 
+  # FieldStorage      <: AbstractField{Float64, NumArrDims, RV, NumFields}, # should we make 2 not hardcoded? E.g. for 
+  FieldStorage      <: AbstractField{Float64, NumArrDims, RV}, # should we make 2 not hardcoded? E.g. for 
   QuadratureStorage <: NamedTuple
 } <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
   dof::DofManager{Condensed, Int, IV, Var}
@@ -59,7 +60,7 @@ function SparseMatrixAssembler(dof::DofManager)
   fspace = function_space(dof)
   scalar_quadarature_storage = Matrix{Float64}[]
   for (b, (key, val)) in enumerate(pairs(fspace.ref_fes))
-    NQ = ReferenceFiniteElements.num_quadrature_points(val)
+    NQ = ReferenceFiniteElements.num_cell_quadrature_points(val)
     NE = num_elements(fspace, b)
     field = zeros(Float64, NQ, NE)
     push!(scalar_quadarature_storage, field)

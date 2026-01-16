@@ -31,6 +31,7 @@ end
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
   ∇u_q = interpolate_field_gradients(physics, interps, u_el)
+  # @show size(∇u_q)
   R_q = ∇u_q * ∇N_X' - N' * physics.func(X_q, 0.0)
   return JxW * R_q[:]
 end

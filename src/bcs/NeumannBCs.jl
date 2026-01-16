@@ -70,20 +70,14 @@ function Base.show(io::IO, bc::NeumannBCContainer)
 end
 
 function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
-  ND = size(X, 1)
-  NN = num_vertices(bc.ref_fe)
-  NNPS = num_vertices(surface_element(bc.ref_fe.element))
-  for (n, e) in enumerate(bc.elements)
-    # conn = @views bc.element_conns[:, n]
+  for n in axes(bc.elements, 1)
     conn = connectivity(bc.ref_fe, bc.element_conns.data, n, 1)
-    X_el = SVector{ND * NN, eltype(X)}(@views X[:, conn])
-    X_el = SMatrix{length(X_el) ÷ ND, ND, eltype(X_el), length(X_el)}(X_el...)
+    X_el = _element_level_fields(X, bc.ref_fe, conn)
 
-    for q in 1:num_quadrature_points(surface_element(bc.ref_fe.element))
+    for q in 1:num_surface_quadrature_points(bc.ref_fe)
       side = bc.sides[n]
-      interps = MappedSurfaceInterpolants(bc.ref_fe, X_el, q, side)
-      X_q = interps.X_q
-      bc.vals[q, n] = func(X_q, t)
+      interps = MappedH1OrL2SurfaceInterpolants(bc.ref_fe, X_el, q, side)
+      bc.vals[q, n] = func(interps.X_q, t)
     end
   end
 end
@@ -91,35 +85,27 @@ end
 KA.@kernel function _update_bc_values_kernel!(
   # bc::NeumannBCContainer, func, X, t
   vals, func, X, t,
-  ref_fe, elements, element_conns, sides
+  ref_fe, element_conns, sides
 )
-  ND = size(X, 1)
-  NN = num_vertices(ref_fe)
-  NNPS = num_vertices(surface_element(ref_fe.element))
-
-  Q, E = KA.@index(Global, NTuple)
-  # E = KA.@index(Global)
-  el_id = elements[E]
-
-  # conn = @views element_conns[:, E]
+  # Q, E = KA.@index(Global, NTuple)E
+  E = KA.@index(Global)
   conn = connectivity(ref_fe, element_conns, E, 1)
-  X_el = SVector{ND * NN, eltype(X)}(@views X[:, conn])
-  X_el = SMatrix{length(X_el) ÷ ND, ND, eltype(X_el), length(X_el)}(X_el...)
+  X_el = _element_level_fields(X, ref_fe, conn)
 
-  # for q in 1:num_quadrature_points(bc.ref_fe.surface_element)
-  side = sides[E]
-  interps = MappedSurfaceInterpolants(ref_fe, X_el, Q, side)
-  X_q = interps.X_q
-  vals[Q, E] = func(X_q, t)
-  # end
+  for q in 1:num_surface_quadrature_points(ref_fe)
+    side = sides[E]
+    interps = MappedH1OrL2SurfaceInterpolants(ref_fe, X_el, q, side)
+    vals[q, E] = func(interps.X_q, t)
+  end
 end
 
 function _update_bc_values!(bc::NeumannBCContainer, func, X, t, backend::KA.Backend)
   kernel! = _update_bc_values_kernel!(backend)
   kernel!(
     bc.vals, func, X, t, 
-    bc.ref_fe, bc.elements, bc.element_conns.data, bc.sides,
-    ndrange = size(bc.vals)
+    bc.ref_fe, bc.element_conns.data, bc.sides,
+    # ndrange = size(bc.vals)
+    ndrange = size(bc.vals, 2)
   )
 end
 
@@ -166,67 +152,39 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
     end
 
     for block in blocks
+      block_name = mesh.element_block_names[block]
       ids = findall(x -> x == block, bk.blocks)
       new_blocks = bk.blocks[ids]
       new_elements = bk.elements[ids]
       new_sides = bk.sides[ids]
       new_side_nodes = bk.side_nodes[:, ids]
-      # TODO update nodes and dofs
-      # push!(new_bks, BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides))
-      new_bk = BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides, new_side_nodes)
-      ref_fe = values(fspace.ref_fes)[block]
-      NQ = num_quadrature_points(surface_element(ref_fe.element))
-      # ND = length(getfield(dof.H1_vars, var))
-      ND = length(dof.var)
-      NN = num_vertices(ref_fe)
-      NNPS = num_vertices(surface_element(ref_fe.element))
 
-      # conns = values(fspace.elem_conns)[block][:, new_elements]
+      # TODO update nodes and dofs
+      new_bk = BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides, new_side_nodes)
+      ref_fe = getproperty(fspace.ref_fes, block_name)
+      NQ = num_surface_quadrature_points(ref_fe)
+      ND = length(dof.var)
+      NNPS = num_cell_dofs(boundary_element(ref_fe.element))
 
       # need to set up "surface connectivity"
-      # these are the nodes associated with the sides
-      # TODO we need to be careful for higher order elements
-      # conns = Vector{eltype(new_elements)}(undef, 0)
-      # TODO fix this to get blocks correctly
-      # conns = values(fspace.elem_conns)[block][:, bk.elements]
-      # conns = connectivity(fspace, block)
-      conns = values(mesh.element_conns)[block][:, bk.elements]
-      # @show size(conns)
-      # display(conns)
-      # TODO get field set up properly
-      # conns = Connectivity{size(conns, 1), size(conns, 2)}(vec(conns))
-      # display(conns)
+      # TODO below isn't correct
+      # we need to map bk.elements using the block element id map
+      conns = mesh.element_conns[block_name][:, bk.elements]
       surface_conns = Vector{eltype(new_elements)}(undef, 0)
-      # conn_syms = map(x -> Symbol("node_$x"), 1:NN)
-      # for element in new_elements
+
       for e in axes(new_elements, 1)
-        # for i in 1:bc.num_nodes_per_side[e]
-        # append!(conns, values(fspace.elem_conns)[blocks[1]][:, e])
         for i in 1:NNPS
-          # TODO is this 2 correct?
-          # where tf did it come from
-          # k = 2 * (e - 1) + i
           k = NNPS * (e - 1) + i
-          # push!(conns, bc.side_nodes[k])
-          # push!(conns, bk.nodes[k])
           append!(surface_conns, bk.side_nodes[:, k])
         end
       end
-
-      # conns = Connectivity(conns)
-      # # surface_conns = Connectivity{NNPS, length(new_bk.elements)}(surface_conns)
-      # surface_conns = Connectivity{eltype(surface_conns), typeof(surface_conns), NNPS}(surface_conns)
 
       conns = Connectivity([conns])
       surface_conns = reshape(surface_conns, NNPS, length(surface_conns) ÷ NNPS)
       surface_conns = Connectivity([surface_conns])
 
       vals = zeros(SVector{ND, Float64}, NQ, length(bk.sides))
-      # new_bc = NeumannBCContainer{
-      #   typeof(new_bk), typeof(conns), typeof(surface_conns), typeof(ref_fe), eltype(vals), typeof(vals)
-      # }(
       new_bc = NeumannBCContainer(
-        # new_bk, conns, surface_conns, ref_fe, vals
         conns, new_bk.elements, new_bk.side_nodes, new_bk.sides, surface_conns, ref_fe, vals
       )
       push!(new_bcs, new_bc)

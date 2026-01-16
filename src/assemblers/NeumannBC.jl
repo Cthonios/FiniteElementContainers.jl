@@ -45,10 +45,11 @@ function _assemble_block_vector_neumann_bc!(
   for e in 1:nelem
     conn = connectivity(ref_fe, conns, e, 1)
     x_el = _element_level_fields(X, ref_fe, conn)#s, e)
-    R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
+    R_el = _element_scratch_vector(boundary_element(ref_fe.element), U)
     side = sides[e]
-    for q in 1:num_quadrature_points(surface_element(ref_fe.element))
-      interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)
+    # for q in 1:num_quadrature_points(surface_element(ref_fe.element))
+    for q in 1:num_surface_quadrature_points(ref_fe)
+      interps = MappedH1OrL2SurfaceInterpolants(ref_fe, x_el, q, side)
       Nvec = interps.N_reduced
       JxW = interps.JxW
 
@@ -80,11 +81,11 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
 
   conn = connectivity(ref_fe, conns, E, 1)
   x_el = _element_level_fields(X, ref_fe, conn)#s, E)
-  R_el = _element_scratch_vector(surface_element(ref_fe.element), U)
+  R_el = _element_scratch_vector(boundary_element(ref_fe), U)
   side = sides[E]
 
-  for q in 1:num_quadrature_points(surface_element(ref_fe.element))
-    interps = MappedSurfaceInterpolants(ref_fe, x_el, q, side)
+  for q in 1:num_surface_quadrature_points(ref_fe)
+    interps = MappedH1OrL2SurfaceInterpolants(ref_fe, x_el, q, side)
     Nvec = interps.N_reduced
     JxW = interps.JxW
 

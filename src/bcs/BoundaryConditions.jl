@@ -90,7 +90,8 @@ function BCBookKeeping(
     # not be the case for say Hdiv or Hcurl fields...
     # TODO eventually set the blocks, could be useful maybe?
     blocks = Vector{Int64}(undef, 0)
-    conns = getproperty(mesh.element_conns, block_name)
+    # conns = getproperty(mesh.element_conns, block_name)
+    conns = mesh.element_conns[block_name]
     nodes = sort(unique(conns))
     dofs = all_dofs[dof_index, nodes]
     elements = mesh.element_id_maps[block_name]
@@ -115,16 +116,24 @@ function BCBookKeeping(
     blocks = Vector{Int64}(undef, 0)
 
     # gather the blocks that are present in this sideset
+    # and also map global element id to local element id
     # TODO this isn't quite right
     for (n, val) in enumerate(values(mesh.element_id_maps))
       # note these are the local elem id to the block, e.g. starting from 1.
       indices_in_sset = indexin(val, elements)
       filter!(x -> x !== nothing, indices_in_sset)
-      
+
       if length(indices_in_sset) > 0
         append!(blocks, repeat([n], length(indices_in_sset)))
       end
     end
+
+    @assert length(unique(blocks)) == 1 "Sidesets need to be in a single block"
+    block_name = mesh.element_block_names[blocks[1]]
+    indices_in_sset = indexin(mesh.element_id_maps[block_name], elements)
+    filter!(x -> x !== nothing, indices_in_sset)
+    elements = convert(Vector{Int}, indices_in_sset)
+    # display(elements)
 
     # setup dofs local to this BC
     # all_dofs = reshape(1:length(dof), size(dof))

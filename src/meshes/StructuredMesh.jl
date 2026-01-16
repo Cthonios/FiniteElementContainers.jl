@@ -6,16 +6,17 @@ $(TYPEDFIELDS)
 struct StructuredMesh{
     ND,
     RT <: Number,
-    IT <: Integer,
-    EConns
+    IT <: Integer
 } <: AbstractMesh
     nodal_coords::H1Field{RT, Vector{RT}, ND}
-    element_block_names::Vector{Symbol}
-    element_types::Vector{Symbol}
-    element_conns::EConns
+    element_block_names::Dict{Int, Symbol}
+    element_types::Dict{Symbol, Symbol}
+    element_conns::Dict{Symbol, Matrix{IT}}
     element_id_maps::Dict{Symbol, Vector{IT}}
     node_id_map::Vector{IT}
+    nodeset_names::Dict{IT, Symbol}
     nodeset_nodes::Dict{Symbol, Vector{IT}}
+    sideset_names::Dict{IT, Symbol}
     sideset_elems::Dict{Symbol, Vector{IT}}
     sideset_nodes::Dict{Symbol, Vector{IT}}
     sideset_sides::Dict{Symbol, Vector{IT}}
@@ -55,24 +56,23 @@ function StructuredMesh(element_type, mins, maxs, counts)
     else
         throw(ArgumentError("Unsupported element type $element_type"))
     end
-    # coords, conns
+
     nodal_coords = H1Field(nodal_coords)
-    element_block_names = Symbol[:block_1]
-    element_types = Symbol[element_type]
+    element_block_names = Dict(1 => :block_1)
+    element_types = Dict(:block_1 => element_type)
     element_id_maps = Dict(:block_1 => 1:size(element_conns, 2) |> collect)
-    # element_conns = Dict(:block_1 => L2ElementField(element_conns))
     element_conns = Dict(:block_1 => element_conns)
     node_id_map = 1:size(nodal_coords, 2) |> collect
-
-    element_conns = NamedTuple(element_conns)
+    nodeset_names = Dict(zip(1:length(nodeset_nodes), keys(nodeset_nodes)))
+    sideset_names = Dict(zip(1:length(sideset_elems), keys(sideset_elems)))
 
     return StructuredMesh(
         nodal_coords,
         element_block_names, element_types,
         element_conns, element_id_maps,
         node_id_map,
-        nodeset_nodes,
-        sideset_elems, sideset_nodes,
+        nodeset_names, nodeset_nodes,
+        sideset_names, sideset_elems, sideset_nodes,
         sideset_sides, sideset_side_nodes
     )
 end

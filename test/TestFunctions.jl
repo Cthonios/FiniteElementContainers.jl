@@ -5,32 +5,39 @@ function test_functions()
   u = ScalarFunction(fspace, :u)
   @show u
   @test length(u) == 1
-  @test names(u) == (:u,)
+  @test names(u) == [:u]
 
   u = VectorFunction(fspace, :u)
   @show u
   @test length(u) == 2
-  @test names(u) == (:u_x, :u_y)
+  @test names(u) == [:u_x, :u_y]
   
   u = TensorFunction(fspace, :u)
   @show u
   @test length(u) == 9
-  @test names(u) == (:u_xx, :u_yy, :u_zz, :u_yz, :u_xz, :u_xy, :u_zy, :u_zx, :u_yx)
+  @test names(u) == [:u_xx, :u_yy, :u_zz, :u_yz, :u_xz, :u_xy, :u_zy, :u_zx, :u_yx]
 
   u = TensorFunction(fspace, :u; use_spatial_dimension=true)
   @show u
   @test length(u) == 4
-  @test names(u) == (:u_xx, :u_yy, :u_xy, :u_yx)
+  @test names(u) == [:u_xx, :u_yy, :u_xy, :u_yx]
 
   u = SymmetricTensorFunction(fspace, :u)
   @show u
   @test length(u) == 6
-  @test names(u) == (:u_xx, :u_yy, :u_zz, :u_yz, :u_xz, :u_xy)
+  @test names(u) == [:u_xx, :u_yy, :u_zz, :u_yz, :u_xz, :u_xy]
 
   u = SymmetricTensorFunction(fspace, :u; use_spatial_dimension=true)
   @show u
   @test length(u) == 3
-  @test names(u) == (:u_xx, :u_yy, :u_xy)
+  @test names(u) == [:u_xx, :u_yy, :u_xy]
+
+  u = VectorFunction(fspace, :u)
+  t = ScalarFunction(fspace, :t)
+  u = GeneralFunction(u, t)
+  @show u
+  @test length(u) == 3
+  @test names(u) == [:u_x, :u_y, :t]
 end
 
 @testset "Functions" begin

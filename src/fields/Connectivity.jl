@@ -42,7 +42,7 @@ function connectivity(conn::Connectivity, b::Int)
 end
 
 @inline function connectivity(ref_fe::ReferenceFE, conn_data, e::Int, boffset::Int)
-    NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+    NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
     base = boffset + (e - 1) * NNPE
     data = ntuple(i -> conn_data[base + i - 1], NNPE)
     return SVector{NNPE, Int}(data)
@@ -57,8 +57,8 @@ function num_elements(conn::Connectivity, b::Int)
 end
 
 @inline function surface_connectivity(ref_fe::ReferenceFE, conn_data, e::Int, boffset::Int)
-    NNPE = ReferenceFiniteElements.num_vertices(
-        ReferenceFiniteElements.surface_element(ref_fe.element)
+    NNPE = ReferenceFiniteElements.num_cell_dofs(
+        ReferenceFiniteElements.boundary_element(ref_fe.element)
     )
     base = boffset + (e - 1) * NNPE
     data = ntuple(i -> conn_data[base + i - 1], NNPE)

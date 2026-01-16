@@ -22,22 +22,28 @@ end
 
 @inline function interpolate_field_values(
   physics::P, interps::M, U_el::SVector{N, T}
-) where {P <: AbstractPhysics, M <: MappedInterpolants, N, T}
+) where {P <: AbstractPhysics, M <: MappedH1OrL2Interpolants, N, T}
   U_el = reshape_element_level_field(physics, U_el)
   return U_el * interps.N
 end
 
 @inline function interpolate_field_gradients(
   physics::P, interps::M, U_el::SVector{N, T}
-) where {P <: AbstractPhysics, M <: MappedInterpolants, N, T}
+) where {P <: AbstractPhysics, M <: MappedH1OrL2Interpolants, N, T}
+  # @show size(U_el)
   U_el = reshape_element_level_field(physics, U_el)
+  # return U_el * interps.∇N_X
+  # @show size(U_el)
+  # @show size(interps.∇N_X)
+  # return (U_el * interps.∇N_X')'
   return U_el * interps.∇N_X
 end
 
 @inline function interpolate_field_values_and_gradients(
   physics::P, interps::M, U_el::SVector{N, T}
-) where {P <: AbstractPhysics, M <: MappedInterpolants, N, T}
+) where {P <: AbstractPhysics, M <: MappedH1OrL2Interpolants, N, T}
   U_el = reshape_element_level_field(physics, U_el)
+  # return U_el * interps.N, (U_el * interps.∇N_X')'
   return U_el * interps.N, U_el * interps.∇N_X
 end
 
@@ -45,7 +51,7 @@ end
   interps::I, x_el::SVector{NxD, T}
 ) where {I <: ReferenceFiniteElements.AbstractInterpolants, NxD, T <: Number}
   x_el = reshape_element_level_coordinates(interps, x_el)
-  interps = MappedInterpolants(interps, x_el)
+  interps = MappedH1OrL2Interpolants(interps, x_el)
   return interps
 end
 
@@ -55,8 +61,7 @@ $(TYPEDSIGNATURES)
 @inline function reshape_element_level_coordinates(
   interps::I, x_el::SVector{NxD, T}
 ) where {I <: ReferenceFiniteElements.AbstractInterpolants, NxD, T <: Number}
-  # ND = ReferenceFiniteElements.num_dimensions(interps)
-  ND = size(interps.∇N_ξ, 2)
+  ND = dimension(interps)
   N = NxD ÷ ND
   return SMatrix{ND, N, T, NxD}(x_el)
 end

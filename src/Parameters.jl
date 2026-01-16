@@ -85,7 +85,7 @@ function Parameters(
   for (b, (key, val)) in enumerate(pairs(physics))
     # create state variables for this block physics
     NS = num_states(val)
-    NQ = ReferenceFiniteElements.num_quadrature_points(
+    NQ = ReferenceFiniteElements.num_cell_quadrature_points(
       getfield(function_space(assembler.dof).ref_fes, key)
     )
     NE = num_elements(function_space(assembler.dof), b)

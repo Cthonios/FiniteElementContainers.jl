@@ -5,11 +5,10 @@ struct PostProcessor{O}
   field_output_db::O
 end
 
-function PostProcessor(mesh, output_file::String, vars...)
-  copy_mesh(mesh.mesh_obj.file_name, output_file)
-  db_type = typeof(mesh.mesh_obj)#.name.name
-  # field_output_db = FileMesh(output_file)
-  # return PostProcessor(field_output_db)
+function PostProcessor(
+  mesh, output_file::String, vars...
+)
+  copy_mesh(mesh, output_file)
 
   if length(vars) < 1
     @warn "no variables provided to post-processor"
@@ -26,10 +25,6 @@ function PostProcessor(mesh, output_file::String, vars...)
 end
 
 Base.close(pp::PostProcessor) = Base.close(pp.field_output_db)
-
-# function Base.write(pp::PostProcessor, n::Int, field::AbstractField)
-
-# end
 
 function write_field end
 function write_times end

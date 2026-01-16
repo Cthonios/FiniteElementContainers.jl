@@ -1,7 +1,7 @@
 name = "FiniteElementContainers"
 uuid = "d08262e4-672f-4e7f-a976-f2cea5767631"
-authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
 version = "0.11.0"
+authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
 
 [deps]
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
@@ -23,6 +23,7 @@ AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 AbaqusReader = "bc6b9049-e460-56d6-94b4-a597b2c0390d"
 BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 
@@ -31,6 +32,7 @@ AMDGPUExt = "AMDGPU"
 AbaqusReaderExt = "AbaqusReader"
 BlockArraysExt = "BlockArrays"
 CUDAExt = "CUDA"
+GmshExt = "Gmsh"
 MPIExt = "MPI"
 PartitionedArraysExt = "PartitionedArrays"
 
@@ -45,12 +47,13 @@ CUDA = "5"
 DocStringExtensions = "0.9"
 Exodus = "0.14"
 ForwardDiff = "1"
+Gmsh = "0.3"
 KernelAbstractions = "0.9"
 Krylov = "0.9"
 LinearAlgebra = "1"
 MPI = "0.20"
 PartitionedArrays = "0.5"
-ReferenceFiniteElements = "0.13"
+ReferenceFiniteElements = "0.14"
 SparseArrays = "1"
 StaticArrays = "1"
 Tensors = "1"
@@ -62,9 +65,10 @@ julia = "1"
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
 MPI = "da04e1cc-30fd-572f-bb4f-1f8673147195"
 PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["AMDGPU", "Aqua", "CUDA", "MPI", "PartitionedArrays", "Test"]
+test = ["AMDGPU", "Aqua", "CUDA", "Gmsh", "MPI", "PartitionedArrays", "Test"]

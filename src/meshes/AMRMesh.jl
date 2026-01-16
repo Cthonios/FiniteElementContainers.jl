@@ -1,16 +1,17 @@
 struct AMRMesh{
     ND,
     RT <: Number,
-    IT <: Integer,
-    EConns
+    IT <: Integer
 } <: AbstractMesh
     nodal_coords::H1Field{RT, Vector{RT}, ND}
-    element_block_names::Vector{Symbol}
-    element_types::Vector{Symbol}
-    element_conns::EConns
+    element_block_names::Dict{Int, Symbol}
+    element_types::Dict{Symbol, Symbol}
+    element_conns::Dict{Symbol, Matrix{IT}}
     element_id_maps::Dict{Symbol, Vector{IT}}
     node_id_map::Vector{IT}
+    nodeset_names::Dict{IT, Symbol}
     nodeset_nodes::Dict{Symbol, Vector{IT}}
+    sideset_names::Dict{IT, Symbol}
     sideset_elems::Dict{Symbol, Vector{IT}}
     sideset_nodes::Dict{Symbol, Vector{IT}}
     sideset_sides::Dict{Symbol, Vector{IT}}
@@ -19,11 +20,11 @@ struct AMRMesh{
     edges::Vector{NTuple{2, IT}}
     elem2edge::Dict{Symbol, Matrix{IT}}
     edge2adjelem::Dict{Symbol, Vector{NTuple{2, IT}}}
-    ref_edges::Dict{Symbol, Vector{Int}}
+    ref_edges::Dict{Symbol, Vector{IT}}
 end
 
 function AMRMesh(mesh::AbstractMesh)
-    edges, elem2edge, edge2adjelem = _create_edges(mesh.element_conns)
+    edges, elem2edge, edge2adjelem = _create_linear_tri_edges(mesh.element_conns)
     ref_edges = Dict{Symbol, Vector{Int}}()
     for (key, conns) in pairs(mesh.element_conns)
         ref_edges[key] = _init_ref_edges(mesh.nodal_coords, conns)
@@ -36,7 +37,9 @@ function AMRMesh(mesh::AbstractMesh)
         mesh.element_conns,
         mesh.element_id_maps,
         mesh.node_id_map,
+        mesh.nodeset_names,
         mesh.nodeset_nodes,
+        mesh.sideset_names,
         mesh.sideset_elems,
         mesh.sideset_nodes,
         mesh.sideset_sides,

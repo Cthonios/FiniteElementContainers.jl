@@ -15,18 +15,18 @@ function discrete_gradient(::PlaneStrain, ∇N_X)
   for n in 1:N
     k = 2 * (n - 1) 
     tup = setindex(tup, ∇N_X[n, 1], k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 2)
 
     k = 2 * (n - 1) + 2 * N
-    tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 1], k + 2)
     
     k = 2 * (n - 1)  + 2 * 2 * N
     tup = setindex(tup, ∇N_X[n, 2], k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 2)
 
     k = 2 * (n - 1) + 3 * 2 * N
-    tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
   end
   return SMatrix{2 * N, 4, eltype(∇N_X), 2 * N * 4}(tup.data)
@@ -43,10 +43,10 @@ function discrete_symmetric_gradient(::PlaneStrain, ∇N_X)
   for n in 1:N
     k = 2 * (n - 1) 
     tup = setindex(tup, ∇N_X[n, 1], k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 2)
 
     k = 2 * (n - 1) + 2 * N
-    tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
 
     k = 2 * (n - 1) + 2 * 2 * N
