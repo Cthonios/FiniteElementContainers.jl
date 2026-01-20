@@ -204,6 +204,10 @@ function create_parameters(
   return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, times)
 end
 
+function current_time(p::Parameters)
+  return current_time(p.times)
+end
+
 """
 $(TYPEDSIGNATURES)
 """

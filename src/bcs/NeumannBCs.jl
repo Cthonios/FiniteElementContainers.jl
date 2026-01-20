@@ -37,29 +37,26 @@ Internal implementation of dirichlet BCs
 struct NeumannBCContainer{
   IT <: Integer,
   IV <: AbstractArray{IT, 1},
-  IM <: AbstractArray{IT, 2},
-  VV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
+  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
   RE <: ReferenceFE
-} <: AbstractBCContainer
+} <: AbstractBCContainer{IV, RV}
   element_conns::Connectivity{IT, IV}
   elements::IV
-  side_nodes::IM
   sides::IV
-  surface_conns::Connectivity{IT, IV}
   ref_fe::RE
-  vals::VV
+  vals::RV
 end
 
 function Adapt.adapt_structure(to, bc::NeumannBCContainer)
   el_conns = adapt(to, bc.element_conns)
   elements = adapt(to, bc.elements)
-  side_nodes = adapt(to, bc.side_nodes)
   sides = adapt(to, bc.sides)
-  surf_conns = adapt(to, bc.surface_conns)
   ref_fe = adapt(to, bc.ref_fe)
   vals = adapt(to, bc.vals)
-  return NeumannBCContainer(el_conns, elements, side_nodes, sides, surf_conns, ref_fe, vals)
+  return NeumannBCContainer(el_conns, elements, sides, ref_fe, vals)
 end
+
+Base.length(bc::NeumannBCContainer) = size(bc.vals, 2)
 
 function Base.show(io::IO, bc::NeumannBCContainer)
   println(io, "$(typeof(bc).name.name):")
@@ -112,7 +109,7 @@ end
 struct NeumannBCs{
   BCCaches <: NamedTuple, 
   BCFuncs  <: NamedTuple
-}
+} <: AbstractBCs{BCFuncs}
   bc_caches::BCCaches
   bc_funcs::BCFuncs
 end
@@ -143,7 +140,7 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
   new_bcs = NeumannBCContainer[]
   new_funcs = Function[]
 
-  for (bk, func, var) in zip(bks, funcs, vars)
+  for (bk, func) in zip(bks, funcs)
     blocks = sort(unique(bk.blocks))
 
     # TODO fix this
@@ -164,28 +161,18 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
       ref_fe = getproperty(fspace.ref_fes, block_name)
       NQ = num_surface_quadrature_points(ref_fe)
       ND = length(dof.var)
-      NNPS = num_cell_dofs(boundary_element(ref_fe.element))
 
-      # need to set up "surface connectivity"
       # TODO below isn't correct
       # we need to map bk.elements using the block element id map
+      # NOTE I think that is currently handled in BCBookKeeping
+      # by setting bk.elements to the indices where the side set
+      # elements live in the block element id map
       conns = mesh.element_conns[block_name][:, bk.elements]
-      surface_conns = Vector{eltype(new_elements)}(undef, 0)
-
-      for e in axes(new_elements, 1)
-        for i in 1:NNPS
-          k = NNPS * (e - 1) + i
-          append!(surface_conns, bk.side_nodes[:, k])
-        end
-      end
 
       conns = Connectivity([conns])
-      surface_conns = reshape(surface_conns, NNPS, length(surface_conns) ÷ NNPS)
-      surface_conns = Connectivity([surface_conns])
-
       vals = zeros(SVector{ND, Float64}, NQ, length(bk.sides))
       new_bc = NeumannBCContainer(
-        conns, new_bk.elements, new_bk.side_nodes, new_bk.sides, surface_conns, ref_fe, vals
+        conns, new_bk.elements, new_bk.sides, ref_fe, vals
       )
       push!(new_bcs, new_bc)
       push!(new_funcs, func)
@@ -196,16 +183,4 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
   new_bcs = NamedTuple{syms}(tuple(new_bcs...))
   new_funcs = NamedTuple{syms}(tuple(new_funcs...))
   return NeumannBCs(new_bcs, new_funcs)
-end
-
-function Adapt.adapt_structure(to, bcs::NeumannBCs)
-  return NeumannBCs(
-    adapt(to, bcs.bc_caches),
-    adapt(to, bcs.bc_funcs)
-  )
-end
-
-function update_bc_values!(bcs::NeumannBCs, X, t)
-  update_bc_values!(bcs.bc_caches, bcs.bc_funcs, X, t)
-  return nothing
 end

@@ -43,11 +43,10 @@ function _assemble_block_vector_neumann_bc!(
   conns, ref_fe, sides, vals, nelem
 )
   for e in 1:nelem
+    side = sides[e]
     conn = connectivity(ref_fe, conns, e, 1)
     x_el = _element_level_fields(X, ref_fe, conn)#s, e)
-    R_el = _element_scratch_vector(boundary_element(ref_fe.element), U)
-    side = sides[e]
-    # for q in 1:num_quadrature_points(surface_element(ref_fe.element))
+    R_el = _element_scratch_vector(boundary_element(ref_fe.element, side), U)
     for q in 1:num_surface_quadrature_points(ref_fe)
       interps = MappedH1OrL2SurfaceInterpolants(ref_fe, x_el, q, side)
       Nvec = interps.N_reduced
@@ -61,7 +60,7 @@ function _assemble_block_vector_neumann_bc!(
 
       R_el = R_el + JxW * Nvec * f_val
     end
-    surf_conns = surface_connectivity(ref_fe, conns, e, 1)
+    surf_conns = surface_connectivity(ref_fe, conns, side, e, 1)
     @views _assemble_element!(field, R_el, surf_conns, e, 0, 0)
   end
 end
@@ -79,10 +78,10 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
 )
   E = KA.@index(Global)
 
+  side = sides[E]
   conn = connectivity(ref_fe, conns, E, 1)
   x_el = _element_level_fields(X, ref_fe, conn)#s, E)
-  R_el = _element_scratch_vector(boundary_element(ref_fe), U)
-  side = sides[E]
+  R_el = _element_scratch_vector(boundary_element(ref_fe, side), U)
 
   for q in 1:num_surface_quadrature_points(ref_fe)
     interps = MappedH1OrL2SurfaceInterpolants(ref_fe, x_el, q, side)
@@ -98,7 +97,7 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
     R_el = R_el + JxW * Nvec * f_val
   end
 
-  surf_conns = surface_connectivity(ref_fe, conns, E, 1)
+  surf_conns = surface_connectivity(ref_fe, conns, side, E, 1)
   _assemble_element!(field, R_el, surf_conns, E, 0, 0)
 end
 # COV_EXCL_STOP

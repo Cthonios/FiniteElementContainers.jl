@@ -41,7 +41,6 @@ function DirichletBC(
   nodeset_name::Union{Nothing, String} = nothing,
   sideset_name::Union{Nothing, String} = nothing
 )
-  # return DirichletBC(Symbol(var_name), Symbol(sset_name), func)
   if block_name !== nothing
     block_name = Symbol(block_name)
   end
@@ -65,7 +64,7 @@ Internal implementation of dirichlet BCs
 struct DirichletBCContainer{
   IV <: AbstractArray{<:Integer, 1},
   RV <: AbstractArray{<:Number, 1}
-} <: AbstractBCContainer
+} <: AbstractBCContainer{IV, RV}
   dofs::IV
   nodes::IV
   vals::RV
@@ -249,7 +248,7 @@ struct DirichletBCs{
   IV      <: AbstractArray{<:Integer, 1},
   RV      <: AbstractArray{<:Number, 1},
   BCFuncs <: NamedTuple
-}
+} <: AbstractBCs{BCFuncs}
   bc_caches::Vector{DirichletBCContainer{IV, RV}}
   bc_funcs::BCFuncs
 end
@@ -273,30 +272,6 @@ function DirichletBCs(mesh, dof, dirichlet_bcs)
   update_dofs!(dof, temp_dofs)
 
   return DirichletBCs(dirichlet_bcs, dirichlet_bc_funcs)
-end
-
-function Adapt.adapt_structure(to, bcs::DirichletBCs)
-  return DirichletBCs(
-    map(x -> adapt(to, x), bcs.bc_caches),
-    adapt(to, bcs.bc_funcs)
-  )
-end
-
-function Base.length(bcs::DirichletBCs)
-  return length(bcs.bc_caches)
-end
-
-function Base.show(io::IO, bcs::DirichletBCs)
-  for (n, (cache, func)) in enumerate(zip(bcs.bc_caches, bcs.bc_funcs))
-    show(io, "Dirichlet_BC_$n")
-    show(io, cache)
-    show(io, func)
-  end
-end
-
-function update_bc_values!(bcs::DirichletBCs, X, t)
-  update_bc_values!(bcs.bc_caches, bcs.bc_funcs, X, t)
-  return nothing
 end
 
 function update_field_dirichlet_bcs!(U, bcs::DirichletBCs)

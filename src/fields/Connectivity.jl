@@ -56,9 +56,9 @@ function num_elements(conn::Connectivity, b::Int)
     return conn.nelems[b]
 end
 
-@inline function surface_connectivity(ref_fe::ReferenceFE, conn_data, e::Int, boffset::Int)
+@inline function surface_connectivity(ref_fe::ReferenceFE, conn_data, side::Int, e::Int, boffset::Int)
     NNPE = ReferenceFiniteElements.num_cell_dofs(
-        ReferenceFiniteElements.boundary_element(ref_fe.element)
+        ReferenceFiniteElements.boundary_element(ref_fe.element, side)
     )
     base = boffset + (e - 1) * NNPE
     data = ntuple(i -> conn_data[base + i - 1], NNPE)

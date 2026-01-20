@@ -31,7 +31,7 @@ end
 struct PeriodicBCContainer{
     IV <: AbstractVector{<:Integer},
     RV <: AbstractVector{<:Number}
-} <: AbstractBCContainer
+} <: AbstractBCContainer{IV, RV}
     side_a_dofs::IV
     side_a_nodes::IV
     side_b_dofs::IV
@@ -127,7 +127,7 @@ struct PeriodicBCs{
     IV      <: AbstractVector{<:Integer},
     RV      <: AbstractVector{<:Number},
     BCFuncs <: NamedTuple
-}
+} <: AbstractBCs{BCFuncs}
     bc_caches::Vector{PeriodicBCContainer{IV, RV}}
     bc_funcs::BCFuncs
 end

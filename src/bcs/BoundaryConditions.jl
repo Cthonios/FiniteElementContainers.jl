@@ -90,7 +90,6 @@ function BCBookKeeping(
     # not be the case for say Hdiv or Hcurl fields...
     # TODO eventually set the blocks, could be useful maybe?
     blocks = Vector{Int64}(undef, 0)
-    # conns = getproperty(mesh.element_conns, block_name)
     conns = mesh.element_conns[block_name]
     nodes = sort(unique(conns))
     dofs = all_dofs[dof_index, nodes]
@@ -159,15 +158,10 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
-# abstract type AbstractBCContainer{
-#   IT <: Integer,
-#   VT <: Union{<:Number, <:SVector},
-#   N,
-#   IV <: AbstractArray{IT, 1},
-#   IM <: AbstractArray{IT, 2},
-#   VV <: AbstractArray{VT, N}
-# } end
-abstract type AbstractBCContainer end
+abstract type AbstractBCContainer{
+  IV <: AbstractArray{<:Integer, 1},
+  RV <: AbstractArray
+} end
 
 KA.get_backend(x::AbstractBCContainer) = KA.get_backend(x.vals)
 
@@ -179,12 +173,41 @@ $(TYPEDFIELDS)
 abstract type AbstractBCFunction{F} end
 
 """
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+abstract type AbstractBCs{
+  Funcs <: NamedTuple
+} end
+
+function Adapt.adapt_structure(to, bcs::AbstractBCs)
+  type = typeof(bcs).name.name
+  return eval(type)(
+    map(x -> adapt(to, x), bcs.bc_caches),
+    adapt(to, bcs.bc_funcs)
+  )
+end
+
+Base.length(bcs::AbstractBCs) = length(bcs.bc_caches)
+
+function Base.show(io::IO, bcs::AbstractBCs)
+  type = typeof(bcs).name.name
+  for (n, (cache, func)) in enumerate(zip(bcs.bc_caches, bcs.bc_funcs))
+    show(io, "$(type)_$n")
+    show(io, cache)
+    show(io, func)
+  end
+end
+
+"""
 $(TYPEDSIGNATURES)
 Wrapper that is generic for all architectures to
 update bc values based on the stored function
 """
-function update_bc_values!(bcs, funcs, X, t)
-  for (bc, func) in zip(values(bcs), values(funcs))
+# function update_bc_values!(bcs, funcs, X, t)
+function update_bc_values!(bcs::AbstractBCs, X, t)
+  for (bc, func) in zip(values(bcs.bc_caches), values(bcs.bc_funcs))
     backend = KA.get_backend(bc)
     _update_bc_values!(bc, func, X, t, backend)
   end

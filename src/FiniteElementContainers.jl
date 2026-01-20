@@ -99,7 +99,6 @@ export sidesets # rename to boundary_facets or something like that
 
 # Parameters
 export Parameters
-export TimeStepper
 export create_parameters
 
 # Physics
@@ -133,6 +132,10 @@ export DirectLinearSolver
 export IterativeLinearSolver
 export NewtonSolver
 export solve!
+
+# Times
+export TimeStepper
+export current_time
 
 # other exports from deps
 export Lagrange
