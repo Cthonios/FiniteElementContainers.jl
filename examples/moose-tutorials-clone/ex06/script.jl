@@ -53,8 +53,8 @@ function simulate()
     )
 
     # do it on the GPU whoo!
-    # p = p |> rocm
-    # asm = asm |> rocm
+    p = p |> rocm
+    asm = asm |> rocm
 
     # solver = NewtonSolver(DirectLinearSolver(asm))
     solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
