@@ -118,19 +118,19 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_level_fields(U::H1Field, ref_fe, conns, e)
-  ND = size(U, 1)
+@inline function _element_level_fields(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
+  # ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns[:, e]])
+  NxNDof = NNPE * NF
+  u_el = @views SMatrix{NNPE, NF, eltype(U), NxNDof}(U[:, conns[:, e]])
   return u_el
 end
 
-@inline function _element_level_fields(U::H1Field, ref_fe, conns)
-  ND = size(U, 1)
+@inline function _element_level_fields(U::H1Field{T, D, NF}, ref_fe, conns) where {T, D, NF}
+  # ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * ND
-  u_el = @views SMatrix{ND, NNPE, eltype(U), NxNDof}(U[:, conns])
+  NxNDof = NNPE * NF
+  u_el = @views SMatrix{NF, NNPE, eltype(U), NxNDof}(U[:, conns])
   # u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns])
   return u_el
 end
@@ -138,18 +138,18 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_level_fields_flat(U::H1Field, ref_fe, conns, e)
-  ND = size(U, 1)
+@inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
+  # ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * ND
+  NxNDof = NNPE * NF
   u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns[:, e]])
   return u_el
 end
 
-@inline function _element_level_fields_flat(U::H1Field, ref_fe, conns)
-  ND = size(U, 1)
+@inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns) where {T, D, NF}
+  # ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * ND
+  NxNDof = NNPE * NF
   u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns])
   return u_el
 end
@@ -171,10 +171,10 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_scratch_matrix(ref_fe, U)
-  ND = size(U, 1)
+@inline function _element_scratch_matrix(ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  # ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * ND
+  NxNDof = NNPE * NF
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(U), NxNDof * NxNDof})
   return K_el
 end
@@ -182,10 +182,10 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_scratch_vector(ref_fe, U)
-  ND = size(U, 1)
+@inline function _element_scratch_vector(ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  # ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * ND
+  NxNDof = NNPE * NF
   R_el = zeros(SVector{NxNDof, eltype(U)})
   return R_el
 end
@@ -193,10 +193,10 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_scratch(::AssembledMatrix, ref_fe, U)
-  ND = size(U, 1)
+@inline function _element_scratch(::AssembledMatrix, ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  # ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * ND
+  NxNDof = NNPE * NF
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(U), NxNDof * NxNDof})
   return K_el
 end
@@ -219,10 +219,10 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_scratch(::AssembledVector, ref_fe, U)
-  ND = size(U, 1)
+@inline function _element_scratch(::AssembledVector, ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  # ND = size(U, 1)
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * ND
+  NxNDof = NNPE * NF
   R_el = zeros(SVector{NxNDof, eltype(U)})
   return R_el
 end
