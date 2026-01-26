@@ -66,6 +66,12 @@ function FiniteElementContainers.element_blocks(mesh::GmshFile)
     return conns, el_id_maps, names, el_types
 end
 
+function FiniteElementContainers.element_ids(mesh::GmshFile)
+    dim = num_dimensions(mesh)
+    _, elem_tags, _ = gmsh.model.mesh.getElements(dim, -1)
+    return convert(Vector{Int}, elem_tags[1])
+end
+
 function FiniteElementContainers.finalize(::GmshFile)
     Gmsh.finalize()
 end

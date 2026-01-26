@@ -37,6 +37,11 @@ function element_blocks(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
   return conns, el_id_maps, names, types
 end
 
+function element_ids(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
+  el_id_map = convert(Vector{Int}, Exodus.read_id_map(mesh.mesh_obj, ElementMap))
+  return el_id_map
+end
+
 """
 $(TYPEDSIGNATURES)
 """

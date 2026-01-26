@@ -170,6 +170,14 @@ function Base.show(io::IO, fspace::FunctionSpace)
   end
 end
 
+function block_size(fspace::FunctionSpace, b::Int)
+  return (num_entities_per_element(fspace, b), num_elements(fspace, b))
+end
+
+function connectivity(fspace::FunctionSpace)
+  return fspace.elem_conns
+end
+
 function connectivity(fspace::FunctionSpace, b::Int)
   return connectivity(fspace.elem_conns, b)
 end
@@ -180,6 +188,14 @@ end
 
 function num_elements(fspace::FunctionSpace, b::Int)
   return num_elements(fspace.elem_conns, b)
+end
+
+function num_entities_per_element(fspace::FunctionSpace, b::Int)
+  return num_entities_per_element(fspace.elem_conns, b)
+end
+
+function unsafe_connectivity(fspace::FunctionSpace, e::Int, b::Int)
+  return unsafe_connectivity(fspace.elem_conns, e, b)
 end
 
 # # this is an H1 method, need to specialize

@@ -151,6 +151,7 @@ using Exodus
 using ForwardDiff
 using Krylov
 using LinearAlgebra
+using Metis
 using ReferenceFiniteElements
 using SparseArrays
 using StaticArrays

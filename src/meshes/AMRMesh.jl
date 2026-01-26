@@ -7,6 +7,7 @@ struct AMRMesh{
     element_block_names::Dict{Int, Symbol}
     element_types::Dict{Symbol, Symbol}
     element_conns::Dict{Symbol, Matrix{IT}}
+    element_id_map::Vector{IT}
     element_id_maps::Dict{Symbol, Vector{IT}}
     node_id_map::Vector{IT}
     nodeset_names::Dict{IT, Symbol}
@@ -35,6 +36,7 @@ function AMRMesh(mesh::AbstractMesh)
         mesh.element_block_names,
         mesh.element_types,
         mesh.element_conns,
+        mesh.element_id_map,
         mesh.element_id_maps,
         mesh.node_id_map,
         mesh.nodeset_names,

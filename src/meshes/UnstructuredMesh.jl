@@ -16,6 +16,7 @@ struct UnstructuredMesh{
   element_block_names::Dict{IT, Symbol}
   element_types::Dict{Symbol, Symbol}
   element_conns::Dict{Symbol, Matrix{IT}}
+  element_id_map::Vector{IT}
   element_id_maps::Dict{Symbol, Vector{IT}}
   node_id_map::Vector{IT}
   nodeset_names::Dict{IT, Symbol}
@@ -59,6 +60,7 @@ function UnstructuredMesh(
   nodal_coords, n_id_map = nodal_coordinates_and_ids(file)
   
   # read element block types, conn, etc.
+  el_id_map = element_ids(file)
   el_conns, el_id_maps, el_block_names, el_types = element_blocks(file)
 
   # read nodesets
@@ -115,7 +117,8 @@ function UnstructuredMesh(
   mesh = UnstructuredMesh(
     file,
     nodal_coords, 
-    el_block_names, el_types, el_conns, el_id_maps, 
+    el_block_names, el_types, el_conns, 
+    el_id_map, el_id_maps, 
     n_id_map,
     nset_names, nset_nodes,
     sset_names, sset_elems, sset_nodes, 
@@ -150,7 +153,8 @@ function UnstructuredMesh(
     return UnstructuredMesh(
       file,
       coords, 
-      mesh.element_block_names, el_types, conns, mesh.element_id_maps, 
+      mesh.element_block_names, el_types, conns, 
+      mesh.element_id_map, mesh.element_id_maps, 
       # mesh.node_id_map,
       1:size(coords, 2) |> collect,
       mesh.nodeset_names, 

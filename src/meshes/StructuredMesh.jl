@@ -12,6 +12,7 @@ struct StructuredMesh{
     element_block_names::Dict{Int, Symbol}
     element_types::Dict{Symbol, Symbol}
     element_conns::Dict{Symbol, Matrix{IT}}
+    element_id_map::Vector{IT}
     element_id_maps::Dict{Symbol, Vector{IT}}
     node_id_map::Vector{IT}
     nodeset_names::Dict{IT, Symbol}
@@ -60,6 +61,7 @@ function StructuredMesh(element_type, mins, maxs, counts)
     nodal_coords = H1Field(nodal_coords)
     element_block_names = Dict(1 => :block_1)
     element_types = Dict(:block_1 => element_type)
+    element_id_map = 1:size(element_conns, 2) |> collect
     element_id_maps = Dict(:block_1 => 1:size(element_conns, 2) |> collect)
     element_conns = Dict(:block_1 => element_conns)
     node_id_map = 1:size(nodal_coords, 2) |> collect
@@ -69,7 +71,8 @@ function StructuredMesh(element_type, mins, maxs, counts)
     return StructuredMesh(
         nodal_coords,
         element_block_names, element_types,
-        element_conns, element_id_maps,
+        element_conns, 
+        element_id_map, element_id_maps,
         node_id_map,
         nodeset_names, nodeset_nodes,
         sideset_names, sideset_elems, sideset_nodes,
