@@ -50,7 +50,7 @@ function FiniteElementContainers.element_blocks(mesh::GmshFile)
             @assert length(ent_type) == 1 "Not supporting mixed element blocks right now" 
             node_tags = convert(Vector{Int}, node_tags[1])
             el_type, _, _, num_nodes, _, _ = gmsh.model.mesh.getElementProperties(ent_type[1]) 
-            conn = reshape(node_tags, num_nodes, length(node_tags) ÷ num_nodes)
+            conn = reshape(node_tags, Int(num_nodes), length(node_tags) ÷ num_nodes)
             push!(temp_conns, conn)
             push!(temp_el_types, el_type)
         end
