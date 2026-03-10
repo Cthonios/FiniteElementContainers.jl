@@ -7,11 +7,11 @@ abstract type AbstractField{T, N, D <: AbstractArray{T, 1}} <: AbstractArray{T, 
 """
 $(TYPEDSIGNATURES)
 """
-Base.unique(field::AbstractField) = unique(field.data)
+Base.fill!(field::AbstractField{T, N, D}, v::T) where {T, N, D} = fill!(field.data, v)
 """
 $(TYPEDSIGNATURES)
 """
-Base.fill!(field::AbstractField{T, N, D}, v::T) where {T, N, D} = fill!(field.data, v)
+Base.unique(field::AbstractField) = unique(field.data)
 """
 $(TYPEDSIGNATURES)
 """

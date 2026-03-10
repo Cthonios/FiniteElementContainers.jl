@@ -22,6 +22,7 @@ export NeumannBC
 export NeumannBCs
 export PeriodicBC
 export PeriodicBCs
+export dirichlet_dofs
 export update_field_dirichlet_bcs!
 
 # Connectivities
@@ -90,7 +91,10 @@ export evolve!
 export FileMesh
 export StructuredMesh
 export UnstructuredMesh
+export distribute_mesh
 export element_blocks
+export element_ids
+export global_colorings
 export nodal_coordinates
 export nodesets # rename to boundary_nodes
 export num_dimensions
@@ -151,7 +155,6 @@ using Exodus
 using ForwardDiff
 using Krylov
 using LinearAlgebra
-using Metis
 using ReferenceFiniteElements
 using SparseArrays
 using StaticArrays
@@ -163,16 +166,18 @@ function cpu end
 function cuda end
 function rocm end
 
-function communication_graph end
+# function communication_graph end
 function create_partition end
-function decompose_mesh end
+function create_matrix_sparsity_pattern end
+function create_vector_sparsity_pattern end
+function distribute_mesh end
 function global_colorings end
-function _dofs_exo_to_par_dicts end
-function _elems_exo_to_par_dicts end
-function _exo_to_par_dicts end
-function _global_elem_to_global_node end
-function _global_node_to_global_elem end
-function _renumber_mesh end
+# function _dofs_exo_to_par_dicts end
+# function _elems_exo_to_par_dicts end
+# function _exo_to_par_dicts end
+# function _global_elem_to_global_node end
+# function _global_node_to_global_elem end
+# function _renumber_mesh end
 
 # TODO need to further specialize for staticarrays, etc.
 cpu(x) = adapt(Array, x)

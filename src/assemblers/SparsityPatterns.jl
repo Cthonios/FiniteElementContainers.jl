@@ -1,3 +1,27 @@
+# ndims needs to be 1 (vector) or 2 (matrix)
+function _setup_block_sizes(dof::DofManager, ndims::Int)
+  ND = size(dof, 1)
+  fspace = function_space(dof)
+  n_blocks = num_blocks(fspace)
+  block_start_indices = Vector{Int64}(undef, n_blocks)
+  block_el_level_sizes = Vector{Int64}(undef, n_blocks)
+
+  start_carry = 1
+  for b in 1:n_blocks
+    NEPE, NE = block_size(fspace, b)
+    if ndims == 1
+      n_dofs_per_el = ND * NEPE
+    elseif ndims == 2
+      n_dofs_per_el = (ND * NEPE) * (ND * NEPE)
+    end
+    block_start_indices[b] = start_carry
+    block_el_level_sizes[b] = n_dofs_per_el
+    start_carry = start_carry + n_dofs_per_el * NE
+  end
+  n_entries = start_carry - 1
+  return block_start_indices, block_el_level_sizes, n_entries
+end
+
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
@@ -37,19 +61,7 @@ function SparseMatrixPattern(dof::DofManager)
   fspace = function_space(dof)
   n_blocks = num_blocks(fspace)
 
-  # first get total number of entries
-  block_start_indices = Vector{Int64}(undef, n_blocks)
-  block_el_level_sizes = Vector{Int64}(undef, n_blocks)
-
-  start_carry = 1
-  for b in 1:num_blocks(fspace)
-    NEPE, NE = block_size(fspace, b)
-    n_dofs_per_el = (ND * NEPE) * (ND * NEPE)
-    block_start_indices[b] = start_carry
-    block_el_level_sizes[b] = n_dofs_per_el
-    start_carry = start_carry + n_dofs_per_el * NE
-  end
-  n_entries = start_carry - 1
+  block_start_indices, block_el_level_sizes, n_entries = _setup_block_sizes(dof, 2)
 
   # setup pre-allocated arrays based on number of entries found above
   Is = Vector{Int64}(undef, n_entries)
@@ -58,23 +70,7 @@ function SparseMatrixPattern(dof::DofManager)
 
   # now loop over function spaces and elements
   ids = reshape(1:n_total_dofs, ND, NN)
-  # @show size(ids)
   n = 1
-  # for b in 1:num_blocks(fspace)
-  #   conn = connectivity(fspace, b)
-  #   # TODO do we need this?
-  #   block_conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
-
-  #   for e in axes(block_conn, 2)
-  #     conn = @views block_conn[:, e]
-  #     for temp in Iterators.product(conn, conn)
-  #       Is[n] = temp[1]
-  #       Js[n] = temp[2]
-  #       unknown_dofs[n] = n
-  #       n += 1
-  #     end
-  #   end
-  # end
   for b in 1:n_blocks
     for e in 1:num_elements(fspace, b)
       conn = unsafe_connectivity(fspace, e, b)
@@ -149,16 +145,6 @@ function SparseArrays.sparse!(pattern::SparseMatrixPattern, storage)
   )
 end
 
-function Metis.partition(pattern::SparseMatrixPattern, nparts::Int)
-  Is = convert(Vector{Int32}, pattern.Is)
-  Js = convert(Vector{Int32}, pattern.Js)
-  Vs = ones(Int8, length(Is))
-  n_nodes = length(unique(Is))
-  g = sparse(Is, Js, Vs, n_nodes, n_nodes)
-  fill!(g.nzval, Int8(1))
-  return Metis.partition(Symmetric(g), nparts)
-end
-
 num_entries(s::SparseMatrixPattern) = length(s.Is)
 
 # NOTE this methods assumes that dof is up to date
@@ -227,21 +213,11 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
         if insorted(temp[1], dirichlet_dofs) || insorted(temp[2], dirichlet_dofs)
           # really do nothing here
         else
-          # # remove me
-          # # push!(pattern.Is, temp[1] - count(x -> x < temp[1], dirichlet_dofs))
-          # # push!(pattern.Js, temp[2] - count(x -> x < temp[2], dirichlet_dofs))
-
-          # push!(pattern.Is, dof_to_unknown[temp[1]])
-          # push!(pattern.Js, dof_to_unknown[temp[2]])
-          # # end remove me
-          # push!(pattern.unknown_dofs, n)
-
           pattern.Is[n] = dof_to_unknown[temp[1]]
           pattern.Js[n] = dof_to_unknown[temp[2]]
           pattern.unknown_dofs[n] = dof_num
           n += 1
         end
-        # n += 1
         dof_num += 1
       end
     end
@@ -269,7 +245,10 @@ struct SparseVectorPattern{
   I <: AbstractArray{Int, 1}
 }
   Is::I
+  permutation::I
   unknown_dofs::I
+  block_start_indices::Vector{Int}
+  block_el_level_sizes::Vector{Int}
 end
 
 function SparseVectorPattern(dof::DofManager)
@@ -278,14 +257,7 @@ function SparseVectorPattern(dof::DofManager)
   ids = reshape(1:n_total_dofs, ND, NN)
 
   fspace = function_space(dof)
-
-  n_entries = 0
-  for b in 1:num_blocks(fspace)
-    conn = connectivity(fspace, b)
-    # TODO do we need this operation?
-    conn = reshape(ids[:, conn], ND * size(conn, 1), size(conn, 2))
-    n_entries += size(conn, 1) * size(conn, 2)
-  end
+  block_start_indices, block_el_level_sizes, n_entries = _setup_block_sizes(dof, 1)
 
   # setup pre-allocated arrays based on number of entries
   Is = Vector{Int64}(undef, n_entries)
@@ -306,14 +278,89 @@ function SparseVectorPattern(dof::DofManager)
     end
   end
 
-  return SparseVectorPattern(Is, unknown_dofs)
+  permutation = sortperm(Is)
+
+  return SparseVectorPattern(
+    Is, permutation, unknown_dofs,
+    block_start_indices, block_el_level_sizes
+  )
 end
 
 function Adapt.adapt_structure(to, pattern::SparseVectorPattern)
   return SparseVectorPattern(
     adapt(to, pattern.Is),
-    adapt(to, pattern.unknown_dofs)
+    adapt(to, pattern.permutation),
+    adapt(to, pattern.unknown_dofs),
+    pattern.block_start_indices,
+    pattern.block_el_level_sizes
   )
 end
 
 num_entries(pattern::SparseVectorPattern) = length(pattern.Is)
+
+function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs)
+  n_total_dofs = length(dof) - length(dirichlet_dofs)
+  fspace = function_space(dof)
+
+  # create a map for "dof" (e.g. the dof * node for H1) to unknown
+  unknown_to_dof = Vector{eltype(dirichlet_dofs)}(undef, n_total_dofs)
+  ids = 1:length(dof)
+  n = 1
+  for dof in ids
+    if !insorted(dof, dirichlet_dofs)
+      unknown_to_dof[n] = dof
+      n += 1
+    end
+  end
+  dof_to_unknown = Dict([(x, y) for (x, y) in zip(unknown_to_dof, 1:length(unknown_to_dof))])
+  @assert maximum(values(dof_to_unknown)) == n_total_dofs
+
+  # figure out total number of entries
+  ND, NN = size(dof)
+  ids = reshape(1:length(dof), ND, NN)
+  n_entries = 0
+  for b in 1:num_blocks(fspace)
+    for e in 1:num_elements(fspace, b)
+      conns = unsafe_connectivity(fspace, e, b)
+      dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
+      for i in axes(dof_conns, 1)
+        if insorted(dof_conns[i], dirichlet_dofs)
+
+        else
+          n_entries += 1
+        end 
+      end
+    end
+  end
+
+  # finish me
+  resize!(pattern.Is, n_entries)
+  resize!(pattern.unknown_dofs, n_entries)
+
+  fill!(patern.Is, 0)
+  fill!(pattern.unknown_dofs, 0)
+
+  dof_num = 1
+  n = 1
+  for b in 1:num_blocks(fspace)
+    for e in 1:num_elements(fspace, b)
+      conns = unsafe_connectivity(fspace, e, b)
+      conn = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
+      for temp in conn
+        if insorted(temp[1], dirichlet_dofs)
+          # really do nothing here
+        else
+          pattern.Is[n] = dof_to_unknown[temp]
+          pattern.unknown_dofs[n] = dof_num
+          n += 1
+        end
+        dof_num += 1
+      end
+    end
+  end
+
+  permutation = sortperm(pattern.Is)
+  resize!(pattern.permutation, length(permutation))
+  pattern.permutation .= permutation
+  return nothing
+end

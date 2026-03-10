@@ -7,7 +7,6 @@ using ForwardDiff
 using Gmsh
 using Krylov
 using LinearAlgebra
-using MPI
 using PartitionedArrays
 using ReferenceFiniteElements
 using SparseArrays

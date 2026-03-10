@@ -274,6 +274,10 @@ function DirichletBCs(mesh, dof, dirichlet_bcs)
   return DirichletBCs(dirichlet_bcs, dirichlet_bc_funcs)
 end
 
+function dirichlet_dofs(bcs::DirichletBCs)
+  return unique(sort(mapreduce(x -> x.dofs, vcat, bcs.bc_caches)))
+end
+
 function update_field_dirichlet_bcs!(U, bcs::DirichletBCs)
   for bc in values(bcs.bc_caches)
     _update_field_dirichlet_bcs!(U, bc, KA.get_backend(bc))

@@ -3,44 +3,44 @@ using FiniteElementContainers
 using PartitionedArrays
 using Test
 
-function test_decomp_to_epu()
-    mesh_file = dirname(Base.source_dir()) * "/poisson/poisson.g"
-    num_ranks = 4
-    FiniteElementContainers.decompose_mesh(mesh_file, num_ranks, 1)
+# function test_decomp_to_epu()
+#     mesh_file = dirname(Base.source_dir()) * "/poisson/poisson.g"
+#     num_ranks = 4
+#     FiniteElementContainers.decompose_mesh(mesh_file, num_ranks, 1)
 
-    new_mesh_file = dirname(Base.source_dir()) * "/poisson/temp_mesh.g"
+#     new_mesh_file = dirname(Base.source_dir()) * "/poisson/temp_mesh.g"
 
-    for n in 1:num_ranks
-        @test isfile(mesh_file * ".$num_ranks.$(n - 1)")
-    end
-    @test isfile(mesh_file * ".nem")
-    @test isfile(mesh_file * ".pex")
+#     for n in 1:num_ranks
+#         @test isfile(mesh_file * ".$num_ranks.$(n - 1)")
+#     end
+#     @test isfile(mesh_file * ".nem")
+#     @test isfile(mesh_file * ".pex")
 
-    for n in 1:num_ranks
-        cp(
-            mesh_file * ".$num_ranks.$(n - 1)",
-            new_mesh_file * ".$num_ranks.$(n - 1)";
-            force = true
-        )
-    end
+#     for n in 1:num_ranks
+#         cp(
+#             mesh_file * ".$num_ranks.$(n - 1)",
+#             new_mesh_file * ".$num_ranks.$(n - 1)";
+#             force = true
+#         )
+#     end
 
-    Exodus.epu(new_mesh_file)
-    temp = split(new_mesh_file, "/")[end]
-    @test Exodus.exodiff(mesh_file, String(temp))
+#     Exodus.epu(new_mesh_file)
+#     temp = split(new_mesh_file, "/")[end]
+#     @test Exodus.exodiff(mesh_file, String(temp))
 
-    # cleanup
-    for n in 1:num_ranks
-        rm(mesh_file * ".$num_ranks.$(n - 1)"; force = true)
-        rm(new_mesh_file * ".$num_ranks.$(n - 1)"; force = true)
-    end
-    rm(mesh_file * ".nem"; force = true)
-    rm(mesh_file * ".pex"; force = true)
-    rm(temp; force = true)
-    rm(dirname(mesh_file) * "/decomp.log"; force = true)
-    rm(dirname(temp) * "/epu.log"; force = true)
-    rm(dirname(dirname(mesh_file)) * "/epu_err.log"; force = true)
-    rm(dirname(dirname(mesh_file)) * "/exodiff.log"; force = true)
-end
+#     # cleanup
+#     for n in 1:num_ranks
+#         rm(mesh_file * ".$num_ranks.$(n - 1)"; force = true)
+#         rm(new_mesh_file * ".$num_ranks.$(n - 1)"; force = true)
+#     end
+#     rm(mesh_file * ".nem"; force = true)
+#     rm(mesh_file * ".pex"; force = true)
+#     rm(temp; force = true)
+#     rm(dirname(mesh_file) * "/decomp.log"; force = true)
+#     rm(dirname(temp) * "/epu.log"; force = true)
+#     rm(dirname(dirname(mesh_file)) * "/epu_err.log"; force = true)
+#     rm(dirname(dirname(mesh_file)) * "/exodiff.log"; force = true)
+# end
 
 # function test_global_colors(num_dofs, num_ranks)
 #     mesh_file = dirname(Base.source_dir()) * "/poisson/poisson.g"
@@ -159,9 +159,9 @@ end
 #     par_node_maps
 # end
 
-if !Sys.iswindows()
-    test_decomp_to_epu()
-end
+# if !Sys.iswindows()
+#     test_decomp_to_epu()
+# end
 # test_global_colors(1, 4)
 # test_global_colors(2, 4)
 # test_global_colors(3, 4)

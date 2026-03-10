@@ -204,8 +204,18 @@ function create_parameters(
   return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, times)
 end
 
+"""
+$(TYPEDSIGNATURES)
+"""
 function current_time(p::Parameters)
   return current_time(p.times)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function dirichlet_dofs(p::Parameters)
+  return dirichlet_dofs(p.dirichlet_bcs)
 end
 
 """
