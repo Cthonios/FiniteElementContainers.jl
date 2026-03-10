@@ -16,49 +16,49 @@ function discrete_gradient(::ThreeDimensional, ∇N_X)
   for n in 1:N
     k = 3 * (n - 1) 
     tup = setindex(tup, ∇N_X[n, 1], k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
+    # tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 1], k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
+    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 2 * 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 2)
     tup = setindex(tup, ∇N_X[n, 1], k + 3)
 
     #
     k = 3 * (n - 1) + 3 * 3 * N
     tup = setindex(tup, ∇N_X[n, 2], k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
+    # tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 4 * 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
+    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 5 * 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 2)
     tup = setindex(tup, ∇N_X[n, 2], k + 3)
 
     #
     k = 3 * (n - 1) + 6 * 3 * N
     tup = setindex(tup, ∇N_X[n, 3], k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
+    # tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 7 * 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 3], k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
+    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 8 * 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
+    # tup = setindex(tup, 0.0,        k + 1)
+    # tup = setindex(tup, 0.0,        k + 2)
     tup = setindex(tup, ∇N_X[n, 3], k + 3)
   end
 

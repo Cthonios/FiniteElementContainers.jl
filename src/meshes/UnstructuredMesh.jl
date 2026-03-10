@@ -8,18 +8,20 @@ struct UnstructuredMesh{
   ND,
   RT <: Number,
   IT <: Integer,
-  EConns,
   EdgeConns,
   FaceConns
 } <: AbstractMesh
   mesh_obj::MeshObj
   nodal_coords::H1Field{RT, Vector{RT}, ND}
-  element_block_names::Vector{Symbol}
-  element_types::Vector{Symbol}
-  element_conns::EConns
+  element_block_names::Dict{IT, Symbol}
+  element_types::Dict{Symbol, Symbol}
+  element_conns::Dict{Symbol, Matrix{IT}}
+  element_id_map::Vector{IT}
   element_id_maps::Dict{Symbol, Vector{IT}}
   node_id_map::Vector{IT}
+  nodeset_names::Dict{IT, Symbol}
   nodeset_nodes::Dict{Symbol, Vector{IT}}
+  sideset_names::Dict{Int, Symbol}
   sideset_elems::Dict{Symbol, Vector{IT}}
   sideset_nodes::Dict{Symbol, Vector{IT}}
   sideset_sides::Dict{Symbol, Vector{IT}}
@@ -32,58 +34,40 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function UnstructuredMesh(file_type::AbstractMeshType, file_name::String, create_edges::Bool, create_faces::Bool)
+function UnstructuredMesh(file_type::AbstractMeshFileType, file_name::String; kwargs...)
   file = FileMesh(file_type, file_name)
-  return UnstructuredMesh(file, create_edges, create_faces)
+  mesh = UnstructuredMesh(file; kwargs...)
+  finalize(file)
+  return mesh
 end
 
 """
 $(TYPEDSIGNATURES)
+TODO change the interface so we don't need
+create_edges/create_faces. We should parse the 
+interpolation/space type and determine this
+change in behavior from these inputs...
 """
-function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::Bool) where T
-
-  # read nodal coordinates
-  if num_dimensions(file) == 2
-    coord_syms = (:X, :Y)
-  elseif num_dimensions(file) == 3
-    coord_syms = (:X, :Y, :Z)
-  # else
-  #   @assert false "Bad number of dimensions $(num_dimensions(file))"
-  end
-
-  nodal_coords = coordinates(file)
-  nodal_coords = H1Field(nodal_coords)
-
+function UnstructuredMesh(
+  file::FileMesh{T}; 
+  create_edges::Bool                = false, 
+  create_faces::Bool                = false,
+  interp_type                       = Lagrange, # TODO further type me
+  p_order::Union{Nothing, Int}      = nothing,
+  space_type                        = H1Field                   
+) where T
+  # read nodal coords and ids
+  nodal_coords, n_id_map = nodal_coordinates_and_ids(file)
+  
   # read element block types, conn, etc.
-  el_block_ids = element_block_ids(file)
-  el_block_names = element_block_names(file)
-  el_block_names = Symbol.(el_block_names)
-  el_types = Symbol.(element_type.((file,), el_block_ids))
-  el_conns = element_connectivity.((file,), el_block_ids)
-  # el_conns = Dict(zip(el_block_names, el_conns))
-  # el_conns = map(L2ElementField, el_conns)
-  el_conns = NamedTuple{tuple(el_block_names...)}(tuple(el_conns...))
-  el_id_maps = element_block_id_map.((file,), el_block_ids)
-  el_id_maps = Dict(zip(el_block_names, el_id_maps))
-  # el_id_maps = NamedTuple{tuple(el_block_names...)}(tuple(el_id_maps...))
-
-  # read node id map
-  n_id_map = convert.(Int64, node_id_map(file))
+  el_id_map = element_ids(file)
+  el_conns, el_id_maps, el_block_names, el_types = element_blocks(file)
 
   # read nodesets
-  nset_names = Symbol.(nodeset_names(file))
-  nsets = nodesets(file, nodeset_ids(file))
-  nset_nodes = Dict(zip(nset_names, nsets))
+  nset_names, nset_nodes = nodesets(file)
 
   # read sidesets 
-  sset_names = Symbol.(sideset_names(file))
-  ssets = sidesets(file, sideset_ids(file))
-
-  sset_elems = Dict(zip(sset_names, map(x -> x[1], ssets)))
-  sset_nodes = Dict(zip(sset_names, map(x -> x[2], ssets)))
-  sset_sides = Dict(zip(sset_names, map(x -> x[3], ssets)))
-  sset_side_nodes = Dict(zip(sset_names, map(x -> x[4], ssets)))
-
+  sset_elems, sset_names, sset_nodes, sset_sides, sset_side_nodes = sidesets(file)
 
   # TODO also add edges/faces for sidesets, this may be tricky...
 
@@ -130,22 +114,65 @@ function UnstructuredMesh(file::FileMesh{T}, create_edges::Bool, create_faces::B
     faces = nothing
   end
 
-  return UnstructuredMesh(
+  mesh = UnstructuredMesh(
     file,
     nodal_coords, 
-    el_block_names, el_types, el_conns, el_id_maps, 
+    el_block_names, el_types, el_conns, 
+    el_id_map, el_id_maps, 
     n_id_map,
-    nset_nodes,
-    sset_elems, 
-    sset_nodes, 
+    nset_names, nset_nodes,
+    sset_names, sset_elems, sset_nodes, 
     sset_sides, sset_side_nodes,
     edges, faces
   )
+
+  if p_order !== nothing
+    if p_order == 1
+      return mesh
+    end
+    @assert space_type == H1Field && interp_type == Lagrange
+    coords, conns = create_higher_order_mesh(mesh, space_type, interp_type, p_order)
+    el_types = Dict{Symbol, Symbol}()
+    for (key, el_type) in mesh.element_types
+      if el_type == :QUAD || el_type == :QUAD4
+        if p_order == 2
+          el_types[key] = :QUAD9
+        else
+          @assert false "TODO"
+        end
+      elseif el_type == :TRI || el_type == :TRI3
+        if p_order == 2
+          el_types[key] = :TRI6
+        else
+          @assert false "TODO"
+        end
+      else
+        @assert false "Unsupported element or TODO $el_type"
+      end
+    end
+    return UnstructuredMesh(
+      file,
+      coords, 
+      mesh.element_block_names, el_types, conns, 
+      mesh.element_id_map, mesh.element_id_maps, 
+      # mesh.node_id_map,
+      1:size(coords, 2) |> collect,
+      mesh.nodeset_names, 
+      # mesh.nset_nodes,
+      # mesh.sset_names, mesh.sset_elems, mesh.sset_nodes, 
+      # mesh.sset_sides, mesh.sset_side_nodes,
+      # edges, faces
+      Dict{Symbol, Vector{Int}}(),
+      mesh.sideset_names, mesh.sideset_elems, Dict{Symbol, Vector{Int}}(),
+      mesh.sideset_sides, Dict{Symbol, Matrix{Int}}(),
+      nothing, nothing
+    )
+  else
+    return mesh
+  end
 end
 
 num_dimensions(mesh::UnstructuredMesh) = num_dimensions(mesh.mesh_obj)
-
-function _mesh_file_type end
 
 include("Exodus.jl")
 
@@ -153,15 +180,30 @@ include("Exodus.jl")
 """
 $(TYPEDSIGNATURES)
 """
-function UnstructuredMesh(file_name::String; create_edges=false, create_faces=false)
+function UnstructuredMesh(file_name::String; kwargs...)
+  if !isfile(file_name)
+    throw(ErrorException("Failed to find file $file_name"))
+  end
+
   ext = splitext(file_name)
-  if occursin(".g", file_name) || occursin(".e", file_name) || occursin(".exo", file_name)
-    return UnstructuredMesh(ExodusMesh(), file_name, create_edges, create_faces)
+  if occursin(".geo", file_name) # special case where we generate mesh via gmsh
+    return UnstructuredMesh(GmshMesh(), file_name; kwargs...) 
+  elseif occursin(".g", file_name) || occursin(".e", file_name) || occursin(".exo", file_name)
+    return UnstructuredMesh(ExodusMesh(), file_name; kwargs...)
   elseif occursin(".i", file_name) || occursin(".inp", file_name)
-    return UnstructuredMesh(AbaqusMesh(), file_name, create_edges, create_faces)
+    # return UnstructuredMesh(AbaqusMesh(), file_name, create_edges, create_faces)
+    @assert false "TODO finish me"
+  elseif occursin(".msh", file_name)
+    return UnstructuredMesh(GmshMesh(), file_name; kwargs...)
   else
     throw(ErrorException("Unsupported file type with extension $ext"))
   end
+end
+
+function copy_mesh(mesh::UnstructuredMesh, new_file::String)
+  mt = mesh_type(mesh.mesh_obj)
+  copy_mesh(mesh, new_file, mt)
+  return nothing
 end
 
 # TODO write a show method

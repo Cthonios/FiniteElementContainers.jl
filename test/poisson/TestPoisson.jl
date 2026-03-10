@@ -9,6 +9,8 @@ using Test
 gold_file = Base.source_dir() * "/poisson.gold"
 mesh_file = Base.source_dir() * "/poisson.g"
 output_file = Base.source_dir() * "/poisson.e"
+geo_file_tri3 = dirname(Base.source_dir()) * "/gmsh/square_meshed_with_tris.geo"
+msh_file_tri3 = dirname(Base.source_dir()) * "/gmsh/square_meshed_with_tris.msh"
 
 # methods for a simple Poisson problem
 f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
@@ -23,6 +25,8 @@ bc_func_neumann(_, _) = SVector{1, Float64}(1.)
 function test_poisson(backend, cond, nlsolver, lsolver)
   test_poisson_dirichlet(backend, cond, nlsolver, lsolver)
   test_poisson_dirichlet_with_nodesets(backend, cond, nlsolver, lsolver)
+  test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(backend, cond, nlsolver, lsolver)
+  test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(backend, cond, nlsolver, lsolver)
   test_poisson_dirichlet_multi_block_quad4_quad4(backend, cond, nlsolver, lsolver)
   test_poisson_dirichlet_multi_block_quad4_tri3(backend, cond, nlsolver, lsolver)
   test_poisson_dirichlet_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
@@ -127,6 +131,100 @@ function test_poisson_dirichlet_with_nodesets(
 
   if !Sys.iswindows()
     @test exodiff(output_file, gold_file)
+  end
+  rm(output_file; force=true)
+  display(solver.timer)
+end
+
+function test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(
+  dev, use_condensed,
+  nsolver, lsolver
+)
+  mesh = UnstructuredMesh(geo_file_tri3)
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson(f)
+  props = create_properties(physics)
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+
+  # setup and update bcs
+  dbcs = DirichletBC[
+    DirichletBC(:u, bc_func; nodeset_name = :boundary),
+  ]
+
+  # setup the parameters
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+
+  if dev != cpu
+    p = p |> dev
+    asm = asm |> dev 
+  end
+
+  # setup solver and integrator
+  solver = nsolver(lsolver(asm))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p)
+
+  if dev != cpu
+    p = p |> cpu
+  end
+
+  U = p.h1_field
+
+  pp = PostProcessor(mesh, output_file, u)
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, ("u",), U)
+  close(pp)
+
+  if !Sys.iswindows()
+    # @test exodiff(output_file, gold_file)
+  end
+  rm(output_file; force=true)
+  display(solver.timer)
+end
+
+function test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(
+  dev, use_condensed,
+  nsolver, lsolver
+)
+  mesh = UnstructuredMesh(msh_file_tri3)
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson(f)
+  props = create_properties(physics)
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+
+  # setup and update bcs
+  dbcs = DirichletBC[
+    DirichletBC(:u, bc_func; nodeset_name = :boundary)
+  ]
+
+  # setup the parameters
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+
+  if dev != cpu
+    p = p |> dev
+    asm = asm |> dev 
+  end
+
+  # setup solver and integrator
+  solver = nsolver(lsolver(asm))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p)
+
+  if dev != cpu
+    p = p |> cpu
+  end
+
+  U = p.h1_field
+
+  pp = PostProcessor(mesh, output_file, u)
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, ("u",), U)
+  close(pp)
+
+  if !Sys.iswindows()
+    # @test exodiff(output_file, gold_file)
   end
   rm(output_file; force=true)
   display(solver.timer)

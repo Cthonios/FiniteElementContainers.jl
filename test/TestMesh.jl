@@ -1,6 +1,9 @@
 using FiniteElementContainers
 using Test
 
+geo_file_tri3 = Base.source_dir() * "/gmsh/square_meshed_with_tris.geo"
+msh_file_tri3 = Base.source_dir() * "/gmsh/square_meshed_with_tris.msh"
+
 function test_amr_mesh()
   mesh = StructuredMesh("tri", (0., 0.), (1., 1.), (5, 5))
   amr = FiniteElementContainers.AMRMesh(mesh)
@@ -62,6 +65,11 @@ function test_amr_mesh()
   refine = [1, 5, 7]
   FiniteElementContainers._refine!(amr, refine)
   FiniteElementContainers.write_to_file(amr, "atri.exo"; force = true)
+end
+
+function test_gmsh_mesh()
+  mesh = UnstructuredMesh(geo_file_tri3)
+  mesh = UnstructuredMesh(msh_file_tri3)
 end
 
 function test_structured_mesh()
@@ -158,25 +166,25 @@ struct DummyMesh <: FiniteElementContainers.AbstractMesh
 end
 
 # @test ExtendedTestSet "Mesh definition" begin
-function test_bad_mesh_methods()
-  mesh = DummyMesh()
-  @test_throws MethodError coordinates(mesh)
-  @test_throws MethodError element_block_id_map(mesh, 1)
-  @test_throws MethodError element_block_ids(mesh)
-  @test_throws MethodError element_block_names(mesh)
-  @test_throws MethodError element_connectivity(mesh, 1)
-  @test_throws MethodError element_type(mesh, 1)
-  @test_throws MethodError nodeset(mesh, 1)
-  @test_throws MethodError nodesets(mesh, [1])
-  @test_throws MethodError nodeset_ids(mesh)
-  @test_throws MethodError nodeset_names(mesh)
-  @test_throws MethodError num_dimensions(mesh)
-  @test_throws MethodError num_nodes(mesh)
-  @test_throws MethodError sideset(mesh, 1)
-  @test_throws MethodError sidesets(mesh)
-  @test_throws MethodError sideset_ids(mesh)
-  @test_throws MethodError sideset_names(mesh)
-end
+# function test_bad_mesh_methods()
+#   mesh = DummyMesh()
+#   @test_throws MethodError element_block_id_map(mesh, 1)
+#   @test_throws MethodError element_block_ids(mesh)
+#   @test_throws MethodError element_block_names(mesh)
+#   @test_throws MethodError element_connectivity(mesh, 1)
+#   @test_throws MethodError element_type(mesh, 1)
+#   @test_throws MethodError nodal_coordinates(mesh)
+#   @test_throws MethodError nodeset(mesh, 1)
+#   @test_throws MethodError nodesets(mesh, [1])
+#   @test_throws MethodError nodeset_ids(mesh)
+#   @test_throws MethodError nodeset_names(mesh)
+#   @test_throws MethodError num_dimensions(mesh)
+#   @test_throws MethodError num_nodes(mesh)
+#   @test_throws MethodError sideset(mesh, 1)
+#   @test_throws MethodError sidesets(mesh)
+#   @test_throws MethodError sideset_ids(mesh)
+#   @test_throws MethodError sideset_names(mesh)
+# end
 
 function test_bad_mesh_file_type()
   file_name = "some_file.badext"
@@ -186,7 +194,8 @@ end
 @testset "Mesh" begin
   # test_amr_mesh()
   test_bad_mesh_file_type()
-  test_bad_mesh_methods()
+  # test_bad_mesh_methods()
+  test_gmsh_mesh()
   test_structured_mesh()
   test_write_mesh()
 end

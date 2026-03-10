@@ -16,7 +16,6 @@ end
 function extract_stiffness end
 function extract_stress end
 
-include("IncompressiblePlaneStress.jl")
 include("PlaneStrain.jl")
 include("ScalarFormulation.jl")
 include("ThreeDimensional.jl")

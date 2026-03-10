@@ -1,7 +1,7 @@
 struct L2Field{
     T, # Let it be anything to allow for structs
     D <: AbstractVector{T}
-}
+} <: AbstractDiscontinuousField{T, D}
     data::D                    # flat storage (CPU or GPU)
     nfields::Vector{Int}
     nepes::Vector{Int} # num nodes, q points, etc.

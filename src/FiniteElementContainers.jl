@@ -22,15 +22,12 @@ export NeumannBC
 export NeumannBCs
 export PeriodicBC
 export PeriodicBCs
+export dirichlet_dofs
 export update_field_dirichlet_bcs!
 
 # Connectivities
 export Connectivity
 export connectivity
-
-# Fields
-export H1Field
-export L2Field
 
 # DofManager
 export DofManager
@@ -39,8 +36,15 @@ export create_unknowns
 export update_dofs!
 export update_field_unknowns!
 
+# Fields
+export H1Field
+export HcurlField
+export HdivField
+export L2Field
+export num_entities
+export num_fields
+
 # Formulations
-export IncompressiblePlaneStress
 export PlaneStrain
 export ScalarFormulation
 export ThreeDimensional
@@ -87,27 +91,18 @@ export evolve!
 export FileMesh
 export StructuredMesh
 export UnstructuredMesh
-export coordinates
-export element_block_id_map
-export element_block_ids
-export element_block_names
-export element_connectivity
-export element_type
-export nodeset
-export nodesets
-export nodeset_ids
-export nodeset_names
+export distribute_mesh
+export element_blocks
+export element_ids
+export global_colorings
+export nodal_coordinates
+export nodesets # rename to boundary_nodes
 export num_dimensions
-export num_fields
 export num_nodes
-export sideset
-export sidesets
-export sideset_ids
-export sideset_names
+export sidesets # rename to boundary_facets or something like that
 
 # Parameters
 export Parameters
-export TimeStepper
 export create_parameters
 
 # Physics
@@ -142,10 +137,14 @@ export IterativeLinearSolver
 export NewtonSolver
 export solve!
 
+# Times
+export TimeStepper
+export current_time
+
 # other exports from deps
 export Lagrange
-export MappedInterpolants
-export MappedSurfaceInterpolants
+export MappedH1OrL2Interpolants
+export MappedH1OrL2SurfaceInterpolants
 
 # dependencies
 import KernelAbstractions as KA
@@ -167,16 +166,18 @@ function cpu end
 function cuda end
 function rocm end
 
-function communication_graph end
+# function communication_graph end
 function create_partition end
-function decompose_mesh end
+function create_matrix_sparsity_pattern end
+function create_vector_sparsity_pattern end
+function distribute_mesh end
 function global_colorings end
-function _dofs_exo_to_par_dicts end
-function _elems_exo_to_par_dicts end
-function _exo_to_par_dicts end
-function _global_elem_to_global_node end
-function _global_node_to_global_elem end
-function _renumber_mesh end
+# function _dofs_exo_to_par_dicts end
+# function _elems_exo_to_par_dicts end
+# function _exo_to_par_dicts end
+# function _global_elem_to_global_node end
+# function _global_node_to_global_elem end
+# function _renumber_mesh end
 
 # TODO need to further specialize for staticarrays, etc.
 cpu(x) = adapt(Array, x)

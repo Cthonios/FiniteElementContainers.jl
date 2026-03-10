@@ -118,37 +118,34 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_level_fields(U::H1Field, ref_fe, conns, e)
-  ND = size(U, 1)
+@inline function _element_level_fields(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
   NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns[:, e]])
+  NxNDof = NNPE * NF
+  u_el = @views SMatrix{NNPE, NF, eltype(U), NxNDof}(U[:, conns[:, e]])
   return u_el
 end
 
-@inline function _element_level_fields(U::H1Field, ref_fe, conns)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
-  u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns])
+@inline function _element_level_fields(U::H1Field{T, D, NF}, ref_fe, conns) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
+  u_el = @views SMatrix{NF, NNPE, eltype(U), NxNDof}(U[:, conns])
+  # u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns])
   return u_el
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_level_fields_flat(U::H1Field, ref_fe, conns, e)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
+@inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
   u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns[:, e]])
   return u_el
 end
 
-@inline function _element_level_fields_flat(U::H1Field, ref_fe, conns)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
+@inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
   u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns])
   return u_el
 end
@@ -170,10 +167,9 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_scratch_matrix(ref_fe, U)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
+@inline function _element_scratch_matrix(ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(U), NxNDof * NxNDof})
   return K_el
 end
@@ -181,10 +177,9 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_scratch_vector(ref_fe, U)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
+@inline function _element_scratch_vector(ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
   R_el = zeros(SVector{NxNDof, eltype(U)})
   return R_el
 end
@@ -192,10 +187,9 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_scratch(::AssembledMatrix, ref_fe, U)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
+@inline function _element_scratch(::AssembledMatrix, ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(U), NxNDof * NxNDof})
   return K_el
 end
@@ -218,10 +212,9 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-@inline function _element_scratch(::AssembledVector, ref_fe, U)
-  ND = size(U, 1)
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * ND
+@inline function _element_scratch(::AssembledVector, ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
   R_el = zeros(SVector{NxNDof, eltype(U)})
   return R_el
 end
@@ -230,14 +223,6 @@ end
 $(TYPEDSIGNATURES)
 """
 function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::Int)
-  # NS = size(state, 1)
-  # if NS > 0
-  #   state_q = @views SVector{size(state, 1), eltype(state)}(state[:, q, e])
-  # else
-  #   state_q = SVector{0, eltype(state)}()
-  # end
-  # return state_q
-  # NS = size(state, 1)
   state_q = view(state, :, q, e)
   return state_q
 end
@@ -343,7 +328,7 @@ function _assemble_block!(
     props_el = _element_level_properties(props, e)
     val_el = _element_scratch(return_type, ref_fe, U)
 
-    for q in 1:num_quadrature_points(ref_fe)
+    for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
       state_new_q = _quadrature_level_state(state_new, q, e)
@@ -382,7 +367,7 @@ KA.@kernel function _assemble_block_kernel!(
   u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
   props_el = _element_level_properties(props, E)
   val_el = _element_scratch(return_type, ref_fe, U)
-  for q in 1:num_quadrature_points(ref_fe)
+  for q in 1:num_cell_quadrature_points(ref_fe)
     interps = _cell_interpolants(ref_fe, q)
     state_old_q = _quadrature_level_state(state_old, q, E)
     state_new_q = _quadrature_level_state(state_new, q, E)
@@ -435,7 +420,7 @@ function create_assembler_cache(
   vals = Matrix{Float64}[]
   fspace = function_space(asm.dof)
   for (b, ref_fe) in enumerate(values(fspace.ref_fes))
-    NQ = ReferenceFiniteElements.num_quadrature_points(ref_fe)
+    NQ = ReferenceFiniteElements.num_cell_quadrature_points(ref_fe)
     NE = num_elements(fspace, b)
     push!(vals, zeros(Float64, NQ, NE))
   end

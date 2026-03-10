@@ -1,6 +1,6 @@
 function test_connectivity()
-  ref_fe_1 = ReferenceFE(Quad4{Lagrange, 1}())
-  ref_fe_2 = ReferenceFE(Tri3{Lagrange, 1}())
+  ref_fe_1 = ReferenceFE(Quad{Lagrange, 1}(), GaussLobattoLegendre(1))
+  ref_fe_2 = ReferenceFE(Tri{Lagrange, 1}(), GaussLobattoLegendre(1))
   conns_in = [
     [
       1 5 9;
@@ -37,7 +37,71 @@ function test_h1_field()
   @test eltype(field) == eltype(data)
   @test size(field) == size(data)
   @test num_fields(field) == size(data, 1)
-  @test num_nodes(field) == size(data, 2)
+  @test num_entities(field) == size(data, 2)
+  @test typeof(similar(field)) == typeof(field) 
+
+  # test basic axes and basic getindex
+  for n in axes(data)
+    @test field[n] == data[n]
+  end
+
+  # test dual index getindex
+  for n in axes(data, 2)
+    for d in axes(data, 1)
+      @test field[d, n] == data[d, n]
+    end
+  end
+
+  # test dual number setindex
+  data_2 = rand(2, 20)
+  for n in axes(data, 2)
+    for d in axes(data, 1)
+      field[d, n] = data_2[d, n]
+      @test field[d, n] == data_2[d, n]
+    end
+  end
+end
+
+function test_hcurl_field()
+  data = rand(2, 20)
+  field = HcurlField(data)
+  
+  @test eltype(field) == eltype(data)
+  @test size(field) == size(data)
+  @test num_fields(field) == size(data, 1)
+  @test num_entities(field) == size(data, 2)
+  @test typeof(similar(field)) == typeof(field) 
+
+  # test basic axes and basic getindex
+  for n in axes(data)
+    @test field[n] == data[n]
+  end
+
+  # test dual index getindex
+  for n in axes(data, 2)
+    for d in axes(data, 1)
+      @test field[d, n] == data[d, n]
+    end
+  end
+
+  # test dual number setindex
+  data_2 = rand(2, 20)
+  for n in axes(data, 2)
+    for d in axes(data, 1)
+      field[d, n] = data_2[d, n]
+      @test field[d, n] == data_2[d, n]
+    end
+  end
+end
+
+function test_hdiv_field()
+  data = rand(2, 20)
+  field = HdivField(data)
+  
+  @test eltype(field) == eltype(data)
+  @test size(field) == size(data)
+  @test num_fields(field) == size(data, 1)
+  @test num_entities(field) == size(data, 2)
   @test typeof(similar(field)) == typeof(field) 
 
   # test basic axes and basic getindex
@@ -91,5 +155,7 @@ end
 @testset "Fields" begin
   test_connectivity()
   test_h1_field()
+  test_hcurl_field()
+  test_hdiv_field()
   test_l2_field()
 end

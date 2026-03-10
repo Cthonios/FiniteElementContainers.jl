@@ -34,6 +34,7 @@ function Adapt.adapt_structure(to, conn::Connectivity{T, D}) where {T, D}
     )
 end
 
+# NOT GPU safe
 function connectivity(conn::Connectivity, b::Int)
     nepe = conn.nepes[b]
     nelem = conn.nelems[b]
@@ -41,8 +42,9 @@ function connectivity(conn::Connectivity, b::Int)
     return reshape(view(conn.data, boffset:boffset + nepe * nelem - 1), nepe, nelem)
 end
 
+# GPU safe
 @inline function connectivity(ref_fe::ReferenceFE, conn_data, e::Int, boffset::Int)
-    NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
+    NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
     base = boffset + (e - 1) * NNPE
     data = ntuple(i -> conn_data[base + i - 1], NNPE)
     return SVector{NNPE, Int}(data)
@@ -52,15 +54,30 @@ function num_blocks(conn::Connectivity)
     return length(conn.nepes)
 end 
 
+# NOT GPU safe
 function num_elements(conn::Connectivity, b::Int)
     return conn.nelems[b]
 end
 
-@inline function surface_connectivity(ref_fe::ReferenceFE, conn_data, e::Int, boffset::Int)
-    NNPE = ReferenceFiniteElements.num_vertices(
-        ReferenceFiniteElements.surface_element(ref_fe.element)
+# NOT GPU safe
+function num_entities_per_element(conn::Connectivity, b::Int)
+    return conn.nepes[b]
+end
+
+# GPU safe
+@inline function surface_connectivity(ref_fe::ReferenceFE, conn_data, side::Int, e::Int, boffset::Int)
+    NNPE = ReferenceFiniteElements.num_cell_dofs(
+        ReferenceFiniteElements.boundary_element(ref_fe.element, side)
     )
     base = boffset + (e - 1) * NNPE
     data = ntuple(i -> conn_data[base + i - 1], NNPE)
     return SVector{NNPE, Int}(data)
+end
+
+function unsafe_connectivity(conn::Connectivity, e::Int, b::Int)
+    nepe = conn.nepes[b]
+    boffset = conn.offsets[b]
+    start = boffset + nepe * (e - 1)
+    finish = boffset + nepe * e - 1
+    return view(conn.data, start:finish)
 end

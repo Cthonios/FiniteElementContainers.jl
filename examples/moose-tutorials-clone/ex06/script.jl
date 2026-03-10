@@ -56,19 +56,19 @@ function simulate()
     p = p |> rocm
     asm = asm |> rocm
 
-    solver = NewtonSolver(DirectLinearSolver(asm))
+    # solver = NewtonSolver(DirectLinearSolver(asm))
+    solver = NewtonSolver(IterativeLinearSolver(asm, :CgSolver))
     integrator = QuasiStaticIntegrator(solver)
     pp = PostProcessor(mesh, "output.e", u)
 
     n = 1
-    while times.time_current[1] < 75.0
+    # while times.time_current[1] < 75.0
+    while current_time(p) < 75.0
         evolve!(integrator, p)
 
         # move to cpu for writing
-        # U = p.h1_field
-        p_cpu = p |> cpu
-        U = p_cpu.h1_field
-        write_times(pp, n, times.time_current[1])
+        U = p.h1_field |> cpu
+        write_times(pp, n, current_time(p))
         write_field(pp, n, ("u",), U)
         n = n + 1
     end

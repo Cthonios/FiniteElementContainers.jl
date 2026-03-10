@@ -2,95 +2,76 @@
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-abstract type AbstractFunction{S, F <: FunctionSpace} end
+abstract type AbstractFunction{F <: FunctionSpace} end
 
 function Adapt.adapt_structure(to, var::T) where T <: AbstractFunction
-  syms = names(var)
   fspace = adapt(to, var.fspace)
   type = eval(T.name.name)
-  return type{syms, typeof(fspace)}(fspace)
+  return type{typeof(fspace)}(fspace, var.names)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function Base.length(::AbstractFunction{S, F}) where {S, F}
-  if typeof(S) <: Symbol
-    return 1
-  else
-    return length(S)
-  end
-end
+Base.length(func::AbstractFunction) = length(func.names)
 
 """
 $(TYPEDSIGNATURES)
 """
-function Base.names(::AbstractFunction{S, F}) where {S, F}
-  if typeof(S) <: Symbol
-    return (S,)
-  else
-    return S
-  end
+Base.names(func::AbstractFunction) = func.names
+
+function Base.show(io::IO, func::AbstractFunction)
+  println(io, "$(typeof(func).name.name):")
+  println(io, "  names: $(names(func))")
 end
 
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct ScalarFunction{S, F} <: AbstractFunction{S, F}
+struct ScalarFunction{F} <: AbstractFunction{F}
   fspace::F
+  names::Vector{Symbol}
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function ScalarFunction(fspace::FunctionSpace, sym)
-  return ScalarFunction{sym, typeof(fspace)}(fspace)
-end
-
-function Base.show(io::IO, ::ScalarFunction{S, F}) where {S, F}
-  println(io, "ScalarFunction:")
-  println(io, "  names: $S")
+function ScalarFunction(fspace::FunctionSpace, sym::Symbol)
+  return ScalarFunction(fspace, Symbol[sym])
 end
 
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct VectorFunction{S, F} <: AbstractFunction{S, F}
+struct VectorFunction{F} <: AbstractFunction{F}
   fspace::F
+  names::Vector{Symbol}
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function VectorFunction(fspace::FunctionSpace, sym)
-  syms = ()
+function VectorFunction(fspace::FunctionSpace, sym::Symbol)
   components = [:_x, :_y, :_z]
-  for n in axes(fspace.coords, 1)
-    syms = (syms..., String(sym) * String(components[n]))
-  end
-  syms = Symbol.(syms)
-  return VectorFunction{syms, typeof(fspace)}(fspace)
-end
-
-function Base.show(io::IO, ::VectorFunction{S, F}) where {S, F}
-  println(io, "VectorFunction:")
-  println(io, "  names: $S")
+  syms = map(x -> Symbol("$sym$x"), components[1:size(fspace.coords, 1)])
+  return VectorFunction(fspace, syms)
 end
 
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct TensorFunction{S, F} <: AbstractFunction{S, F}
+struct TensorFunction{F} <: AbstractFunction{F}
   fspace::F
+  names::Vector{Symbol}
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function TensorFunction(fspace::FunctionSpace, sym; use_spatial_dimension=false)
+function TensorFunction(fspace::FunctionSpace, sym::Symbol; use_spatial_dimension=false)
   # switch for whether to do the sensible thing for constitutive equations
   # e.g. always use 3x3 for displacement gradient regardless of dimension
   if use_spatial_dimension
@@ -114,25 +95,17 @@ function TensorFunction(fspace::FunctionSpace, sym; use_spatial_dimension=false)
     @assert false "TensorFunction likely doesn't make sense for ND not 2 or 3"
   end
 
-  syms = ()
-  for n in axes(components, 1)
-    syms = (syms..., String(sym) * String(components[n]))
-  end
-  syms = Symbol.(syms)
-  return TensorFunction{syms, typeof(fspace)}(fspace)
-end
-
-function Base.show(io::IO, ::TensorFunction{S, F}) where {S, F}
-  println(io, "TensorFunction:")
-  println(io, "  names: $S")
+  syms = map(x -> Symbol("$sym$x"), components)
+  return TensorFunction(fspace, syms)
 end
 
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct SymmetricTensorFunction{S, F} <: AbstractFunction{S, F}
+struct SymmetricTensorFunction{F} <: AbstractFunction{F}
   fspace::F
+  names::Vector{Symbol}
 end
 
 """
@@ -140,7 +113,7 @@ $(TYPEDSIGNATURES)
 Uses numbering consistent with exodus output, is this the right thing to do?
 Should it be consistent with Tensors.jl
 """
-function SymmetricTensorFunction(fspace::FunctionSpace, sym; use_spatial_dimension=false)
+function SymmetricTensorFunction(fspace::FunctionSpace, sym::Symbol; use_spatial_dimension=false)
   # switch for whether to do the sensible thing for constitutive equations
   # e.g. always use 3x3 for displacement gradient regardless of dimension
   if use_spatial_dimension
@@ -165,21 +138,13 @@ function SymmetricTensorFunction(fspace::FunctionSpace, sym; use_spatial_dimensi
   end
 
   # finally set up component symbols
-  syms = ()
-  for n in axes(components, 1)
-    syms = (syms..., String(sym) * String(components[n]))
-  end
-  syms = Symbol.(syms)
-  return SymmetricTensorFunction{syms, typeof(fspace)}(fspace)
+  syms = map(x -> Symbol("$sym$x"), components)
+  return SymmetricTensorFunction(fspace, syms)
 end
 
-function Base.show(io::IO, ::SymmetricTensorFunction{S, F}) where {S, F}
-  println(io, "SymmetricTensorFunction:")
-  println(io, "  names: $S")
-end
-
-struct GeneralFunction{S, F} <: AbstractFunction{S, F}
+struct GeneralFunction{F} <: AbstractFunction{F}
   fspace::F
+  names::Vector{Symbol}
 end
 
 function GeneralFunction(args...)
@@ -187,41 +152,6 @@ function GeneralFunction(args...)
   for arg in args
     @assert typeof(arg.fspace) == typeof(fspace)
   end
-  # syms = mapreduce(names, vcat, args)
-  syms = ()
-  for arg in args
-    syms = (syms..., names(arg)...)
-  end
-  # @show syms
-  return GeneralFunction{syms, typeof(fspace)}(fspace)
+  syms = mapreduce(x -> x.names, vcat, args)
+  return GeneralFunction(fspace, syms)
 end
-
-function Base.show(io::IO, ::GeneralFunction{S, F}) where {S, F}
-  println(io, "GeneralFunction:")
-  println(io, "  names: $S")
-end
-
-# struct StateFunction{S, F, NS, NQ} <: AbstractFunction{S, F}
-#   fspace::F
-# end
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# function StateFunction(fspace::FunctionSpace, sym, n_state, n_quad_pts)
-#   syms = ()
-#   for n in 1:n_state
-#     for q in 1:n_quad_pts
-#       syms = (syms..., String(sym) * String("_$(n)_$(q)"))
-#     end
-#   end
-#   syms = Symbol.(syms)
-#   return StateFunction{syms, typeof(fspace), n_state, n_quad_pts}(fspace)
-# end
-
-# function Base.show(io::IO, ::StateFunction{S, F, NS, NQ}) where {S, F, NS, NQ}
-#   println(io, "StateFunction:")
-#   println(io, "  names: $S")
-#   println(io, "  number of state variables: $NS")
-#   println(io, "  number of quadrature points: $NQ")
-# end
