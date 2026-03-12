@@ -38,6 +38,7 @@ struct SparseMatrixPattern{
   unknown_dofs::I
   block_start_indices::Vector{Int}
   block_el_level_sizes::Vector{Int}
+  max_entries::Vector{Int}
   # cache arrays
   klasttouch::I
   csrrowptr::I
@@ -103,7 +104,7 @@ function SparseMatrixPattern(dof::DofManager)
   pattern = SparseMatrixPattern(
     Is, Js, 
     unknown_dofs, 
-    block_start_indices, block_el_level_sizes, 
+    block_start_indices, block_el_level_sizes, [n_entries],
     # cache arrays
     klasttouch, csrrowptr, csrcolval, csrnzval,
     # additional cache arrays
@@ -130,7 +131,8 @@ function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   perm = adapt(to, asm.permutation)
   return SparseMatrixPattern(
     Is, Js,
-    unknown_dofs, asm.block_start_indices, asm.block_el_level_sizes,
+    unknown_dofs,
+    asm.block_start_indices, asm.block_el_level_sizes, asm.max_entries,
     klasttouch, csrrowptr, csrcolval, csrnzval,
     csccolptr, cscrowval, cscnzval, perm
   )
@@ -249,6 +251,7 @@ struct SparseVectorPattern{
   unknown_dofs::I
   block_start_indices::Vector{Int}
   block_el_level_sizes::Vector{Int}
+  max_entries::Vector{Int}
 end
 
 function SparseVectorPattern(dof::DofManager)
@@ -282,7 +285,7 @@ function SparseVectorPattern(dof::DofManager)
 
   return SparseVectorPattern(
     Is, permutation, unknown_dofs,
-    block_start_indices, block_el_level_sizes
+    block_start_indices, block_el_level_sizes, [n_entries]
   )
 end
 
@@ -292,8 +295,13 @@ function Adapt.adapt_structure(to, pattern::SparseVectorPattern)
     adapt(to, pattern.permutation),
     adapt(to, pattern.unknown_dofs),
     pattern.block_start_indices,
-    pattern.block_el_level_sizes
+    pattern.block_el_level_sizes,
+    pattern.max_entries
   )
+end
+
+function SparseArrays.sparsevec(pattern::SparseVectorPattern, storage)
+  return @views sparsevec(pattern.Is, storage[pattern.unknown_dofs])
 end
 
 num_entries(pattern::SparseVectorPattern) = length(pattern.Is)
@@ -337,7 +345,7 @@ function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs)
   resize!(pattern.Is, n_entries)
   resize!(pattern.unknown_dofs, n_entries)
 
-  fill!(patern.Is, 0)
+  fill!(pattern.Is, 0)
   fill!(pattern.unknown_dofs, 0)
 
   dof_num = 1

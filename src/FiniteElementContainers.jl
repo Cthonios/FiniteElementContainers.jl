@@ -7,6 +7,7 @@ export rocm
 
 # Assemblers
 export SparseMatrixAssembler
+export create_assembler_cache
 export assemble_mass!
 export assemble_matrix!
 export assemble_matrix_action!
