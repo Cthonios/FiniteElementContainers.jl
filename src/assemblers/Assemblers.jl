@@ -22,6 +22,9 @@ end
 struct AssembledVector <: AssembledReturnType
 end
 
+struct AssembledSparseVector <: AssembledReturnType
+end
+
 # fall back method does nothing
 @inline function _accumulate_q_value(::AssembledReturnType, storage, val_q, val_e, q, e)
   val_e = val_e + val_q
@@ -40,7 +43,7 @@ end
 
 # assembly helper methods below
 function _assemble_element!(
-  storage, R_el::SVector, 
+  storage::AbstractField, R_el::SVector, 
   conns, # all connectivities for this block
   el_id::Int, ::Int, ::Int
 )
@@ -62,6 +65,24 @@ function _assemble_element!(
   conns, # all connectivities for this block
   ::Int, ::Int, ::Int
 ) where T <: Number
+  return nothing
+end
+
+# sparse vector attempt
+function _assemble_element!(
+  storage::AbstractVector, R_el::SVector,
+  conns,
+  el_id::Int,
+  block_start_index::Int, block_el_level_size::Int
+)
+  # figure out ids needed to update
+  start_id = block_start_index + 
+  (el_id - 1) * block_el_level_size
+  end_id = start_id + block_el_level_size - 1
+  ids = start_id:end_id
+  for (i, id) in enumerate(ids)
+    storage[id] += R_el.data[i]
+  end
   return nothing
 end
 
@@ -266,20 +287,24 @@ end
 $(TYPEDSIGNATURES)
 assumes assemble_vector! has already been called
 """
-function residual(asm::AbstractAssembler)
-  if _is_condensed(asm.dof)
-    _adjust_vector_entries_for_constraints!(
-      asm.residual_storage, asm.constraint_storage,
-      KA.get_backend(asm)
-    )
-    return asm.residual_storage.data
+function residual(asm::AbstractAssembler; use_sparse_vector = false)
+  if use_sparse_vector
+    return sparsevec(asm.vector_pattern, asm.residual_unknowns)
   else
-    extract_field_unknowns!(
-      asm.residual_unknowns, 
-      asm.dof, 
-      asm.residual_storage
-    )
-    return asm.residual_unknowns
+    if _is_condensed(asm.dof)
+      _adjust_vector_entries_for_constraints!(
+        asm.residual_storage, asm.constraint_storage,
+        KA.get_backend(asm)
+      )
+      return asm.residual_storage.data
+    else
+      extract_field_unknowns!(
+        asm.residual_unknowns, 
+        asm.dof, 
+        asm.residual_storage
+      )
+      return asm.residual_unknowns
+    end
   end
 end
 

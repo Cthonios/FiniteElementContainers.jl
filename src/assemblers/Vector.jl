@@ -36,8 +36,7 @@ function assemble_vector!(
       backend,
       storage,
       conns.data, conns.nelems[b], conns.offsets[b], 
-      0, 0, # NOTE these are never used for vectors
-      # TODO eventually we'll need them if we want to use sparse vectors
+      pattern.block_start_indices[b], pattern.block_el_level_sizes[b],
       func,
       block_physics, ref_fe,
       p.h1_coords, t, Δt,

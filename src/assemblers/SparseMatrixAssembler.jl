@@ -7,12 +7,10 @@ problems in time.
 struct SparseMatrixAssembler{
   Condensed,
   NumArrDims,
-  # NumFields,
   IV                <: AbstractArray{Int, 1},
   RV                <: AbstractArray{Float64, 1},
   Var               <: AbstractFunction,
-  # FieldStorage      <: AbstractField{Float64, NumArrDims, RV, NumFields}, # should we make 2 not hardcoded? E.g. for 
-  FieldStorage      <: AbstractField{Float64, NumArrDims, RV}, # should we make 2 not hardcoded? E.g. for 
+  FieldStorage      <: AbstractField{Float64, NumArrDims, RV},
   QuadratureStorage <: NamedTuple
 } <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
   dof::DofManager{Condensed, Int, IV, Var}
@@ -50,6 +48,7 @@ function SparseMatrixAssembler(dof::DofManager)
   hessian_storage = zeros(num_entries(matrix_pattern))
   mass_storage = zeros(num_entries(matrix_pattern))
   residual_storage = create_field(dof)
+  # residual_storage = create_assembler_cache(matrix_pattern, AssembledVector())
   residual_unknowns = create_unknowns(dof)
   stiffness_storage = zeros(num_entries(matrix_pattern))
   stiffness_action_storage = create_field(dof)
@@ -81,7 +80,7 @@ function SparseMatrixAssembler(dof::DofManager)
 end
 
 function SparseMatrixAssembler(var::AbstractFunction; use_condensed::Bool = false)
-  dof = DofManager(var; use_condensed=use_condensed)
+  dof = DofManager(var; use_condensed = use_condensed)
   return SparseMatrixAssembler(dof)
 end
 
@@ -106,6 +105,16 @@ end
 function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "SparseMatrixAssembler")
   println(io, "  ", asm.dof)
+end
+
+function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledSparseVector)
+  backend = KA.get_backend(asm)
+  return KA.zeros(backend, Float64, asm.vector_pattern.max_entries[1])
+end
+
+function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledMatrix)
+  backend = KA.get_backend(asm)
+  return KA.zeros(backend, Float64, asm.matrix_pattern.max_entries[1])
 end
 
 function _hessian(assembler::SparseMatrixAssembler, ::KA.CPU)
@@ -188,6 +197,6 @@ function _update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) wher
   resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
 
   _update_dofs!(assembler.matrix_pattern, assembler.dof, dirichlet_dofs)
-
+  _update_dofs!(assembler.vector_pattern, assembler.dof, dirichlet_dofs)
   return nothing
 end
