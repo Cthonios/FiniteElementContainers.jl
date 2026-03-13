@@ -52,8 +52,8 @@ function test_poisson_pbcs()
         R = vcat(R_u, R_c)
 
         # trying a singel newton step
-        solver = Krylov.MinresSolver(A, -R)
-        Krylov.solve!(solver, A, -R)
+        solver = MinresWorkspace(A, -R)
+        Krylov.krylov_solve!(solver, A, -R)
         Δsol = Krylov.solution(solver)
         sol = sol + Δsol
 
