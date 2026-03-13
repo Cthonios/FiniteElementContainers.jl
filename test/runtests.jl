@@ -34,10 +34,7 @@ include("TestPhysics.jl")
 
 # "Regression" tests below
 function test_poisson()
-# @testset "Poisson problem" begin
-  # include("poisson/TestPoisson.jl")
-
-  cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
+  cg_solver = x -> IterativeLinearSolver(x, :cg)
   condensed = [false, true]
   lsolvers = [cg_solver, DirectLinearSolver]
   # cpu tests
@@ -61,11 +58,8 @@ function test_poisson()
   end
 end
 
-# @testset "Mechanics Problem" begin
 function test_mechanics()
-  # include("mechanics/TestMechanics.jl")
-
-  cg_solver = x -> IterativeLinearSolver(x, :CgSolver)
+  cg_solver = x -> IterativeLinearSolver(x, :cg)
 
   test_mechanics_dirichlet_only(cpu, false, NewtonSolver, DirectLinearSolver)
   test_mechanics_dirichlet_only(cpu, true, NewtonSolver, DirectLinearSolver)
