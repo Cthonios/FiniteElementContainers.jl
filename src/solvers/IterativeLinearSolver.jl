@@ -20,7 +20,7 @@ function IterativeLinearSolver(assembler::SparseMatrixAssembler, solver_sym)
   fill!(ΔUu, zero(eltype(ΔUu)))
   # KA.synchronize(KA.get_backend(ΔUu))
   n = length(ΔUu)
-  solver = eval(solver_sym)(n, n, typeof(ΔUu))
+  solver = eval(solver_sym)(n, n, 20, typeof(ΔUu))
   return IterativeLinearSolver(assembler, preconditioner, solver, TimerOutput(), ΔUu)
 end
 

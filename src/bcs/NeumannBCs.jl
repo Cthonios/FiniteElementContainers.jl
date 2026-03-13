@@ -74,7 +74,7 @@ function _update_bc_values!(bc::NeumannBCContainer, func, X, t, ::KA.CPU)
     for q in 1:num_surface_quadrature_points(bc.ref_fe)
       side = bc.sides[n]
       interps = MappedH1OrL2SurfaceInterpolants(bc.ref_fe, X_el, q, side)
-      bc.vals[q, n] = func(interps.X_q, t)
+      bc.vals[q, n] = Base.invokelatest(func, interps.X_q, t)
     end
   end
 end

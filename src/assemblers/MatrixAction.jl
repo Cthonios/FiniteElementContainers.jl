@@ -122,7 +122,7 @@ KA.@kernel function _assemble_block_matrix_action_kernel!(
   S        #<: L2QuadratureField
 }
   E = KA.@index(Global)
-  conn = connectivity(ref_fe, conn, E, coffset)
+  conn = connectivity(ref_fe, conns, E, coffset)
   x_el = _element_level_fields_flat(X, ref_fe, conn)#s, E)
   u_el = _element_level_fields_flat(U, ref_fe, conn)#s, E)
   u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)#s, E)
@@ -179,14 +179,14 @@ function _assemble_block_matrix_action!(
 }
   kernel! = _assemble_block_matrix_action_kernel!(backend)
   kernel!(
-    field, 
+    field,
     conns, coffset,
     b1, b2,
     func,
-    physics, ref_fe, 
+    physics, ref_fe,
     X, t, Δt,
-    U, U_old, V, 
-    state_old, state_new, props, t, Δt,
+    U, U_old, V,
+    state_old, state_new, props,
     return_type,
     ndrange = nelem
   )

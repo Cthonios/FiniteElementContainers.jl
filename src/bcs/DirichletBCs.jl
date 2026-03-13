@@ -134,9 +134,9 @@ function _update_bc_values!(bc::DirichletBCContainer, func, X, t, ::KA.CPU)
   ND = num_fields(X)
   for (n, node) in enumerate(bc.nodes)
     X_temp = @views SVector{ND, eltype(X)}(X[:, node])
-    bc.vals[n] = func.func(X_temp, t)
-    bc.vals_dot[n] = func.func_dot(X_temp, t)
-    bc.vals_dot_dot[n] = func.func_dot_dot(X_temp, t)
+    bc.vals[n] = Base.invokelatest(func.func, X_temp, t)
+    bc.vals_dot[n] = Base.invokelatest(func.func_dot, X_temp, t)
+    bc.vals_dot_dot[n] = Base.invokelatest(func.func_dot_dot, X_temp, t)
   end
   return nothing
 end
