@@ -18,6 +18,7 @@ struct Parameters{
   ICFuncs <: NamedTuple,
   DBCFuncs <: NamedTuple,
   NBCs <: NeumannBCs,
+  Times <: TimeStepper,
   Phys <: NamedTuple, 
   Props <: NamedTuple,  
   NDims,
@@ -27,7 +28,7 @@ struct Parameters{
   ics::InitialConditions{IV, RV, ICFuncs}
   dirichlet_bcs::DirichletBCs{IV, RV, DBCFuncs}
   neumann_bcs::NBCs
-  times::TimeStepper
+  times::Times
   physics::Phys
   properties::Props
   state_old::L2Field{RT, RV}
