@@ -1,5 +1,183 @@
 """
 $(TYPEDSIGNATURES)
+Matrix-free action assembly. `func_action` has signature
+  func_action(physics, interps, x_el, t, Δt, u_el, u_el_old, v_el,
+              state_old_q, state_new_q, props_el) → SVector
+and returns the element-level product K_q·v_el directly, avoiding
+formation of the full element stiffness/mass matrix.
+"""
+function assemble_matrix_free_action!(
+  assembler, func_action::F, Uu, Vu, p
+) where F <: Function
+  assemble_matrix_free_action!(
+    assembler.stiffness_action_storage,
+    assembler.dof,
+    func_action, Uu, Vu, p
+  )
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function assemble_matrix_free_action!(
+  storage, dof, func_action, Uu, Vu, p
+)
+  fill!(storage, zero(eltype(storage)))
+  backend = KA.get_backend(storage)
+  fspace = function_space(dof)
+  t = current_time(p.times)
+  Δt = time_step(p.times)
+  _update_for_assembly!(p, dof, Uu, Vu)
+  return_type = AssembledVector()
+  conns = fspace.elem_conns
+  for (b, (
+    block_physics, ref_fe, props
+  )) in enumerate(zip(
+    values(p.physics), values(fspace.ref_fes),
+    values(p.properties)
+  ))
+    _assemble_block_matrix_free_action!(
+      backend,
+      storage,
+      conns.data, conns.nelems[b], conns.offsets[b],
+      0, 0,
+      func_action,
+      block_physics, ref_fe,
+      p.h1_coords, t, Δt,
+      p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field,
+      block_view(p.state_old, b), block_view(p.state_new, b), props,
+      return_type
+    )
+  end
+end
+
+# CPU Implementation (matrix-free action)
+
+"""
+$(TYPEDSIGNATURES)
+CPU matrix-free action: accumulates K_q·v_el per quadrature point into
+a vector, avoiding the full element stiffness matrix.
+"""
+function _assemble_block_matrix_free_action!(
+  ::KA.CPU,
+  field::AbstractField,
+  conns::Conn, nelem, coffset,
+  b1, b2,
+  func_action::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution, V::Solution,
+  state_old::S, state_new::S, props::AbstractArray,
+  return_type
+) where {
+  T        <: Number,
+  Conn     <: AbstractArray,
+  Solution <: AbstractField,
+  S
+}
+  for e in 1:nelem
+    conn = connectivity(ref_fe, conns, e, coffset)
+    x_el = _element_level_fields_flat(X, ref_fe, conn)
+    u_el = _element_level_fields_flat(U, ref_fe, conn)
+    u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
+    v_el = _element_level_fields_flat(V, ref_fe, conn)
+    props_el = _element_level_properties(props, e)
+    Kv_el = _element_scratch_vector(ref_fe, U)
+    for q in 1:num_cell_quadrature_points(ref_fe)
+      interps = _cell_interpolants(ref_fe, q)
+      state_old_q = _quadrature_level_state(state_old, q, e)
+      state_new_q = _quadrature_level_state(state_new, q, e)
+      Kv_q = func_action(physics, interps, x_el, t, Δt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el)
+      Kv_el = Kv_el + Kv_q
+    end
+    @views _assemble_element!(field, Kv_el, conn, e, 0, 0)
+  end
+end
+
+# GPU implementation (matrix-free action)
+
+# COV_EXCL_START
+"""
+$(TYPEDSIGNATURES)
+GPU kernel for matrix-free action assembly. Accumulates K_q·v_el into a
+vector per element, avoiding the 24×24 element matrix that causes register
+spilling on GPU.
+"""
+KA.@kernel function _assemble_block_matrix_free_action_kernel!(
+  field::AbstractField,
+  conns::Conn, coffset,
+  b1, b2,
+  func_action::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution, V::Solution,
+  state_old::S, state_new::S, props::AbstractArray,
+  return_type
+) where {
+  T        <: Number,
+  Conn     <: AbstractArray,
+  Solution <: AbstractField,
+  S
+}
+  E = KA.@index(Global)
+  conn = connectivity(ref_fe, conns, E, coffset)
+  x_el = _element_level_fields_flat(X, ref_fe, conn)
+  u_el = _element_level_fields_flat(U, ref_fe, conn)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
+  v_el = _element_level_fields_flat(V, ref_fe, conn)
+  props_el = _element_level_properties(props, E)
+  Kv_el = _element_scratch_vector(ref_fe, U)
+  for q in 1:num_cell_quadrature_points(ref_fe)
+    interps = _cell_interpolants(ref_fe, q)
+    state_old_q = _quadrature_level_state(state_old, q, E)
+    state_new_q = _quadrature_level_state(state_new, q, E)
+    Kv_q = func_action(physics, interps, x_el, t, Δt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el)
+    Kv_el = Kv_el + Kv_q
+  end
+  _assemble_element!(field, Kv_el, conn, E, 0, 0)
+end
+# COV_EXCL_STOP
+
+"""
+$(TYPEDSIGNATURES)
+GPU dispatch for matrix-free action assembly.
+"""
+function _assemble_block_matrix_free_action!(
+  backend::KA.Backend,
+  field::AbstractField,
+  conns::Conn, nelem, coffset,
+  b1, b2,
+  func_action::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, Δt::T,
+  U::Solution, U_old::Solution, V::Solution,
+  state_old::S, state_new::S, props::AbstractArray,
+  return_type
+) where {
+  T        <: Number,
+  Conn     <: AbstractArray,
+  Solution <: AbstractField,
+  S
+}
+  kernel! = _assemble_block_matrix_free_action_kernel!(backend)
+  kernel!(
+    field,
+    conns, coffset,
+    b1, b2,
+    func_action,
+    physics, ref_fe,
+    X, t, Δt,
+    U, U_old, V,
+    state_old, state_new, props,
+    return_type,
+    ndrange = nelem
+  )
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
 """
 function assemble_matrix_action!(
   assembler, func::F, Uu, Vu, p
