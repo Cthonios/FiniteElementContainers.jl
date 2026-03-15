@@ -42,3 +42,19 @@ end
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q
 end
+
+@inline function FiniteElementContainers.stiffness_action(
+  physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el
+)
+  interps = map_interpolants(interps, x_el)
+  (; ∇N_X, JxW) = interps
+  return JxW * ∇N_X * (∇N_X' * v_el)
+end
+
+@inline function FiniteElementContainers.mass_action(
+  physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el
+)
+  interps = map_interpolants(interps, x_el)
+  (; N, JxW) = interps
+  return JxW * dot(N, v_el) * N
+end

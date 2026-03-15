@@ -66,7 +66,108 @@ function test_sparse_matrix_assembler()
   @show p
 end
 
+function test_matrix_free_action(dev)
+  # Poisson: scalar problem, tests both stiffness_action and mass_action
+  mesh_file = "./poisson/poisson.g"
+  mesh = UnstructuredMesh(mesh_file)
+  V = FunctionSpace(mesh, H1Field, Lagrange)
+  f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+  bc_func(_, _) = 0.
+  physics = Poisson(f)
+  props = SVector{0, Float64}()
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(u)
+  dbcs = DirichletBC[
+    DirichletBC(:u, bc_func; sideset_name = :sset_1),
+    DirichletBC(:u, bc_func; sideset_name = :sset_2),
+    DirichletBC(:u, bc_func; sideset_name = :sset_3),
+    DirichletBC(:u, bc_func; sideset_name = :sset_4),
+  ]
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+  FiniteElementContainers.initialize!(p)
+  Uu = create_unknowns(asm)
+  Vu = create_unknowns(asm)
+  fill!(Vu, 1.0)
+
+  if dev != cpu
+    p   = p   |> dev
+    asm = asm |> dev
+    Uu  = Uu  |> dev
+    Vu  = Vu  |> dev
+  end
+
+  # stiffness: K·v via matrix path vs matrix-free path must agree
+  assemble_matrix_action!(asm, stiffness, Uu, Vu, p)
+  Kv_ref = copy(Array(hvp(asm, Vu)))
+  assemble_matrix_free_action!(asm, stiffness_action, Uu, Vu, p)
+  Kv_mf = Array(hvp(asm, Vu))
+  @test Kv_mf ≈ Kv_ref
+
+  # mass: M·v via matrix path vs matrix-free path must agree
+  assemble_matrix_action!(asm, mass, Uu, Vu, p)
+  Mv_ref = copy(Array(hvp(asm, Vu)))
+  assemble_matrix_free_action!(asm, mass_action, Uu, Vu, p)
+  Mv_mf = Array(hvp(asm, Vu))
+  @test Mv_mf ≈ Mv_ref
+end
+
+function test_matrix_free_action_mechanics(dev)
+  # Mechanics: vector problem, tests stiffness_action
+  mesh_file = "./mechanics/mechanics.g"
+  mesh = UnstructuredMesh(mesh_file)
+  V = FunctionSpace(mesh, H1Field, Lagrange)
+  physics = Mechanics(PlaneStrain())
+  props = create_properties(physics)
+  u = VectorFunction(V, :displ)
+  asm = SparseMatrixAssembler(u)
+  fixed(_, _) = 0.
+  dbcs = DirichletBC[
+    DirichletBC(:displ_x, fixed; sideset_name = :sset_3),
+    DirichletBC(:displ_y, fixed; sideset_name = :sset_3),
+    DirichletBC(:displ_x, fixed; sideset_name = :sset_1),
+    DirichletBC(:displ_y, fixed; sideset_name = :sset_1),
+  ]
+  times = TimeStepper(0., 1., 1)
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs, times=times)
+  FiniteElementContainers.initialize!(p)
+  Uu = create_unknowns(asm)
+  Vu = create_unknowns(asm)
+  fill!(Vu, 1.0)
+
+  if dev != cpu
+    p   = p   |> dev
+    asm = asm |> dev
+    Uu  = Uu  |> dev
+    Vu  = Vu  |> dev
+  end
+
+  assemble_matrix_action!(asm, stiffness, Uu, Vu, p)
+  Kv_ref = copy(Array(hvp(asm, Vu)))
+  assemble_matrix_free_action!(asm, stiffness_action, Uu, Vu, p)
+  Kv_mf = Array(hvp(asm, Vu))
+  @test Kv_mf ≈ Kv_ref
+end
+
 @testset "Sparse matrix assembler" begin
   test_sparse_matrix_gpu_trace()
   test_sparse_matrix_assembler()
+end
+
+@testset "Matrix-free action (CPU)" begin
+  test_matrix_free_action(cpu)
+  test_matrix_free_action_mechanics(cpu)
+end
+
+@testset "Matrix-free action (GPU)" begin
+  if AMDGPU.functional()
+    test_matrix_free_action(rocm)
+    test_matrix_free_action_mechanics(rocm)
+  end
+  if CUDA.functional()
+    test_matrix_free_action(cuda)
+    test_matrix_free_action_mechanics(cuda)
+  end
+  if !AMDGPU.functional() && !CUDA.functional()
+    @test_skip "No GPU available"
+  end
 end

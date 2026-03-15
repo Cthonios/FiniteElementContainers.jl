@@ -11,6 +11,7 @@ export create_assembler_cache
 export assemble_mass!
 export assemble_matrix!
 export assemble_matrix_action!
+export assemble_matrix_free_action!
 export assemble_scalar!
 export assemble_stiffness!
 export assemble_vector!
@@ -122,8 +123,10 @@ export unpack_field
 export energy
 export hvp
 export mass
+export mass_action
 export residual
 export stiffness
+export stiffness_action
 
 # PostProcessors
 export PostProcessor
