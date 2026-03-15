@@ -67,7 +67,7 @@ end
   return JxW * f_q[:]
 end
 
-@inline function FiniteElementContainers.stiffness(  
+@inline function FiniteElementContainers.stiffness(
   physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el
 )
   interps = map_interpolants(interps, x_el)
@@ -78,13 +78,21 @@ end
   ∇u_q = modify_field_gradients(physics.formulation, ∇u_q)
   # constitutive
   K_q = hessian(z -> strain_energy(z, state_old_q, props_el, dt), ∇u_q)
-  # K_q = gradient(z -> pk1_stress(z, state_old_q, props_el, dt), ∇u_q)
-  # K_q = autodiff(Reverse, pk1_stress, Active(∇u_q), Const(state_old_q), Const(props_el), Const(dt))[1][1]
   # turn into voigt notation
   K_q = extract_stiffness(physics.formulation, K_q)
   G_q = discrete_gradient(physics.formulation, ∇N_X)
   return JxW * G_q * K_q * G_q'
-  # K_q = ForwardDiff.hessian(z -> energy(physics, interps, z, x_el, state_old_q, props_el, t, dt)[1], u_el)
-  # @show K_q
-  # return K_q, state_old_q
+end
+
+@inline function FiniteElementContainers.stiffness_action(
+  physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el
+)
+  interps = map_interpolants(interps, x_el)
+  (; ∇N_X, JxW) = interps
+  ∇u_q = interpolate_field_gradients(physics, interps, u_el)
+  ∇u_q = modify_field_gradients(physics.formulation, ∇u_q)
+  K_q = hessian(z -> strain_energy(z, state_old_q, props_el, dt), ∇u_q)
+  K_q = extract_stiffness(physics.formulation, K_q)
+  G_q = discrete_gradient(physics.formulation, ∇N_X)
+  return JxW * G_q * (K_q * (G_q' * v_el))
 end
