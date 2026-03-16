@@ -32,8 +32,8 @@ function test_poisson(backend, cond, nlsolver, lsolver)
   test_poisson_dirichlet_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
   test_poisson_dirichlet_structured_mesh_tri3(backend, cond, nlsolver, lsolver)
   test_poisson_neumann(backend, cond, nlsolver, lsolver)
-  # test_poisson_neumann_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
-  # test_poisson_neumann_structured_mesh_tri3(backend, cond, nlsolver, lsolver)
+  test_poisson_neumann_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
+  test_poisson_neumann_structured_mesh_tri3(backend, cond, nlsolver, lsolver)
 end
 
 function test_poisson_dirichlet(
@@ -489,38 +489,41 @@ function test_poisson_neumann_structured_mesh_quad4(
   dev, use_condensed,
   nsolver, lsolver
 )
+  # Laplace equation (-∇²u = 0) on [0,1]² with mixed BCs:
+  #   u = 0        at x=0  (Dirichlet, :left)
+  #   ∂u/∂n = 1   at x=1  (Neumann,   :right;  outward normal = +x̂)
+  #   ∂u/∂n = 0   at y=0,1 (natural — not prescribed)
+  #
+  # Exact solution: u(x,y) = x
+  # QUAD4 bilinear elements represent linear functions exactly, so FEM error = 0.
+  f_zero = (_, _) -> 0.0
+
   mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (11, 11))
-  V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson(f)
+  V = FunctionSpace(mesh, H1Field, Lagrange)
+  physics = Poisson(f_zero)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
 
-  # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :bottom),
-    DirichletBC(:u, bc_func; sideset_name = :right)
+    DirichletBC(:u, bc_func; sideset_name = :left),
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, bc_func_neumann, :top),
-    NeumannBC(:u, bc_func_neumann, :left)
+    NeumannBC(:u, bc_func_neumann, :right),
   ]
 
-  # direct solver test
-  # setup the parameters
   p = create_parameters(
-    mesh, asm, physics, props; 
+    mesh, asm, physics, props;
     dirichlet_bcs=dbcs,
     neumann_bcs=nbcs
   )
 
   if dev != cpu
     p = p |> dev
-    asm = asm |> dev 
+    asm = asm |> dev
   end
 
-  # setup solver and integrator
   solver = nsolver(lsolver(asm))
   integrator = QuasiStaticIntegrator(solver)
   evolve!(integrator, p)
@@ -529,57 +532,44 @@ function test_poisson_neumann_structured_mesh_quad4(
     p = p |> cpu
   end
 
-  # TODO make a neumann gold file
-  # U = p.h1_field
-
-  # pp = PostProcessor(mesh, output_file, u)
-  # write_times(pp, 1, 0.0)
-  # write_field(pp, 1, ("u",), U)
-  # close(pp)
-
-  # if !Sys.iswindows()
-  #   @test exodiff(output_file, gold_file)
-  # end
-  # rm(output_file; force=true)
-  display(solver.timer)
+  @test maximum(p.h1_field.data) ≈ 1.0 atol=1e-10
+  @test minimum(p.h1_field.data) ≈ 0.0 atol=1e-10
 end
 
 function test_poisson_neumann_structured_mesh_tri3(
   dev, use_condensed,
   nsolver, lsolver
 )
+  # Same problem as the QUAD4 variant above, meshed with TRI3 elements.
+  # TRI3 linear triangles represent linear functions exactly, so FEM error = 0.
+  f_zero = (_, _) -> 0.0
+
   mesh = StructuredMesh("tri", (0., 0.), (1., 1.), (11, 11))
-  V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson(f)
+  V = FunctionSpace(mesh, H1Field, Lagrange)
+  physics = Poisson(f_zero)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
 
-  # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :bottom),
-    DirichletBC(:u, bc_func; sideset_name = :right)
+    DirichletBC(:u, bc_func; sideset_name = :left),
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, bc_func_neumann, :top),
-    NeumannBC(:u, bc_func_neumann, :left)
+    NeumannBC(:u, bc_func_neumann, :right),
   ]
 
-  # direct solver test
-  # setup the parameters
   p = create_parameters(
-    mesh, asm, physics, props; 
+    mesh, asm, physics, props;
     dirichlet_bcs=dbcs,
     neumann_bcs=nbcs
   )
 
   if dev != cpu
     p = p |> dev
-    asm = asm |> dev 
+    asm = asm |> dev
   end
 
-  # setup solver and integrator
   solver = nsolver(lsolver(asm))
   integrator = QuasiStaticIntegrator(solver)
   evolve!(integrator, p)
@@ -588,17 +578,6 @@ function test_poisson_neumann_structured_mesh_tri3(
     p = p |> cpu
   end
 
-  # TODO make a neumann gold file
-  # U = p.h1_field
-
-  # pp = PostProcessor(mesh, output_file, u)
-  # write_times(pp, 1, 0.0)
-  # write_field(pp, 1, ("u",), U)
-  # close(pp)
-
-  # if !Sys.iswindows()
-  #   @test exodiff(output_file, gold_file)
-  # end
-  # rm(output_file; force=true)
-  display(solver.timer)
+  @test maximum(p.h1_field.data) ≈ 1.0 atol=1e-10
+  @test minimum(p.h1_field.data) ≈ 0.0 atol=1e-10
 end
