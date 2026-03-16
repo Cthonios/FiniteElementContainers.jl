@@ -66,12 +66,15 @@ end
 
 # GPU safe
 @inline function surface_connectivity(ref_fe::ReferenceFE, conn_data, side::Int, e::Int, boffset::Int)
-    NNPE = ReferenceFiniteElements.num_cell_dofs(
-        ReferenceFiniteElements.boundary_element(ref_fe.element, side)
-    )
-    base = boffset + (e - 1) * NNPE
-    data = ntuple(i -> conn_data[base + i - 1], NNPE)
-    return SVector{NNPE, Int}(data)
+    # Stride through conn_data using the VOLUME element DOF count, not the surface element's.
+    # The connectivity array is packed with NNPE_vol entries per element; using NNPE_surf as
+    # the stride reads from the wrong position for element e > 1.
+    NNPE_vol  = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+    face_nodes = ReferenceFiniteElements.boundary_dofs(ref_fe, side)  # 1-based local indices
+    NNPE_surf = length(face_nodes)
+    base = boffset + (e - 1) * NNPE_vol
+    data = ntuple(i -> conn_data[base + face_nodes[i] - 1], NNPE_surf)
+    return SVector{NNPE_surf, Int}(data)
 end
 
 function unsafe_connectivity(conn::Connectivity, e::Int, b::Int)

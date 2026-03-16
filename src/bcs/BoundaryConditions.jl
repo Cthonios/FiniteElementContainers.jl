@@ -129,7 +129,7 @@ function BCBookKeeping(
 
     @assert length(unique(blocks)) == 1 "Sidesets need to be in a single block"
     block_name = mesh.element_block_names[blocks[1]]
-    indices_in_sset = indexin(mesh.element_id_maps[block_name], elements)
+    indices_in_sset = indexin(elements, mesh.element_id_maps[block_name])
     filter!(x -> x !== nothing, indices_in_sset)
     elements = convert(Vector{Int}, indices_in_sset)
     # display(elements)

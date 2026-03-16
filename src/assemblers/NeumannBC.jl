@@ -52,13 +52,10 @@ function _assemble_block_vector_neumann_bc!(
       Nvec = interps.N_reduced
       JxW = interps.JxW
 
-      # TODO Clean this up
       f_val = vals[q, e]
-      if length(f_val) == 1
-        f_val = f_val[1]
-      end
-
-      R_el = R_el + JxW * Nvec * f_val
+      # Outer product: R_el[ND*(i-1)+α] += JxW * N_i * f_α
+      # Works for both scalar (ND=1) and vector (ND>1) fields.
+      R_el = R_el + JxW * reduce(vcat, ntuple(i -> Nvec[i] * f_val, length(Nvec)))
     end
     surf_conns = surface_connectivity(ref_fe, conns, side, e, 1)
     @views _assemble_element!(field, R_el, surf_conns, e, 0, 0)
@@ -88,13 +85,8 @@ KA.@kernel function _assemble_block_vector_neumann_bc_kernel!(
     Nvec = interps.N_reduced
     JxW = interps.JxW
 
-    # TODO Clean this up
     f_val = vals[q, E]
-    if length(f_val) == 1
-      f_val = f_val[1]
-    end
-
-    R_el = R_el + JxW * Nvec * f_val
+    R_el = R_el + JxW * reduce(vcat, ntuple(i -> Nvec[i] * f_val, length(Nvec)))
   end
 
   surf_conns = surface_connectivity(ref_fe, conns, side, E, 1)
