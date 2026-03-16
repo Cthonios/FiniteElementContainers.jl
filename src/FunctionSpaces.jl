@@ -9,7 +9,7 @@ const _default_p = Dict{String, Int}(
   "TRI6"    => 2,
   "TET"     => 1,
   "TETRA"   => 1,
-  "TETRA4"  => 2,
+  "TETRA4"  => 1,
   "TETRA10" => 2
 )
 const _default_q = Dict{String, Int}(
