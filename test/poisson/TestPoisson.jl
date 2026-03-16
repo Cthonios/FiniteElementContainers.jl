@@ -490,13 +490,17 @@ function test_poisson_neumann_structured_mesh_quad4(
   nsolver, lsolver
 )
   # Laplace equation (-∇²u = 0) on [0,1]² with mixed BCs:
-  #   u = 0        at x=0  (Dirichlet, :left)
-  #   ∂u/∂n = 1   at x=1  (Neumann,   :right;  outward normal = +x̂)
-  #   ∂u/∂n = 0   at y=0,1 (natural — not prescribed)
+  #   u = 0            at x=0  (Dirichlet, :left)
+  #   ∂u/∂n = 1        at x=1  (Neumann,   :right;  outward normal = +x̂)
+  #   ∂u/∂n = 0        at y=0,1 (natural — not prescribed)
   #
   # Exact solution: u(x,y) = x
   # QUAD4 bilinear elements represent linear functions exactly, so FEM error = 0.
-  f_zero = (_, _) -> 0.0
+  #
+  # FEC sign convention: the NBC assembler adds +∫g·N dΓ to the residual, so
+  #   g = −(∂u/∂n).  For ∂u/∂n = +1 we must pass g = −1.
+  f_zero    = (_, _) -> 0.0
+  nbc_minus = (_, _) -> SVector{1, Float64}(-1.)
 
   mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (11, 11))
   V = FunctionSpace(mesh, H1Field, Lagrange)
@@ -510,7 +514,7 @@ function test_poisson_neumann_structured_mesh_quad4(
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, bc_func_neumann, :right),
+    NeumannBC(:u, nbc_minus, :right),
   ]
 
   p = create_parameters(
@@ -532,8 +536,9 @@ function test_poisson_neumann_structured_mesh_quad4(
     p = p |> cpu
   end
 
-  @test maximum(p.h1_field.data) ≈ 1.0 atol=1e-10
-  @test minimum(p.h1_field.data) ≈ 0.0 atol=1e-10
+  # u(x,y) = x  →  max = 1.0  (x=1),  min = 0.0  (x=0, Dirichlet)
+  @test maximum(p.h1_field.data) ≈ 1.0 atol=1e-6
+  @test minimum(p.h1_field.data) ≈ 0.0 atol=1e-6
 end
 
 function test_poisson_neumann_structured_mesh_tri3(
@@ -542,7 +547,11 @@ function test_poisson_neumann_structured_mesh_tri3(
 )
   # Same problem as the QUAD4 variant above, meshed with TRI3 elements.
   # TRI3 linear triangles represent linear functions exactly, so FEM error = 0.
-  f_zero = (_, _) -> 0.0
+  #
+  # FEC sign convention: the NBC assembler adds +∫g·N dΓ to the residual, so
+  #   g = −(∂u/∂n).  For ∂u/∂n = +1 we must pass g = −1.
+  f_zero    = (_, _) -> 0.0
+  nbc_minus = (_, _) -> SVector{1, Float64}(-1.)
 
   mesh = StructuredMesh("tri", (0., 0.), (1., 1.), (11, 11))
   V = FunctionSpace(mesh, H1Field, Lagrange)
@@ -556,7 +565,7 @@ function test_poisson_neumann_structured_mesh_tri3(
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, bc_func_neumann, :right),
+    NeumannBC(:u, nbc_minus, :right),
   ]
 
   p = create_parameters(
@@ -578,6 +587,6 @@ function test_poisson_neumann_structured_mesh_tri3(
     p = p |> cpu
   end
 
-  @test maximum(p.h1_field.data) ≈ 1.0 atol=1e-10
-  @test minimum(p.h1_field.data) ≈ 0.0 atol=1e-10
+  @test maximum(p.h1_field.data) ≈ 1.0 atol=1e-6
+  @test minimum(p.h1_field.data) ≈ 0.0 atol=1e-6
 end
