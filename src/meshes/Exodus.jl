@@ -264,14 +264,27 @@ function PostProcessor(
   return PostProcessor(exo)
 end
 
-function write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:Number})
+function write_field(
+  pp::PostProcessor, time_index, block_name, field_name, field::Matrix{T}
+) where T <: Union{<:Number, Union{Nothing, <:Number}}
+  if field[1, 1] === nothing
+    return nothing
+  end
+
   for q in axes(field, 1)
     var_name = String(field_name) * "_$q"
     write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, field[q, :])
   end
 end
 
-function write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:SymmetricTensor{2, 3, <:Number, 6}})
+# function write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:SymmetricTensor{2, 3, <:Number, 6}})
+function write_field(
+  pp::PostProcessor, time_index, block_name, field_name, field::Matrix{T}
+) where T <: Union{<:SymmetricTensor{2, 3, <:Number, 6}, Union{Nothing, <:SymmetricTensor{2, 3, <:Number, 6}}}
+  if field[1, 1] === nothing
+    return nothing
+  end
+
   exts = ("xx", "yy", "zz", "yz", "xz", "xy")
   for (n, ext) in enumerate(exts)
     for q in axes(field, 1)
@@ -282,13 +295,30 @@ function write_field(pp::PostProcessor, time_index, block_name, field_name, fiel
   end
 end
 
-function write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:Tensor{2, 3, <:Number, 9}})
+function write_field(
+  pp::PostProcessor, time_index, block_name, field_name, field::Matrix{T}
+) where T <: Union{<:Tensor{2, 3, <:Number, 9}, Union{Nothing, <:Tensor{2, 3, <:Number, 9}}}
+  if field[1, 1] === nothing
+    return nothing
+  end
+
   exts = ("xx", "yy", "zz", "yz", "xz", "xy", "zy", "zx", "yx")
   for (n, ext) in enumerate(exts)
     for q in axes(field, 1)
       var_name = String(field_name) * "_$(ext)_$q"
       temp = map(x -> x.data[n], field[q, :])
       write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, temp)
+    end
+  end
+end
+
+function write_field(
+  pp::PostProcessor, time_index, block_name, field_name, field::T
+) where T <: AbstractArray{<:Number, 3}
+  for q in axes(field, 2)
+    for n in axes(field, 1)
+      var_name = String(field_name) * "_$n_$q"
+      write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, field[n, q, :])
     end
   end
 end
