@@ -9,10 +9,6 @@ AbstractMechanicsFormulation
 
 # Implementations
 ```@docs
-IncompressiblePlaneStress
-```
-
-```@docs
 PlaneStrain
 ```
 

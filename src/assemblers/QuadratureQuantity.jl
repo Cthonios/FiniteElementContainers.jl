@@ -20,10 +20,13 @@ function assemble_quadrature_quantity!(
   storage, pattern, dof,
   func::F, Uu, p, return_type = AssembledScalar()
 ) where F <: Function
-  backend = KA.get_backend(p.h1_field)
+  backend = KA.get_backend(p)
   fspace = function_space(dof)
-  t = current_time(p.times)
-  Δt = time_step(p.times)
+  X = coordinates(p)
+  t = current_time(p)
+  Δt = time_step(p)
+  U = p.field
+  U_old = p.field_old
   _update_for_assembly!(p, dof, Uu)
   conns = fspace.elem_conns
   for (b, (
@@ -41,9 +44,8 @@ function assemble_quadrature_quantity!(
       0, 0,
       func,
       block_physics, ref_fe,
-      p.h1_coords, t, Δt,
-      p.h1_field, p.h1_field_old,
-      # state_old, state_new, props,
+      X, t, Δt,
+      U, U_old,
       block_view(p.state_old, b), block_view(p.state_new, b), props,
       return_type
     )

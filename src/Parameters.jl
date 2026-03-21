@@ -20,11 +20,11 @@ struct Parameters{
   NBCs <: NeumannBCs,
   Times <: TimeStepper,
   Phys <: NamedTuple, 
-  Props <: NamedTuple,  
-  NDims,
-  NH1Fields
+  Props <: NamedTuple,
+  N, # Generic for AbstractField
+  Coords <: AbstractField{RT, N, RV},
+  Field <: AbstractField{RT, N, RV}
 } <: AbstractParameters
-  # parameter/solution fields
   ics::InitialConditions{IV, RV, ICFuncs}
   dirichlet_bcs::DirichletBCs{IV, RV, DBCFuncs}
   neumann_bcs::NBCs
@@ -33,11 +33,11 @@ struct Parameters{
   properties::Props
   state_old::L2Field{RT, RV}
   state_new::L2Field{RT, RV}
-  h1_coords::H1Field{RT, RV, NDims}
-  h1_field::H1Field{RT, RV, NH1Fields}
-  h1_field_old::H1Field{RT, RV, NH1Fields}
+  coords::Coords
+  field::Field
+  field_old::Field
   # scratch fields
-  h1_hvp_scratch_field::H1Field{RT, RV, NH1Fields}
+  hvp_scratch_field::Field
 end
 
 # TODO 
@@ -58,11 +58,10 @@ function Parameters(
   neumann_bcs, 
   times
 )
-  # h1_coords = assembler.dof.H1_vars[1].fspace.coords
-  h1_coords = function_space(assembler.dof).coords
-  h1_field = create_field(assembler)
-  h1_field_old = create_field(assembler)
-  h1_hvp = create_field(assembler)
+  coords = coordinates(function_space(assembler.dof))
+  field = create_field(assembler)
+  field_old = create_field(assembler)
+  hvp_scratch_field = create_field(assembler)
 
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
@@ -101,21 +100,12 @@ function Parameters(
   end
 
   state_new = deepcopy(state_old)
-  # state_old = NamedTuple{keys(physics)}(tuple(state_old...))
-  # state_new = NamedTuple{keys(physics)}(tuple(state_new...))
-  
   state_old = L2Field(state_old)
   state_new = L2Field(state_new)
 
-  ics = InitialConditions(
-    mesh, assembler.dof, ics
-  )
-  dirichlet_bcs = DirichletBCs(
-    mesh, assembler.dof, dirichlet_bcs
-  )
-  neumann_bcs = NeumannBCs(
-    mesh, assembler.dof, neumann_bcs
-  )
+  ics = InitialConditions(mesh, assembler.dof, ics)
+  dirichlet_bcs = DirichletBCs(mesh, assembler.dof, dirichlet_bcs)
+  neumann_bcs = NeumannBCs(mesh, assembler.dof, neumann_bcs)
 
   # dummy time stepper for a static problem
   if times === nothing
@@ -130,19 +120,14 @@ function Parameters(
     physics, 
     properties, 
     state_old, state_new, 
-    h1_coords, h1_field, h1_field_old,
+    coords, field, field_old,
     # scratch fields
-    h1_hvp
+    hvp_scratch_field
   )
 
+  # updating assembly patterns based on bcs
+  # present in p at this point
   update_dofs!(assembler, p)
-  # Uu = create_unknowns(assembler.dof)
-
-  # # assemble the stiffness at least once for 
-  # # making easier to use on GPU
-  # # TODO should we also assemble mass if necessary?
-  # assemble_stiffness!(assembler, stiffness, Uu, p)
-  # K = stiffness(assembler)
 
   return p
 end
@@ -170,11 +155,11 @@ function Adapt.adapt_structure(to, p::Parameters)
     props, # TODO this will need an adapt when you get to element level props
     adapt(to, p.state_old),
     adapt(to, p.state_new),
-    adapt(to, p.h1_coords),
-    adapt(to, p.h1_field),
-    adapt(to, p.h1_field_old),
+    adapt(to, p.coords),
+    adapt(to, p.field),
+    adapt(to, p.field_old),
     # scratch fields
-    adapt(to, p.h1_hvp_scratch_field)
+    adapt(to, p.hvp_scratch_field)
   )
 end
 
@@ -195,6 +180,10 @@ function Base.show(io::IO, parameters::Parameters)
   println("Number of active state variables = $(length(parameters.state_old.data))")
 end
 
+function KA.get_backend(p::Parameters)
+  return KA.get_backend(p.field)
+end
+
 function create_parameters(
   mesh, assembler, physics, props; 
   ics=InitialCondition[],
@@ -203,6 +192,13 @@ function create_parameters(
   times=nothing
 )
   return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, times)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function coordinates(p::Parameters)
+  return p.coords
 end
 
 """
@@ -223,9 +219,16 @@ end
 $(TYPEDSIGNATURES)
 """
 function initialize!(p::Parameters)
-  update_ic_values!(p.ics, p.h1_coords)
-  update_field_ics!(p.h1_field, p.ics)
+  update_ic_values!(p.ics, coordinates(p))
+  update_field_ics!(p.field, p.ics)
   return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function time_step(p::Parameters)
+  return time_step(p.times)
 end
 
 """
@@ -237,8 +240,8 @@ TODO need to incorporate other bcs besides H1 spaces
 TODO need to incorporate neumann bc updates
 """
 function update_bc_values!(p::Parameters)
-  X = p.h1_coords
-  t = current_time(p.times)
+  X = coordinates(p)
+  t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, X, t)
   return nothing
@@ -253,15 +256,15 @@ function update_dofs!(asm::AbstractAssembler, p::Parameters)
 end
 
 function _update_for_assembly!(p::Parameters, dof::DofManager, Uu)
-  update_field_dirichlet_bcs!(p.h1_field, p.dirichlet_bcs)
-  update_field_unknowns!(p.h1_field, dof, Uu)
+  update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
+  update_field_unknowns!(p.field, dof, Uu)
   return nothing
 end
 
 function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, Vu)
-  update_field_dirichlet_bcs!(p.h1_field, p.dirichlet_bcs)
-  update_field_unknowns!(p.h1_field, dof, Uu)
-  update_field_unknowns!(p.h1_hvp_scratch_field, dof, Vu)
+  update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
+  update_field_unknowns!(p.field, dof, Uu)
+  update_field_unknowns!(p.hvp_scratch_field, dof, Vu)
   return nothing
 end
 

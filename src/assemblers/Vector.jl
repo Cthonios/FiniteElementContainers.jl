@@ -21,8 +21,11 @@ function assemble_vector!(
   fill!(storage, zero(eltype(storage)))
   backend = KA.get_backend(storage)
   fspace = function_space(dof)
-  t = current_time(p.times)
-  Δt = time_step(p.times)
+  X = coordinates(p)
+  t = current_time(p)
+  Δt = time_step(p)
+  U = p.field
+  U_old = p.field_old
   _update_for_assembly!(p, dof, Uu)
   return_type = AssembledVector()
   conns = fspace.elem_conns
@@ -39,8 +42,8 @@ function assemble_vector!(
       pattern.block_start_indices[b], pattern.block_el_level_sizes[b],
       func,
       block_physics, ref_fe,
-      p.h1_coords, t, Δt,
-      p.h1_field, p.h1_field_old,
+      X, t, Δt,
+      U, U_old,
       block_view(p.state_old, b), block_view(p.state_new, b), props,
       return_type
     )

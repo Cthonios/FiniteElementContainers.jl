@@ -76,8 +76,11 @@ function assemble_scalar_new!(
     func, Uu, p
 )
     fspace = function_space(dof)
+    X = coordinates(p)
     t = current_time(p.times)
     Δt = time_step(p.times)
+    U = p.field
+    U_old = p.field_old
     _update_for_assembly!(p, dof, Uu)
     for (
         conns, 
@@ -93,8 +96,8 @@ function assemble_scalar_new!(
             conns,
             func,
             block_physics, ref_fe,
-            p.h1_coords, t, Δt,
-            p.h1_field, p.h1_field_old,
+            X, t, Δt,
+            U, U_old,
             state_old, state_new, props
         )
     end

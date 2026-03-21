@@ -28,7 +28,7 @@ function solve!(solver::DirectLinearSolver, Uu, p)
   # TODO specialize to backend solvers if they exists
   # solver.ΔUu .= -K \ R
   copyto!(solver.ΔUu, -K \ R) # currently doesn't work on GPU
-  # update_field_unknowns!(p.h1_field, solver.assembler.dof, solver.ΔUu, +)
+  # update_field_unknowns!(p.field, solver.assembler.dof, solver.ΔUu, +)
   map!((x, y) -> x + y, Uu, Uu, solver.ΔUu)
   return nothing
 end

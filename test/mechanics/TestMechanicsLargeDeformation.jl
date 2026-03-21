@@ -84,7 +84,7 @@ end
     @info "Time step $n"
     evolve!(integrator, p)
     write_times(pp, n, p.times.time_current[1])
-    write_field(pp, n, p.h1_field)
+    write_field(pp, n, p.field)
   end
   # update_bcs!(H1Field, solver, Uu, p)
 

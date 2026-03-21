@@ -64,18 +64,23 @@ Pages = ["fields/H1Field.jl"]
 Order = [:type, :function]
 ```
 
-### L2Element field
+### Hcurl field
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["fields/L2ElementField.jl"]
+Pages = ["fields/HcurlField.jl"]
 Order = [:type, :function]
 ```
 
-### L2Quadrature field
+### Hdiv field
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["fields/L2QuadratureField.jl"]
+Pages = ["fields/HdivField.jl"]
 Order = [:type, :function]
 ```
 
-There are plans to add ```HcurlField``` and ```HdivField``` types as well
+### L2 field
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["fields/L2Field.jl"]
+Order = [:type, :function]
+```

@@ -22,12 +22,14 @@ function assemble_vector_neumann_bc!(
   # do not zero!
   # TODO should below 2 methods calls be assumed to have
   # been conducted previously?
-  backend = KA.get_backend(p.h1_field)
+  backend = KA.get_backend(storage)
   _update_for_assembly!(p, dof, Uu)
+  U = p.field
+  X = coordinates(p)
   for bc in values(p.neumann_bcs.bc_caches)
     _assemble_block_vector_neumann_bc!(
       backend, storage,
-      p.h1_field, p.h1_coords,
+      U, X,
       bc.element_conns.data, bc.ref_fe, bc.sides, bc.vals,
       bc.element_conns.nelems[1] 
     )

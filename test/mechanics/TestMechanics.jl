@@ -47,7 +47,7 @@ function test_mechanics_dirichlet_only(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)

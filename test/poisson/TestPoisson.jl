@@ -72,7 +72,7 @@ function test_poisson_dirichlet(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
@@ -122,7 +122,7 @@ function test_poisson_dirichlet_with_nodesets(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
@@ -169,7 +169,7 @@ function test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
@@ -216,7 +216,7 @@ function test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
@@ -275,7 +275,7 @@ function test_poisson_neumann(
   end
 
   # TODO make a neumann gold file
-  # U = p.h1_field
+  # U = p.field
 
   # pp = PostProcessor(mesh, output_file, u)
   # write_times(pp, 1, 0.0)
@@ -322,7 +322,7 @@ function test_poisson_dirichlet_multi_block_quad4_quad4(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
@@ -369,7 +369,7 @@ function test_poisson_dirichlet_multi_block_quad4_tri3(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   pp = PostProcessor(mesh, output_file, u)
   write_times(pp, 1, 0.0)
@@ -420,7 +420,7 @@ function test_poisson_dirichlet_structured_mesh_quad4(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   # pp = PostProcessor(mesh, output_file, u)
   # write_times(pp, 1, 0.0)
@@ -471,7 +471,7 @@ function test_poisson_dirichlet_structured_mesh_tri3(
     p = p |> cpu
   end
 
-  U = p.h1_field
+  U = p.field
 
   # pp = PostProcessor(mesh, output_file, u)
   # write_times(pp, 1, 0.0)
@@ -537,8 +537,8 @@ function test_poisson_neumann_structured_mesh_quad4(
   end
 
   # u(x,y) = x  →  max = 1.0  (x=1),  min = 0.0  (x=0, Dirichlet)
-  @test maximum(p.h1_field.data) ≈ 1.0 atol=1e-6
-  @test minimum(p.h1_field.data) ≈ 0.0 atol=1e-6
+  @test maximum(p.field.data) ≈ 1.0 atol=1e-6
+  @test minimum(p.field.data) ≈ 0.0 atol=1e-6
 end
 
 function test_poisson_neumann_structured_mesh_tri3(
@@ -587,6 +587,6 @@ function test_poisson_neumann_structured_mesh_tri3(
     p = p |> cpu
   end
 
-  @test maximum(p.h1_field.data) ≈ 1.0 atol=1e-6
-  @test minimum(p.h1_field.data) ≈ 0.0 atol=1e-6
+  @test maximum(p.field.data) ≈ 1.0 atol=1e-6
+  @test minimum(p.field.data) ≈ 0.0 atol=1e-6
 end

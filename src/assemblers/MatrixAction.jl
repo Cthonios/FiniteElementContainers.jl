@@ -26,8 +26,12 @@ function assemble_matrix_free_action!(
   fill!(storage, zero(eltype(storage)))
   backend = KA.get_backend(storage)
   fspace = function_space(dof)
-  t = current_time(p.times)
-  Δt = time_step(p.times)
+  X = coordinates(p)
+  t = current_time(p)
+  Δt = time_step(p)
+  U = p.field
+  U_old = p.field_old
+  V = p.hvp_scratch_field
   _update_for_assembly!(p, dof, Uu, Vu)
   return_type = AssembledVector()
   conns = fspace.elem_conns
@@ -44,8 +48,8 @@ function assemble_matrix_free_action!(
       0, 0,
       func_action,
       block_physics, ref_fe,
-      p.h1_coords, t, Δt,
-      p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field,
+      X, t, Δt,
+      U, U_old, V,
       block_view(p.state_old, b), block_view(p.state_new, b), props,
       return_type
     )
@@ -199,8 +203,12 @@ function assemble_matrix_action!(
   fill!(storage, zero(eltype(storage)))
   backend = KA.get_backend(storage)
   fspace = function_space(dof)
-  t = current_time(p.times)
-  Δt = time_step(p.times)
+  X = coordinates(p)
+  t = current_time(p)
+  Δt = time_step(p)
+  U = p.field
+  U_old = p.field_old
+  V = p.hvp_scratch_field
   _update_for_assembly!(p, dof, Uu, Vu)
   return_type = AssembledVector()
   conns = fspace.elem_conns
@@ -217,8 +225,8 @@ function assemble_matrix_action!(
       0, 0,
       func,
       block_physics, ref_fe,
-      p.h1_coords, t, Δt,
-      p.h1_field, p.h1_field_old, p.h1_hvp_scratch_field,
+      X, t, Δt,
+      U, U_old, V,
       block_view(p.state_old, b), block_view(p.state_new, b), props,
       return_type
     )
