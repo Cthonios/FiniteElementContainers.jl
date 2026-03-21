@@ -22,7 +22,7 @@ function evolve!(integrator::QuasiStaticIntegrator, p)
   # the call below will ensure the return fields have bcs properly enfroced
   # before being saved as the old solution for the next step.
   _update_for_assembly!(p, integrator.solver.linear_solver.assembler.dof, integrator.solution)
-  p.h1_field_old.data .= p.h1_field.data
+  p.field_old.data .= p.field.data
 
   # Track convergence: check if the last Newton increment is small.
   norm_ΔUu = sqrt(sum(abs2, integrator.solver.linear_solver.ΔUu))

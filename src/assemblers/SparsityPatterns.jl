@@ -22,13 +22,13 @@ function _setup_block_sizes(dof::DofManager, ndims::Int)
   return block_start_indices, block_el_level_sizes, n_entries
 end
 
-"""
-$(TYPEDEF)
-$(TYPEDFIELDS)
-Book-keeping struct for sparse matrices in FEM settings.
-This has all the information to construct a sparse matrix for either
-case where you want to eliminate fixed-dofs or not.
-"""
+# """
+# $(TYPEDEF)
+# $(TYPEDFIELDS)
+# Book-keeping struct for sparse matrices in FEM settings.
+# This has all the information to construct a sparse matrix for either
+# case where you want to eliminate fixed-dofs or not.
+# """
 struct SparseMatrixPattern{
   I <: AbstractArray{Int, 1},
   R <: AbstractArray{Float64, 1}
@@ -52,7 +52,6 @@ struct SparseMatrixPattern{
   permutation::I
 end
 
-# TODO won't work for H(div) or H(curl) yet
 function SparseMatrixPattern(dof::DofManager)
 
   # get number of dofs for creating cache arrays

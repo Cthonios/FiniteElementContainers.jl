@@ -27,31 +27,6 @@ const _default_q = Dict{String, Int}(
   "TETRA10" => 2
 )
 
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-abstract type AbstractFunctionSpace end
-
-# Need to add dof conns back in.
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-struct FunctionSpace{
-  IT <: Integer,
-  IV <: AbstractVector{IT},
-  Coords,
-  RefFEs
-} <: AbstractFunctionSpace
-  coords::Coords
-  elem_conns::Connectivity{IT, IV}
-  elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
-  ref_fes::RefFEs
-end
-
 function _setup_ref_fes(mesh::AbstractMesh, interp_type, p_degree = nothing, q_degree = nothing)
   block_names = mesh.element_block_names
   ref_fes = ReferenceFE[]
@@ -86,6 +61,31 @@ function _setup_quad_coords(mesh, X, conns, ref_fe)
     end
   end
   return coords_temp
+end
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+abstract type AbstractFunctionSpace end
+
+# Need to add dof conns back in.
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+struct FunctionSpace{
+  IT <: Integer,
+  IV <: AbstractVector{IT},
+  Coords,
+  RefFEs
+} <: AbstractFunctionSpace
+  coords::Coords
+  elem_conns::Connectivity{IT, IV}
+  elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
+  ref_fes::RefFEs
 end
 
 function FunctionSpace(
@@ -180,6 +180,10 @@ end
 
 function connectivity(fspace::FunctionSpace, b::Int)
   return connectivity(fspace.elem_conns, b)
+end
+
+function coordinates(fspace::FunctionSpace)
+  return fspace.coords
 end
 
 function num_blocks(fspace::FunctionSpace)
