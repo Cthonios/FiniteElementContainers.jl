@@ -27,7 +27,8 @@ const _default_q = Dict{String, Int}(
   "TETRA10" => 2
 )
 
-function _setup_ref_fes(mesh::AbstractMesh, interp_type, p_degree = nothing, q_degree = nothing)
+function _setup_ref_fes(mesh::AbstractMesh, interp_type, p_degree = nothing, q_degree = nothing;
+                        q_type::Type{<:AbstractQuadratureType} = GaussLobattoLegendre)
   block_names = mesh.element_block_names
   ref_fes = ReferenceFE[]
   for elem_name in values(mesh.element_types)
@@ -39,7 +40,7 @@ function _setup_ref_fes(mesh::AbstractMesh, interp_type, p_degree = nothing, q_d
     if q_degree === nothing
       q_degree = _default_q[uppercase(String(elem_name))]
     end
-    ref_fe = ReferenceFE(elem_type{interp_type, p_degree}(), GaussLobattoLegendre(q_degree))
+    ref_fe = ReferenceFE(elem_type{interp_type, p_degree}(), q_type(q_degree))
     push!(ref_fes, ref_fe)
   end
   ref_fes = NamedTuple{tuple(values(block_names)...)}(tuple(ref_fes...))
@@ -89,9 +90,10 @@ struct FunctionSpace{
 end
 
 function FunctionSpace(
-  mesh::AbstractMesh, ::Type{H1Field}, interp_type; 
+  mesh::AbstractMesh, ::Type{H1Field}, interp_type;
   p_degree::Union{Int, Nothing} = nothing,
-  q_degree::Union{Int, Nothing} = nothing
+  q_degree::Union{Int, Nothing} = nothing,
+  q_type::Type{<:AbstractQuadratureType} = GaussLobattoLegendre
 )
   # TODO move to some common function so we can use it across
   # all constructors
@@ -102,12 +104,12 @@ function FunctionSpace(
     elseif p_degree == 0
       @assert false "TODO 0 order elements"
     else
-      ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_degree)
+      ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_degree; q_type=q_type)
       coords, conns = create_higher_order_mesh(mesh, H1Field, interp_type, p_degree)
       conns = Connectivity([val for val in values(conns)])
     end
   else
-    ref_fes = _setup_ref_fes(mesh, interp_type, q_degree)
+    ref_fes = _setup_ref_fes(mesh, interp_type, nothing, q_degree; q_type=q_type)
     coords = mesh.nodal_coords
     conns = Connectivity([val for val in values(mesh.element_conns)])
   end
@@ -133,9 +135,10 @@ end
 
 function FunctionSpace(
   mesh::AbstractMesh, ::Type{L2Field}, ::Type{Lagrange};
-  q_degree = nothing
+  q_degree = nothing,
+  q_type::Type{<:AbstractQuadratureType} = GaussLobattoLegendre
 )
-  ref_fes = _setup_ref_fes(mesh, Lagrange, q_degree)
+  ref_fes = _setup_ref_fes(mesh, Lagrange, q_degree; q_type=q_type)
 
   # conns = Connectivity([mesh.element_conns[name] for name in mesh.element_block_names])
   conns = Connectivity([val for val in values(mesh.element_conns)])
