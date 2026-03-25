@@ -126,9 +126,9 @@ V2s, VV2s = tuple_of_arrays(map(meshes, partition(Uus), mat_pattern.unknown_dofs
     asm.residual_storage.data, asm.stiffness_storage
 end)
 
-# A = psparse(mat_pattern, VVs) |> fetch
-# # b = pzeros(vec_pattern) |> fetch
-# b = pvector(vec_pattern, Vs) |> fetch
-A = psparse(mat_pattern, VV2s) |> fetch
-b = pvector(vec_pattern, V2s) |> fetch
+A = psparse(mat_pattern, VVs) |> fetch
+# b = pzeros(vec_pattern) |> fetch
+b = pvector(vec_pattern, Vs) |> fetch
+# A = psparse(mat_pattern, VV2s) |> fetch
+# b = pvector(vec_pattern, V2s) |> fetch
 x = IterativeSolvers.cg(A, b, verbose = i_am_main(rank))

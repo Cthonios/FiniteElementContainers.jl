@@ -1,0 +1,6 @@
+name = "MyApp"
+
+[deps]
+#ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
+FiniteElementContainers = "d08262e4-672f-4e7f-a976-f2cea5767631"
