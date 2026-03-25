@@ -6,7 +6,8 @@ struct PostProcessor{O}
 end
 
 function PostProcessor(
-  mesh, output_file::String, vars...
+  mesh, output_file::String, vars...;
+  extra_nodal_names::Vector{String} = String[]
 )
   copy_mesh(mesh, output_file)
 
@@ -16,7 +17,7 @@ function PostProcessor(
 
   ext = splitext(output_file)
   if occursin(".g", output_file) || occursin(".e", output_file) || occursin(".exo", output_file)
-    pp = PostProcessor(ExodusMesh, output_file, vars...)
+    pp = PostProcessor(ExodusMesh, output_file, vars...; extra_nodal_names=extra_nodal_names)
   else
     throw(ErrorException("Unsupported file type with extension $ext"))
   end
