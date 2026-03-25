@@ -211,8 +211,9 @@ end
 # PostProcessor implementations
 function PostProcessor(
   ::Type{<:ExodusMesh},
-  file_name::String, 
-  vars...
+  file_name::String,
+  vars...;
+  extra_nodal_names::Vector{String} = String[]
 )
 
   # scratch arrays for var names
@@ -240,8 +241,9 @@ function PostProcessor(
     end
   end
 
-  # convert symbols to strings
+  # convert symbols to strings and append extra nodal names
   nodal_var_names = String.(nodal_var_names)
+  append!(nodal_var_names, extra_nodal_names)
   # all_el_var_names = String.(vcat(element_var_names, quadrature_var_names))
   all_el_var_names = element_var_names
   append!(all_el_var_names, quadrature_var_names)
