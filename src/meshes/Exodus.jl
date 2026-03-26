@@ -287,8 +287,8 @@ function write_field(
     return nothing
   end
 
-  # SymmetricTensor{2,3} data order (column-major): xx, yx, zx, yy, zy, zz
-  exts = ("xx", "xy", "xz", "yy", "yz", "zz")
+  # SymmetricTensor{2,3} data order (column-major): xx, xy, xz, yy, yz, zz
+  exts = ("(XX)", "(XY)", "(XZ)", "(YY)", "(YZ)", "(ZZ)")
   for (n, ext) in enumerate(exts)
     for q in axes(field, 1)
       var_name = String(field_name) * "_$(ext)_$q"
@@ -306,7 +306,7 @@ function write_field(
   end
 
   # Tensor{2,3} data order (column-major): xx, yx, zx, xy, yy, zy, xz, yz, zz
-  exts = ("xx", "yx", "zx", "xy", "yy", "zy", "xz", "yz", "zz")
+  exts = ("(XX)", "(YX)", "(ZX)", "(XY)", "(YY)", "(ZY)", "(XZ)", "(YZ)", "(ZZ)")
   for (n, ext) in enumerate(exts)
     for q in axes(field, 1)
       var_name = String(field_name) * "_$(ext)_$q"
