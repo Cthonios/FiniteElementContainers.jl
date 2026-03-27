@@ -24,6 +24,8 @@ export NeumannBC
 export NeumannBCs
 export PeriodicBC
 export PeriodicBCs
+export RobinBC
+export RobinBCs
 export dirichlet_dofs
 export update_field_dirichlet_bcs!
 
@@ -151,6 +153,7 @@ export MappedH1OrL2Interpolants
 export MappedH1OrL2SurfaceInterpolants
 
 # dependencies
+import AcceleratedKernels as AK
 import KernelAbstractions as KA
 using Adapt
 using Atomix
@@ -188,6 +191,7 @@ cpu(x) = adapt(Array, x)
 
 # TODO clean this up, make it make sense in an ordered way
 # include("parallel/Parallel.jl")
+include("Utils.jl")
 include("PostProcessors.jl")
 include("fields/Fields.jl")
 include("meshes/Meshes.jl")

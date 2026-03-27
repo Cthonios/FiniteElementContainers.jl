@@ -54,8 +54,8 @@ function test_dirichlet_bc_container_init()
   u = VectorFunction(fspace, :displ)
   dof = DofManager(u)
   bc_in = DirichletBC(:displ_x, dummy_func_1; sideset_name = :sset_1)
-  bc = FiniteElementContainers.DirichletBCContainer(mesh, dof, bc_in)
-  @show bc
+  bcs = DirichletBCs(mesh, dof, DirichletBC[bc_in])
+  @show bcs
 end
 
 function test_neumann_bc_input()
@@ -69,14 +69,14 @@ function test_neumann_bc_input()
   @test typeof(bc.func) == typeof(dummy_func_1)
 end
 
-function test_neumann_bc_container_init()
+function test_neumann_bcs_init()
   mesh = UnstructuredMesh("poisson/poisson.g")
   fspace = FunctionSpace(mesh, H1Field, Lagrange)
   u = VectorFunction(fspace, :displ)
   dof = DofManager(u)
   bc_in = NeumannBC(:displ, dummy_func_2, :sset_1)
-  bc = FiniteElementContainers.NeumannBCContainer(mesh, dof, bc_in)
-  @show bc
+  bcs = NeumannBCs(mesh, dof, NeumannBC[bc_in])
+  @show bcs
 end
 
 function test_periodic_bc_input()
@@ -94,10 +94,33 @@ function test_periodic_bc_input()
   @test typeof(bc.func) == typeof(dummy_func_1)
 end
 
+function test_robin_bc_input()
+  bc = RobinBC(:my_var, dummy_func_2, :my_sset)
+  @test bc.var_name == :my_var
+  @test bc.sset_name == :my_sset
+  @test typeof(bc.func) == typeof(dummy_func_2)
+  bc = RobinBC("my_var", dummy_func_1, "my_sset")
+  @test bc.var_name == :my_var
+  @test bc.sset_name == :my_sset
+  @test typeof(bc.func) == typeof(dummy_func_1)
+end
+
+function test_robin_bcs_init()
+  mesh = UnstructuredMesh("poisson/poisson.g")
+  fspace = FunctionSpace(mesh, H1Field, Lagrange)
+  u = VectorFunction(fspace, :displ)
+  dof = DofManager(u)
+  bc_in = RobinBC(:displ, dummy_func_2, :sset_1)
+  bcs = RobinBCs(mesh, dof, RobinBC[bc_in])
+  @show bcs
+end
+
 @testset "BoundaryConditions" begin
   test_dirichlet_bc_input()
   test_dirichlet_bc_container_init()
   test_neumann_bc_input()
-  # test_neumann_bc_container_init()
+  test_neumann_bcs_init()
   test_periodic_bc_input()
+  test_robin_bc_input()
+  test_robin_bcs_init()
 end
