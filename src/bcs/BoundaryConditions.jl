@@ -170,7 +170,99 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
+abstract type AbstractWeaklyEnforcedBCContainer{
+  IT <: Integer,
+  IV <: AbstractArray{IT, 1},
+  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
+  RE <: ReferenceFE
+} <: AbstractBCContainer{IV, RV} end
+
+function Adapt.adapt_structure(to, bc::AbstractWeaklyEnforcedBCContainer)
+  el_conns = adapt(to, bc.element_conns)
+  elements = adapt(to, bc.elements)
+  sides = adapt(to, bc.sides)
+  ref_fe = adapt(to, bc.ref_fe)
+  vals = adapt(to, bc.vals)
+  type = eval(typeof(bc).name.name)
+  return type(el_conns, elements, sides, ref_fe, vals)
+end
+
+Base.length(bc::AbstractWeaklyEnforcedBCContainer) = size(bc.vals, 2)
+
+function Base.show(io::IO, bc::AbstractWeaklyEnforcedBCContainer)
+  println(io, "$(typeof(bc).name.name):")
+  # println(io, "Blocks                    = $(unique(bk.blocks))")
+  println(io, "  Number of active elements = $(length(bc.elements))")
+  # println(io, "  Number of active nodes    = $(length(bc.side_nodes))")
+  println(io, "  Number of active sides    = $(length(bc.sides))")
+end
+
+# returns vectors
+# callers are responsible for converting to named tuples
+# or other datatypes
+function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
+  sets = map(x -> x.sset_name, bcs)
+  vars = map(x -> x.var_name, bcs)
+  funcs = map(x -> x.func, bcs)
+  # NOTE neumann bcs must be present on a sideset
+  # so that is the only mesh entity that will be
+  # supported for this BC type
+  bks = map((v, s) -> BCBookKeeping(mesh, dof, v; sset_name = s), vars, sets)
+
+  fspace = function_space(dof)
+  new_bcs = type[]
+  new_funcs = Function[]
+  for (bk, func) in zip(bks, funcs)
+    blocks = sort(unique(bk.blocks))
+
+    # TODO fix this
+    if length(blocks) > 1
+      @error "Neumann BCs present on multiple blocks will likely fail"
+    end
+
+    for block in blocks
+      block_name = mesh.element_block_names[block]
+      ids = findall(x -> x == block, bk.blocks)
+      new_blocks = bk.blocks[ids]
+      new_elements = bk.elements[ids]
+      new_sides = bk.sides[ids]
+      new_side_nodes = bk.side_nodes[:, ids]
+
+      # TODO update nodes and dofs
+      new_bk = BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides, new_side_nodes)
+      ref_fe = getproperty(fspace.ref_fes, block_name)
+      NQ = num_surface_quadrature_points(ref_fe)
+      ND = length(dof.var)
+
+      # TODO below isn't correct
+      # we need to map bk.elements using the block element id map
+      # NOTE I think that is currently handled in BCBookKeeping
+      # by setting bk.elements to the indices where the side set
+      # elements live in the block element id map
+      conns = mesh.element_conns[block_name][:, bk.elements]
+
+      conns = Connectivity([conns])
+      vals = zeros(SVector{ND, Float64}, NQ, length(bk.sides))
+      new_bc = type(
+        conns, new_bk.elements, new_bk.sides, ref_fe, vals
+      )
+      push!(new_bcs, new_bc)
+      push!(new_funcs, func)
+    end
+  end
+  return new_bcs, new_funcs
+end
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
 abstract type AbstractBCFunction{F} end
+
+function Base.show(io::IO, func::AbstractBCFunction)
+  println(io, typeof(func.func).name.name)
+end
 
 """
 $(TYPEDEF)
@@ -197,6 +289,7 @@ function Base.show(io::IO, bcs::AbstractBCs)
     show(io, "$(type)_$n")
     show(io, cache)
     show(io, func)
+    show(io, "\n")
   end
 end
 
@@ -206,14 +299,21 @@ Wrapper that is generic for all architectures to
 update bc values based on the stored function
 """
 # function update_bc_values!(bcs, funcs, X, t)
-function update_bc_values!(bcs::AbstractBCs, X, t)
+# function update_bc_values!(bcs::AbstractBCs, X, t, args...)
+#   for (bc, func) in zip(values(bcs.bc_caches), values(bcs.bc_funcs))
+#     backend = KA.get_backend(bc)
+#     _update_bc_values!(backend, bc, func, X, t, args...)
+#   end
+#   return nothing
+# end
+function update_bc_values!(bcs::AbstractBCs, X, t, args...)
   for (bc, func) in zip(values(bcs.bc_caches), values(bcs.bc_funcs))
-    backend = KA.get_backend(bc)
-    _update_bc_values!(bc, func, X, t, backend)
+    _update_bc_values!(bc, func, X, t, args...)
   end
   return nothing
 end
 
 include("DirichletBCs.jl")
-include("PeriodicBCs.jl")
 include("NeumannBCs.jl")
+include("PeriodicBCs.jl")
+include("RobinBCs.jl")

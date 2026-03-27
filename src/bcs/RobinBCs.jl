@@ -1,0 +1,91 @@
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+User facing API to define a ```RobinBC````.
+"""
+struct RobinBC{F} <: AbstractBC{F}
+  func::F
+  sset_name::Symbol
+  var_name::Symbol
+
+  """
+  $(TYPEDEF)
+  $(TYPEDSIGNATURES)
+  $(TYPEDFIELDS)
+  """
+  function RobinBC(var_name::Symbol, func, sset_name::Symbol)
+    new{typeof(func)}(func, sset_name, var_name)
+  end
+end
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+function RobinBC(var_name::String, func::Function, sset_name::String)
+  return RobinBC(Symbol(var_name), func, Symbol(sset_name))
+end
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+Internal implementation of dirichlet BCs
+"""
+struct RobinBCContainer{
+  IT <: Integer,
+  IV <: AbstractArray{IT, 1},
+  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
+  RE <: ReferenceFE
+} <: AbstractWeaklyEnforcedBCContainer{IT, IV, RV, RE}
+  element_conns::Connectivity{IT, IV}
+  elements::IV
+  sides::IV
+  ref_fe::RE
+  vals::RV
+end
+
+function _update_bc_values!(vals, func, ref_fe, conns, sides, X, t, U)
+  entity_axes(vals, 2) do e
+    conn = connectivity(ref_fe, conns, e, 1)
+    X_el = _element_level_fields(X, ref_fe, conn)
+    u_el = _element_level_fields(U, ref_fe, conn)
+  
+    for q in 1:num_surface_quadrature_points(ref_fe)
+      side = sides[e]
+      interps = MappedH1OrL2SurfaceInterpolants(ref_fe, X_el, q, side)
+      u_q = u_el * interps.N
+      vals[q, e] = func(interps.X_q, t, u_q)
+    end
+  end
+end
+
+struct RobinBCs{
+    BCCaches <: NamedTuple, 
+    BCFuncs  <: NamedTuple
+  } <: AbstractBCs{BCFuncs}
+    bc_caches::BCCaches
+    bc_funcs::BCFuncs
+end
+
+function RobinBCs(mesh, dof::DofManager, robin_bcs::Vector{RobinBC})
+    if length(robin_bcs) == 0
+        return RobinBCs(NamedTuple(), NamedTuple())
+    end
+
+    new_bcs, new_funcs = _setup_weakly_enforced_bc_container(mesh, dof, robin_bcs, RobinBCContainer)
+
+    syms = tuple(map(x -> Symbol("robin_bc_$x"), 1:length(new_bcs))...)
+    new_bcs = NamedTuple{syms}(tuple(new_bcs...))
+    new_funcs = NamedTuple{syms}(tuple(new_funcs...))
+    return RobinBCs(new_bcs, new_funcs)
+end
+
+function update_bc_values!(bcs::RobinBCs, X, t, U)
+  for (bc, func) in zip(bcs.bc_caches, bcs.bc_funcs)
+    _update_bc_values!(bc.vals, func, bc.ref_fe, bc.element_conns.data, bc.sides, X, t, U)
+  end
+  return nothing
+end
