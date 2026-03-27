@@ -141,53 +141,23 @@ function create_unknowns(dof::DofManager{true, IT, IDs, Var}) where {IT, IDs, Va
     return KA.zeros(backend, Float64, length(dof))
 end
 
-# COV_EXCL_START
-KA.@kernel function _extract_field_unknowns_kernel!(
-    Uu::V, 
-    # dof::DofManager{false, IT, IDs, Var}, 
-    unknown_dofs::IDs,
-    U::AbstractField
-) where {V <: AbstractVector{<:Number}, IDs}
-    N = KA.@index(Global)
-    @inbounds Uu[N] = U[unknown_dofs[N]]
-end
-# COV_EXCL_STOP
-
-function _extract_field_unknowns!(
-    Uu::V, 
-    dof::DofManager{false, IT, IDs, Var}, 
-    U::AbstractField, 
-    backend::KA.Backend
-) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
-    kernel! = _extract_field_unknowns_kernel!(backend)
-    kernel!(Uu, dof.unknown_dofs, U, ndrange = length(Uu))
-    return nothing
-end
-
-function _extract_field_unknowns!(
-    Uu::V, 
-    dof::DofManager{false, IT, IDs, Var}, 
-    U::AbstractField, 
-    ::KA.CPU
-) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
-    @views Uu .= U[dof.unknown_dofs]
-    return nothing
-end
-
-"""
-$(TYPEDSIGNATURES)
-Updates the entries of ```Uu``` with the unknown dofs
-in the field ```U```.
-"""
 function extract_field_unknowns!(
     Uu::V,
-    dof::DofManager{false, IT, IDs, Var},
+    unknown_dofs::I,
     U::AbstractField
-) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
-    backend = KA.get_backend(dof)
-    @assert KA.get_backend(U) == backend
-    @assert KA.get_backend(Uu) == backend
-    _extract_field_unknowns!(Uu, dof, U, backend)
+) where {V <: AbstractVector{<:Number}, I <: AbstractVector{<:Integer}}
+    entity_foreach(Uu) do n
+        Uu[n] = U[unknown_dofs[n]]
+    end
+    return nothing
+end
+
+function extract_field_unknowns!(
+    Uu::V,
+    dof::DofManager,
+    U::AbstractField
+) where V <: AbstractVector{<:Number}
+    extract_field_unknowns!(Uu, dof.unknown_dofs, U)
     return nothing
 end
 
@@ -220,66 +190,20 @@ function update_dofs!(dof::DofManager, dirichlet_dofs::V) where V <: AbstractArr
     return nothing
 end
 
-# # COV_EXCL_START
-# KA.@kernel function _update_field_unknowns_kernel!(
-#     U::AbstractField, 
-#     dof::DofManager{false, IT, IDs, Var}, 
-#     Uu::V
-# ) where {V <: AbstractVector{<:Number}, IT, IDs, Var}
-#     N = KA.@index(Global)
-#     @inbounds U.data[dof.unknown_dofs[N]] = Uu[N]
-# end
-# # COV_EXCL_STOP
-
-# COV_EXCL_START
-KA.@kernel function _update_field_unknowns_kernel!(
-    U::AbstractField, 
-    # dof::DofManager{true, IT, IDs, Var}, 
-    unknown_dofs::IDs,
+function update_field_unknowns!(
+    U::AbstractField,
+    unknown_dofs::I,
     Uu::V,
     flag::Bool
-) where {V <: AbstractVector{<:Number}, IDs}
-    N = KA.@index(Global)
-    if flag
-        @inbounds U.data[unknown_dofs[N]] = Uu[unknown_dofs[N]]
-    else
-        @inbounds U.data[unknown_dofs[N]] = Uu[N]
+) where {I <: AbstractVector{<:Integer}, V <: AbstractVector{<:Number}}
+    entity_foreach(unknown_dofs) do n
+        dof = unknown_dofs[n]
+        if flag
+            @inbounds U.data[dof] = Uu[dof]
+        else
+            @inbounds U.data[dof] = Uu[n]
+        end
     end
-end
-# COV_EXCL_STOP
-  
-function _update_field_unknowns!(
-    U::AbstractField, 
-    dof::DofManager{flag, IT, IDs, Var}, 
-    Uu::T, 
-    backend::KA.Backend
-) where {
-    T <: AbstractVector{<:Number},
-    flag, IT, IDs, Var
-}
-    kernel! = _update_field_unknowns_kernel!(backend)
-    kernel!(U, dof.unknown_dofs, Uu, flag, ndrange = length(dof.unknown_dofs))
-    return nothing
-end
-  
-# Need a seperate CPU method since CPU is basically busted in KA
-function _update_field_unknowns!(
-    U::AbstractField, 
-    dof::DofManager{false, IT, IDs, Var}, 
-    Uu::T, 
-    ::KA.CPU
-) where {T <: AbstractVector{<:Number}, IT, IDs, Var}
-    U[dof.unknown_dofs] .= Uu
-    return nothing
-end
-
-function _update_field_unknowns!(
-    U::AbstractField, 
-    dof::DofManager{true, IT, IDs, Var}, 
-    Uu::T, 
-    ::KA.CPU
-) where {T <: AbstractVector{<:Number}, IT, IDs, Var}
-    @views U[dof.unknown_dofs] .= Uu[dof.unknown_dofs]
     return nothing
 end
 
@@ -303,7 +227,7 @@ function update_field_unknowns!(
         @assert length(Uu) == length(dof.unknown_dofs)
     end
 
-    _update_field_unknowns!(U, dof, Uu, backend)
+    update_field_unknowns!(U, dof.unknown_dofs, Uu, _is_condensed(dof))
     return nothing
 end
 
