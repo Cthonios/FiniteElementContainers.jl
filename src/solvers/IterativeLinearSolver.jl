@@ -27,6 +27,7 @@ function solve!(solver::IterativeLinearSolver, Uu, p)
   @timeit solver.timer "residual assembly" begin
     assemble_vector!(solver.assembler, residual, Uu, p)
     assemble_vector_neumann_bc!(solver.assembler, Uu, p)
+    # assemble_vector_robin_bc!(solver.assembler, Uu, p)
   end
   @timeit solver.timer "stiffness assembly" begin
     assemble_stiffness!(solver.assembler, stiffness, Uu, p)

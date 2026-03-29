@@ -4,13 +4,12 @@ function _forindices_serial(f, indices)
     end
 end
 
-function entity_foreach(
+function fec_foreach(
     f, itr,
     backend::KA.Backend = KA.get_backend(itr);
     # CPU settings
     max_tasks = Threads.nthreads(),
     min_elems = 1,
-    # num_tasks = 1,
     prefer_threads::Bool = true,
     # GPU settings
     block_size = 256,
@@ -29,20 +28,19 @@ function entity_foreach(
     end
 end
 
-function entity_axes(
+function fec_axes(
     f, itr,
     dims::Union{Nothing, <:Integer} = nothing,
     backend::KA.Backend = KA.get_backend(itr);
     # CPU settings
     max_tasks = Threads.nthreads(),
     min_elems = 1,
-    # num_tasks = 1,
     prefer_threads::Bool = true,
     # GPU settings
     block_size = 256,
 )
     if isnothing(dims)
-        return entity_foreach(
+        return fec_foreach(
             f, itr, backend;
             max_tasks, min_elems,
             prefer_threads, block_size,

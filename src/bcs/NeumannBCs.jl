@@ -48,7 +48,7 @@ struct NeumannBCContainer{
 end
 
 function _update_bc_values!(vals, func, ref_fe, conns, sides, X, t)
-  entity_axes(vals, 2) do e
+  fec_axes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, 1)
     X_el = _element_level_fields(X, ref_fe, conn)
   
