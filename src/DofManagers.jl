@@ -146,7 +146,7 @@ function extract_field_unknowns!(
     unknown_dofs::I,
     U::AbstractField
 ) where {V <: AbstractVector{<:Number}, I <: AbstractVector{<:Integer}}
-    entity_foreach(Uu) do n
+    fec_foreach(Uu) do n
         Uu[n] = U[unknown_dofs[n]]
     end
     return nothing
@@ -190,20 +190,55 @@ function update_dofs!(dof::DofManager, dirichlet_dofs::V) where V <: AbstractArr
     return nothing
 end
 
-function update_field_unknowns!(
+################################################
+
+# Instead of a closure, define an explicit functor
+# struct UpdateFieldFunctorConsts{U <: AbstractArray{<:Integer}}
+#     unknown_dofs::U
+# end
+
+# struct UpdateFieldFunctor{
+#     F <: AbstractField,
+#     U <: UpdateFieldFunctorConsts,
+#     V
+# }
+#     U::F
+#     # unknown_dofs::I
+#     unknown_dofs::U
+#     Uu::V
+#     flag::Bool
+# end
+
+# # The call method is a plain function - no hidden captures
+# function (f::UpdateFieldFunctor)(n)
+#     @inbounds dof = f.unknown_dofs.unknown_dofs[n]
+#     if f.flag
+#         @inbounds f.U.data[dof] = f.Uu[dof]
+#     else
+#         @inbounds f.U.data[dof] = f.Uu[n]
+#     end
+#     return nothing
+# end
+
+# ##################################################
+
+function _update_field_unknowns!(
     U::AbstractField,
     unknown_dofs::I,
     Uu::V,
     flag::Bool
 ) where {I <: AbstractVector{<:Integer}, V <: AbstractVector{<:Number}}
-    entity_foreach(unknown_dofs) do n
-        dof = unknown_dofs[n]
+    fec_foreach(unknown_dofs) do n
+        @inbounds dof = unknown_dofs[n]
         if flag
             @inbounds U.data[dof] = Uu[dof]
         else
             @inbounds U.data[dof] = Uu[n]
         end
     end
+    # kernel_consts = UpdateFieldFunctorConsts(unknown_dofs)
+    # kernel = UpdateFieldFunctor(U, kernel_consts, Uu, flag)
+    # fec_foreach(kernel, unknown_dofs)
     return nothing
 end
 
@@ -215,7 +250,8 @@ the values of ```Uu```.
 function update_field_unknowns!(
     U::AbstractField, 
     dof::DofManager,
-    Uu::V
+    Uu::V,
+    enzyme_safe::Bool = false
 ) where V <: AbstractVector{<:Number}
     backend = KA.get_backend(dof)
     @assert KA.get_backend(U) == backend
@@ -227,7 +263,12 @@ function update_field_unknowns!(
         @assert length(Uu) == length(dof.unknown_dofs)
     end
 
-    update_field_unknowns!(U, dof.unknown_dofs, Uu, _is_condensed(dof))
+    if enzyme_safe
+        _update_field_unknowns_enzyme_safe!(U, dof, Uu, KA.get_backend(U))
+    else
+        # _update_field_unknowns!(U, dof, Uu, backend)
+        _update_field_unknowns!(U, dof.unknown_dofs, Uu, _is_condensed(dof))
+    end
     return nothing
 end
 
@@ -238,7 +279,8 @@ Takes in a field and updates the field
 I think this one can be removed/deprecated
 """
 function update_field_unknowns!(
-    U::F, dof::DofManager, Uu::F
+    U::F, dof::DofManager, Uu::F,
+    enzyme_safe::Bool = false
 ) where F <: AbstractField
-    update_field_unknowns!(U, dof, Uu.data)
+    update_field_unknowns!(U, dof, Uu.data, enzyme_safe)
 end

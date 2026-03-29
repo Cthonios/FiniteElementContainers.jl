@@ -124,11 +124,23 @@ function Base.show(io::IO, bc::DirichletBCContainer)
   println(io, "  Number of active nodes    = $(length(bc.nodes))")
 end
 
+struct DirichletBCFunction{F1, F2, F3} <: AbstractBCFunction{F1}
+  func::F1
+  func_dot::F2
+  func_dot_dot::F3
+end
+
+function DirichletBCFunction(func)
+  func_dot = (x, t) -> ForwardDiff.derivative(z -> func(x, z), t)
+  func_dot_dot = (x, t) -> ForwardDiff.derivative(z -> func_dot(x, z), t)
+  return DirichletBCFunction(func, func_dot, func_dot_dot)
+end
+
 """
 $(TYPEDSIGNATURES)
 """
-function _update_bc_values!(bc::DirichletBCContainer, func, X, t)
-  entity_foreach(bc.nodes) do n
+function _update_bc_values!(bc::DirichletBCContainer, func::DirichletBCFunction, X, t)
+  fec_foreach(bc.nodes) do n
     ND = num_fields(X)
     node = bc.nodes[n]
   
@@ -147,18 +159,6 @@ function _update_bc_values!(bc::DirichletBCContainer, func, X, t)
     bc.vals_dot[n] = func.func_dot(X_temp, t)
     bc.vals_dot_dot[n] = func.func_dot_dot(X_temp, t)
   end
-end
-
-struct DirichletBCFunction{F1, F2, F3} <: AbstractBCFunction{F1}
-  func::F1
-  func_dot::F2
-  func_dot_dot::F3
-end
-
-function DirichletBCFunction(func)
-  func_dot = (x, t) -> ForwardDiff.derivative(z -> func(x, z), t)
-  func_dot_dot = (x, t) -> ForwardDiff.derivative(z -> func_dot(x, z), t)
-  return DirichletBCFunction(func, func_dot, func_dot_dot)
 end
 
 struct DirichletBCs{
@@ -196,7 +196,7 @@ function dirichlet_dofs(bcs::DirichletBCs)
 end
 
 function _update_field_dirichlet_bcs!(U, bc::DirichletBCContainer)
-  entity_foreach(bc.dofs) do I
+  fec_foreach(bc.dofs) do I
     dof = bc.dofs[I]
     U[dof] = bc.vals[I]
   end
@@ -204,7 +204,7 @@ function _update_field_dirichlet_bcs!(U, bc::DirichletBCContainer)
 end
 
 function _update_field_dirichlet_bcs!(U, V, A, bc::DirichletBCContainer)
-  entity_foreach(bc.dofs) do I
+  fec_foreach(bc.dofs) do I
     dof = bc.dofs[I]
     U[dof] = bc.vals[I]
     V[dof] = bc.vals_dot[I]
