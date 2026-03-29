@@ -36,11 +36,14 @@ function test_sparse_matrix_assembler()
   Uu = create_unknowns(asm)
   Vu = create_unknowns(asm)
 
-  assemble_scalar!(asm, energy, Uu, p)
-  assemble_mass!(asm, mass, Uu, p)
-  assemble_stiffness!(asm, stiffness, Uu, p)
-  assemble_matrix_action!(asm, stiffness, Uu, Vu, p)
-  assemble_vector!(asm, residual, Uu, p)
+  opts = [false, true]
+  for enzyme_safe in opts
+    assemble_scalar!(asm, energy, Uu, p, enzyme_safe)
+    assemble_mass!(asm, mass, Uu, p, enzyme_safe)
+    assemble_stiffness!(asm, stiffness, Uu, p, enzyme_safe)
+    assemble_matrix_action!(asm, stiffness, Uu, Vu, p)
+    assemble_vector!(asm, residual, Uu, p, enzyme_safe)
+  end
 
   K = stiffness(asm)
   M = mass(asm)

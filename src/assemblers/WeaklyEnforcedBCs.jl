@@ -63,7 +63,7 @@ function _assemble_block_vector_weakly_enforced_bc!(
     side = sides[e]
     conn = connectivity(ref_fe, conns, e, 1)
     x_el = _element_level_fields(X, ref_fe, conn)#s, E)
-    R_el = _element_scratch_vector(boundary_element(ref_fe, side), U)
+    R_el = _element_scratch(AssembledVector(), boundary_element(ref_fe, side), U)
   
     for q in 1:num_surface_quadrature_points(ref_fe)
       # interps = _surface_interpolants(ref_fe, q, side)

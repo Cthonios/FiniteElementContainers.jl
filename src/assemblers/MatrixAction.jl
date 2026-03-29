@@ -11,7 +11,7 @@ function assemble_matrix_free_action!(
 ) where F <: Function
   assemble_matrix_free_action!(
     assembler.stiffness_action_storage,
-    assembler.dof,
+    assembler.vector_pattern, assembler.dof,
     func_action, Uu, Vu, p
   )
   return nothing
@@ -21,7 +21,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble_matrix_free_action!(
-  storage, dof, func_action, Uu, Vu, p
+  storage, pattern, dof, func_action, Uu, Vu, p
 )
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
@@ -67,12 +67,9 @@ function _assemble_block_matrix_free_action!(
 }
   fec_axes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el = _element_level_fields_flat(X, ref_fe, conn)
-    u_el = _element_level_fields_flat(U, ref_fe, conn)
-    u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
-    v_el = _element_level_fields_flat(V, ref_fe, conn)
+    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = _element_level_properties(props, e)
-    Kv_el = _element_scratch_vector(ref_fe, U)
+    Kv_el = _element_scratch(AssembledVector(), ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
@@ -92,7 +89,7 @@ function assemble_matrix_action!(
 ) where F <: Function
   assemble_matrix_action!(
     assembler.stiffness_action_storage,
-    assembler.dof,
+    assembler.vector_pattern, assembler.dof,
     func, Uu, Vu, p
   )
   return nothing
@@ -102,7 +99,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble_matrix_action!(
-  storage, dof, func, Uu, Vu, p
+  storage, pattern, dof, func, Uu, Vu, p
 )
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
@@ -148,12 +145,9 @@ function _assemble_block_matrix_action!(
 }
   fec_axes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el = _element_level_fields_flat(X, ref_fe, conn)#s, E)
-    u_el = _element_level_fields_flat(U, ref_fe, conn)#s, E)
-    u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)#s, E)
-    v_el = _element_level_fields_flat(V, ref_fe, conn)#s, E)
+    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = _element_level_properties(props, e)
-    K_el = _element_scratch_matrix(ref_fe, U)
+    K_el = _element_scratch(AssembledMatrix(), ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)
