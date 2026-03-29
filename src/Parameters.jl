@@ -18,6 +18,7 @@ struct Parameters{
   ICFuncs <: NamedTuple,
   DBCFuncs <: NamedTuple,
   NBCs <: NeumannBCs,
+  RBCs <: RobinBCs,
   Times <: TimeStepper,
   Phys <: NamedTuple, 
   Props <: NamedTuple,
@@ -28,6 +29,7 @@ struct Parameters{
   ics::InitialConditions{IV, RV, ICFuncs}
   dirichlet_bcs::DirichletBCs{IV, RV, DBCFuncs}
   neumann_bcs::NBCs
+  robin_bcs::RBCs
   times::Times
   physics::Phys
   properties::Props
@@ -56,6 +58,7 @@ function Parameters(
   ics,
   dirichlet_bcs, 
   neumann_bcs, 
+  robin_bcs,
   times
 )
   coords = coordinates(function_space(assembler.dof))
@@ -106,6 +109,7 @@ function Parameters(
   ics = InitialConditions(mesh, assembler.dof, ics)
   dirichlet_bcs = DirichletBCs(mesh, assembler.dof, dirichlet_bcs)
   neumann_bcs = NeumannBCs(mesh, assembler.dof, neumann_bcs)
+  robin_bcs = RobinBCs(mesh, assembler.dof, robin_bcs)
 
   # dummy time stepper for a static problem
   if times === nothing
@@ -116,6 +120,7 @@ function Parameters(
     ics,
     dirichlet_bcs,
     neumann_bcs,
+    robin_bcs,
     times,
     physics, 
     properties, 
@@ -150,6 +155,7 @@ function Adapt.adapt_structure(to, p::Parameters)
     adapt(to, p.ics),
     adapt(to, p.dirichlet_bcs),
     adapt(to, p.neumann_bcs),
+    adapt(to, p.robin_bcs),
     adapt(to, p.times),
     adapt(to, p.physics),
     props, # TODO this will need an adapt when you get to element level props
@@ -171,6 +177,8 @@ function Base.show(io::IO, parameters::Parameters)
   println(io, parameters.dirichlet_bcs)
   println(io, "Neumann Boundary Conditions:")
   println(io, parameters.neumann_bcs)
+  println(io, "Robin Boundary Conditions:")
+  println(io, parameters.robin_bcs)
   println(io, parameters.times)
   println(io, "Physics:")
   for (physics, props) in zip(parameters.physics, parameters.properties)
@@ -189,9 +197,10 @@ function create_parameters(
   ics=InitialCondition[],
   dirichlet_bcs=DirichletBC[], 
   neumann_bcs=NeumannBC[],
+  robin_bcs=RobinBC[],
   times=nothing
 )
-  return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, times)
+  return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, robin_bcs, times)
 end
 
 """
@@ -236,14 +245,24 @@ $(TYPEDSIGNATURES)
 This method is used to update the stored bc values.
 This should be called at the beginning of any load step
 
-TODO need to incorporate other bcs besides H1 spaces
-TODO need to incorporate neumann bc updates
+This method only handles updating bc values
+for Dirichlet and Neumann BCs
+
+Robin BC updates are handled in robin assembly method
 """
 function update_bc_values!(p::Parameters)
   X = coordinates(p)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, X, t)
+
+  # TODO how to handle Robin BCs?
+  # currently assembly methods handle updating the field
+  # in parameters with the current unknown dofs
+  # we need field here to reflect that for the robin bcs
+  # to be correct...
+
+  # order of operations goes
   return nothing
 end
 
@@ -255,16 +274,22 @@ function update_dofs!(asm::AbstractAssembler, p::Parameters)
   return nothing
 end
 
-function _update_for_assembly!(p::Parameters, dof::DofManager, Uu)
+function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, enzyme_safe::Bool = false)
   update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
-  update_field_unknowns!(p.field, dof, Uu)
+  update_field_unknowns!(p.field, dof, Uu, enzyme_safe)
+
+  # # Robin BC values need to be updated here to be correct
+  # update_bc_values!(p.robin_bcs, p.coords, current_time(p), p.field)
   return nothing
 end
 
-function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, Vu)
+function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, Vu, enzyme_safe::Bool = false)
   update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
-  update_field_unknowns!(p.field, dof, Uu)
-  update_field_unknowns!(p.hvp_scratch_field, dof, Vu)
+  update_field_unknowns!(p.field, dof, Uu, enzyme_safe)
+  update_field_unknowns!(p.hvp_scratch_field, dof, Vu, enzyme_safe)
+
+  # # Robin BC values need to be updated here to be correct
+  # update_bc_values!(p.robin_bcs, p.coords, current_time(p), p.field)
   return nothing
 end
 

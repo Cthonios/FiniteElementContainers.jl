@@ -1,5 +1,6 @@
 dummy_func_1(x, t) = 5. * t
 dummy_func_2(x, t) = 5. * SVector{2, Float64}(1., 0.)
+dummy_func_3(x, t, u) = 5. * SVector{2, Float64}(1., 0.) + u
 
 function test_dirichlet_bc_input()
   # symbol constructors
@@ -95,14 +96,14 @@ function test_periodic_bc_input()
 end
 
 function test_robin_bc_input()
-  bc = RobinBC(:my_var, dummy_func_2, :my_sset)
+  bc = RobinBC(:my_var, dummy_func_3, :my_sset)
   @test bc.var_name == :my_var
   @test bc.sset_name == :my_sset
-  @test typeof(bc.func) == typeof(dummy_func_2)
-  bc = RobinBC("my_var", dummy_func_1, "my_sset")
+  @test typeof(bc.func) == typeof(dummy_func_3)
+  bc = RobinBC("my_var", dummy_func_3, "my_sset")
   @test bc.var_name == :my_var
   @test bc.sset_name == :my_sset
-  @test typeof(bc.func) == typeof(dummy_func_1)
+  @test typeof(bc.func) == typeof(dummy_func_3)
 end
 
 function test_robin_bcs_init()
@@ -110,7 +111,7 @@ function test_robin_bcs_init()
   fspace = FunctionSpace(mesh, H1Field, Lagrange)
   u = VectorFunction(fspace, :displ)
   dof = DofManager(u)
-  bc_in = RobinBC(:displ, dummy_func_2, :sset_1)
+  bc_in = RobinBC(:displ, dummy_func_3, :sset_1)
   bcs = RobinBCs(mesh, dof, RobinBC[bc_in])
   @show bcs
 end

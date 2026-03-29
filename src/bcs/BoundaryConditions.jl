@@ -197,6 +197,63 @@ function Base.show(io::IO, bc::AbstractWeaklyEnforcedBCContainer)
   println(io, "  Number of active sides    = $(length(bc.sides))")
 end
 
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+abstract type AbstractBCFunction{F} end
+
+function Base.show(io::IO, func::AbstractBCFunction)
+  println(io, typeof(func.func).name.name)
+end
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+"""
+abstract type AbstractBCs{
+  Funcs <: NamedTuple
+} end
+
+function Adapt.adapt_structure(to, bcs::AbstractBCs)
+  type = typeof(bcs).name.name
+  return eval(type)(
+    map(x -> adapt(to, x), bcs.bc_caches),
+    adapt(to, bcs.bc_funcs)
+  )
+end
+
+Base.length(bcs::AbstractBCs) = length(bcs.bc_caches)
+
+function Base.show(io::IO, bcs::AbstractBCs)
+  type = typeof(bcs).name.name
+  for (n, (cache, func)) in enumerate(zip(bcs.bc_caches, bcs.bc_funcs))
+    show(io, "$(type)_$n")
+    show(io, cache)
+    show(io, func)
+    show(io, "\n")
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
+Wrapper that is generic for all architectures to
+update bc values based on the stored function
+"""
+function update_bc_values!(bcs::AbstractBCs, X, t, args...)
+  for (bc, func) in zip(values(bcs.bc_caches), values(bcs.bc_funcs))
+    _update_bc_values!(bc, func, X, t, args...)
+  end
+  return nothing
+end
+
+include("DirichletBCs.jl")
+include("NeumannBCs.jl")
+include("PeriodicBCs.jl")
+include("RobinBCs.jl")
+
 # returns vectors
 # callers are responsible for converting to named tuples
 # or other datatypes
@@ -243,77 +300,23 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
 
       conns = Connectivity([conns])
       vals = zeros(SVector{ND, Float64}, NQ, length(bk.sides))
-      new_bc = type(
-        conns, new_bk.elements, new_bk.sides, ref_fe, vals
-      )
+
+      if type <: NeumannBCContainer
+        new_bc = type(
+          conns, new_bk.elements, new_bk.sides, ref_fe, vals
+        )
+      elseif type <: RobinBCContainer
+        # dvalsdu = copy(vals)
+        dvalsdu = zeros(SMatrix{ND, ND, Float64, ND * ND}, NQ, length(bk.sides))
+        new_bc = type(
+          conns, new_bk.elements, new_bk.sides, ref_fe, vals, dvalsdu
+        )
+      else
+        @assert false "Unsupported bc type"
+      end
       push!(new_bcs, new_bc)
       push!(new_funcs, func)
     end
   end
   return new_bcs, new_funcs
 end
-
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-abstract type AbstractBCFunction{F} end
-
-function Base.show(io::IO, func::AbstractBCFunction)
-  println(io, typeof(func.func).name.name)
-end
-
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-abstract type AbstractBCs{
-  Funcs <: NamedTuple
-} end
-
-function Adapt.adapt_structure(to, bcs::AbstractBCs)
-  type = typeof(bcs).name.name
-  return eval(type)(
-    map(x -> adapt(to, x), bcs.bc_caches),
-    adapt(to, bcs.bc_funcs)
-  )
-end
-
-Base.length(bcs::AbstractBCs) = length(bcs.bc_caches)
-
-function Base.show(io::IO, bcs::AbstractBCs)
-  type = typeof(bcs).name.name
-  for (n, (cache, func)) in enumerate(zip(bcs.bc_caches, bcs.bc_funcs))
-    show(io, "$(type)_$n")
-    show(io, cache)
-    show(io, func)
-    show(io, "\n")
-  end
-end
-
-"""
-$(TYPEDSIGNATURES)
-Wrapper that is generic for all architectures to
-update bc values based on the stored function
-"""
-# function update_bc_values!(bcs, funcs, X, t)
-# function update_bc_values!(bcs::AbstractBCs, X, t, args...)
-#   for (bc, func) in zip(values(bcs.bc_caches), values(bcs.bc_funcs))
-#     backend = KA.get_backend(bc)
-#     _update_bc_values!(backend, bc, func, X, t, args...)
-#   end
-#   return nothing
-# end
-function update_bc_values!(bcs::AbstractBCs, X, t, args...)
-  for (bc, func) in zip(values(bcs.bc_caches), values(bcs.bc_funcs))
-    _update_bc_values!(bc, func, X, t, args...)
-  end
-  return nothing
-end
-
-include("DirichletBCs.jl")
-include("NeumannBCs.jl")
-include("PeriodicBCs.jl")
-include("RobinBCs.jl")

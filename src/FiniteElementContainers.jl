@@ -212,5 +212,8 @@ include("Parameters.jl")
 include("integrals/Integrals.jl")
 include("solvers/Solvers.jl")
 include("integrators/Integrators.jl")
+# TODO figure out how to better integrate this stuff
+# maybe through a package extension?
+include("Enzyme.jl")
 
 end # module

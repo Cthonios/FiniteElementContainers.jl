@@ -55,6 +55,15 @@ end
   return interps
 end
 
+# # TODO to make bcs a little clenaer
+# @inline function map_surface_interpolants(
+#   interps::I, x_el::SVector{NxD, T}
+# ) where {I <: ReferenceFiniteElements.AbstractInterpolants, NxD, T <: Number}
+#   x_el = reshape_element_level_coordinates(interps, x_el)
+#   interps = MappedH1OrL2Interpolants(interps, x_el)
+#   return interps
+# end
+
 """
 $(TYPEDSIGNATURES)
 """

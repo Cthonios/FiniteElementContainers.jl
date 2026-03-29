@@ -25,7 +25,7 @@ end
 struct AssembledSparseVector <: AssembledReturnType
 end
 
-# fall back method does nothing
+# fall back method always adds
 @inline function _accumulate_q_value(::AssembledReturnType, storage, val_q, val_e, q, e)
   val_e = val_e + val_q
   return val_e
@@ -251,6 +251,13 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function _surface_interpolants(ref_fe::R, q::Int, side::Int) where R <: ReferenceFE
+  return @inbounds ref_fe.surf_interps[q, side]
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function hessian(asm::AbstractAssembler)
   return _hessian(asm, KA.get_backend(asm))
 end
@@ -262,8 +269,7 @@ $(TYPEDSIGNATURES)
 function hvp(asm::AbstractAssembler, v)
   if _is_condensed(asm.dof)
     _adjust_matrix_action_entries_for_constraints!(
-      asm.stiffness_action_storage, asm.constraint_storage, v,
-      KA.get_backend(asm)
+      asm.stiffness_action_storage, asm.constraint_storage, v
     )
     return asm.stiffness_action_storage.data
   else
@@ -293,8 +299,7 @@ function residual(asm::AbstractAssembler; use_sparse_vector = false)
   else
     if _is_condensed(asm.dof)
       _adjust_vector_entries_for_constraints!(
-        asm.residual_storage, asm.constraint_storage,
-        KA.get_backend(asm)
+        asm.residual_storage, asm.constraint_storage
       )
       return asm.residual_storage.data
     else
@@ -315,28 +320,58 @@ function stiffness(assembler::AbstractAssembler)
   return _stiffness(assembler, KA.get_backend(assembler))
 end
 
+struct AssemblyBlockCache{Physics, RefFE, T, Conns, Coords, Field, State, Props}
+  # indexing helpers
+  block_start_index::Int
+  block_el_level_size::Int
+  coffset::Int
+  # physics/element
+  physics::Physics
+  ref_fe::RefFE
+  # field/field data
+  t::T
+  Δt::T
+  conns::Conns
+  X::Coords
+  U::Field
+  U_old::Field
+  V::Field
+  state_old::State
+  state_new::State
+  props::Props
+end
+
+function AssemblyBlockCache(
+  pattern, dof, p, b::Int
+)
+  fspace = function_space(dof)
+  return AssemblyBlockCache(
+    # indexing helpers
+    pattern.block_start_indices[b], pattern.block_el_level_sizes[b],
+    conns.offsets[b],
+    # physics/element
+    values(p.physics)[b], values(fspace.ref_fes)[b],
+    # field/field data
+    current_time(p), time_step(p),
+    conns.data,
+    coordinates(p), p.field, p.field_old, p.hvp_scratch_field,
+    block_view(p.state_old, b), block_view(p.state_new, b),
+    values(p.properties)[b]
+  )
+end
+
 # General assembler methods
-
-# CPU implementation
-"""
-$(TYPEDSIGNATURES)
-Assembly method for a block labelled as block_id. This is a CPU implementation
-with no threading.
-
-TODO add state variables and physics properties
-"""
 function _assemble_block!(
-  ::KA.CPU,
-  # field::AbstractArray{<:Number, 1}, 
   field,
-  conns::Conn, nelem::Int, coffset::Int,
+  conns::Conn, coffset::Int,
   block_start_index::Int, block_el_level_size::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
   U::Solution, U_old::Solution, 
   state_old::S, state_new::S, props::AbstractArray,
-  return_type::R
+  return_type::R,
+  enzyme_safe::Bool = false
 ) where {
   T        <: Number,
   Conn     <: AbstractArray,
@@ -344,31 +379,33 @@ function _assemble_block!(
   S,       #<: L2QuadratureField
   R        <: AssembledReturnType
 }
-
-  for e in 1:nelem
-    conn = connectivity(ref_fe, conns, e, coffset)
-    x_el = _element_level_fields_flat(X, ref_fe, conn)#s, e)
-    u_el = _element_level_fields_flat(U, ref_fe, conn)#s, e)
-    u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)#s, e)
-    props_el = _element_level_properties(props, e)
-    val_el = _element_scratch(return_type, ref_fe, U)
-
-    for q in 1:num_cell_quadrature_points(ref_fe)
-      interps = _cell_interpolants(ref_fe, q)
-      state_old_q = _quadrature_level_state(state_old, q, e)
-      state_new_q = _quadrature_level_state(state_new, q, e)
-      val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
-      val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
-    end
-    _assemble_element!(field, val_el, conn, e, block_start_index, block_el_level_size)
+  if enzyme_safe
+    _assemble_block_enzyme_safe!(
+      KA.get_backend(U),
+      field,
+      conns, coffset,
+      block_start_index, block_el_level_size,
+      func,
+      physics, ref_fe,
+      X, t, dt, U, U_old,
+      state_old, state_new, props,
+      return_type
+    )
+  else
+    _assemble_block_general!(
+      field,
+      conns, coffset,
+      block_start_index, block_el_level_size,
+      func,
+      physics, ref_fe,
+      X, t, dt, U, U_old,
+      state_old, state_new, props,
+      return_type
+    )
   end
-  return nothing
 end
 
-# GPU implementation
-# COV_EXCL_START
-KA.@kernel function _assemble_block_kernel!(
-  # field::AbstractArray{<:Number, 1}, 
+function _assemble_block_general!(
   field,
   conns::Conn, coffset::Int,
   block_start_index::Int, block_el_level_size::Int,
@@ -385,50 +422,23 @@ KA.@kernel function _assemble_block_kernel!(
   S,       #<: L2QuadratureField
   R        <: AssembledReturnType
 }
-  E = KA.@index(Global)
-  conn = connectivity(ref_fe, conns, E, coffset)
-  x_el = _element_level_fields_flat(X, ref_fe, conn)
-  u_el = _element_level_fields_flat(U, ref_fe, conn)
-  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
-  props_el = _element_level_properties(props, E)
-  val_el = _element_scratch(return_type, ref_fe, U)
-  for q in 1:num_cell_quadrature_points(ref_fe)
-    interps = _cell_interpolants(ref_fe, q)
-    state_old_q = _quadrature_level_state(state_old, q, E)
-    state_new_q = _quadrature_level_state(state_new, q, E)
-    val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
-    val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, E)
+  fec_axes(state_old, 3) do e
+    conn = connectivity(ref_fe, conns, e, coffset)
+    x_el = _element_level_fields_flat(X, ref_fe, conn)
+    u_el = _element_level_fields_flat(U, ref_fe, conn)
+    u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
+    props_el = _element_level_properties(props, e)
+    val_el = _element_scratch(return_type, ref_fe, U)
+    for q in 1:num_cell_quadrature_points(ref_fe)
+      interps = _cell_interpolants(ref_fe, q)
+      state_old_q = _quadrature_level_state(state_old, q, e)
+      state_new_q = _quadrature_level_state(state_new, q, e)
+      val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
+      val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
+    end
+  
+    _assemble_element!(field, val_el, conn, e, block_start_index, block_el_level_size)
   end
-
-  _assemble_element!(field, val_el, conn, E, block_start_index, block_el_level_size)
-end
-# COV_EXCL_STOP
-
-# method for kernel generation
-function _assemble_block!(
-  backend::KA.Backend, 
-  field, 
-  conns, nelem, coffset::Int,
-  block_start_index, block_el_level_size,
-  func,
-  physics, ref_fe,
-  X, t, dt, U, U_old, state_old, state_new, props,
-  return_type
-)
-  kernel! = _assemble_block_kernel!(backend)
-  kernel!(
-    field,
-    conns, coffset,
-    block_start_index, block_el_level_size, 
-    func,
-    physics, ref_fe,
-    X, t, dt,
-    U, U_old, 
-    state_old, state_new, props,
-    return_type,
-    ndrange = nelem
-  )
-  return nothing
 end
 
 function create_assembler_cache(
@@ -471,6 +481,6 @@ include("SparseMatrixAssembler.jl")
 # methods
 include("Matrix.jl")
 include("MatrixAction.jl")
-include("NeumannBC.jl")
 include("QuadratureQuantity.jl")
 include("Vector.jl")
+include("WeaklyEnforcedBCs.jl")

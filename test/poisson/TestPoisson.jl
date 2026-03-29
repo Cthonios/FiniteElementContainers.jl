@@ -34,6 +34,7 @@ function test_poisson(backend, cond, nlsolver, lsolver)
   test_poisson_neumann(backend, cond, nlsolver, lsolver)
   test_poisson_neumann_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
   test_poisson_neumann_structured_mesh_tri3(backend, cond, nlsolver, lsolver)
+  # test_poisson_robin(backend, cond, nlsolver, lsolver)
 end
 
 function test_poisson_dirichlet(
@@ -84,6 +85,70 @@ function test_poisson_dirichlet(
   end
   rm(output_file; force=true)
   display(solver.timer)
+end
+
+function test_poisson_robin(
+  dev, use_condensed,
+  nsolver, lsolver
+)
+  u_exact(x)  = exp(x[1]) * sin(π * x[2])
+  f_source(x, _) = (π^2 - 1) * exp(x[1]) * sin(π * x[2])
+
+  mesh = UnstructuredMesh(mesh_file)
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson(f_source)
+  props = create_properties(physics)
+  u = ScalarFunction(V, :u)
+  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+
+  # setup and update bcs
+  # dbcs = DirichletBC[
+  #   DirichletBC(:u, bc_func; sideset_name = :sset_1),
+  #   DirichletBC(:u, bc_func; sideset_name = :sset_2),
+  #   DirichletBC(:u, bc_func; sideset_name = :sset_3),
+  #   DirichletBC(:u, bc_func; sideset_name = :sset_4),
+  # ]
+  α = 1.0
+  dudn_x0(x, t, u) = SVector{1, eltype(u)}((α - 1.0) * sin(π * x[2])        - α * u[1])
+  dudn_x1(x, t, u) = SVector{1, eltype(u)}((1.0 + α * exp(1.0)) * sin(π * x[2]) - α * u[1])
+  dudn_y0(x, t, u) = SVector{1, eltype(u)}(-π * exp(x[1])                    - α * u[1])
+  dudn_y1(x, t, u) = SVector{1, eltype(u)}(-π * exp(x[1])                    - α * u[1])
+  rbcs = RobinBC[
+    RobinBC(:u, dudn_y1, :sset_1)
+    RobinBC(:u, dudn_x0, :sset_2)
+    RobinBC(:u, dudn_y0, :sset_3)
+    RobinBC(:u, dudn_x1, :sset_4)
+  ]
+
+  # setup the parameters
+  p = create_parameters(mesh, asm, physics, props; robin_bcs = rbcs)
+
+  if dev != cpu
+    p = p |> dev
+    asm = asm |> dev 
+  end
+
+  # setup solver and integrator
+  solver = nsolver(lsolver(asm))
+  integrator = QuasiStaticIntegrator(solver)
+  evolve!(integrator, p)
+
+  if dev != cpu
+    p = p |> cpu
+  end
+
+  U = p.field
+
+  pp = PostProcessor(mesh, "poisson_robin_bcs.exo", u)
+  write_times(pp, 1, 0.0)
+  write_field(pp, 1, ("u",), U)
+  close(pp)
+
+  # if !Sys.iswindows()
+  #   @test exodiff(output_file, gold_file)
+  # end
+  # rm(output_file; force=true)
+  # display(solver.timer)
 end
 
 function test_poisson_dirichlet_with_nodesets(
