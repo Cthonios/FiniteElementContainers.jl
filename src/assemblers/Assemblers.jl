@@ -171,6 +171,21 @@ end
   return u_el
 end
 
+@inline function element_level_fields(ref_fe, conn, X, U, U_old)
+  x_el = _element_level_fields_flat(X, ref_fe, conn)
+  u_el = _element_level_fields_flat(U, ref_fe, conn)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
+  return x_el, u_el, u_el_old
+end
+
+@inline function element_level_fields(ref_fe, conn, X, U, U_old, V)
+  x_el = _element_level_fields_flat(X, ref_fe, conn)
+  u_el = _element_level_fields_flat(U, ref_fe, conn)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
+  v_el = _element_level_fields_flat(V, ref_fe, conn)
+  return x_el, u_el, u_el_old, v_el
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -183,26 +198,6 @@ $(TYPEDSIGNATURES)
 """
 @inline function _element_level_properties(props::SVector{NP, T}, ::Int) where {NP, T}
   return props
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-@inline function _element_scratch_matrix(ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
-  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * NF
-  K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(U), NxNDof * NxNDof})
-  return K_el
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-@inline function _element_scratch_vector(ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
-  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * NF
-  R_el = zeros(SVector{NxNDof, eltype(U)})
-  return R_el
 end
 
 """
@@ -320,46 +315,6 @@ function stiffness(assembler::AbstractAssembler)
   return _stiffness(assembler, KA.get_backend(assembler))
 end
 
-struct AssemblyBlockCache{Physics, RefFE, T, Conns, Coords, Field, State, Props}
-  # indexing helpers
-  block_start_index::Int
-  block_el_level_size::Int
-  coffset::Int
-  # physics/element
-  physics::Physics
-  ref_fe::RefFE
-  # field/field data
-  t::T
-  Δt::T
-  conns::Conns
-  X::Coords
-  U::Field
-  U_old::Field
-  V::Field
-  state_old::State
-  state_new::State
-  props::Props
-end
-
-function AssemblyBlockCache(
-  pattern, dof, p, b::Int
-)
-  fspace = function_space(dof)
-  return AssemblyBlockCache(
-    # indexing helpers
-    pattern.block_start_indices[b], pattern.block_el_level_sizes[b],
-    conns.offsets[b],
-    # physics/element
-    values(p.physics)[b], values(fspace.ref_fes)[b],
-    # field/field data
-    current_time(p), time_step(p),
-    conns.data,
-    coordinates(p), p.field, p.field_old, p.hvp_scratch_field,
-    block_view(p.state_old, b), block_view(p.state_new, b),
-    values(p.properties)[b]
-  )
-end
-
 # General assembler methods
 function _assemble_block!(
   field,
@@ -424,9 +379,7 @@ function _assemble_block_general!(
 }
   fec_axes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el = _element_level_fields_flat(X, ref_fe, conn)
-    u_el = _element_level_fields_flat(U, ref_fe, conn)
-    u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
+    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = _element_level_properties(props, e)
     val_el = _element_scratch(return_type, ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
