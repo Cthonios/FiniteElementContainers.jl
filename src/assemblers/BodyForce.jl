@@ -45,7 +45,7 @@ function _assemble_block_vector_body_force!(
   for e in 1:nelem
     conn = connectivity(ref_fe, conns, e, 1)
     x_el = _element_level_fields(X, ref_fe, conn)
-    R_el = _element_scratch_vector(ref_fe, U)
+    R_el = _element_scratch(AssembledVector(), ref_fe, U)
 
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = MappedH1OrL2Interpolants(ref_fe, x_el, q)
@@ -76,7 +76,7 @@ KA.@kernel function _assemble_block_vector_body_force_kernel!(
   E = KA.@index(Global)
   conn = connectivity(ref_fe, conns, E, 1)
   x_el = _element_level_fields(X, ref_fe, conn)
-  R_el = _element_scratch_vector(ref_fe, U)
+  R_el = _element_scratch(AssembledVector(), ref_fe, U)
 
   for q in 1:num_cell_quadrature_points(ref_fe)
     interps = MappedH1OrL2Interpolants(ref_fe, x_el, q)
