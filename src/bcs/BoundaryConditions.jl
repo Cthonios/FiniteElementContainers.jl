@@ -253,7 +253,7 @@ include("DirichletBCs.jl")
 include("NeumannBCs.jl")
 include("PeriodicBCs.jl")
 include("RobinBCs.jl")
-include("BodyForces.jl")
+include("Sources.jl")
 
 # returns vectors
 # callers are responsible for converting to named tuples

@@ -16,11 +16,9 @@ export assemble_scalar!
 export assemble_stiffness!
 export assemble_vector!
 export assemble_vector_neumann_bc!
-export assemble_vector_body_force!
+export assemble_vector_source!
 
 # BCs
-export BodyForce
-export BodyForces
 export DirichletBC
 export DirichletBCs
 export NeumannBC
@@ -29,6 +27,8 @@ export PeriodicBC
 export PeriodicBCs
 export RobinBC
 export RobinBCs
+export Source
+export Sources
 export dirichlet_dofs
 export update_field_dirichlet_bcs!
 

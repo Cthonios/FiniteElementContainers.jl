@@ -21,6 +21,7 @@ end
 
 function solve!(solver::DirectLinearSolver, Uu, p)
   assemble_vector!(solver.assembler, residual, Uu, p)
+  assemble_vector_source!(solver.assembler, Uu, p)
   assemble_vector_neumann_bc!(solver.assembler, Uu, p)
   # assemble_vector_robin_bc!(solver.assembler, Uu, p)
   assemble_stiffness!(solver.assembler, stiffness, Uu, p)
