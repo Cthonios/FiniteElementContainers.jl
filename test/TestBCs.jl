@@ -116,6 +116,27 @@ function test_robin_bcs_init()
   @show bcs
 end
 
+function test_source_input()
+  source = Source(:my_var, dummy_func_2, :my_sset)
+  @test source.var_name == :my_var
+  @test source.block_name == :my_sset
+  @test typeof(source.func) == typeof(dummy_func_2)
+  source = Source("my_var", dummy_func_1, "my_sset")
+  @test source.var_name == :my_var
+  @test source.block_name == :my_sset
+  @test typeof(source.func) == typeof(dummy_func_1)
+end
+
+function test_sources_init()
+  mesh = UnstructuredMesh("poisson/poisson.g")
+  fspace = FunctionSpace(mesh, H1Field, Lagrange)
+  u = VectorFunction(fspace, :displ)
+  dof = DofManager(u)
+  source_in = Source(:displ, dummy_func_2, :block_1)
+  sources = Sources(mesh, dof, Source[source_in])
+  @show sources
+end
+
 @testset "BoundaryConditions" begin
   test_dirichlet_bc_input()
   test_dirichlet_bc_container_init()
@@ -124,4 +145,6 @@ end
   test_periodic_bc_input()
   test_robin_bc_input()
   test_robin_bcs_init()
+  test_source_input()
+  test_sources_init()
 end

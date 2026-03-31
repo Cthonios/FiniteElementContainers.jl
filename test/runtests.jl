@@ -16,6 +16,7 @@ using Test
 
 # put these first so we can use these
 # physics in other tests
+include("laplace_with_source/TestLaplaceCommon.jl")
 include("mechanics/TestMechanicsCommon.jl")
 include("poisson/TestPoissonCommon.jl")
 include("poisson/TestPoissonPBCs.jl")
@@ -33,6 +34,30 @@ include("TestMesh.jl")
 include("TestPhysics.jl")
 
 # "Regression" tests below
+function test_laplace()
+  cg_solver = x -> IterativeLinearSolver(x, :cg)
+  condensed = [false, true]
+  lsolvers = [cg_solver, DirectLinearSolver]
+  # cpu tests
+  for cond in condensed
+    for lsolver in lsolvers
+      test_laplace(cpu, cond, NewtonSolver, lsolver)
+    end
+  end
+
+  if AMDGPU.functional()
+    for cond in condensed
+      test_laplace(rocm, cond, NewtonSolver, cg_solver)
+    end
+  end
+
+  if CUDA.functional()
+    for cond in condensed
+      test_laplace(cuda, cond, NewtonSolver, cg_solver)
+    end
+  end
+end
+
 function test_poisson()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
   condensed = [false, true]
@@ -78,6 +103,8 @@ function test_mechanics()
 end
 
 @testset "Regression tests" begin
+  include("laplace_with_source/TestLaplace.jl")
+  @testset "Laplace with source" test_laplace()
   include("poisson/TestPoisson.jl")
   @testset "Poisson" test_poisson()
   include("mechanics/TestMechanics.jl")

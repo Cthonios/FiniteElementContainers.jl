@@ -19,7 +19,7 @@ struct Parameters{
   DBCFuncs <: NamedTuple,
   NBCs <: NeumannBCs,
   RBCs <: RobinBCs,
-  BFs <: BodyForces,
+  SourceBCs <: Sources,
   Times <: TimeStepper,
   Phys <: NamedTuple,
   Props <: NamedTuple,
@@ -31,7 +31,7 @@ struct Parameters{
   dirichlet_bcs::DirichletBCs{IV, RV, DBCFuncs}
   neumann_bcs::NBCs
   robin_bcs::RBCs
-  body_forces::BFs
+  sources::SourceBCs
   times::Times
   physics::Phys
   properties::Props
@@ -61,7 +61,7 @@ function Parameters(
   dirichlet_bcs,
   neumann_bcs,
   robin_bcs,
-  body_forces,
+  sources,
   times
 )
   coords = coordinates(function_space(assembler.dof))
@@ -113,7 +113,7 @@ function Parameters(
   dirichlet_bcs = DirichletBCs(mesh, assembler.dof, dirichlet_bcs)
   neumann_bcs = NeumannBCs(mesh, assembler.dof, neumann_bcs)
   robin_bcs = RobinBCs(mesh, assembler.dof, robin_bcs)
-  body_forces = BodyForces(mesh, assembler.dof, body_forces)
+  sources = Sources(mesh, assembler.dof, sources)
 
   # dummy time stepper for a static problem
   if times === nothing
@@ -125,7 +125,7 @@ function Parameters(
     dirichlet_bcs,
     neumann_bcs,
     robin_bcs,
-    body_forces,
+    sources,
     times,
     physics,
     properties,
@@ -161,7 +161,7 @@ function Adapt.adapt_structure(to, p::Parameters)
     adapt(to, p.dirichlet_bcs),
     adapt(to, p.neumann_bcs),
     adapt(to, p.robin_bcs),
-    adapt(to, p.body_forces),
+    adapt(to, p.sources),
     adapt(to, p.times),
     adapt(to, p.physics),
     props, # TODO this will need an adapt when you get to element level props
@@ -185,6 +185,8 @@ function Base.show(io::IO, parameters::Parameters)
   println(io, parameters.neumann_bcs)
   println(io, "Robin Boundary Conditions:")
   println(io, parameters.robin_bcs)
+  println(io, "Sources:")
+  println(io, parameters.sources)
   println(io, parameters.times)
   println(io, "Physics:")
   for (physics, props) in zip(parameters.physics, parameters.properties)
@@ -204,10 +206,10 @@ function create_parameters(
   dirichlet_bcs=DirichletBC[],
   neumann_bcs=NeumannBC[],
   robin_bcs=RobinBC[],
-  body_forces=BodyForce[],
+  sources=Source[],
   times=nothing
 )
-  return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, robin_bcs, body_forces, times)
+  return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, robin_bcs, sources, times)
 end
 
 """
@@ -262,7 +264,7 @@ function update_bc_values!(p::Parameters)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, X, t)
-  update_bc_values!(p.body_forces, X, t)
+  update_source_values!(p.sources, X, t)
 
   # TODO how to handle Robin BCs?
   # currently assembly methods handle updating the field
