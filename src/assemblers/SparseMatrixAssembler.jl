@@ -159,18 +159,19 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
   use_condensed = _is_condensed(assembler.dof)
 
   if length(dirichlet_bcs) > 0
-    dirichlet_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs.bc_caches)
-    dirichlet_dofs = unique(sort(dirichlet_dofs))
+    # dirichlet_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs.bc_caches)
+    # dirichlet_dofs = unique(sort(dirichlet_dofs))
+    ddofs = dirichlet_dofs(dirichlet_bcs)
   else
-    dirichlet_dofs = Vector{Int}(undef, 0)
+    ddofs = Vector{Int}(undef, 0)
   end
 
-  update_dofs!(assembler.dof, dirichlet_dofs)
+  update_dofs!(assembler.dof, ddofs)
 
   if use_condensed
     _update_dofs_condensed!(assembler)
   else
-    _update_dofs!(assembler, dirichlet_dofs)
+    _update_dofs!(assembler, ddofs)
   end
   return nothing
 end

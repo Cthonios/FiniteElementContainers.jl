@@ -225,7 +225,7 @@ function Adapt.adapt_structure(to, bcs::AbstractBCs)
   )
 end
 
-Base.length(bcs::AbstractBCs) = length(bcs.bc_caches)
+Base.length(bcs::AbstractBCs) = length(bcs.bc_funcs)
 
 function Base.show(io::IO, bcs::AbstractBCs)
   type = typeof(bcs).name.name

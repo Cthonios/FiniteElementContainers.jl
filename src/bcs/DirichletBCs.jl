@@ -125,16 +125,20 @@ function Base.show(io::IO, bc::DirichletBCContainer)
 end
 
 # this will break whatever is in vals and zero things out
-function fuse_bcs(bc1::DirichletBCContainer, args...)
+function fuse_bcs(bc1::DirichletBCContainer, args...; sort_and_unique::Bool = true)
   dofs = bc1.dofs
   nodes = bc1.nodes
   for bc2 in args
     append!(dofs, bc2.dofs)
     append!(nodes, bc2.nodes)
   end
-  perm = _unique_sort_perm(dofs)
-  dofs = dofs[perm]
-  nodes = nodes[perm]
+
+  if sort_and_unique
+    perm = _unique_sort_perm(dofs)
+    dofs = dofs[perm]
+    nodes = nodes[perm]
+  end
+
   vals = zeros(eltype(bc1.vals), length(dofs))
   vals_dot = zeros(eltype(bc1.vals_dot), length(dofs))
   vals_dot_dot = zeros(eltype(bc1.vals_dot_dot), length(dofs))
@@ -156,10 +160,12 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function _update_bc_values!(bc::DirichletBCContainer, func::DirichletBCFunction, X, t)
-  fec_foreach(bc.nodes) do n
+function _update_bc_values!(bc::DirichletBCContainer, func::DirichletBCFunction, X, t, bc_length::Int, offset::Int)
+  backend = KA.get_backend(bc)
+  fec_foreach(1:bc_length, backend) do n
     ND = num_fields(X)
-    node = bc.nodes[n]
+    index = n + offset
+    node = bc.nodes[index]
   
     # hacky for now, but it works
     # can't do X[:, node] on the GPU, this results in a dynamic
@@ -172,9 +178,9 @@ function _update_bc_values!(bc::DirichletBCContainer, func::DirichletBCFunction,
       X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node], X[3, node])
     end
 
-    bc.vals[n] = func.func(X_temp, t)
-    bc.vals_dot[n] = func.func_dot(X_temp, t)
-    bc.vals_dot_dot[n] = func.func_dot_dot(X_temp, t)
+    bc.vals[index] = func.func(X_temp, t)
+    bc.vals_dot[index] = func.func_dot(X_temp, t)
+    bc.vals_dot_dot[index] = func.func_dot_dot(X_temp, t)
   end
 end
 
@@ -183,83 +189,114 @@ struct DirichletBCs{
   RV      <: AbstractArray{<:Number, 1},
   BCFuncs <: NamedTuple
 } <: AbstractBCs{BCFuncs}
-  bc_caches::Vector{DirichletBCContainer{IV, RV}}
+  bc_cache::DirichletBCContainer{IV, RV}
   bc_funcs::BCFuncs
+  bc_lengths::Vector{Int}
 end
 
-function DirichletBCs(mesh, dof, dirichlet_bcs)
-
-  if length(dirichlet_bcs) == 0
-    bc_caches = DirichletBCContainer{Vector{Int}, Vector{Float64}}[]
+function DirichletBCs(mesh, dof, bcs_input)
+  # base case return empty stuff
+  if length(bcs_input) == 0
+    bc_cache = DirichletBCContainer(
+      zeros(Int, 0), zeros(Int, 0), zeros(Float64, 0), zeros(Float64, 0), zeros(Float64, 0)
+    )
     bc_funcs = NamedTuple()
-    return DirichletBCs(bc_caches, bc_funcs)
+    return DirichletBCs(bc_cache, bc_funcs, Int[])
   end
 
-  funcs = map(x -> DirichletBCFunction(x.func), dirichlet_bcs)
-  caches = DirichletBCContainer.((mesh,), (dof,), dirichlet_bcs)
+  # wrap funcs in our DirichletBCFunction
+  funcs = map(x -> DirichletBCFunction(x.func), bcs_input)
+
+  # TODO can we make it cleaner so we don't need to fuse
+  # and just query mesh for length info?
+  caches = DirichletBCContainer.((mesh,), (dof,), bcs_input)
 
   # fusing bcs with a common function
-  # TODO probably better to figure out a way to do this in BCBookKeeping
-  # in a general way
-  func_to_caches = Dict{DirichletBCFunction, typeof(caches)}()
-  for (func, cache) in zip(funcs, caches)
-    if haskey(func_to_caches, func)
-      push!(func_to_caches[func], cache)
+  func_to_ids = Dict{DirichletBCFunction, Vector{Int}}()
+  for (n, func) in enumerate(funcs)
+    if haskey(func_to_ids, func)
+      push!(func_to_ids[func], n)
     else
-      func_to_caches[func] = [cache]
+      func_to_ids[func] = [n]
     end
   end
 
-  dirichlet_bc_caches = typeof(caches[1])[]
-  dirichlet_bc_funcs = DirichletBCFunction[]
-  for (func, func_caches) in pairs(func_to_caches)
-    push!(dirichlet_bc_funcs, func)
-    push!(dirichlet_bc_caches, fuse_bcs(func_caches...))
+  bc_cache = typeof(caches[1])[]
+  bc_funcs = DirichletBCFunction[]
+  for (func, ids) in pairs(func_to_ids)
+    push!(bc_funcs, func)
+    push!(bc_cache, fuse_bcs(caches[ids]...))
   end
 
   # converting final set of funcs to named tuple
-  syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bc_caches))
-  dirichlet_bc_funcs = NamedTuple{tuple(syms...)}(dirichlet_bc_funcs)
+  syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(bc_cache))
+  bc_funcs = NamedTuple{tuple(syms...)}(bc_funcs)
 
-  # updating dofs in dof based on bcs
-  temp_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bc_caches)
-  temp_dofs = unique(sort(temp_dofs))
+  bc_lengths = map(x -> length(x.dofs), bc_cache)
+
+  # now we'll fuse bcs one more time so we only have a single
+  # container for all dirichlet bcs. We just use the indexes
+  # for dispatching to individual kernels for the different functions
+  # TODO the setup could be made more efficient
+  # make sure not to sort and unique
+  bc_cache = fuse_bcs(bc_cache...; sort_and_unique = false)
+
+  # finally update dofs in dof based on bcs
+  temp_dofs = unique(sort(bc_cache.dofs))
   update_dofs!(dof, temp_dofs)
 
-  return DirichletBCs(dirichlet_bc_caches, dirichlet_bc_funcs)
+  return DirichletBCs(bc_cache, bc_funcs, bc_lengths)
+end
+
+function Adapt.adapt_structure(to, bcs::DirichletBCs)
+  return DirichletBCs(
+    # map(x -> adapt(to, x), bcs.bc_cache),
+    adapt(to, bcs.bc_cache),
+    adapt(to, bcs.bc_funcs),
+    bcs.bc_lengths
+  )
+end
+
+# TODO improve this guy
+function Base.show(io::IO, bcs::DirichletBCs)
+  # for (n, (cache, func)) in enumerate(zip(bcs.bc_cache, bcs.bc_funcs))
+  show(io, "DirichletBC:")
+  show(io, bcs.bc_cache)
+  show(io, bcs.bc_lengths)
+  # show(io, func)
+  show(io, "\n")
+  # end
 end
 
 function dirichlet_dofs(bcs::DirichletBCs)
-  return unique(sort(mapreduce(x -> x.dofs, vcat, bcs.bc_caches)))
+  return unique(sort(bcs.bc_cache.dofs))
 end
 
-function _update_field_dirichlet_bcs!(U, bc::DirichletBCContainer)
-  fec_foreach(bc.dofs) do I
-    dof = bc.dofs[I]
-    U[dof] = bc.vals[I]
-  end
-  return nothing
-end
-
-function _update_field_dirichlet_bcs!(U, V, A, bc::DirichletBCContainer)
-  fec_foreach(bc.dofs) do I
-    dof = bc.dofs[I]
-    U[dof] = bc.vals[I]
-    V[dof] = bc.vals_dot[I]
-    A[dof] = bc.vals_dot_dot[I]
+function update_bc_values!(bcs::DirichletBCs, X, t)
+  offset = 0
+  for (func, bc_length) in zip(values(bcs.bc_funcs), bcs.bc_lengths)
+    _update_bc_values!(bcs.bc_cache, func, X, t, bc_length, offset)
+    offset += bc_length
   end
   return nothing
 end
 
 function update_field_dirichlet_bcs!(U, bcs::DirichletBCs)
-  for bc in values(bcs.bc_caches)
-    _update_field_dirichlet_bcs!(U, bc)
+  cache = bcs.bc_cache
+  fec_foreach(cache.dofs) do I
+    dof = cache.dofs[I]
+    U[dof] = cache.vals[I]
   end
   return nothing
 end
 
 function update_field_dirichlet_bcs!(U, V, A, bcs::DirichletBCs)
-  for bc in values(bcs.bc_caches)
-    _update_field_dirichlet_bcs!(U, V, A, bc)
+  cache = bcs.bc_cache
+  fec_foreach(cache.dofs) do I
+    dof = cache.dofs[I]
+    U[dof] = cache.vals[I]
+    V[dof] = cache.vals_dot[I]
+    A[dof] = cache.vals_dot_dot[I]
   end
+  return nothing
 end
