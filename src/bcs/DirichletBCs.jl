@@ -124,6 +124,23 @@ function Base.show(io::IO, bc::DirichletBCContainer)
   println(io, "  Number of active nodes    = $(length(bc.nodes))")
 end
 
+# this will break whatever is in vals and zero things out
+function fuse_bcs(bc1::DirichletBCContainer, args...)
+  dofs = bc1.dofs
+  nodes = bc1.nodes
+  for bc2 in args
+    append!(dofs, bc2.dofs)
+    append!(nodes, bc2.nodes)
+  end
+  perm = _unique_sort_perm(dofs)
+  dofs = dofs[perm]
+  nodes = nodes[perm]
+  vals = zeros(eltype(bc1.vals), length(dofs))
+  vals_dot = zeros(eltype(bc1.vals_dot), length(dofs))
+  vals_dot_dot = zeros(eltype(bc1.vals_dot_dot), length(dofs))
+  return DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
+end
+
 struct DirichletBCFunction{F1, F2, F3} <: AbstractBCFunction{F1}
   func::F1
   func_dot::F2
@@ -178,17 +195,38 @@ function DirichletBCs(mesh, dof, dirichlet_bcs)
     return DirichletBCs(bc_caches, bc_funcs)
   end
 
-  syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bcs))
-  dirichlet_bc_funcs = NamedTuple{tuple(syms...)}(
-    map(x -> DirichletBCFunction(x.func), dirichlet_bcs)
-  )
-  dirichlet_bcs = DirichletBCContainer.((mesh,), (dof,), dirichlet_bcs)
+  funcs = map(x -> DirichletBCFunction(x.func), dirichlet_bcs)
+  caches = DirichletBCContainer.((mesh,), (dof,), dirichlet_bcs)
 
-  temp_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs)
+  # fusing bcs with a common function
+  # TODO probably better to figure out a way to do this in BCBookKeeping
+  # in a general way
+  func_to_caches = Dict{DirichletBCFunction, typeof(caches)}()
+  for (func, cache) in zip(funcs, caches)
+    if haskey(func_to_caches, func)
+      push!(func_to_caches[func], cache)
+    else
+      func_to_caches[func] = [cache]
+    end
+  end
+
+  dirichlet_bc_caches = typeof(caches[1])[]
+  dirichlet_bc_funcs = DirichletBCFunction[]
+  for (func, func_caches) in pairs(func_to_caches)
+    push!(dirichlet_bc_funcs, func)
+    push!(dirichlet_bc_caches, fuse_bcs(func_caches...))
+  end
+
+  # converting final set of funcs to named tuple
+  syms = map(x -> Symbol("dirichlet_bc_$x"), 1:length(dirichlet_bc_caches))
+  dirichlet_bc_funcs = NamedTuple{tuple(syms...)}(dirichlet_bc_funcs)
+
+  # updating dofs in dof based on bcs
+  temp_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bc_caches)
   temp_dofs = unique(sort(temp_dofs))
   update_dofs!(dof, temp_dofs)
 
-  return DirichletBCs(dirichlet_bcs, dirichlet_bc_funcs)
+  return DirichletBCs(dirichlet_bc_caches, dirichlet_bc_funcs)
 end
 
 function dirichlet_dofs(bcs::DirichletBCs)
