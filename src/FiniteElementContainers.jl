@@ -194,9 +194,9 @@ cpu(x) = adapt(Array, x)
 
 # TODO clean this up, make it make sense in an ordered way
 # include("parallel/Parallel.jl")
-include("Utils.jl")
 include("PostProcessors.jl")
 include("fields/Fields.jl")
+# include("Utils.jl")
 include("meshes/Meshes.jl")
 include("FunctionSpaces.jl")
 include("Functions.jl")
@@ -218,5 +218,6 @@ include("integrators/Integrators.jl")
 # TODO figure out how to better integrate this stuff
 # maybe through a package extension?
 include("Enzyme.jl")
+include("Utils.jl")
 
 end # module

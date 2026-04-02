@@ -45,7 +45,7 @@ end
 function _assemble_block_vector_source!(
   field, conns, coffset, ref_fe, X, U, vals
 )
-  fec_axes(vals, 2) do e
+  fec_foraxes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     X_el = _element_level_fields_flat(X, ref_fe, conn)
     R_el = _element_scratch(AssembledVector(), ref_fe, U)

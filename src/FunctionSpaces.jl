@@ -78,13 +78,14 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct FunctionSpace{
+  N, # number of blocks
   IT <: Integer,
   IV <: AbstractVector{IT},
   Coords,
   RefFEs
 } <: AbstractFunctionSpace
   coords::Coords
-  elem_conns::Connectivity{IT, IV}
+  elem_conns::Connectivity{N, IT, IV}
   elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
   ref_fes::RefFEs
 end

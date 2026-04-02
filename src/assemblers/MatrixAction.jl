@@ -33,17 +33,12 @@ function assemble_matrix_free_action!(
   V = p.hvp_scratch_field
   _update_for_assembly!(p, dof, Uu, Vu)
   conns = fspace.elem_conns
-  for (b, (
-    block_physics, ref_fe, props
-  )) in enumerate(zip(
-    values(p.physics), values(fspace.ref_fes),
-    values(p.properties)
-  ))
+  foreach_block(fspace, p) do physics, props, ref_fe, b
     _assemble_block_matrix_free_action!(
       storage,
       conns.data, conns.offsets[b],
       func_action,
-      block_physics, ref_fe,
+      physics, ref_fe,
       X, t, Δt,
       U, U_old, V,
       block_view(p.state_old, b), block_view(p.state_new, b), props
@@ -65,7 +60,7 @@ function _assemble_block_matrix_free_action!(
   Solution <: AbstractField,
   S
 }
-  fec_axes(state_old, 3) do e
+  fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = _element_level_properties(props, e)
@@ -111,17 +106,12 @@ function assemble_matrix_action!(
   V = p.hvp_scratch_field
   _update_for_assembly!(p, dof, Uu, Vu)
   conns = fspace.elem_conns
-  for (b, (
-    block_physics, ref_fe, props
-  )) in enumerate(zip(
-    values(p.physics), values(fspace.ref_fes),
-    values(p.properties)
-  ))
+  foreach_block(fspace, p) do physics, props, ref_fe, b
     _assemble_block_matrix_action!(
       storage,
       conns.data, conns.offsets[b],
       func,
-      block_physics, ref_fe,
+      physics, ref_fe,
       X, t, Δt,
       U, U_old, V,
       block_view(p.state_old, b), block_view(p.state_new, b), props
@@ -143,7 +133,7 @@ function _assemble_block_matrix_action!(
   Solution <: AbstractField,
   S        #<: L2QuadratureField
 }
-  fec_axes(state_old, 3) do e
+  fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = _element_level_properties(props, e)

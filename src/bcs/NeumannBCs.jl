@@ -40,7 +40,7 @@ struct NeumannBCContainer{
   RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
   RE <: ReferenceFE
 } <: AbstractWeaklyEnforcedBCContainer{IT, IV, RV, RE}
-  element_conns::Connectivity{IT, IV}
+  element_conns::Connectivity{1, IT, IV}
   elements::IV
   sides::IV
   ref_fe::RE
@@ -48,7 +48,7 @@ struct NeumannBCContainer{
 end
 
 function _update_bc_values!(vals, func, ref_fe, conns, sides, X, t)
-  fec_axes(vals, 2) do e
+  fec_foraxes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, 1)
     X_el = _element_level_fields(X, ref_fe, conn)
   

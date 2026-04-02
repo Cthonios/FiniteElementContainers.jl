@@ -42,7 +42,7 @@ struct SourceContainer{
   RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
   RE <: ReferenceFE
 }
-  element_conns::Connectivity{IT, IV}
+  element_conns::Connectivity{1, IT, IV}
   ref_fe::RE
   vals::RV                    # size (NQ_cell, nelem) of SVector{ND}
   is_constant::Bool           # skip re-evaluation after first call
@@ -62,7 +62,7 @@ end
 Base.length(bc::SourceContainer) = size(bc.vals, 2)
 
 function _update_source_values!(vals, func, ref_fe, conns, X, t)
-  fec_axes(vals, 2) do e
+  fec_foraxes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, 1)
     X_el = _element_level_fields_flat(X, ref_fe, conn)
 
