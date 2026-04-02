@@ -315,52 +315,7 @@ function stiffness(assembler::AbstractAssembler)
   return _stiffness(assembler, KA.get_backend(assembler))
 end
 
-# General assembler methods
 function _assemble_block!(
-  field,
-  conns::Conn, coffset::Int,
-  block_start_index::Int, block_el_level_size::Int,
-  func::Function,
-  physics::AbstractPhysics, ref_fe::ReferenceFE,
-  X::AbstractField, t::T, dt::T,
-  U::Solution, U_old::Solution, 
-  state_old::S, state_new::S, props::AbstractArray,
-  return_type::R,
-  enzyme_safe::Bool = false
-) where {
-  T        <: Number,
-  Conn     <: AbstractArray,
-  Solution <: AbstractField,
-  S,       #<: L2QuadratureField
-  R        <: AssembledReturnType
-}
-  if enzyme_safe
-    _assemble_block_enzyme_safe!(
-      KA.get_backend(U),
-      field,
-      conns, coffset,
-      block_start_index, block_el_level_size,
-      func,
-      physics, ref_fe,
-      X, t, dt, U, U_old,
-      state_old, state_new, props,
-      return_type
-    )
-  else
-    _assemble_block_general!(
-      field,
-      conns, coffset,
-      block_start_index, block_el_level_size,
-      func,
-      physics, ref_fe,
-      X, t, dt, U, U_old,
-      state_old, state_new, props,
-      return_type
-    )
-  end
-end
-
-function _assemble_block_general!(
   field,
   conns::Conn, coffset::Int,
   block_start_index::Int, block_el_level_size::Int,
@@ -377,7 +332,7 @@ function _assemble_block_general!(
   S,       #<: L2QuadratureField
   R        <: AssembledReturnType
 }
-  fec_axes(state_old, 3) do e
+  fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = _element_level_properties(props, e)

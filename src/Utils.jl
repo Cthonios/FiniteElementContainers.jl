@@ -28,7 +28,7 @@ function fec_foreach(
     end
 end
 
-function fec_axes(
+function fec_foraxes(
     f, itr,
     dims::Union{Nothing, <:Integer} = nothing,
     backend::KA.Backend = KA.get_backend(itr);
@@ -58,4 +58,44 @@ function fec_axes(
             min_elems = min_elems
         )
     end
+end
+
+@generated function foreach_block(
+    f, 
+    ::Connectivity{N, D, T},
+    physics::NamedTuple,
+    properties::NamedTuple,
+    ref_fes::NamedTuple
+) where {N, D, T}
+    stmts = Expr(:block)
+    for k in 1:N
+        push!(stmts.args, quote
+            f(
+                values(physics)[$k], values(properties)[$k],
+                values(ref_fes)[$k], $k
+            )
+        end)
+    end
+    return stmts
+end
+
+@generated function foreach_block(
+    f, 
+    # ::Connectivity{N, D, T},
+    # physics::NamedTuple,
+    # properties::NamedTuple,
+    # ref_fes::NamedTuple
+    fspace::FunctionSpace{N, IT, IV, C, R},
+    p::Parameters
+) where {N, IT, IV, C, R}
+    stmts = Expr(:block)
+    for k in 1:N
+        push!(stmts.args, quote
+            f(
+                values(p.physics)[$k], values(p.properties)[$k],
+                values(fspace.ref_fes)[$k], $k
+            )
+        end)
+    end
+    return stmts
 end

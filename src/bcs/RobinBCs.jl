@@ -41,7 +41,7 @@ struct RobinBCContainer{
   dRV <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2},
   RE  <: ReferenceFE
 } <: AbstractWeaklyEnforcedBCContainer{IT, IV, RV, RE}
-  element_conns::Connectivity{IT, IV}
+  element_conns::Connectivity{1, IT, IV}
   elements::IV
   sides::IV
   ref_fe::RE
