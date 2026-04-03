@@ -10,8 +10,7 @@ struct SparseMatrixAssembler{
   IV                <: AbstractArray{Int, 1},
   RV                <: AbstractArray{Float64, 1},
   Var               <: AbstractFunction,
-  FieldStorage      <: AbstractField{Float64, NumArrDims, RV},
-  QuadratureStorage <: NamedTuple
+  FieldStorage      <: AbstractField{Float64, NumArrDims, RV}
 } <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
   dof::DofManager{Condensed, Int, IV, Var}
   matrix_pattern::SparseMatrixPattern{IV, RV}
@@ -22,7 +21,7 @@ struct SparseMatrixAssembler{
   mass_storage::RV
   residual_storage::FieldStorage
   residual_unknowns::RV
-  scalar_quadrature_storage::QuadratureStorage # useful for energy like calculations
+  scalar_quadrature_storage::L2Field{Float64, RV}
   stiffness_storage::RV
   stiffness_action_storage::FieldStorage
   stiffness_action_unknowns::RV
@@ -55,16 +54,9 @@ function SparseMatrixAssembler(dof::DofManager)
   stiffness_action_unknowns = create_unknowns(dof)
 
   # setup quadrature scalar storage
-  # fspace = values(dof.H1_vars)[1].fspace
   fspace = function_space(dof)
-  scalar_quadarature_storage = Matrix{Float64}[]
-  for (b, (key, val)) in enumerate(pairs(fspace.ref_fes))
-    NQ = ReferenceFiniteElements.num_cell_quadrature_points(val)
-    NE = num_elements(fspace, b)
-    field = zeros(Float64, NQ, NE)
-    push!(scalar_quadarature_storage, field)
-  end
-  scalar_quadarature_storage = NamedTuple{keys(fspace.ref_fes)}(tuple(scalar_quadarature_storage...))
+  scalar_quadrature_storage = L2Field(undef, Float64, 1, block_quadrature_sizes(fspace))
+  fill!(scalar_quadrature_storage, 0.0)
 
   return SparseMatrixAssembler(
     dof, matrix_pattern, vector_pattern,
@@ -73,7 +65,7 @@ function SparseMatrixAssembler(dof::DofManager)
     hessian_storage,
     mass_storage,
     residual_storage, residual_unknowns,
-    scalar_quadarature_storage,
+    scalar_quadrature_storage,
     stiffness_storage, 
     stiffness_action_storage, stiffness_action_unknowns
   )

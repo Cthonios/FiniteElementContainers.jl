@@ -8,7 +8,7 @@ function _setup_block_sizes(dof::DofManager, ndims::Int)
 
   start_carry = 1
   for b in 1:n_blocks
-    NEPE, NE = block_size(fspace, b)
+    NEPE, NE = block_entity_size(fspace, b)
     if ndims == 1
       n_dofs_per_el = ND * NEPE
     elseif ndims == 2
