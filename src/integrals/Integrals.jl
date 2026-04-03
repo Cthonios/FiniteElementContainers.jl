@@ -42,7 +42,7 @@ abstract type AbstractMatrixIntegral{A, C, I} <: AbstractIntegral{A, C, I} end
 abstract type AbstractScalarIntegral{A, C, I} <: AbstractIntegral{A, C, I} end
 abstract type AbstractVectorIntegral{A, C, I} <: AbstractIntegral{A, C, I} end
 
-struct ScalarCellIntegral{A, C <: NamedTuple, I} <: AbstractIntegral{A, C, I}
+struct ScalarCellIntegral{A, C, I} <: AbstractIntegral{A, C, I}
     assembler::A
     cache::C
     integrand::I

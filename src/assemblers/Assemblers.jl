@@ -9,48 +9,58 @@ $(TYPEDSIGNATURES)
 KA.get_backend(asm::AbstractAssembler) = KA.get_backend(asm.dof)
 
 abstract type AssembledReturnType end
+abstract type AdditiveAssembledReturnType <: AssembledReturnType end
+abstract type IndexedAssembledReturnType <: AssembledReturnType end
 
-struct AssembledMatrix <: AssembledReturnType
+struct AssembledMatrix <: AdditiveAssembledReturnType
 end
 
-struct AssembledScalar <: AssembledReturnType
+struct AssembledScalar <: IndexedAssembledReturnType
 end
 
-struct AssembledStruct{T} <: AssembledReturnType
+struct AssembledStruct{T} <: IndexedAssembledReturnType
 end
 
-struct AssembledVector <: AssembledReturnType
+struct AssembledVector <: AdditiveAssembledReturnType
 end
 
-struct AssembledSparseVector <: AssembledReturnType
+struct AssembledSparseVector <: AdditiveAssembledReturnType
 end
 
-# fall back method always adds
-@inline function _accumulate_q_value(::AssembledReturnType, storage, val_q, val_e, q, e)
-  val_e = val_e + val_q
-  return val_e
+@inline function _accumulate_q_value(::AdditiveAssembledReturnType, storage, val_q, val_e, q, e)
+  return val_e + val_q
 end
 
-@inline function _accumulate_q_value(::AssembledScalar, storage, val_q, val_e, q, e)
+@inline function _accumulate_q_value(::IndexedAssembledReturnType, storage, val_q, val_e, q, e)
   storage[q, e] = val_q
   return nothing
 end
 
-@inline function _accumulate_q_value(::AssembledStruct, storage, val_q, val_e, q, e)
-  storage[q, e] = val_q
+@inline function _accumulate_q_value(::AssembledScalar, storage::AbstractArray{T, 3}, val_q, val_e, q, e) where T
+  # TODO will it always be 1 for how we're using this?
+  storage[1, q, e] = val_q
   return nothing
 end
 
-# assembly helper methods below
+
+# for IndexedAssembledReturnType, does nothing
+function _assemble_element!(
+  storage, val_q, 
+  conns, # all connectivities for this element
+  ::Int, ::Int, ::Int
+)
+  return nothing
+end
+
+# assembled vector where storage is a field
 function _assemble_element!(
   storage::AbstractField, R_el::SVector, 
-  conns, # all connectivities for this block
+  conns, # all connectivities for this element
   el_id::Int, ::Int, ::Int
 )
   n_dofs = size(storage, 1)
   for d in axes(storage, 1)
     for n in axes(conns, 1)
-      # global_id = n_dofs * (conns[n, el_id] - 1) + d
       global_id = n_dofs * (conns[n] - 1) + d
       local_id = n_dofs * (n - 1) + d
       Atomix.@atomic storage.data[global_id] += R_el[local_id]
@@ -59,14 +69,6 @@ function _assemble_element!(
   return nothing
 end
 
-# has a pretty dumb name for what it does
-function _assemble_element!(
-  storage, val_q::T, 
-  conns, # all connectivities for this block
-  ::Int, ::Int, ::Int
-) where T <: Number
-  return nothing
-end
 
 # sparse vector attempt
 function _assemble_element!(
@@ -88,13 +90,10 @@ end
 
 # TODO we'll need a regular matrix implementation
 # as well (Can we live with 1?)
-"""
-$(TYPEDSIGNATURES)
-Specialization of of ```_assemble_element!``` for ```SparseMatrixAssembler```.
-"""
+# sparse matrix
 function _assemble_element!(
   storage, K_el::SMatrix, 
-  conns, # all connectivities for this block
+  conns, # all connectivities for this element
   el_id::Int,
   block_start_index::Int, block_el_level_size::Int
 )
@@ -109,16 +108,6 @@ function _assemble_element!(
   for (i, id) in enumerate(ids)
     storage[id] += K_el.data[i]
   end
-  return nothing
-end
-
-# has a pretty dumb name for what it does
-# fall back fro struct
-function _assemble_element!(
-  storage, val_q, 
-  conns, # all connectivities for this block
-  ::Int, ::Int, ::Int
-)
   return nothing
 end
 
@@ -360,14 +349,10 @@ function create_assembler_cache(
   asm::AbstractAssembler,
   ::AssembledScalar
 )
-  vals = Matrix{Float64}[]
   fspace = function_space(asm.dof)
-  for (b, ref_fe) in enumerate(values(fspace.ref_fes))
-    NQ = ReferenceFiniteElements.num_cell_quadrature_points(ref_fe)
-    NE = num_elements(fspace, b)
-    push!(vals, zeros(Float64, NQ, NE))
-  end
-  return NamedTuple{keys(fspace.ref_fes)}(tuple(vals...))
+  field = L2Field(undef, Float64, 1, block_quadrature_sizes(fspace))
+  fill!(field, 0.0)
+  return field
 end
 
 function create_assembler_cache(

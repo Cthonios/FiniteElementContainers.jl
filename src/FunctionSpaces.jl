@@ -174,8 +174,19 @@ function Base.show(io::IO, fspace::FunctionSpace)
   end
 end
 
-function block_size(fspace::FunctionSpace, b::Int)
+function block_entity_size(fspace::FunctionSpace, b::Int)
   return (num_entities_per_element(fspace, b), num_elements(fspace, b))
+end
+
+function block_quadrature_size(fspace::FunctionSpace, b::Int)
+  ref_fe = values(fspace.ref_fes)[b]
+  nq = num_cell_quadrature_points(ref_fe)
+  ne = num_elements(fspace, b)
+  return (nq, ne)
+end
+
+function block_quadrature_sizes(fspace::FunctionSpace)
+  return block_quadrature_size.((fspace,), 1:num_blocks(fspace))
 end
 
 function connectivity(fspace::FunctionSpace)
@@ -201,6 +212,11 @@ end
 function num_entities_per_element(fspace::FunctionSpace, b::Int)
   return num_entities_per_element(fspace.elem_conns, b)
 end
+
+# function num_q_points(fspace::FunctionSpace, b::Int)
+#   ref_fe = values(fspace.ref_fes)[b]
+#   return num_quadrature_points(ref_fe)
+# end
 
 function unsafe_connectivity(fspace::FunctionSpace, e::Int, b::Int)
   return unsafe_connectivity(fspace.elem_conns, e, b)

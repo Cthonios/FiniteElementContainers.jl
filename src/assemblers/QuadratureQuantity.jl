@@ -17,7 +17,38 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble_quadrature_quantity!(
-  storage, pattern, dof,
+  storage::L2Field, pattern, dof,
+  func::F, Uu, p,
+  return_type::AssembledReturnType = AssembledScalar()
+) where F <: Function
+  fspace = function_space(dof)
+  X = coordinates(p)
+  t = current_time(p)
+  Δt = time_step(p)
+  U = p.field
+  U_old = p.field_old
+  _update_for_assembly!(p, dof, Uu)
+  conns = fspace.elem_conns
+  foreach_block(fspace, p) do physics, props, ref_fe, b
+    _assemble_block!(
+      block_view(storage, b),
+      conns.data, conns.offsets[b], 
+      0, 0,
+      func,
+      physics, ref_fe,
+      X, t, Δt,
+      U, U_old,
+      block_view(p.state_old, b), block_view(p.state_new, b), props,
+      return_type
+    )
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function assemble_quadrature_quantity!(
+  storage::NamedTuple, pattern, dof,
   func::F, Uu, p,
   return_type::AssembledReturnType = AssembledScalar()
 ) where F <: Function

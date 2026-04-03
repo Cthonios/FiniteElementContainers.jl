@@ -64,14 +64,15 @@ function Parameters(
   sources,
   times
 )
-  coords = coordinates(function_space(assembler.dof))
+  fspace = function_space(assembler.dof)
+  coords = coordinates(fspace)
   field = create_field(assembler)
   field_old = create_field(assembler)
   hvp_scratch_field = create_field(assembler)
 
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
-    syms = keys(function_space(assembler.dof).ref_fes)
+    syms = keys(fspace.ref_fes)
     physics = map(x -> physics, syms)
     physics = NamedTuple{tuple(syms...)}(tuple(physics...))
   else
@@ -80,7 +81,7 @@ function Parameters(
   end
 
   if isa(properties, AbstractArray)
-    syms = keys(function_space(assembler.dof).ref_fes)
+    syms = keys(fspace.ref_fes)
     properties = map(x -> properties, syms)
     properties = NamedTuple{tuple(syms...)}(tuple(properties...))
   else
@@ -88,13 +89,10 @@ function Parameters(
   end
 
   state_old = Array{Float64, 3}[]
-  for (b, (key, val)) in enumerate(pairs(physics))
+  for (b, val) in enumerate(values(physics))
     # create state variables for this block physics
     NS = num_states(val)
-    NQ = ReferenceFiniteElements.num_cell_quadrature_points(
-      getfield(function_space(assembler.dof).ref_fes, key)
-    )
-    NE = num_elements(function_space(assembler.dof), b)
+    NQ, NE = block_quadrature_size(fspace, b)
 
     state_old_temp = zeros(NS, NQ, NE)
     for e in 1:NE
