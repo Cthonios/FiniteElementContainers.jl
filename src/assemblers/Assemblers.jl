@@ -42,7 +42,6 @@ end
   return nothing
 end
 
-
 # for IndexedAssembledReturnType, does nothing
 function _assemble_element!(
   storage, val_q, 
@@ -68,7 +67,6 @@ function _assemble_element!(
   end
   return nothing
 end
-
 
 # sparse vector attempt
 function _assemble_element!(
@@ -239,6 +237,58 @@ function _surface_interpolants(ref_fe::R, q::Int, side::Int) where R <: Referenc
   return @inbounds ref_fe.surf_interps[q, side]
 end
 
+# some low level sparse matrix type helpers
+
+function _coo_matrix_constructor(backend::KA.Backend) 
+  @assert false "Need to implement for $backend"
+end
+
+function _csc_matrix_constructor(backend::KA.Backend)
+  @assert false "Need to implement for $backend"
+end
+
+function _coo_matrix(asm::AbstractAssembler, storage)
+  backend = KA.get_backend(asm)
+  return _coo_matrix(backend, asm, storage)
+end
+
+function _coo_matrix(backend::KA.Backend, asm::AbstractAssembler, storage)
+  constructor = _coo_matrix_constructor(backend)
+
+  if FiniteElementContainers._is_condensed(asm.dof)
+    n_dofs = length(asm.dof)
+  else
+    n_dofs = length(asm.dof.unknown_dofs)
+  end
+
+  rows, cols = asm.matrix_pattern.Is, asm.matrix_pattern.Js
+  perm = asm.matrix_pattern.permutation
+  vals = storage[asm.matrix_pattern.unknown_dofs]
+  return constructor(
+    rows[perm], cols[perm], vals[perm],
+    (n_dofs, n_dofs), length(asm.matrix_pattern.Is)
+  )
+end
+
+function _coo_matrix(::KA.CPU, asm::AbstractAssembler, storage)
+  @assert false "Currently unsupported"
+end
+
+function _csc_matrix(asm::AbstractAssembler, storage)
+  backend = KA.get_backend(asm)
+  return _csc_matrix(backend, asm, storage)
+end
+
+function _csc_matrix(backend::KA.Backend, asm::AbstractAssembler, storage)
+  coo = _coo_matrix(backend, asm, storage)
+  constructor = _csc_matrix_constructor(backend)
+  return constructor(coo)
+end
+
+function _csc_matrix(::KA.CPU, asm::AbstractAssembler, storage)
+  return SparseArrays.sparse!(asm.matrix_pattern, storage)
+end
+
 function function_space(assembler::AbstractAssembler)
   return function_space(assembler.dof)
 end
@@ -247,7 +297,14 @@ end
 $(TYPEDSIGNATURES)
 """
 function hessian(asm::AbstractAssembler)
-  return _hessian(asm, KA.get_backend(asm))
+  backend = KA.get_backend(asm)
+  H = _csc_matrix(asm, asm.hessian_storage)
+
+  if _is_condensed(asm.dof)
+    _adjust_matrix_entries_for_constraints!(H, asm.constraint_storage, backend)
+  end
+
+  return H
 end
 
 # new approach requiring access to the v that makes Hv
@@ -273,8 +330,15 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function mass(assembler::AbstractAssembler)
-  return _mass(assembler, KA.get_backend(assembler))
+function mass(asm::AbstractAssembler)
+  backend = KA.get_backend(asm)
+  M = _csc_matrix(asm, asm.mass_storage)
+
+  if _is_condensed(asm.dof)
+    _adjust_matrix_entries_for_constraints!(M, asm.constraint_storage, backend)
+  end
+
+  return M
 end
 
 """
@@ -304,8 +368,15 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function stiffness(assembler::AbstractAssembler)
-  return _stiffness(assembler, KA.get_backend(assembler))
+function stiffness(asm::AbstractAssembler)
+  backend = KA.get_backend(asm)
+  K = _csc_matrix(asm, asm.stiffness_storage)
+
+  if _is_condensed(asm.dof)
+    _adjust_matrix_entries_for_constraints!(K, asm.constraint_storage, backend)
+  end
+
+  return K
 end
 
 function _assemble_block!(
