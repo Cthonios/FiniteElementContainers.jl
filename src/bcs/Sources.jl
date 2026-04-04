@@ -129,10 +129,17 @@ function Sources(mesh, dof::DofManager, sources::Vector{Source})
 end
 
 function Adapt.adapt(to, sources::Sources)
+  # needed due to failures on 1.10 and 1.11
+  if length(sources.source_caches) == 0
+    caches = Vector{SourceContainer{Matrix{Float64}}}(undef, 0)
+  else
+    caches = map(x -> adapt(to, x), sources.source_caches)
+  end
+
   return Sources(
     sources.source_block_ids,
     sources.source_block_names,
-    map(x -> adapt(to, x), sources.source_caches),
+    caches,
     adapt(to, sources.source_funcs)
   )
 end
