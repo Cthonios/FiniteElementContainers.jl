@@ -239,6 +239,10 @@ function _surface_interpolants(ref_fe::R, q::Int, side::Int) where R <: Referenc
   return @inbounds ref_fe.surf_interps[q, side]
 end
 
+function function_space(assembler::AbstractAssembler)
+  return function_space(assembler.dof)
+end
+
 """
 $(TYPEDSIGNATURES)
 """

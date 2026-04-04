@@ -28,7 +28,7 @@ function assemble_vector_source!(storage, pattern, dof, Uu, p)
   conns = fspace.elem_conns
   for (block_id, block_name, source) in zip(
     sources.source_block_ids, sources.source_block_names,
-    values(sources.source_caches)
+    sources.source_caches
   )
     ref_fe = getfield(fspace.ref_fes, block_name)
     vals   = source.vals
