@@ -33,7 +33,7 @@ function assemble_quadrature_quantity!(
     _assemble_block!(
       block_view(storage, b),
       conns.data, conns.offsets[b], 
-      0, 0,
+      0,
       func,
       physics, ref_fe,
       X, t, Δt,
@@ -72,7 +72,7 @@ function assemble_quadrature_quantity!(
       # backend,
       block_storage,
       conns.data, conns.offsets[b], 
-      0, 0,
+      0,
       func,
       block_physics, ref_fe,
       X, t, Δt,

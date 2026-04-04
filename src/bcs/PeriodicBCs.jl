@@ -4,28 +4,26 @@ struct PeriodicBC{F} <: AbstractBC{F}
     side_a_sset::Symbol
     side_b_sset::Symbol
     var_name::Symbol
-end
 
-function PeriodicBC(
-    var_name::String, direction::String, 
-    func,
-    side_a_sset::String, side_b_sset::String,
-    # func
-)
-    return PeriodicBC(
-        Symbol(direction), func, 
-        Symbol(side_a_sset), Symbol(side_b_sset), 
-        Symbol(var_name)
+    function PeriodicBC(
+        var_name::String, direction::String, 
+        func,
+        side_a_sset::String, side_b_sset::String,
     )
-end
+        return new{typeof(func)}(
+            Symbol(direction), func, 
+            Symbol(side_a_sset), Symbol(side_b_sset), 
+            Symbol(var_name)
+        )
+    end
 
-function PeriodicBC(
-    var_name::Symbol, direction::Symbol, 
-    func,
-    side_a_sset::Symbol, side_b_sset::Symbol,
-    # func
-)
-    return PeriodicBC(direction, func, side_a_sset, side_b_sset, var_name)
+    function PeriodicBC(
+        var_name::Symbol, direction::Symbol, 
+        func,
+        side_a_sset::Symbol, side_b_sset::Symbol,
+    )
+        return new{typeof(func)}(direction, func, side_a_sset, side_b_sset, var_name)
+    end
 end
 
 struct PeriodicBCContainer{

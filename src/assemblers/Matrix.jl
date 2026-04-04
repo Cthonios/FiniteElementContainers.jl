@@ -38,7 +38,7 @@ function assemble_matrix!(
     _assemble_block!(
       storage,
       conns.data, conns.offsets[b],
-      pattern.block_start_indices[b], pattern.block_el_level_sizes[b],
+      pattern.block_start_indices[b],
       func,
       physics, ref_fe,
       X, t, dt,

@@ -46,17 +46,17 @@ end
 function _assemble_element!(
   storage, val_q, 
   conns, # all connectivities for this element
-  ::Int, ::Int, ::Int
+  ::Int, ::Int
 )
   return nothing
 end
 
 # assembled vector where storage is a field
 function _assemble_element!(
-  storage::AbstractField, R_el::SVector, 
+  storage::AbstractField, R_el::SVector{NDOF, T}, 
   conns, # all connectivities for this element
-  el_id::Int, ::Int, ::Int
-)
+  ::Int, ::Int
+) where {NDOF, T <: Number}
   n_dofs = size(storage, 1)
   for d in axes(storage, 1)
     for n in axes(conns, 1)
@@ -70,15 +70,14 @@ end
 
 # sparse vector attempt
 function _assemble_element!(
-  storage::AbstractVector, R_el::SVector,
+  storage::AbstractVector, R_el::SVector{NDOF, T},
   conns,
   el_id::Int,
-  block_start_index::Int, block_el_level_size::Int
-)
+  block_start_index::Int
+) where {NDOF, T <: Number}
   # figure out ids needed to update
-  start_id = block_start_index + 
-  (el_id - 1) * block_el_level_size
-  end_id = start_id + block_el_level_size - 1
+  start_id = block_start_index + (el_id - 1) * NDOF
+  end_id = start_id + NDOF - 1
   ids = start_id:end_id
   for (i, id) in enumerate(ids)
     storage[id] += R_el.data[i]
@@ -90,19 +89,17 @@ end
 # as well (Can we live with 1?)
 # sparse matrix
 function _assemble_element!(
-  storage, K_el::SMatrix, 
+  storage, K_el::SMatrix{NDOF1, NDOF2, T, NDOF1xNDOF2}, 
   conns, # all connectivities for this element
   el_id::Int,
-  block_start_index::Int, block_el_level_size::Int
-)
+  block_start_index::Int
+) where {NDOF1, NDOF2, T, NDOF1xNDOF2}
   # figure out ids needed to update
-  start_id = block_start_index + 
-             (el_id - 1) * block_el_level_size
-  end_id = start_id + block_el_level_size - 1
+  start_id = block_start_index + (el_id - 1) * NDOF1xNDOF2
+  end_id = start_id + NDOF1xNDOF2 - 1
   ids = start_id:end_id
 
   # get appropriate storage and update values
-  # @views storage[ids] += K_el[:]
   for (i, id) in enumerate(ids)
     storage[id] += K_el.data[i]
   end
@@ -382,7 +379,7 @@ end
 function _assemble_block!(
   field,
   conns::Conn, coffset::Int,
-  block_start_index::Int, block_el_level_size::Int,
+  block_start_index::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
@@ -409,7 +406,7 @@ function _assemble_block!(
       val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
     end
   
-    _assemble_element!(field, val_el, conn, e, block_start_index, block_el_level_size)
+    _assemble_element!(field, val_el, conn, e, block_start_index)
   end
 end
 

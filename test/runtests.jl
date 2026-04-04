@@ -116,5 +116,5 @@ end
 end
 
 @testset "Aqua" begin
-  Aqua.test_all(FiniteElementContainers; ambiguities=false)
+  Aqua.test_all(FiniteElementContainers)
 end

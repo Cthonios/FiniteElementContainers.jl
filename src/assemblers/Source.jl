@@ -60,6 +60,6 @@ function _assemble_block_vector_source!(
       R_el = R_el - JxW * reduce(vcat, ntuple(i -> Nvec[i] * b_val, length(Nvec)))
     end
   
-    @views _assemble_element!(field, R_el, conn, e, 0, 0)
+    @views _assemble_element!(field, R_el, conn, e, 0)
   end
 end
