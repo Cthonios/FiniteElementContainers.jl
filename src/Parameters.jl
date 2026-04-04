@@ -14,12 +14,13 @@ $(TYPEDFIELDS)
 struct Parameters{
   RT <: Number, # Real type
   RV <: AbstractArray{RT, 1}, # Real vector type
+  RM <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
   IV <: AbstractArray{<:Integer, 1},
   ICFuncs <: NamedTuple,
   DBCFuncs <: NamedTuple,
   NBCs <: NeumannBCs,
   RBCs <: RobinBCs,
-  SourceBCs <: Sources,
+  SourceFuncs <: NamedTuple,
   Times <: TimeStepper,
   Phys <: NamedTuple,
   Props <: NamedTuple,
@@ -31,7 +32,7 @@ struct Parameters{
   dirichlet_bcs::DirichletBCs{IV, RV, DBCFuncs}
   neumann_bcs::NBCs
   robin_bcs::RBCs
-  sources::SourceBCs
+  sources::Sources{RM, SourceFuncs}
   times::Times
   physics::Phys
   properties::Props
@@ -257,12 +258,12 @@ for Dirichlet and Neumann BCs
 
 Robin BC updates are handled in robin assembly method
 """
-function update_bc_values!(p::Parameters)
+function update_bc_values!(p::Parameters, assembler)
   X = coordinates(p)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, X, t)
-  update_source_values!(p.sources, X, t)
+  update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?
   # currently assembly methods handle updating the field

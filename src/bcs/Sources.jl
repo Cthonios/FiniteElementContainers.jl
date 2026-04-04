@@ -37,13 +37,8 @@ volume quadrature points for one block.
   and have assemblers just ping the correct block
 """
 struct SourceContainer{
-  IT <: Integer,
-  IV <: AbstractArray{IT, 1},
-  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  RE <: ReferenceFE
+  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2}
 }
-  element_conns::Connectivity{1, IT, IV}
-  ref_fe::RE
   vals::RV                    # size (NQ_cell, nelem) of SVector{ND}
   is_constant::Bool           # skip re-evaluation after first call
   initialized::Base.RefValue{Bool}
@@ -51,8 +46,6 @@ end
 
 function Adapt.adapt_structure(to, source::SourceContainer)
   SourceContainer(
-    adapt(to, source.element_conns),
-    adapt(to, source.ref_fe),
     adapt(to, source.vals),
     source.is_constant,
     source.initialized,
@@ -61,9 +54,9 @@ end
 
 Base.length(bc::SourceContainer) = size(bc.vals, 2)
 
-function _update_source_values!(vals, func, ref_fe, conns, X, t)
+function _update_source_values!(vals, func, ref_fe, conns, coffset, X, t)
   fec_foraxes(vals, 2) do e
-    conn = connectivity(ref_fe, conns, e, 1)
+    conn = connectivity(ref_fe, conns, e, coffset)
     X_el = _element_level_fields_flat(X, ref_fe, conn)
 
     for q in 1:num_cell_quadrature_points(ref_fe)
@@ -81,57 +74,56 @@ $(TYPEDFIELDS)
 Collection of body force containers, one per specified body force entry.
 """
 struct Sources{
-  SourceCaches <: NamedTuple,
+  RV           <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
   SourceFuncs  <: NamedTuple
 } <: AbstractBCs{SourceFuncs}
   source_block_ids::Vector{Int} # note this is the id order in FEC not the id in exodus
   source_block_names::Vector{Symbol}
-  source_caches::SourceCaches
+  source_caches::Vector{SourceContainer{RV}}
   source_funcs::SourceFuncs
 end
 
 function Sources(mesh, dof::DofManager, sources::Vector{Source})
   if length(sources) == 0
-    return Sources(Int[], Symbol[], NamedTuple(), NamedTuple())
+    return Sources(Int[], Symbol[], SourceContainer{Matrix{Float64}}[], NamedTuple())
   end
 
   fspace = function_space(dof)
   ND = length(dof.var)
   caches = []
-  funcs  = []
+  funcs  = Function[]
   source_block_ids = Int[]
   source_block_names = Symbol[]
-  for (i, bf) in enumerate(sources)
-    block_name = bf.block_name
+  for source in sources
+    block_name = source.block_name
     block_id = indexin([block_name], collect(keys(fspace.ref_fes)))
     @assert length(block_id) == 1
     block_id = block_id[1]
     push!(source_block_ids, block_id)
     push!(source_block_names, block_name)
-    ref_fe     = getfield(fspace.ref_fes, block_name)
-    conns_full = mesh.element_conns[block_name]
-    nelem      = size(conns_full, 2)
-    NQ         = num_cell_quadrature_points(ref_fe)
-
-    conns = Connectivity([conns_full])
+    NQ, NE = block_quadrature_size(fspace, block_id)
+    # conns = Connectivity([conns_full])
     # if ND == 1
     #   vals = zeros(Float64, NQ, nelem)
     # else
-    vals  = zeros(SVector{ND, Float64}, NQ, nelem)
+    vals  = zeros(SVector{ND, Float64}, NQ, NE)
     # end
 
     # Detect constant: the is_constant flag is set by the caller (Carina)
     # via the Source struct. For now, default to false (re-evaluate every step).
     is_constant = false
 
-    push!(caches, SourceContainer(conns, ref_fe, vals, is_constant, Ref(false)))
-    push!(funcs, bf.func)
+    # push!(caches, SourceContainer(conns, ref_fe, vals, is_constant, Ref(false)))
+    push!(caches, SourceContainer(vals, is_constant, Ref(false)))
+    push!(funcs, source.func)
   end
+
+  # what happens if they're not all the same type?
+  caches = convert(Vector{typeof(caches[1])}, caches)
 
   syms = tuple(map(x -> Symbol("source_$x"), 1:length(caches))...)
   return Sources(
-    source_block_ids, source_block_names,
-    NamedTuple{syms}(tuple(caches...)),
+    source_block_ids, source_block_names, caches,
     NamedTuple{syms}(tuple(funcs...)),
   )
 end
@@ -140,7 +132,7 @@ function Adapt.adapt(to, sources::Sources)
   return Sources(
     sources.source_block_ids,
     sources.source_block_names,
-    adapt(to, sources.source_caches),
+    map(x -> adapt(to, x), sources.source_caches),
     adapt(to, sources.source_funcs)
   )
 end
@@ -155,12 +147,16 @@ function Base.show(io::IO, sources::Sources)
   end
 end
 
-function update_source_values!(sources::Sources, X, t)
-  for (source, func) in zip(sources.source_caches, sources.source_funcs)
+function update_source_values!(sources::Sources, assembler, X, t)
+  fspace = function_space(assembler)
+  for (block_id, source, func) in zip(sources.source_block_ids, sources.source_caches, sources.source_funcs)
     if source.is_constant && source.initialized[]
       continue
     end
-    _update_source_values!(source.vals, func, source.ref_fe, source.element_conns.data, X, t)
+    ref_fe = values(fspace.ref_fes)[block_id]
+    conns_data = fspace.elem_conns.data
+    coffset = fspace.elem_conns.offsets[block_id]
+    _update_source_values!(source.vals, func, ref_fe, conns_data, coffset, X, t)
     source.initialized[] = true
   end
   return nothing
