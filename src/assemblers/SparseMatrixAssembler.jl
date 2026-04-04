@@ -109,36 +109,6 @@ function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledMatrix)
   return KA.zeros(backend, Float64, asm.matrix_pattern.max_entries[1])
 end
 
-function _hessian(assembler::SparseMatrixAssembler, ::KA.CPU)
-  H = SparseArrays.sparse!(assembler.matrix_pattern, assembler.hessian_storage)
-
-  if _is_condensed(assembler.dof)
-    _adjust_matrix_entries_for_constraints!(H, assembler.constraint_storage, KA.get_backend(assembler))
-  end
-
-  return H
-end
-
-function _mass(assembler::SparseMatrixAssembler, ::KA.CPU)
-  M = SparseArrays.sparse!(assembler.matrix_pattern, assembler.mass_storage)
-
-  if _is_condensed(assembler.dof)
-    _adjust_matrix_entries_for_constraints!(M, assembler.constraint_storage, KA.get_backend(assembler))
-  end
-
-  return M
-end
-
-function _stiffness(assembler::SparseMatrixAssembler, ::KA.CPU)
-  K = SparseArrays.sparse!(assembler.matrix_pattern, assembler.stiffness_storage)
-
-  if _is_condensed(assembler.dof)
-    _adjust_matrix_entries_for_constraints!(K, assembler.constraint_storage, KA.get_backend(assembler))
-  end
-
-  return K
-end
-
 # TODO probably only works for H1 fields
 # TODO Need to specialize below for different field types
 # TODO make keyword use_condensed more clear

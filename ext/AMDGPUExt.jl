@@ -1,69 +1,21 @@
 module AMDGPUExt
 
-using Adapt
-using AMDGPU
-using FiniteElementContainers
-using KernelAbstractions
+import Adapt
+import AMDGPU
+import FiniteElementContainers
 
-# need to double check if it's ROCArray
-FiniteElementContainers.rocm(x) = Adapt.adapt_structure(ROCArray, x)
-
-function AMDGPU.rocSPARSE.ROCSparseMatrixCOO(asm::SparseMatrixAssembler)
-  @assert typeof(get_backend(asm)) <: ROCBackend
-
-  if FiniteElementContainers._is_condensed(asm.dof)
-    n_dofs = length(asm.dof)
-  else
-    n_dofs = length(asm.dof.unknown_dofs)
-  end
-  rows, cols = asm.matrix_pattern.Is, asm.matrix_pattern.Js
-  vals = asm.stiffness_storage[asm.matrix_pattern.unknown_dofs]
-  perm = asm.matrix_pattern.permutation
-  return AMDGPU.rocSPARSE.ROCSparseMatrixCOO(
-    rows[perm], cols[perm], vals[perm],
-    (n_dofs, n_dofs), length(asm.matrix_pattern.Is)
-  )
+# public API
+function FiniteElementContainers.rocm(x)
+  return Adapt.adapt_structure(AMDGPU.ROCArray, x)
 end
 
-# this method need to have the assembler initialized first
-# if the stored values in asm.pattern.cscnzval or zero
-# AMDGPU will error out
-function AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm::SparseMatrixAssembler)
-  # Not sure if the line below is right on AMD
-  @assert typeof(get_backend(asm)) <: ROCBackend "Assembler is not on a AMDGPU device"
-  @assert length(asm.matrix_pattern.cscnzval) > 0 "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
-
-  # below assertion isn't corect
-  # @assert all(x -> x != zero(eltype(asm.pattern.cscnzval)), asm.pattern.cscnzval) "Need to assemble the assembler once with SparseArrays.sparse!(assembler)"
-  #
-
-  # n_dofs = FiniteElementContainers.num_unknowns(asm.dof)
-  if FiniteElementContainers._is_condensed(asm.dof)
-    n_dofs = length(asm.dof)
-  else
-    n_dofs = length(asm.dof.unknown_dofs)
-  end
-
-  return AMDGPU.rocSPARSE.ROCSparseMatrixCSC(
-    asm.matrix_pattern.csccolptr,
-    asm.matrix_pattern.cscrowval,
-    asm.matrix_pattern.cscnzval,
-    (n_dofs, n_dofs)
-  )
+# private API
+function FiniteElementContainers._coo_matrix_constructor(::AMDGPU.ROCBackend)
+  return AMDGPU.rocSPARSE.ROCSparseMatrixCOO
 end
 
-function FiniteElementContainers._stiffness(asm::SparseMatrixAssembler, ::ROCBackend)
-  K = AMDGPU.rocSPARSE.ROCSparseMatrixCSC(
-    AMDGPU.rocSPARSE.ROCSparseMatrixCOO(asm)
-  )
-  # K = AMDGPU.rocSPARSE.ROCSparseMatrixCSC(asm)
-
-  if FiniteElementContainers._is_condensed(asm.dof)
-    FiniteElementContainers._adjust_matrix_entries_for_constraints!(
-      K, asm.constraint_storage, get_backend(asm)
-    )
-  end
-  return K
+function FiniteElementContainers._csc_matrix_constructor(::AMDGPU.ROCBackend)
+  return AMDGPU.rocSPARSE.ROCSparseMatrixCSC
 end
 
 end # module
