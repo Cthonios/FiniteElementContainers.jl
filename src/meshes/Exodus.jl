@@ -268,25 +268,16 @@ end
 
 function write_field(
   pp::PostProcessor, time_index, block_name, field_name, field::Matrix{T}
-) where T <: Union{<:Number, Union{Nothing, <:Number}}
-  if field[1, 1] === nothing
-    return nothing
-  end
-
+) where T <: Number
   for q in axes(field, 1)
     var_name = String(field_name) * "_$q"
     write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, field[q, :])
   end
 end
 
-# function write_field(pp::PostProcessor, time_index, block_name, field_name, field::Matrix{<:SymmetricTensor{2, 3, <:Number, 6}})
 function write_field(
   pp::PostProcessor, time_index, block_name, field_name, field::Matrix{T}
-) where T <: Union{<:SymmetricTensor{2, 3, <:Number, 6}, Union{Nothing, <:SymmetricTensor{2, 3, <:Number, 6}}}
-  if field[1, 1] === nothing
-    return nothing
-  end
-
+) where T <: SymmetricTensor{2, 3, <:Number, 6}
   # SymmetricTensor{2,3} data order (column-major): xx, xy, xz, yy, yz, zz
   exts = ("(XX)", "(XY)", "(XZ)", "(YY)", "(YZ)", "(ZZ)")
   for (n, ext) in enumerate(exts)
@@ -300,11 +291,7 @@ end
 
 function write_field(
   pp::PostProcessor, time_index, block_name, field_name, field::Matrix{T}
-) where T <: Union{<:Tensor{2, 3, <:Number, 9}, Union{Nothing, <:Tensor{2, 3, <:Number, 9}}}
-  if field[1, 1] === nothing
-    return nothing
-  end
-
+) where T <: Tensor{2, 3, <:Number, 9}
   # Tensor{2,3} data order (column-major): xx, yx, zx, xy, yy, zy, xz, yz, zz
   exts = ("(XX)", "(YX)", "(ZX)", "(XY)", "(YY)", "(ZY)", "(XZ)", "(YZ)", "(ZZ)")
   for (n, ext) in enumerate(exts)

@@ -1,23 +1,35 @@
 struct MatrixFreeAssembler{
-    Dof <: DofManager,
-    Storage1 <: AbstractField,
-    Storage2 <: AbstractArray{<:Number, 1}
-} <: AbstractAssembler{Dof}
-    dof::Dof
-    residual_storage::Storage1
-    residual_unknowns::Storage2
-    stiffness_action_storage::Storage1
-    stiffness_action_unknowns::Storage2
+    Condensed,
+    NumArrDims,
+    IV           <: AbstractArray{Int, 1},
+    RV           <: AbstractArray{Float64, 1},
+    Var          <: AbstractFunction,
+    FieldStorage <: AbstractField{Float64, NumArrDims, RV}
+} <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
+    dof::DofManager{Condensed, Int, IV, Var}
+    vector_pattern::SparseVectorPattern{IV}
+    constraint_storage::RV
+    residual_storage::FieldStorage
+    residual_unknowns::RV
+    stiffness_action_storage::FieldStorage
+    stiffness_action_unknowns::RV
 end
 
 function MatrixFreeAssembler(dof::DofManager)
+    vector_pattern = SparseVectorPattern(dof)
 
+    ND, NN = size(dof)
+    n_total_dofs = ND * NN
+    constraint_storage = zeros(n_total_dofs)
+    constraint_storage[dof.dirichlet_dofs] .= 1.
+  
     residual_storage = create_field(dof)
     residual_unknowns = create_unknowns(dof)
     stiffness_action_storage = create_field(dof)
     stiffness_action_unknowns = create_unknowns(dof)
     return MatrixFreeAssembler(
-        dof,
+        dof, vector_pattern,
+        constraint_storage,
         residual_storage, residual_unknowns,
         stiffness_action_storage, stiffness_action_unknowns
     )
@@ -28,21 +40,38 @@ function MatrixFreeAssembler(u::AbstractFunction)
     return MatrixFreeAssembler(dof)
 end
 
-function update_dofs!(assembler::MatrixFreeAssembler, dirichlet_bcs)
+function Adapt.adapt_structure(to, asm::MatrixFreeAssembler)
+    return MatrixFreeAssembler(
+        adapt(to, asm.dof),
+        adapt(to, asm.vector_pattern),
+        adapt(to, asm.constraint_storage),
+        adapt(to, asm.residual_storage),
+        adapt(to, asm.residual_unknowns),
+        adapt(to, asm.stiffness_action_storage),
+        adapt(to, asm.stiffness_action_unknowns)
+    )
+end
+
+function update_dofs!(assembler::MatrixFreeAssembler, dirichlet_bcs::DirichletBCs)
     # collect dbcs
     if length(dirichlet_bcs) > 0
-        dirichlet_dofs = mapreduce(x -> x.bookkeeping.dofs, vcat, dirichlet_bcs)
-        dirichlet_dofs = unique(sort(dirichlet_dofs))
+        ddofs = dirichlet_dofs(dirichlet_bcs)
     else
-        dirichlet_dofs = Vector{Int}(undef, 0)
+        ddofs = Vector{Int}(undef, 0)
     end
 
     # update dof manager
-    update_dofs!(assembler.dof, dirichlet_dofs)
+    update_dofs!(assembler.dof, ddofs)
 
     # update cached arrays in assembler
-    resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
-    resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
+    if use_condensed
+        assembler.constraint_storage[assembler.dof.unknown_dofs] .= 0.
+        assembler.constraint_storage[assembler.dof.dirichlet_dofs] .= 1.
+    else
+        resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
+        resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
+        _update_dofs!(assembler.vector_pattern, assembler.dof, ddofs)
+    end
 
     return nothing
 end

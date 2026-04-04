@@ -76,6 +76,6 @@ function _assemble_block_vector_weakly_enforced_bc!(
     end
   
     surf_conns = surface_connectivity(ref_fe, conns, side, e, 1)
-    _assemble_element!(field, R_el, surf_conns, e, 0, 0)
+    _assemble_element!(field, R_el, surf_conns, e, 0)
   end
 end

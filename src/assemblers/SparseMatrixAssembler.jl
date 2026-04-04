@@ -7,10 +7,10 @@ problems in time.
 struct SparseMatrixAssembler{
   Condensed,
   NumArrDims,
-  IV                <: AbstractArray{Int, 1},
-  RV                <: AbstractArray{Float64, 1},
-  Var               <: AbstractFunction,
-  FieldStorage      <: AbstractField{Float64, NumArrDims, RV}
+  IV           <: AbstractArray{Int, 1},
+  RV           <: AbstractArray{Float64, 1},
+  Var          <: AbstractFunction,
+  FieldStorage <: AbstractField{Float64, NumArrDims, RV}
 } <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
   dof::DofManager{Condensed, Int, IV, Var}
   matrix_pattern::SparseMatrixPattern{IV, RV}
@@ -121,8 +121,6 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
   use_condensed = _is_condensed(assembler.dof)
 
   if length(dirichlet_bcs) > 0
-    # dirichlet_dofs = mapreduce(x -> x.dofs, vcat, dirichlet_bcs.bc_caches)
-    # dirichlet_dofs = unique(sort(dirichlet_dofs))
     ddofs = dirichlet_dofs(dirichlet_bcs)
   else
     ddofs = Vector{Int}(undef, 0)
@@ -130,36 +128,20 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
 
   update_dofs!(assembler.dof, ddofs)
 
+  # TODO make keyword use_condensed more clear
+  # the use case here being to flag how to update the sparsity pattern
+  # constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
+  # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
+  # # when we want to change BCs which is slow
   if use_condensed
-    _update_dofs_condensed!(assembler)
+    assembler.constraint_storage[assembler.dof.unknown_dofs] .= 0.
+    assembler.constraint_storage[assembler.dof.dirichlet_dofs] .= 1.
   else
-    _update_dofs!(assembler, ddofs)
+    resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
+    resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
+  
+    _update_dofs!(assembler.matrix_pattern, assembler.dof, ddofs)
+    _update_dofs!(assembler.vector_pattern, assembler.dof, ddofs)
   end
-  return nothing
-end
-# TODO Need to specialize below for different field types
-# TODO make keyword use_condensed more clear
-# the use case here being to flag how to update the sparsity pattern
-# constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
-# the residual and stiffness appropriately without having to reshape, Is, Js, etc.
-# when we want to change BCs which is slow
-
-function _update_dofs_condensed!(assembler::AbstractAssembler)
-  assembler.constraint_storage[assembler.dof.unknown_dofs] .= 0.
-  assembler.constraint_storage[assembler.dof.dirichlet_dofs] .= 1.
-  return nothing
-end
-
-# TODO part of this method should be moved to SparsityPattern.jl
-# TODO specialize on field type
-# TODO probably only works on H1 write now
-function _update_dofs!(assembler::SparseMatrixAssembler, dirichlet_dofs::T) where T <: AbstractArray{<:Integer, 1}
-
-  # resize the resiual unkowns
-  resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
-  resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
-
-  _update_dofs!(assembler.matrix_pattern, assembler.dof, dirichlet_dofs)
-  _update_dofs!(assembler.vector_pattern, assembler.dof, dirichlet_dofs)
   return nothing
 end

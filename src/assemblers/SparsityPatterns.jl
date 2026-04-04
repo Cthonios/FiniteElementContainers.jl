@@ -4,7 +4,6 @@ function _setup_block_sizes(dof::DofManager, ndims::Int)
   fspace = function_space(dof)
   n_blocks = num_blocks(fspace)
   block_start_indices = Vector{Int64}(undef, n_blocks)
-  block_el_level_sizes = Vector{Int64}(undef, n_blocks)
 
   start_carry = 1
   for b in 1:n_blocks
@@ -15,11 +14,10 @@ function _setup_block_sizes(dof::DofManager, ndims::Int)
       n_dofs_per_el = (ND * NEPE) * (ND * NEPE)
     end
     block_start_indices[b] = start_carry
-    block_el_level_sizes[b] = n_dofs_per_el
     start_carry = start_carry + n_dofs_per_el * NE
   end
   n_entries = start_carry - 1
-  return block_start_indices, block_el_level_sizes, n_entries
+  return block_start_indices, n_entries
 end
 
 # """
@@ -37,7 +35,6 @@ struct SparseMatrixPattern{
   Js::I
   unknown_dofs::I
   block_start_indices::Vector{Int}
-  block_el_level_sizes::Vector{Int}
   max_entries::Vector{Int}
   # cache arrays
   klasttouch::I
@@ -61,7 +58,7 @@ function SparseMatrixPattern(dof::DofManager)
   fspace = function_space(dof)
   n_blocks = num_blocks(fspace)
 
-  block_start_indices, block_el_level_sizes, n_entries = _setup_block_sizes(dof, 2)
+  block_start_indices, n_entries = _setup_block_sizes(dof, 2)
 
   # setup pre-allocated arrays based on number of entries found above
   Is = Vector{Int64}(undef, n_entries)
@@ -103,7 +100,7 @@ function SparseMatrixPattern(dof::DofManager)
   pattern = SparseMatrixPattern(
     Is, Js, 
     unknown_dofs, 
-    block_start_indices, block_el_level_sizes, [n_entries],
+    block_start_indices, [n_entries],
     # cache arrays
     klasttouch, csrrowptr, csrcolval, csrnzval,
     # additional cache arrays
@@ -131,7 +128,7 @@ function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   return SparseMatrixPattern(
     Is, Js,
     unknown_dofs,
-    asm.block_start_indices, asm.block_el_level_sizes, asm.max_entries,
+    asm.block_start_indices, asm.max_entries,
     klasttouch, csrrowptr, csrcolval, csrnzval,
     csccolptr, cscrowval, cscnzval, perm
   )
@@ -249,7 +246,6 @@ struct SparseVectorPattern{
   permutation::I
   unknown_dofs::I
   block_start_indices::Vector{Int}
-  block_el_level_sizes::Vector{Int}
   max_entries::Vector{Int}
 end
 
@@ -259,7 +255,7 @@ function SparseVectorPattern(dof::DofManager)
   ids = reshape(1:n_total_dofs, ND, NN)
 
   fspace = function_space(dof)
-  block_start_indices, block_el_level_sizes, n_entries = _setup_block_sizes(dof, 1)
+  block_start_indices, n_entries = _setup_block_sizes(dof, 1)
 
   # setup pre-allocated arrays based on number of entries
   Is = Vector{Int64}(undef, n_entries)
@@ -284,7 +280,7 @@ function SparseVectorPattern(dof::DofManager)
 
   return SparseVectorPattern(
     Is, permutation, unknown_dofs,
-    block_start_indices, block_el_level_sizes, [n_entries]
+    block_start_indices, [n_entries]
   )
 end
 
@@ -294,7 +290,6 @@ function Adapt.adapt_structure(to, pattern::SparseVectorPattern)
     adapt(to, pattern.permutation),
     adapt(to, pattern.unknown_dofs),
     pattern.block_start_indices,
-    pattern.block_el_level_sizes,
     pattern.max_entries
   )
 end
