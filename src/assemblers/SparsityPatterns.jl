@@ -143,6 +143,19 @@ function SparseArrays.sparse!(pattern::SparseMatrixPattern, storage)
   )
 end
 
+function block_view(storage::AbstractVector, pattern::SparseMatrixPattern, b::Int)
+  @assert b > 0 && b <= length(pattern.block_start_indices)
+  if b == length(pattern.block_start_indices) || length(pattern.block_start_indices) == 1
+    start_index = pattern.block_start_indices[end]
+    end_index = length(storage)
+  else
+    start_index = pattern.block_start_indices[b]
+    end_index = pattern.block_start_indices[b + 1]
+  end
+  indices = start_index:end_index
+  return view(storage, indices)
+end
+
 num_entries(s::SparseMatrixPattern) = length(s.Is)
 
 # NOTE this methods assumes that dof is up to date

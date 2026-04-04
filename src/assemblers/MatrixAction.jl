@@ -72,7 +72,7 @@ function _assemble_block_matrix_free_action!(
       Kv_q = func_action(physics, interps, x_el, t, Δt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el)
       Kv_el = Kv_el + Kv_q
     end
-    _assemble_element!(field, Kv_el, conn, e, 0)
+    _assemble_element!(field, Kv_el, conn, e)
   end
 end
 
@@ -147,6 +147,6 @@ function _assemble_block_matrix_action!(
     end
     Kv_el = K_el * v_el
 
-    _assemble_element!(field, Kv_el, conn, e, 0)
+    _assemble_element!(field, Kv_el, conn, e)
   end
 end

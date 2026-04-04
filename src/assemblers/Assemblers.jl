@@ -42,11 +42,20 @@ end
   return nothing
 end
 
+@inline function _accumulate_q_value(::AssembledStruct{S}, storage::AbstractArray{T, 3}, val_q, val_e, q, e) where {S, T}
+  # TODO will it always be 1 for how we're using this?
+  storage[1, q, e] = val_q
+  return nothing
+end
+
+# Below methods assume the if storage is a AbstraVector but NOT an AbstractField
+# that the provided storage came from either a sparse matrix or vector
+# if you pass a vector expecting it to act like a dense vector, it WON'T!
 # for IndexedAssembledReturnType, does nothing
 function _assemble_element!(
   storage, val_q, 
   conns, # all connectivities for this element
-  ::Int, ::Int
+  ::Int
 )
   return nothing
 end
@@ -55,7 +64,7 @@ end
 function _assemble_element!(
   storage::AbstractField, R_el::SVector{NDOF, T}, 
   conns, # all connectivities for this element
-  ::Int, ::Int
+  ::Int
 ) where {NDOF, T <: Number}
   n_dofs = size(storage, 1)
   for d in axes(storage, 1)
@@ -72,11 +81,10 @@ end
 function _assemble_element!(
   storage::AbstractVector, R_el::SVector{NDOF, T},
   conns,
-  el_id::Int,
-  block_start_index::Int
+  el_id::Int
 ) where {NDOF, T <: Number}
   # figure out ids needed to update
-  start_id = block_start_index + (el_id - 1) * NDOF
+  start_id = (el_id - 1) * NDOF + 1
   end_id = start_id + NDOF - 1
   ids = start_id:end_id
   for (i, id) in enumerate(ids)
@@ -91,11 +99,10 @@ end
 function _assemble_element!(
   storage, K_el::SMatrix{NDOF1, NDOF2, T, NDOF1xNDOF2}, 
   conns, # all connectivities for this element
-  el_id::Int,
-  block_start_index::Int
+  el_id::Int
 ) where {NDOF1, NDOF2, T, NDOF1xNDOF2}
   # figure out ids needed to update
-  start_id = block_start_index + (el_id - 1) * NDOF1xNDOF2
+  start_id = (el_id - 1) * NDOF1xNDOF2 + 1
   end_id = start_id + NDOF1xNDOF2 - 1
   ids = start_id:end_id
 
@@ -379,7 +386,6 @@ end
 function _assemble_block!(
   field,
   conns::Conn, coffset::Int,
-  block_start_index::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
@@ -406,7 +412,7 @@ function _assemble_block!(
       val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
     end
   
-    _assemble_element!(field, val_el, conn, e, block_start_index)
+    _assemble_element!(field, val_el, conn, e)
   end
 end
 

@@ -38,7 +38,6 @@ function assemble_vector_enzyme_safe!(
       KA.get_backend(storage),
       storage,
       conns.data, conns.offsets[b], 
-      pattern.block_start_indices[b],
       func,
       block_physics, ref_fe,
       X, t, Δt,
@@ -63,7 +62,6 @@ function _assemble_block_enzyme_safe!(
   ::KA.CPU,
   field,
   conns::Conn, coffset::Int,
-  block_start_index::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
@@ -91,7 +89,7 @@ function _assemble_block_enzyme_safe!(
       val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
     end
-    _assemble_element!(field, val_el, conn, e, block_start_index)
+    _assemble_element!(field, val_el, conn, e)
   end
   return nothing
 end
@@ -101,7 +99,6 @@ end
 KA.@kernel function _assemble_block_enzyme_safe_kernel!(
   field,
   conns::Conn, coffset::Int,
-  block_start_index::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
@@ -128,7 +125,7 @@ KA.@kernel function _assemble_block_enzyme_safe_kernel!(
     val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, E)
   end
 
-  _assemble_element!(field, val_el, conn, E, block_start_index)
+  _assemble_element!(field, val_el, conn, E)
 end
 # COV_EXCL_STOP
 
@@ -137,7 +134,6 @@ function _assemble_block_enzyme_safe!(
   backend::KA.Backend, 
   field, 
   conns, coffset::Int,
-  block_start_index,
   func,
   physics, ref_fe,
   X, t, dt, U, U_old, state_old, state_new, props,
@@ -147,7 +143,6 @@ function _assemble_block_enzyme_safe!(
   kernel!(
     field,
     conns, coffset,
-    block_start_index,
     func,
     physics, ref_fe,
     X, t, dt,

@@ -32,7 +32,6 @@ function assemble_vector!(
     _assemble_block!(
       storage,
       conns.data, conns.offsets[b], 
-      pattern.block_start_indices[b],
       func,
       physics, ref_fe,
       X, t, Δt,

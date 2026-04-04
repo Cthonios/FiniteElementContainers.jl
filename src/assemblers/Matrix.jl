@@ -36,9 +36,9 @@ function assemble_matrix!(
   conns = fspace.elem_conns
   foreach_block(fspace, p) do physics, props, ref_fe, b
     _assemble_block!(
-      storage,
+      # storage,
+      block_view(storage, pattern, b),
       conns.data, conns.offsets[b],
-      pattern.block_start_indices[b],
       func,
       physics, ref_fe,
       X, t, dt,
