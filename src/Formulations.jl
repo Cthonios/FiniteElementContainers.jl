@@ -84,18 +84,14 @@ function discrete_gradient(::PlaneStrain, ∇N_X)
   for n in 1:N
     k = 2 * (n - 1) 
     tup = setindex(tup, ∇N_X[n, 1], k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
 
     k = 2 * (n - 1) + 2 * N
-    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 1], k + 2)
     
     k = 2 * (n - 1)  + 2 * 2 * N
     tup = setindex(tup, ∇N_X[n, 2], k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
 
     k = 2 * (n - 1) + 3 * 2 * N
-    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
   end
   return SMatrix{2 * N, 4, eltype(∇N_X), 2 * N * 4}(tup.data)
@@ -106,16 +102,13 @@ $(TYPEDSIGNATURES)
 """
 function discrete_symmetric_gradient(::PlaneStrain, ∇N_X)
   N   = size(∇N_X, 1)
-  # tup = ntuple(i -> 0.0, Val(3 * 2 * N))
   tup = zeros(SVector{3 * 2 * N, eltype(∇N_X)})
 
   for n in 1:N
     k = 2 * (n - 1) 
     tup = setindex(tup, ∇N_X[n, 1], k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
 
     k = 2 * (n - 1) + 2 * N
-    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
 
     k = 2 * (n - 1) + 2 * 2 * N
@@ -131,7 +124,6 @@ $(TYPEDSIGNATURES)
 """
 function discrete_values(::PlaneStrain, N)
   N_nodes = size(N, 1)
-  # tup = ntuple(i -> 0.0, Val(2 * N_nodes))
   tup = zeros(SVector{2 * N_nodes, eltype(N)})
 
   for n in 1:N_nodes
@@ -142,7 +134,6 @@ function discrete_values(::PlaneStrain, N)
     tup = setindex(tup, N[n], n + N_nodes)
   end
 
-  # return SVector{2 * N_nodes, eltype(N)}(tup)
   return tup
 end
 
@@ -216,55 +207,34 @@ $(TYPEDSIGNATURES)
 """
 function discrete_gradient(::ThreeDimensional, ∇N_X)
   N   = size(∇N_X, 1)
-  # tup = ntuple(i -> 0.0, Val(9 * 3 * N))
   tup = zeros(SVector{9 * 3 * N, eltype(∇N_X)})
 
   for n in 1:N
     k = 3 * (n - 1) 
     tup = setindex(tup, ∇N_X[n, 1], k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
-    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 3 * N
-    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 1], k + 2)
-    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 2 * 3 * N
-    # tup = setindex(tup, 0.0,        k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
     tup = setindex(tup, ∇N_X[n, 1], k + 3)
 
-    #AbstractElementFormulation
     k = 3 * (n - 1) + 3 * 3 * N
     tup = setindex(tup, ∇N_X[n, 2], k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
-    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 4 * 3 * N
-    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
-    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 5 * 3 * N
-    # tup = setindex(tup, 0.0,        k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
     tup = setindex(tup, ∇N_X[n, 2], k + 3)
 
-    #
     k = 3 * (n - 1) + 6 * 3 * N
     tup = setindex(tup, ∇N_X[n, 3], k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
-    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 7 * 3 * N
-    # tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 3], k + 2)
-    # tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 8 * 3 * N
-    # tup = setindex(tup, 0.0,        k + 1)
-    # tup = setindex(tup, 0.0,        k + 2)
     tup = setindex(tup, ∇N_X[n, 3], k + 3)
   end
 
@@ -276,38 +246,28 @@ $(TYPEDSIGNATURES)
 """
 function discrete_symmetric_gradient(::ThreeDimensional, ∇N_X)
   N   = size(∇N_X, 1)
-  # tup = ntuple(i -> 0.0, Val(6 * 3 * N))
   tup = zeros(SVector{6 * 3 * N, eltype(∇N_X)})
 
   for n in 1:N
     k = 3 * (n - 1)
     tup = setindex(tup, ∇N_X[n, 1], k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 2], k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 2 * 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
     tup = setindex(tup, ∇N_X[n, 3], k + 3)
 
     k = 3 * (n - 1) + 3 * 3 * N
     tup = setindex(tup, ∇N_X[n, 2], k + 1)
     tup = setindex(tup, ∇N_X[n, 1], k + 2)
-    tup = setindex(tup, 0.0,        k + 3)
 
     k = 3 * (n - 1) + 4 * 3 * N
-    tup = setindex(tup, 0.0,        k + 1)
     tup = setindex(tup, ∇N_X[n, 3], k + 2)
     tup = setindex(tup, ∇N_X[n, 2], k + 3)
 
     k = 3 * (n - 1) + 5 * 3 * N
     tup = setindex(tup, ∇N_X[n, 3], k + 1)
-    tup = setindex(tup, 0.0,        k + 2)
     tup = setindex(tup, ∇N_X[n, 1], k + 3)
 
   end
@@ -319,7 +279,6 @@ $(TYPEDSIGNATURES)
 """
 function discrete_values(::ThreeDimensional, N)
   N_nodes = size(N, 1)
-  # tup = ntuple(i -> 0.0, Val(3 * N_nodes))
   tup = zeros(SVector{3 * N_nodes, eltype(N)})
 
   for n in 1:N_nodes
@@ -334,7 +293,6 @@ function discrete_values(::ThreeDimensional, N)
     tup = setindex(tup, N[n], n + 2 * N_nodes)
   end
 
-  # return SVector{3 * N_nodes, eltype(N)}(tup)
   return tup
 end
 
@@ -392,15 +350,3 @@ function project_with_symmetric_gradients!(
 
   return nothing
 end
-
-# include("PlaneStrain.jl")
-# include("ThreeDimensional.jl")
-
-# include("PlaneStrain.jl")
-# include("ThreeDimensional.jl")
-
-# include("PlaneStrain.jl")
-# include("ThreeDimensional.jl")
-
-# include("PlaneStrain.jl")
-# include("ThreeDimensional.jl")
