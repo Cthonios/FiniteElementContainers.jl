@@ -61,21 +61,20 @@ function _assemble_block_vector_weakly_enforced_bc!(
 )
   fec_foreach(sides) do e
     side = sides[e]
-    conn = connectivity(ref_fe, conns, e, 1)
-    x_el = _element_level_fields(X, ref_fe, conn)#s, E)
-    R_el = _element_scratch(AssembledVector(), boundary_element(ref_fe, side), U)
+    conn = connectivity(ref_fe, conns, e, 1) # 1 for coffset
+    surf_conns = surface_connectivity(ref_fe, conns, side, e, 1) # 1 for coffset
+    x_el = _element_level_fields(X, ref_fe, conn)
   
     for q in 1:num_surface_quadrature_points(ref_fe)
-      # interps = _surface_interpolants(ref_fe, q, side)
       interps = MappedH1OrL2SurfaceInterpolants(ref_fe, x_el, q, side)
       Nvec = interps.N_reduced
       JxW = interps.JxW
   
       f_val = vals[q, e]
-      R_el = R_el + JxW * reduce(vcat, ntuple(i -> Nvec[i] * f_val, length(Nvec)))
+      form = GeneralFormulation{num_fields(field)}()
+      # NOTE e is obviously not correct below but it isn't used
+      # in this method anyway when field is an AbstractField
+      project_with_values!(field, form, e, surf_conns, Nvec, JxW * f_val)
     end
-  
-    surf_conns = surface_connectivity(ref_fe, conns, side, e, 1)
-    _assemble_element!(field, R_el, surf_conns, e)
   end
 end

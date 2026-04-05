@@ -1,4 +1,15 @@
-function test_plane_strain(∇N_X, ∇u_q, A_q)
+using FiniteElementContainers
+using ReferenceFiniteElements
+using StaticArrays
+using Tensors
+using Test
+
+# TODO need tests for the default imlementations
+# values
+# etc.
+
+function test_plane_strain(interps, ∇u_q, A_q)
+  ∇N_X = interps.∇N_X
   form = PlaneStrain()
   @test FiniteElementContainers.num_dimensions(form) == 2
   ∇u_t = modify_field_gradients(form, ∇u_q)
@@ -69,41 +80,67 @@ function test_plane_strain(∇N_X, ∇u_q, A_q)
   @test G[8, 3] ≈ 0.0
   @test G[8, 4] ≈ ∇N_X[4, 2]
 
-  G = discrete_symmetric_gradient(form, ∇N_X)
-  @test G[1, 1] ≈ ∇N_X[1, 1]
-  @test G[1, 2] ≈ 0.0
-  @test G[1, 3] ≈ ∇N_X[1, 2]
+  GPv = G * P_vec
+
+  # compare static to in place approach for single element
+  storage = H1Field(zeros(2, 4))
+  conns = 1:4 |> collect
+  FiniteElementContainers.project_with_gradients!(storage, form, 1, conns, interps, ∇u_t)
+
+  @test all(GPv .≈ storage.data)
+
+  B = discrete_symmetric_gradient(form, ∇N_X)
+  @test B[1, 1] ≈ ∇N_X[1, 1]
+  @test B[1, 2] ≈ 0.0
+  @test B[1, 3] ≈ ∇N_X[1, 2]
   # 
-  @test G[2, 1] ≈ 0.0
-  @test G[2, 2] ≈ ∇N_X[1, 2]
-  @test G[2, 3] ≈ ∇N_X[1, 1]
+  @test B[2, 1] ≈ 0.0
+  @test B[2, 2] ≈ ∇N_X[1, 2]
+  @test B[2, 3] ≈ ∇N_X[1, 1]
   # 
-  @test G[3, 1] ≈ ∇N_X[2, 1]
-  @test G[3, 2] ≈ 0.0
-  @test G[3, 3] ≈ ∇N_X[2, 2]
+  @test B[3, 1] ≈ ∇N_X[2, 1]
+  @test B[3, 2] ≈ 0.0
+  @test B[3, 3] ≈ ∇N_X[2, 2]
   # 
-  @test G[4, 1] ≈ 0.0
-  @test G[4, 2] ≈ ∇N_X[2, 2]
-  @test G[4, 3] ≈ ∇N_X[2, 1]
+  @test B[4, 1] ≈ 0.0
+  @test B[4, 2] ≈ ∇N_X[2, 2]
+  @test B[4, 3] ≈ ∇N_X[2, 1]
   #
-  @test G[5, 1] ≈ ∇N_X[3, 1]
-  @test G[5, 2] ≈ 0.0
-  @test G[5, 3] ≈ ∇N_X[3, 2]
+  @test B[5, 1] ≈ ∇N_X[3, 1]
+  @test B[5, 2] ≈ 0.0
+  @test B[5, 3] ≈ ∇N_X[3, 2]
   # 
-  @test G[6, 1] ≈ 0.0
-  @test G[6, 2] ≈ ∇N_X[3, 2]
-  @test G[6, 3] ≈ ∇N_X[3, 1]
+  @test B[6, 1] ≈ 0.0
+  @test B[6, 2] ≈ ∇N_X[3, 2]
+  @test B[6, 3] ≈ ∇N_X[3, 1]
   #
-  @test G[7, 1] ≈ ∇N_X[4, 1]
-  @test G[7, 2] ≈ 0.0
-  @test G[7, 3] ≈ ∇N_X[4, 2]
+  @test B[7, 1] ≈ ∇N_X[4, 1]
+  @test B[7, 2] ≈ 0.0
+  @test B[7, 3] ≈ ∇N_X[4, 2]
   # 
-  @test G[8, 1] ≈ 0.0
-  @test G[8, 2] ≈ ∇N_X[4, 2]
-  @test G[8, 3] ≈ ∇N_X[4, 1]
+  @test B[8, 1] ≈ 0.0
+  @test B[8, 2] ≈ ∇N_X[4, 2]
+  @test B[8, 3] ≈ ∇N_X[4, 1]
+
+  # check extract stress for symmetric case
+  S = rand(SymmetricTensor{2, 3, Float64, 6})
+  S_vec = extract_stress(form, S)
+  @test S_vec[1] ≈ S[1, 1]
+  @test S_vec[2] ≈ S[2, 2]
+  @test S_vec[3] ≈ S[1, 2]
+
+  BSv = B * S_vec
+
+  # compare static to in place approach for single element
+  storage = H1Field(zeros(2, 4))
+  conns = 1:4 |> collect
+  FiniteElementContainers.project_with_symmetric_gradients!(storage, form, 1, conns, interps, S)
+
+  @test all(BSv .≈ storage.data)
 end 
 
-function test_three_dimensional(∇N_X, ∇u_q, A_q)
+function test_three_dimensional(interps, ∇u_q, A_q)
+  ∇N_X = interps.∇N_X
   form = ThreeDimensional()
   @test FiniteElementContainers.num_dimensions(form) == 3
   ∇u_t = modify_field_gradients(form, ∇u_q)
@@ -236,48 +273,73 @@ function test_three_dimensional(∇N_X, ∇u_q, A_q)
     @test G[n + 2, 9] ≈ ∇N_X[k + 1, 3]
   end
 
-  G = discrete_symmetric_gradient(form, ∇N_X)
+  GPv = G * P_vec
+
+  # compare static to in place approach for single element
+  storage = H1Field(zeros(3, 8))
+  conns = 1:8 |> collect
+  FiniteElementContainers.project_with_gradients!(storage, form, 1, conns, interps, ∇u_t)
+
+  @test all(GPv .≈ storage.data)
+
+  B = discrete_symmetric_gradient(form, ∇N_X)
   for n in 1:3:24
     k = (n - 1) ÷ 3
-    @test G[n, 1] ≈ ∇N_X[k + 1, 1]
-    @test G[n, 2] ≈ 0.0
-    @test G[n, 3] ≈ 0.0
-    @test G[n, 4] ≈ ∇N_X[k + 1, 2]
-    @test G[n, 5] ≈ 0.0
-    @test G[n, 6] ≈ ∇N_X[k + 1, 3]
+    @test B[n, 1] ≈ ∇N_X[k + 1, 1]
+    @test B[n, 2] ≈ 0.0
+    @test B[n, 3] ≈ 0.0
+    @test B[n, 4] ≈ ∇N_X[k + 1, 2]
+    @test B[n, 5] ≈ 0.0
+    @test B[n, 6] ≈ ∇N_X[k + 1, 3]
     #
-    @test G[n + 1, 1] ≈ 0.0
-    @test G[n + 1, 2] ≈ ∇N_X[k + 1, 2]
-    @test G[n + 1, 3] ≈ 0.0
-    @test G[n + 1, 4] ≈ ∇N_X[k + 1, 1]
-    @test G[n + 1, 5] ≈ ∇N_X[k + 1, 3]
-    @test G[n + 1, 6] ≈ 0.0
+    @test B[n + 1, 1] ≈ 0.0
+    @test B[n + 1, 2] ≈ ∇N_X[k + 1, 2]
+    @test B[n + 1, 3] ≈ 0.0
+    @test B[n + 1, 4] ≈ ∇N_X[k + 1, 1]
+    @test B[n + 1, 5] ≈ ∇N_X[k + 1, 3]
+    @test B[n + 1, 6] ≈ 0.0
     #
-    @test G[n + 2, 1] ≈ 0.0
-    @test G[n + 2, 2] ≈ 0.0
-    @test G[n + 2, 3] ≈ ∇N_X[k + 1, 3]
-    @test G[n + 2, 4] ≈ 0.0
-    @test G[n + 2, 5] ≈ ∇N_X[k + 1, 2]
-    @test G[n + 2, 6] ≈ ∇N_X[k + 1, 1]
+    @test B[n + 2, 1] ≈ 0.0
+    @test B[n + 2, 2] ≈ 0.0
+    @test B[n + 2, 3] ≈ ∇N_X[k + 1, 3]
+    @test B[n + 2, 4] ≈ 0.0
+    @test B[n + 2, 5] ≈ ∇N_X[k + 1, 2]
+    @test B[n + 2, 6] ≈ ∇N_X[k + 1, 1]
   end
 
+  S = rand(SymmetricTensor{2, 3, Float64, 6})
+  S_vec = extract_stress(form, S)
+  @test S_vec[1] ≈ S[1, 1]
+  @test S_vec[2] ≈ S[2, 2]
+  @test S_vec[3] ≈ S[3, 3]
+  @test S_vec[4] ≈ S[1, 2]
+  @test S_vec[5] ≈ S[2, 3]
+  @test S_vec[6] ≈ S[3, 1]
+
+  BSv = B * S_vec
+
+  # compare static to in place approach for single element
+  storage = H1Field(zeros(3, 8))
+  conns = 1:8 |> collect
+  FiniteElementContainers.project_with_symmetric_gradients!(storage, form, 1, conns, interps, S)
+
+  @test all(BSv .≈ storage.data)
 end
 
 # TODO test formulations on various element types
 function test_formulations()
-  X = [
+  X = SMatrix{2, 4, Float64, 8}([
     0.0 0.0;
     1.0 0.0;
     1.0 1.0; 
     0.0 1.0
-  ]'
+  ]')
   ref_fe = ReferenceFE(Quad{Lagrange, 1}(), GaussLobattoLegendre(1))
-  ∇N_X = MappedH1OrL2Interpolants(ref_fe, X, 1).∇N_X
-  # ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
+  interps = MappedH1OrL2Interpolants(ref_fe, X, 1)
   ∇u_q = SMatrix{2, 2, Float64, 4}((1., 2., 3., 4.))
   A_q = Tensor{4, 3, Float64, 81}(reshape(1:81, 9, 9)')
-  test_plane_strain(∇N_X, ∇u_q, A_q)
-  X = [
+  test_plane_strain(interps, ∇u_q, A_q)
+  X = SMatrix{3, 8, Float64, 24}([
     0.0 0.0 0.0;
     1.0 0.0 0.0;
     1.0 1.0 0.0; 
@@ -286,12 +348,12 @@ function test_formulations()
     1.0 0.0 1.0;
     1.0 1.0 1.0; 
     0.0 1.0 1.0;
-  ]'
+  ]')
   ref_fe = ReferenceFE(Hex{Lagrange, 1}(), GaussLobattoLegendre(1))
   # ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
-  ∇N_X = MappedH1OrL2Interpolants(ref_fe, X, 1).∇N_X
+  interps = MappedH1OrL2Interpolants(ref_fe, X, 1)
   ∇u_q = SMatrix{3, 3, Float64, 9}((1., 2., 3., 4., 5., 6., 7., 8., 9.))
-  test_three_dimensional(∇N_X, ∇u_q, A_q)
+  test_three_dimensional(interps, ∇u_q, A_q)
 end
 
 @testset "Formulations" begin
