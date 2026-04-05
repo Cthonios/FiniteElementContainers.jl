@@ -16,7 +16,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble_vector_enzyme_safe!(
-  storage, pattern, dof, func::F, Uu, p
+  storage::AbstractField, pattern, dof, func::F, Uu, p
 ) where F <: Function
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
@@ -60,7 +60,7 @@ TODO add state variables and physics properties
 """
 function _assemble_block_enzyme_safe!(
   ::KA.CPU,
-  field,
+  field::AbstractField,
   conns::Conn, coffset::Int,
   func::Function,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
@@ -89,7 +89,17 @@ function _assemble_block_enzyme_safe!(
       val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
     end
-    _assemble_element!(field, val_el, conn, e)
+    # _assemble_element!(field, val_el, conn, e)
+
+    # writing inline to avoid atomic call
+    n_dofs = size(field, 1)
+    for d in axes(field, 1)
+      for n in axes(conn, 1)
+        global_id = n_dofs * (conn[n] - 1) + d
+        local_id = n_dofs * (n - 1) + d
+        field.data[global_id] += val_el[local_id]
+      end
+    end
   end
   return nothing
 end
@@ -125,6 +135,7 @@ KA.@kernel function _assemble_block_enzyme_safe_kernel!(
     val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, E)
   end
 
+  # need the atomic here
   _assemble_element!(field, val_el, conn, E)
 end
 # COV_EXCL_STOP

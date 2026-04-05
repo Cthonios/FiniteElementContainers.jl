@@ -43,23 +43,21 @@ function assemble_vector_source!(storage, pattern, dof, Uu, p)
 end
 
 function _assemble_block_vector_source!(
-  field, conns, coffset, ref_fe, X, U, vals
+  field::AbstractField, conns, coffset, ref_fe, X, U, vals
 )
   fec_foraxes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     X_el = _element_level_fields_flat(X, ref_fe, conn)
-    R_el = _element_scratch(AssembledVector(), ref_fe, U)
   
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       interps = map_interpolants(interps, X_el)
-      Nvec = interps.N
+      N = interps.N
       JxW  = interps.JxW
       b_val = vals[q, e]
   
-      R_el = R_el - JxW * reduce(vcat, ntuple(i -> Nvec[i] * b_val, length(Nvec)))
+      form = GeneralFormulation{num_fields(field)}()
+      project_with_values!(field, form, e, conn, N, -JxW * b_val)
     end
-  
-    @views _assemble_element!(field, R_el, conn, e)
   end
 end

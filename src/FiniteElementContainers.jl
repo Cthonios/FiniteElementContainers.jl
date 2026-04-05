@@ -52,8 +52,9 @@ export num_entities
 export num_fields
 
 # Formulations
+export AbstractElementFormulation
+export AbstractMechanicsElementFormulation
 export PlaneStrain
-export ScalarFormulation
 export ThreeDimensional
 export discrete_gradient
 export discrete_symmetric_gradient
@@ -63,7 +64,6 @@ export extract_stiffness
 export modify_field_gradients
 
 # FunctionSpaces
-export AbstractMechanicsFormulation
 export FunctionSpace
 
 export num_elements
@@ -196,7 +196,6 @@ cpu(x) = adapt(Array, x)
 # include("parallel/Parallel.jl")
 include("PostProcessors.jl")
 include("fields/Fields.jl")
-# include("Utils.jl")
 include("meshes/Meshes.jl")
 include("FunctionSpaces.jl")
 include("Functions.jl")
@@ -204,10 +203,10 @@ include("DofManagers.jl")
 
 include("bcs/BoundaryConditions.jl")
 include("constraints/Constraints.jl")
-include("ics/InitialConditions.jl")
+include("InitialConditions.jl")
 
-include("formulations/Formulations.jl")
-include("physics/Physics.jl")
+include("Formulations.jl")
+include("Physics.jl")
 include("assemblers/Assemblers.jl")
 #
 include("TimeSteppers.jl")
