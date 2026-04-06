@@ -27,6 +27,9 @@ end
 struct AssembledSparseVector <: AdditiveAssembledReturnType
 end
 
+struct AssembledDiagonal <: AssembledReturnType
+end
+
 @inline function _accumulate_q_value(::AdditiveAssembledReturnType, storage, val_q, val_e, q, e)
   return val_e + val_q
 end
@@ -34,6 +37,11 @@ end
 @inline function _accumulate_q_value(::IndexedAssembledReturnType, storage, val_q, val_e, q, e)
   storage[q, e] = val_q
   return nothing
+end
+
+@inline function _accumulate_q_value(::AssembledDiagonal, storage, K_q::SMatrix{N, N, T}, val_e, q, e) where {N, T}
+  diag_q = SVector{N, T}(ntuple(i -> K_q[i, i], Val(N)))
+  return val_e + diag_q
 end
 
 @inline function _accumulate_q_value(::AssembledScalar, storage::AbstractArray{T, 3}, val_q, val_e, q, e) where T
@@ -225,6 +233,12 @@ $(TYPEDSIGNATURES)
   NxNDof = NNPE * NF
   R_el = zeros(SVector{NxNDof, eltype(U)})
   return R_el
+end
+
+@inline function _element_scratch(::AssembledDiagonal, ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
+  return zeros(SVector{NxNDof, eltype(U)})
 end
 
 """
@@ -489,3 +503,4 @@ include("QuadratureQuantity.jl")
 include("Source.jl")
 include("Vector.jl")
 include("WeaklyEnforcedBCs.jl")
+include("Diagonal.jl")
