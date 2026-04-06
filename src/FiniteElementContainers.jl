@@ -125,6 +125,8 @@ export num_states
 export reshape_element_level_field
 export unpack_field
 
+export assemble_diagonal!
+export diagonal
 export energy
 export hvp
 export mass
