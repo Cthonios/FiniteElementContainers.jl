@@ -16,23 +16,121 @@ function modify_field_gradients(::AbstractElementFormulation{ND}, ∇u) where ND
 end
 function project_with_gradients!(
     storage::AbstractField, form::AbstractElementFormulation{ND},
-    e, conns, interps, vals
+    e, conns, ∇N_X, vals
 ) where ND
-    ∇N_X = interps.∇N_X
     N = size(∇N_X, 1)
     for n in 1:N
         global_base = ND * (conns[n] - 1)
     
-        for d in 1:num_dimensions(form)
+        for d in axes(vals, 1)
             contrib = zero(eltype(storage))
-            for j in 1:num_dimensions(form)
+            for j in axes(vals, 2)
                 contrib += ∇N_X[n, j] * vals[d, j]
             end
-            Atomix.@atomic storage.data[global_base + d] += contrib
+            # Atomix.@atomic storage.data[global_base + d] += contrib
+            fec_atomic_add!(storage, global_base + d, contrib)
         end
     end
 end
+# function project_with_gradients_and_gradients!(
+#   storage::AbstractField, form::AbstractElementFormulation{ND},
+#   e, conns, ∇N_X, vals::T
+# ) where {ND, T <: Number}
+
+# end
+# scalar case
+function project_with_gradients_and_gradients!(
+  storage::AbstractVector,
+  form::AbstractElementFormulation{ND},
+  e,
+  conns,
+  ∇N_X,
+  k::T,
+  JxW::T
+) where {ND, T <: Number}
+  N = size(∇N_X, 1)
+
+  for n1 in 1:N
+    global_i = conns[n1]
+
+    for n2 in 1:N
+      global_j = conns[n2]
+
+      contrib = zero(T)
+      for j in 1:ND
+          contrib += ∇N_X[n1, j] * k * ∇N_X[n2, j]
+      end
+
+      # storage[global_i, global_j] += JxW * contrib
+      # TODO finish me
+      @assert false
+    end
+  end
+
+  return nothing
+end
+function project_with_gradients_and_gradients!(
+  storage::AbstractVector,
+  form::AbstractElementFormulation{ND},
+  e,
+  conns,
+  ∇N_X,
+  A::Tensor{4, 3, T, 81},  # material tangent, ND2 = ND^2
+  JxW::T
+) where {ND, T <: Number}
+  K_voigt = extract_stiffness(form, A)
+  N = size(∇N_X, 1)
+
+  for n1 in 1:N
+    global_base_i = ND * (conns[n1] - 1)
+
+    for n2 in 1:N
+      global_base_j = ND * (conns[n2] - 1)
+
+      for d1 in 1:ND   # row DOF for node n1
+        for d2 in 1:ND  # col DOF for node n2
+          # Compute G[row, :]' * K * G[col, :]
+          # where row = global_base_i + d1, col = global_base_j + d2
+          # G[row, a] = ∇N_X[n1, ceil(a/ND)] if (a-1)%ND+1 == d1, else 0
+          # i.e. for column block a = (j-1)*ND + d1, G[row,a] = ∇N_X[n1, j]
+          contrib = zero(T)
+          for j1 in 1:ND   # gradient direction for node n1
+              a = (j1 - 1) * ND + d1   # voigt row index into K
+              for j2 in 1:ND  # gradient direction for node n2
+                  b = (j2 - 1) * ND + d2  # voigt col index into K
+                  contrib += ∇N_X[n1, j1] * K_voigt[a, b] * ∇N_X[n2, j2]
+              end
+          end
+
+          # global_i = global_base_i + d1
+          # global_j = global_base_j + d2
+          # storage[global_i, global_j] += JxW * contrib
+          # TODO finish me, above is not right for indexing
+          @assert false
+        end
+      end
+    end
+  end
+
+  return nothing
+end
 # implement for those that have it
+function project_with_values!(
+  storage::AbstractField, ::AbstractElementFormulation{ND},
+  e, conns, N, vals::T
+) where {ND, T <: Number}
+  # TODO make this compile time checked through generics
+  n_dofs = size(storage, 1)
+  @assert n_dofs == ND
+  # for d in axes(storage, 1)
+  for n in 1:length(N)
+    contrib = N[n] * vals
+    global_id = n_dofs * (conns[n] - 1) + 1
+    # Atomix.@atomic storage.data[global_id] += contrib
+    fec_atomic_add!(storage, global_id, contrib)
+  end
+  # end
+end
 function project_with_values!(
     storage::AbstractField, ::AbstractElementFormulation{ND},
     e, conns, N, vals::SVector{ND, T}
@@ -41,11 +139,12 @@ function project_with_values!(
     n_dofs = size(storage, 1)
     @assert n_dofs == ND
     for d in axes(storage, 1)
-        for n in 1:length(N)
-            contrib = N[n] * vals
-            global_id = n_dofs * (conns[n] - 1) + d
-            Atomix.@atomic storage.data[global_id] += contrib[d]
-        end
+      for n in 1:length(N)
+        contrib = N[n] * vals
+        global_id = n_dofs * (conns[n] - 1) + d
+        # Atomix.@atomic storage.data[global_id] += contrib[d]
+        fec_atomic_add!(storage, global_id, contrib[d])
+      end
     end
 end
 # doesn't implement extract stress/stiffness
@@ -63,6 +162,11 @@ abstract type AbstractMechanicsElementFormulation{ND} <: AbstractElementFormulat
 function extract_stiffness end
 function extract_stress end
 function project_with_symmetric_gradient! end
+
+##########################################################################
+# Axisymmetric strain kinematics
+##########################################################################
+# TODO
 
 ##########################################################################
 # Plane strain kinematics
@@ -173,8 +277,7 @@ function modify_field_gradients(::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}) wher
   ))
 end
 
-function project_with_symmetric_gradients!(storage::AbstractField, form::PlaneStrain, e, conns, interps, S::SymmetricTensor{2, 3, T, 6}) where T <: Number
-  ∇N_X   = interps.∇N_X
+function project_with_symmetric_gradients!(storage::AbstractField, form::PlaneStrain, e, conns, ∇N_X, S::SymmetricTensor{2, 3, T, 6}) where T <: Number
   N      = size(∇N_X, 1)
   n_dofs = size(storage, 1)
   S_vec = extract_stress(form, S)
@@ -185,8 +288,10 @@ function project_with_symmetric_gradients!(storage::AbstractField, form::PlaneSt
       global_id_odd  = n_dofs * (conns[n] - 1) + 1
       global_id_even = n_dofs * (conns[n] - 1) + 2
 
-      Atomix.@atomic storage.data[global_id_odd]  += contrib_odd
-      Atomix.@atomic storage.data[global_id_even] += contrib_even
+      # Atomix.@atomic storage.data[global_id_odd]  += contrib_odd
+      # Atomix.@atomic storage.data[global_id_even] += contrib_even
+      fec_atomic_add!(storage, global_id_odd, contrib_odd)
+      fec_atomic_add!(storage, global_id_even, contrib_even)
   end
 
   return nothing
@@ -329,23 +434,24 @@ function project_with_symmetric_gradients!(
   form::ThreeDimensional, 
   e, 
   conns, 
-  interps, 
+  ∇N_X,
   S::SymmetricTensor{2, 3, T, 6}
 ) where T <: Number
-  ∇N_X   = interps.∇N_X
-  N      = size(∇N_X, 1)
-  n_dofs = size(storage, 1)
-  S_vec  = extract_stress(form, S)
-
+  N       = size(∇N_X, 1)
+  n_dofs  = size(storage, 1)
+  S_vec   = extract_stress(form, S)
   for n in 1:N
       contrib_1 = ∇N_X[n, 1] * S_vec[1] + ∇N_X[n, 2] * S_vec[4] + ∇N_X[n, 3] * S_vec[6]
       contrib_2 = ∇N_X[n, 2] * S_vec[2] + ∇N_X[n, 1] * S_vec[4] + ∇N_X[n, 3] * S_vec[5]
       contrib_3 = ∇N_X[n, 3] * S_vec[3] + ∇N_X[n, 2] * S_vec[5] + ∇N_X[n, 1] * S_vec[6]
 
       global_base = n_dofs * (conns[n] - 1)
-      Atomix.@atomic storage.data[global_base + 1] += contrib_1
-      Atomix.@atomic storage.data[global_base + 2] += contrib_2
-      Atomix.@atomic storage.data[global_base + 3] += contrib_3
+      # Atomix.@atomic storage.data[global_base + 1] += contrib_1
+      # Atomix.@atomic storage.data[global_base + 2] += contrib_2
+      # Atomix.@atomic storage.data[global_base + 3] += contrib_3
+      fec_atomic_add!(storage, global_base + 1, contrib_1)
+      fec_atomic_add!(storage, global_base + 2, contrib_2)
+      fec_atomic_add!(storage, global_base + 3, contrib_3)
   end
 
   return nothing

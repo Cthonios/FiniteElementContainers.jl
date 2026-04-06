@@ -2,6 +2,7 @@ using Adapt
 using AMDGPU
 using Aqua
 using CUDA
+using Exodus
 using FiniteElementContainers
 using ForwardDiff
 using Gmsh
@@ -33,72 +34,81 @@ include("TestIntegrals.jl")
 include("TestMesh.jl")
 include("TestPhysics.jl")
 
+function _get_backends()
+  backends = Function[cpu]
+  if AMDGPU.functional()
+    push!(backends, rocm)
+  end
+  if CUDA.functional()
+    push!(backends, cuda)
+  end
+  return backends
+end
+
 # "Regression" tests below
 function test_laplace()
+  backends = _get_backends()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
-  condensed = [false, true]
   lsolvers = [cg_solver, DirectLinearSolver]
-  # cpu tests
-  for cond in condensed
-    for lsolver in lsolvers
-      test_laplace(cpu, cond, NewtonSolver, lsolver)
-    end
-  end
+  use_condensed = [false, true]
+  use_static_arrays = [true]
 
-  if AMDGPU.functional()
-    for cond in condensed
-      test_laplace(rocm, cond, NewtonSolver, cg_solver)
-    end
-  end
-
-  if CUDA.functional()
-    for cond in condensed
-      test_laplace(cuda, cond, NewtonSolver, cg_solver)
+  for backend in backends
+    for cond in use_condensed
+      for use_static_array in use_static_arrays
+        for lsolver in lsolvers
+          if backend != cpu && lsolver == DirectLinearSolver
+            continue
+          end
+          test_laplace(backend, NewtonSolver, lsolver; use_condensed = cond, use_static_arrays = use_static_array)
+        end
+      end
     end
   end
 end
 
 function test_poisson()
+  backends = _get_backends()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
-  condensed = [false, true]
   lsolvers = [cg_solver, DirectLinearSolver]
-  # cpu tests
-  for cond in condensed
-    for lsolver in lsolvers
-      test_poisson(cpu, cond, NewtonSolver, lsolver)
+  use_condensed = [false, true]
+  use_static_arrays = [false, true]
+
+  for backend in backends
+    for cond in use_condensed
+      for use_static_array in use_static_arrays
+        for lsolver in lsolvers
+          if backend != cpu && lsolver == DirectLinearSolver
+            continue
+          end
+          test_poisson(backend, NewtonSolver, lsolver; use_condensed = cond, use_static_arrays = use_static_array)
+        end
+      end
     end
   end
+
+  # TODO move this to first class status
   test_poisson_pbcs()
-
-  if AMDGPU.functional()
-    for cond in condensed
-      test_poisson(rocm, cond, NewtonSolver, cg_solver)
-    end
-  end
-
-  if CUDA.functional()
-    for cond in condensed
-      test_poisson(cuda, cond, NewtonSolver, cg_solver)
-    end
-  end
 end
 
 function test_mechanics()
+  backends = _get_backends()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
+  lsolvers = [cg_solver, DirectLinearSolver]
+  use_condensed = [false, true]
+  use_static_arrays = [true]
 
-  test_mechanics_dirichlet_only(cpu, false, NewtonSolver, DirectLinearSolver)
-  test_mechanics_dirichlet_only(cpu, true, NewtonSolver, DirectLinearSolver)
-  test_mechanics_dirichlet_only(cpu, false, NewtonSolver, cg_solver)
-  test_mechanics_dirichlet_only(cpu, true, NewtonSolver, cg_solver)
-  
-  if AMDGPU.functional()
-    test_mechanics_dirichlet_only(rocm, false, NewtonSolver, cg_solver)
-    test_mechanics_dirichlet_only(rocm, true, NewtonSolver, cg_solver)
-  end
-
-  if CUDA.functional()
-    test_mechanics_dirichlet_only(cuda, false, NewtonSolver, cg_solver)
-    test_mechanics_dirichlet_only(cuda, true, NewtonSolver, cg_solver)
+  for backend in backends
+    for cond in use_condensed
+      for use_static_array in use_static_arrays
+        for lsolver in lsolvers
+          if backend != cpu && lsolver == DirectLinearSolver
+            continue
+          end
+          test_mechanics_dirichlet_only(backend, NewtonSolver, lsolver; use_condensed = cond, use_static_arrays = use_static_array)
+        end
+      end
+    end
   end
 end
 

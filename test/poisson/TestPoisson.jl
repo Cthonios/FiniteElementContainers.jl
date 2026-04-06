@@ -22,31 +22,32 @@ bc_func_neumann(_, _) = SVector{1, Float64}(1.)
 
 # read mesh and relevant quantities
 
-function test_poisson(backend, cond, nlsolver, lsolver)
-  test_poisson_dirichlet(backend, cond, nlsolver, lsolver)
-  test_poisson_dirichlet_with_nodesets(backend, cond, nlsolver, lsolver)
-  test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(backend, cond, nlsolver, lsolver)
-  test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(backend, cond, nlsolver, lsolver)
-  test_poisson_dirichlet_multi_block_quad4_quad4(backend, cond, nlsolver, lsolver)
-  test_poisson_dirichlet_multi_block_quad4_tri3(backend, cond, nlsolver, lsolver)
-  test_poisson_dirichlet_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
-  test_poisson_dirichlet_structured_mesh_tri3(backend, cond, nlsolver, lsolver)
-  test_poisson_neumann(backend, cond, nlsolver, lsolver)
-  test_poisson_neumann_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
-  test_poisson_neumann_structured_mesh_tri3(backend, cond, nlsolver, lsolver)
+function test_poisson(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_dirichlet(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_dirichlet_with_nodesets(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_dirichlet_multi_block_quad4_quad4(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_dirichlet_multi_block_quad4_tri3(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_dirichlet_structured_mesh_quad4(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_dirichlet_structured_mesh_tri3(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_neumann(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_neumann_structured_mesh_quad4(backend, nlsolver, lsolver; kwargs...)
+  test_poisson_neumann_structured_mesh_tri3(backend, nlsolver, lsolver; kwargs...)
   # test_poisson_robin(backend, cond, nlsolver, lsolver)
 end
 
-function test_poisson_dirichlet(
-  dev, use_condensed,
-  nsolver, lsolver
-)
+function test_poisson_dirichlet(dev, nsolver, lsolver; kwargs...)
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -87,10 +88,7 @@ function test_poisson_dirichlet(
   display(solver.timer)
 end
 
-function test_poisson_robin(
-  dev, use_condensed,
-  nsolver, lsolver
-)
+function test_poisson_robin(dev, nsolver, lsolver; kwargs...)
   u_exact(x)  = exp(x[1]) * sin(π * x[2])
   f_source(x, _) = (π^2 - 1) * exp(x[1]) * sin(π * x[2])
 
@@ -99,7 +97,11 @@ function test_poisson_robin(
   physics = Poisson(f_source)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs.use_condensed,
+    use_static_arrays = kwargs.use_static_arrays
+  )
 
   # setup and update bcs
   # dbcs = DirichletBC[
@@ -151,16 +153,17 @@ function test_poisson_robin(
   # display(solver.timer)
 end
 
-function test_poisson_dirichlet_with_nodesets(
-  dev, use_condensed,
-  nsolver, lsolver
-)
+function test_poisson_dirichlet_with_nodesets(dev, nsolver, lsolver; kwargs...)
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -202,15 +205,18 @@ function test_poisson_dirichlet_with_nodesets(
 end
 
 function test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(geo_file_tri3)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -249,15 +255,18 @@ function test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(
 end
 
 function test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(msh_file_tri3)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -295,16 +304,17 @@ function test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(
   display(solver.timer)
 end
 
-function test_poisson_neumann(
-  dev, use_condensed,
-  nsolver, lsolver
-)
+function test_poisson_neumann(dev, nsolver, lsolver; kwargs...)
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -355,15 +365,18 @@ function test_poisson_neumann(
 end
 
 function test_poisson_dirichlet_multi_block_quad4_quad4(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(Base.source_dir() * "/poisson/multi_block_mesh_quad4_quad4.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -402,15 +415,18 @@ function test_poisson_dirichlet_multi_block_quad4_quad4(
 end
 
 function test_poisson_dirichlet_multi_block_quad4_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(Base.source_dir() * "/poisson/multi_block_mesh_quad4_tri3.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -449,8 +465,7 @@ function test_poisson_dirichlet_multi_block_quad4_tri3(
 end
 
 function test_poisson_dirichlet_structured_mesh_quad4(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   # mesh = UnstructuredMesh(mesh_file)
   mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (11, 11))
@@ -458,7 +473,11 @@ function test_poisson_dirichlet_structured_mesh_quad4(
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -500,8 +519,7 @@ function test_poisson_dirichlet_structured_mesh_quad4(
 end
 
 function test_poisson_dirichlet_structured_mesh_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   # mesh = UnstructuredMesh(mesh_file)
   mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (11, 11))
@@ -509,7 +527,11 @@ function test_poisson_dirichlet_structured_mesh_tri3(
   physics = Poisson(f)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -551,8 +573,7 @@ function test_poisson_dirichlet_structured_mesh_tri3(
 end
 
 function test_poisson_neumann_structured_mesh_quad4(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   # Laplace equation (-∇²u = 0) on [0,1]² with mixed BCs:
   #   u = 0            at x=0  (Dirichlet, :left)
@@ -572,7 +593,11 @@ function test_poisson_neumann_structured_mesh_quad4(
   physics = Poisson(f_zero)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   dbcs = DirichletBC[
     DirichletBC(:u, bc_func; sideset_name = :left),
@@ -607,8 +632,7 @@ function test_poisson_neumann_structured_mesh_quad4(
 end
 
 function test_poisson_neumann_structured_mesh_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   # Same problem as the QUAD4 variant above, meshed with TRI3 elements.
   # TRI3 linear triangles represent linear functions exactly, so FEM error = 0.
@@ -623,7 +647,11 @@ function test_poisson_neumann_structured_mesh_tri3(
   physics = Poisson(f_zero)
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u;
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   dbcs = DirichletBC[
     DirichletBC(:u, bc_func; sideset_name = :left),

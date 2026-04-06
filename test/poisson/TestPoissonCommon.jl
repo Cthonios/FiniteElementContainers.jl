@@ -34,6 +34,21 @@ end
   return JxW * R_q[:]
 end
 
+@inline function FiniteElementContainers.residual(
+  storage, e,
+  physics::Poisson, t, dt, props_el, 
+  state_old_q, state_new_q,
+  conn, interps, x_el, u_el, u_el_old
+)
+  interps = map_interpolants(interps, x_el)
+  (; X_q, N, ∇N_X, JxW) = interps
+  ∇u_q = interpolate_field_gradients(physics, interps, u_el)
+  # R_q = ∇u_q * ∇N_X' - N' * physics.func(X_q, 0.0)
+  form = GeneralFormulation{num_fields(physics)}()
+  project_with_gradients!(storage, form, e, conn, ∇N_X, JxW * ∇u_q)
+  project_with_values!(storage, form, e, conn, N, -JxW * physics.func(X_q, 0.0))
+end
+
 @inline function FiniteElementContainers.stiffness(
   physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el
 )
@@ -42,6 +57,23 @@ end
   K_q = ∇N_X * ∇N_X'
   return JxW * K_q
 end
+
+# @inline function FiniteElementContainers.stiffness(
+#   storage, e,
+#   physics::Poisson,
+#   t, dt, props_el, 
+#   state_old_q, state_new_q,
+#   conn, interps, x_el, u_el, u_el_old
+# )
+#   interps = map_interpolants(interps, x_el)
+#   (; X_q, N, ∇N_X, JxW) = interps
+#   ∇u_q = interpolate_field_gradients(physics, interps, u_el)
+#   # R_q = ∇u_q * ∇N_X' - N' * physics.func(X_q, 0.0)
+#   form = GeneralFormulation{num_fields(physics)}()
+#   # @show FiniteElementContainers.num_dimensions(form)
+#   project_with_gradients_and_gradients!(storage, form, e, conn, ∇N_X, JxW)
+#   # project_with_values!(storage, form, e, conn, N, -JxW * physics.func(X_q, 0.0))
+# end
 
 @inline function FiniteElementContainers.stiffness_action(
   physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el

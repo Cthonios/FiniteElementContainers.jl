@@ -6,11 +6,14 @@ problems in time.
 """
 struct SparseMatrixAssembler{
   Condensed,
-  NumArrDims,
+  # NumArrDims,
+  UseSparseVec,
+  UseStaticArrays,
   IV           <: AbstractArray{Int, 1},
   RV           <: AbstractArray{Float64, 1},
   Var          <: AbstractFunction,
-  FieldStorage <: AbstractField{Float64, NumArrDims, RV}
+  # FieldStorage <: AbstractField{Float64, NumArrDims, RV}
+  FieldStorage
 } <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
   dof::DofManager{Condensed, Int, IV, Var}
   matrix_pattern::SparseMatrixPattern{IV, RV}
@@ -34,7 +37,11 @@ Construct a ```SparseMatrixAssembler``` for a specific field type,
 e.g. ```H1Field```.
 Can be used to create block arrays for mixed FEM problems.
 """
-function SparseMatrixAssembler(dof::DofManager)
+function SparseMatrixAssembler(
+  dof::DofManager;
+  use_sparse_vector::Bool = false,
+  use_static_arrays::Bool = true
+)
   matrix_pattern = SparseMatrixPattern(dof)
   vector_pattern = SparseVectorPattern(dof)
 
@@ -58,7 +65,16 @@ function SparseMatrixAssembler(dof::DofManager)
   scalar_quadrature_storage = L2Field(undef, Float64, 1, block_quadrature_sizes(fspace))
   fill!(scalar_quadrature_storage, 0.0)
 
-  return SparseMatrixAssembler(
+  return SparseMatrixAssembler{
+    _is_condensed(dof),
+    # num_fields(residual_storage),
+    use_sparse_vector,
+    use_static_arrays,
+    typeof(dof.unknown_dofs),
+    typeof(residual_storage.data),
+    typeof(dof.var),
+    typeof(residual_storage)
+  }(
     dof, matrix_pattern, vector_pattern,
     constraint_storage, 
     damping_storage, 
@@ -71,21 +87,36 @@ function SparseMatrixAssembler(dof::DofManager)
   )
 end
 
-function SparseMatrixAssembler(var::AbstractFunction; use_condensed::Bool = false)
+function SparseMatrixAssembler(
+  var::AbstractFunction;
+  use_condensed::Bool = false,
+  kwargs...
+)
   dof = DofManager(var; use_condensed = use_condensed)
-  return SparseMatrixAssembler(dof)
+  return SparseMatrixAssembler(dof; kwargs...)
 end
 
 function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
-  return SparseMatrixAssembler(
-    adapt(to, asm.dof),
+  dof = adapt(to, asm.dof)
+  residual_storage = adapt(to, asm.residual_storage)
+  return SparseMatrixAssembler{
+    _is_condensed(dof),
+    # num_fields(residual_storage),
+    _use_sparse_vector(asm),
+    _use_static_arrays(asm),
+    typeof(dof.unknown_dofs),
+    typeof(residual_storage.data),
+    typeof(dof.var),
+    typeof(residual_storage)
+  }(
+    dof,
     adapt(to, asm.matrix_pattern),
     adapt(to, asm.vector_pattern),
     adapt(to, asm.constraint_storage),
     adapt(to, asm.damping_storage),
     adapt(to, asm.hessian_storage),
     adapt(to, asm.mass_storage),
-    adapt(to, asm.residual_storage),
+    residual_storage,
     adapt(to, asm.residual_unknowns),
     adapt(to, asm.scalar_quadrature_storage),
     adapt(to, asm.stiffness_storage),
@@ -116,6 +147,18 @@ end
 # constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
+
+function _use_sparse_vector(
+  ::SparseMatrixAssembler{T1, UseSVec, T3, T4, T5, T6, T7}
+) where {T1, UseSVec, T3, T4, T5, T6, T7}
+  return UseSVec
+end
+
+function _use_static_arrays(
+  ::SparseMatrixAssembler{T1, T2, UseSArrs, T4, T5, T6, T7}
+) where {T1, T2, UseSArrs, T4, T5, T6, T7}
+  return UseSArrs
+end
 
 function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
   use_condensed = _is_condensed(assembler.dof)
