@@ -85,7 +85,8 @@ function test_plane_strain(interps, ∇u_q, A_q)
   # compare static to in place approach for single element
   storage = H1Field(zeros(2, 4))
   conns = 1:4 |> collect
-  FiniteElementContainers.project_with_gradients!(storage, form, 1, conns, interps, ∇u_t)
+  P = SMatrix{2, 2, Float64, 4}(P_vec.data)
+  project_with_gradients!(storage, form, 1, conns, ∇N_X, P)
 
   @test all(GPv .≈ storage.data)
 
@@ -134,7 +135,7 @@ function test_plane_strain(interps, ∇u_q, A_q)
   # compare static to in place approach for single element
   storage = H1Field(zeros(2, 4))
   conns = 1:4 |> collect
-  FiniteElementContainers.project_with_symmetric_gradients!(storage, form, 1, conns, interps, S)
+  project_with_symmetric_gradients!(storage, form, 1, conns, ∇N_X, S)
 
   @test all(BSv .≈ storage.data)
 end 
@@ -278,7 +279,7 @@ function test_three_dimensional(interps, ∇u_q, A_q)
   # compare static to in place approach for single element
   storage = H1Field(zeros(3, 8))
   conns = 1:8 |> collect
-  FiniteElementContainers.project_with_gradients!(storage, form, 1, conns, interps, ∇u_t)
+  project_with_gradients!(storage, form, 1, conns, ∇N_X, ∇u_t)
 
   @test all(GPv .≈ storage.data)
 
@@ -321,7 +322,7 @@ function test_three_dimensional(interps, ∇u_q, A_q)
   # compare static to in place approach for single element
   storage = H1Field(zeros(3, 8))
   conns = 1:8 |> collect
-  FiniteElementContainers.project_with_symmetric_gradients!(storage, form, 1, conns, interps, S)
+  project_with_symmetric_gradients!(storage, form, 1, conns, ∇N_X, S)
 
   @test all(BSv .≈ storage.data)
 end

@@ -12,8 +12,7 @@ fixed(_, _) = 0.
 displace(_, t) = 1.e-3 * t
 
 function test_mechanics_dirichlet_only(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
@@ -21,7 +20,11 @@ function test_mechanics_dirichlet_only(
   props = create_properties(physics)
 
   u = VectorFunction(V, :displ)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   dbcs = DirichletBC[
     DirichletBC(:displ_x, fixed; sideset_name = :sset_3),

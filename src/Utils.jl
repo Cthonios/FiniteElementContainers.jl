@@ -1,3 +1,25 @@
+function fec_atomic_add!(
+    field::AbstractField{T, N, D},
+    index::Int, val::T
+) where {T <: Number, N, D <: AbstractArray{T, 1}}
+    Atomix.@atomic field.data[index] += val
+    return nothing
+end
+
+# TODO find a way to further dispatch on thread number
+# so we don't suffer this runtime overhead on CPU backends
+function fec_atomic_add!(
+    field::AbstractField{T, N, D},
+    index::Int, val::T
+) where {T <: Number, N, D <: Array{T, 1}}
+    if Threads.nthreads() > 1
+        Atomix.@atomic field.data[index] += val
+    else
+        field.data[index] += val
+    end
+    return nothing
+end
+
 function _forindices_serial(f, indices)
     for i in indices
         @inline f(i)
@@ -80,11 +102,7 @@ end
 end
 
 @generated function foreach_block(
-    f, 
-    # ::Connectivity{N, D, T},
-    # physics::NamedTuple,
-    # properties::NamedTuple,
-    # ref_fes::NamedTuple
+    f,
     fspace::FunctionSpace{N, IT, IV, C, R},
     p::Parameters
 ) where {N, IT, IV, C, R}

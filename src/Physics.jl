@@ -142,10 +142,15 @@ end
 function damping end
 function energy end
 function mass end
+function mass! end
 function mass_action end
+function mass_action! end
 function residual end
+function residual! end
 function stiffness end
+function stiffness! end
 function stiffness_action end
+function stiffness_action! end
 
 # optimization like methods
 function gradient end

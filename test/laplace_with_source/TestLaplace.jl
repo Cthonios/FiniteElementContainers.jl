@@ -1,10 +1,3 @@
-using Adapt
-using AMDGPU
-using Exodus
-using FiniteElementContainers
-using StaticArrays
-using Test
-
 # mesh file
 gold_file = Base.source_dir() * "/laplace.gold"
 mesh_file = Base.source_dir() * "/laplace.g"
@@ -18,35 +11,34 @@ f_lapace(X, _) = SVector{1, Float64}(2. * π^2 * sin(π * X[1]) * sin(π * X[2])
 bc_func_laplace(_, _) = 0.
 bc_func_neumann_lapace(_, _) = SVector{1, Float64}(1.)
 
-# include("TestPoissonCommon.jl")
-
-# read mesh and relevant quantities
-
-function test_laplace(backend, cond, nlsolver, lsolver)
-  test_laplace_dirichlet(backend, cond, nlsolver, lsolver)
-  test_laplace_dirichlet_with_nodesets(backend, cond, nlsolver, lsolver)
-  # test_laplace_dirichlet_with_nodesets_gmsh_geo_tri3(backend, cond, nlsolver, lsolver)
-  # test_laplace_dirichlet_with_nodesets_gmsh_msh_tri3(backend, cond, nlsolver, lsolver)
-  test_laplace_dirichlet_multi_block_quad4_quad4(backend, cond, nlsolver, lsolver)
-  test_laplace_dirichlet_multi_block_quad4_tri3(backend, cond, nlsolver, lsolver)
-  test_laplace_dirichlet_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
-  test_laplace_dirichlet_structured_mesh_tri3(backend, cond, nlsolver, lsolver)
-  test_laplace_neumann(backend, cond, nlsolver, lsolver)
-  test_laplace_neumann_structured_mesh_quad4(backend, cond, nlsolver, lsolver)
-  test_laplace_neumann_structured_mesh_tri3(backend, cond, nlsolver, lsolver)
+function test_laplace(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_dirichlet(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_dirichlet_with_nodesets(backend, nlsolver, lsolver; kwargs...)
+  # test_laplace_dirichlet_with_nodesets_gmsh_geo_tri3(backend, nlsolver, lsolver; kwargs...)
+  # test_laplace_dirichlet_with_nodesets_gmsh_msh_tri3(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_dirichlet_multi_block_quad4_quad4(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_dirichlet_multi_block_quad4_tri3(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_dirichlet_structured_mesh_quad4(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_dirichlet_structured_mesh_tri3(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_neumann(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_neumann_structured_mesh_quad4(backend, nlsolver, lsolver; kwargs...)
+  test_laplace_neumann_structured_mesh_tri3(backend, nlsolver, lsolver; kwargs...)
   # test_laplace_robin(backend, cond, nlsolver, lsolver)
 end
 
 function test_laplace_dirichlet(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -91,15 +83,18 @@ function test_laplace_dirichlet(
 end
 
 function test_laplace_dirichlet_with_nodesets(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -144,15 +139,18 @@ function test_laplace_dirichlet_with_nodesets(
 end
 
 function test_laplace_dirichlet_with_nodesets_gmsh_geo_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(geo_file_tri3)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -194,15 +192,18 @@ function test_laplace_dirichlet_with_nodesets_gmsh_geo_tri3(
 end
 
 function test_laplace_dirichlet_with_nodesets_gmsh_msh_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(msh_file_tri3)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -244,15 +245,18 @@ function test_laplace_dirichlet_with_nodesets_gmsh_msh_tri3(
 end
 
 function test_laplace_neumann(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -306,15 +310,18 @@ function test_laplace_neumann(
 end
 
 function test_laplace_dirichlet_multi_block_quad4_quad4(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(Base.source_dir() * "/laplace_with_source/multi_block_mesh_quad4_quad4.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -356,15 +363,18 @@ function test_laplace_dirichlet_multi_block_quad4_quad4(
 end
 
 function test_laplace_dirichlet_multi_block_quad4_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   mesh = UnstructuredMesh(Base.source_dir() * "/laplace_with_source/multi_block_mesh_quad4_tri3.g")
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -406,8 +416,7 @@ function test_laplace_dirichlet_multi_block_quad4_tri3(
 end
 
 function test_laplace_dirichlet_structured_mesh_quad4(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   # mesh = UnstructuredMesh(mesh_file)
   mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (11, 11))
@@ -415,7 +424,11 @@ function test_laplace_dirichlet_structured_mesh_quad4(
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -460,8 +473,7 @@ function test_laplace_dirichlet_structured_mesh_quad4(
 end
 
 function test_laplace_dirichlet_structured_mesh_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   # mesh = UnstructuredMesh(mesh_file)
   mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (11, 11))
@@ -469,7 +481,11 @@ function test_laplace_dirichlet_structured_mesh_tri3(
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   # setup and update bcs
   dbcs = DirichletBC[
@@ -514,8 +530,7 @@ function test_laplace_dirichlet_structured_mesh_tri3(
 end
 
 function test_laplace_neumann_structured_mesh_quad4(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   # Laplace equation (-∇²u = 0) on [0,1]² with mixed BCs:
   #   u = 0            at x=0  (Dirichlet, :left)
@@ -534,7 +549,11 @@ function test_laplace_neumann_structured_mesh_quad4(
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   dbcs = DirichletBC[
     DirichletBC(:u, bc_func_laplace; sideset_name = :left),
@@ -569,8 +588,7 @@ function test_laplace_neumann_structured_mesh_quad4(
 end
 
 function test_laplace_neumann_structured_mesh_tri3(
-  dev, use_condensed,
-  nsolver, lsolver
+  dev, nsolver, lsolver; kwargs...
 )
   # Same problem as the QUAD4 variant above, meshed with TRI3 elements.
   # TRI3 linear triangles represent linear functions exactly, so FEM error = 0.
@@ -584,7 +602,11 @@ function test_laplace_neumann_structured_mesh_tri3(
   physics = Laplace()
   props = create_properties(physics)
   u = ScalarFunction(V, :u)
-  asm = SparseMatrixAssembler(u; use_condensed=use_condensed)
+  asm = SparseMatrixAssembler(
+    u; 
+    use_condensed = kwargs[:use_condensed],
+    use_static_arrays = kwargs[:use_static_arrays]
+  )
 
   dbcs = DirichletBC[
     DirichletBC(:u, bc_func_laplace; sideset_name = :left),

@@ -71,7 +71,8 @@ function _assemble_element!(
     for n in axes(conns, 1)
       global_id = n_dofs * (conns[n] - 1) + d
       local_id = n_dofs * (n - 1) + d
-      Atomix.@atomic storage.data[global_id] += R_el[local_id]
+      # Atomix.@atomic storage.data[global_id] += R_el[local_id]
+      fec_atomic_add!(storage, global_id, R_el[local_id])
     end
   end
   return nothing
@@ -413,6 +414,38 @@ function _assemble_block!(
     end
   
     _assemble_element!(field, val_el, conn, e)
+  end
+end
+
+function _assemble_block!(
+  field,
+  func!::Function,
+  physics::AbstractPhysics,
+  t::T, Δt::T,
+  props::P, state_old::S, state_new::S,
+  conns::Conn, coffset::Int, ref_fe::ReferenceFE,
+  X::AbstractField, U::Solution, U_old::Solution
+) where {
+  T        <: Number,
+  S,
+  P,
+  Conn     <: AbstractArray,
+  Solution <: AbstractField
+}
+  fec_foraxes(state_old, 3) do e
+    conn = connectivity(ref_fe, conns, e, coffset)
+    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
+    props_el = _element_level_properties(props, e)
+    for q in 1:num_cell_quadrature_points(ref_fe)
+      interps = _cell_interpolants(ref_fe, q)
+      state_old_q = _quadrature_level_state(state_old, q, e)
+      state_new_q = _quadrature_level_state(state_new, q, e)
+      func!(
+        field, e, physics, t, Δt, 
+        props_el, state_old_q, state_new_q,
+        conn, interps, x_el, u_el, u_el_old
+      )
+    end
   end
 end
 

@@ -54,6 +54,7 @@ export num_fields
 # Formulations
 export AbstractElementFormulation
 export AbstractMechanicsElementFormulation
+export GeneralFormulation
 export PlaneStrain
 export ThreeDimensional
 export discrete_gradient
@@ -62,6 +63,9 @@ export discrete_values
 export extract_stress
 export extract_stiffness
 export modify_field_gradients
+export project_with_gradients!
+export project_with_symmetric_gradients!
+export project_with_values!
 
 # FunctionSpaces
 export FunctionSpace
@@ -196,10 +200,14 @@ cpu(x) = adapt(Array, x)
 # include("parallel/Parallel.jl")
 include("PostProcessors.jl")
 include("fields/Fields.jl")
+# include("Utils.jl")
 include("meshes/Meshes.jl")
 include("FunctionSpaces.jl")
 include("Functions.jl")
 include("DofManagers.jl")
+
+# where is best to put this?
+# include("Utils.jl")
 
 include("bcs/BoundaryConditions.jl")
 include("constraints/Constraints.jl")
