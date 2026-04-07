@@ -23,15 +23,22 @@ end
 
 # TODO specialize for operator like assemblers
 function solve!(solver::IterativeLinearSolver, Uu, p)
+  if _use_static_arrays(solver.assembler)
+    residual_method = residual
+    stiffness_method = stiffness
+  else
+    residual_method = residual!
+    stiffness_method = stiffness!
+  end
   # assemble relevant fields
   @timeit solver.timer "residual assembly" begin
-    assemble_vector!(solver.assembler, residual, Uu, p)
+    assemble_vector!(solver.assembler, residual_method, Uu, p)
     assemble_vector_source!(solver.assembler, Uu, p)
     assemble_vector_neumann_bc!(solver.assembler, Uu, p)
     # assemble_vector_robin_bc!(solver.assembler, Uu, p)
   end
   @timeit solver.timer "stiffness assembly" begin
-    assemble_stiffness!(solver.assembler, stiffness, Uu, p)
+    assemble_stiffness!(solver.assembler, stiffness_method, Uu, p)
   end
   # solve and fetch solution
   @timeit solver.timer "solve" begin

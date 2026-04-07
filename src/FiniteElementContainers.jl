@@ -63,9 +63,10 @@ export discrete_values
 export extract_stress
 export extract_stiffness
 export modify_field_gradients
-export project_with_gradients!
-export project_with_symmetric_gradients!
-export project_with_values!
+export scatter_with_gradients!
+export scatter_with_gradients_and_gradients!
+export scatter_with_symmetric_gradients!
+export scatter_with_values!
 
 # FunctionSpaces
 export FunctionSpace

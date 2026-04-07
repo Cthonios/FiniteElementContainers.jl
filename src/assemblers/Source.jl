@@ -56,8 +56,8 @@ function _assemble_block_vector_source!(
       JxW  = interps.JxW
       b_val = vals[q, e]
   
-      form = GeneralFormulation{num_fields(field)}()
-      project_with_values!(field, form, e, conn, N, -JxW * b_val)
+      form = GeneralFormulation{num_fields(X), num_fields(field)}()
+      scatter_with_values!(field, form, e, conn, N, -JxW * b_val)
     end
   end
 end

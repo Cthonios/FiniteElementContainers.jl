@@ -11,6 +11,7 @@ using Test
 function test_plane_strain(interps, ∇u_q, A_q)
   ∇N_X = interps.∇N_X
   form = PlaneStrain()
+  @test FiniteElementContainers.num_fields(form) == 2
   @test FiniteElementContainers.num_dimensions(form) == 2
   ∇u_t = modify_field_gradients(form, ∇u_q)
   @test ∇u_t ≈ Tensor{2, 3, Float64, 9}((
@@ -86,7 +87,7 @@ function test_plane_strain(interps, ∇u_q, A_q)
   storage = H1Field(zeros(2, 4))
   conns = 1:4 |> collect
   P = SMatrix{2, 2, Float64, 4}(P_vec.data)
-  project_with_gradients!(storage, form, 1, conns, ∇N_X, P)
+  scatter_with_gradients!(storage, form, 1, conns, ∇N_X, P)
 
   @test all(GPv .≈ storage.data)
 
@@ -135,7 +136,7 @@ function test_plane_strain(interps, ∇u_q, A_q)
   # compare static to in place approach for single element
   storage = H1Field(zeros(2, 4))
   conns = 1:4 |> collect
-  project_with_symmetric_gradients!(storage, form, 1, conns, ∇N_X, S)
+  scatter_with_symmetric_gradients!(storage, form, 1, conns, ∇N_X, S)
 
   @test all(BSv .≈ storage.data)
 end 
@@ -143,6 +144,7 @@ end
 function test_three_dimensional(interps, ∇u_q, A_q)
   ∇N_X = interps.∇N_X
   form = ThreeDimensional()
+  @test FiniteElementContainers.num_fields(form) == 3
   @test FiniteElementContainers.num_dimensions(form) == 3
   ∇u_t = modify_field_gradients(form, ∇u_q)
   @test ∇u_q ≈ ∇u_t
@@ -279,7 +281,7 @@ function test_three_dimensional(interps, ∇u_q, A_q)
   # compare static to in place approach for single element
   storage = H1Field(zeros(3, 8))
   conns = 1:8 |> collect
-  project_with_gradients!(storage, form, 1, conns, ∇N_X, ∇u_t)
+  scatter_with_gradients!(storage, form, 1, conns, ∇N_X, ∇u_t)
 
   @test all(GPv .≈ storage.data)
 
@@ -322,7 +324,7 @@ function test_three_dimensional(interps, ∇u_q, A_q)
   # compare static to in place approach for single element
   storage = H1Field(zeros(3, 8))
   conns = 1:8 |> collect
-  project_with_symmetric_gradients!(storage, form, 1, conns, ∇N_X, S)
+  scatter_with_symmetric_gradients!(storage, form, 1, conns, ∇N_X, S)
 
   @test all(BSv .≈ storage.data)
 end

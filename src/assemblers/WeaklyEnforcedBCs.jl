@@ -71,10 +71,10 @@ function _assemble_block_vector_weakly_enforced_bc!(
       JxW = interps.JxW
   
       f_val = vals[q, e]
-      form = GeneralFormulation{num_fields(field)}()
+      form = GeneralFormulation{num_fields(X), num_fields(field)}()
       # NOTE e is obviously not correct below but it isn't used
       # in this method anyway when field is an AbstractField
-      project_with_values!(field, form, e, surf_conns, Nvec, JxW * f_val)
+      scatter_with_values!(field, form, e, surf_conns, Nvec, JxW * f_val)
     end
   end
 end
