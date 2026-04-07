@@ -15,25 +15,7 @@ using StaticArrays
 using Tensors
 using Test
 
-# put these first so we can use these
-# physics in other tests
-include("laplace_with_source/TestLaplaceCommon.jl")
-include("mechanics/TestMechanicsCommon.jl")
-include("poisson/TestPoissonCommon.jl")
-include("poisson/TestPoissonPBCs.jl")
-
-include("TestAssemblers.jl")
-include("TestBCs.jl")
-include("TestDofManagers.jl")
-include("TestFields.jl")
-include("TestFormulations.jl")
-include("TestFunctions.jl")
-include("TestFunctionSpaces.jl")
-include("TestICs.jl")
-include("TestIntegrals.jl")
-include("TestMesh.jl")
-include("TestPhysics.jl")
-
+# some helpers
 function _get_backends()
   backends = Function[cpu]
   if AMDGPU.functional()
@@ -51,7 +33,7 @@ function test_laplace()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
   lsolvers = [cg_solver, DirectLinearSolver]
   use_condensed = [false, true]
-  use_static_arrays = [true]
+  use_static_arrays = [false, true]
 
   for backend in backends
     for cond in use_condensed
@@ -95,8 +77,10 @@ function test_mechanics()
   backends = _get_backends()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
   lsolvers = [cg_solver, DirectLinearSolver]
+  lsolvers = [DirectLinearSolver]
   use_condensed = [false, true]
-  use_static_arrays = [true]
+  use_static_arrays = [false, true]
+
 
   for backend in backends
     for cond in use_condensed
@@ -110,6 +94,27 @@ function test_mechanics()
       end
     end
   end
+end
+
+# put these first so we can use these
+# physics in other tests
+include("laplace_with_source/TestLaplaceCommon.jl")
+include("mechanics/TestMechanicsCommon.jl")
+include("poisson/TestPoissonCommon.jl")
+include("poisson/TestPoissonPBCs.jl")
+
+@testset "Unit tests" begin
+  include("TestAssemblers.jl")
+  include("TestBCs.jl")
+  include("TestDofManagers.jl")
+  include("TestFields.jl")
+  include("TestFormulations.jl")
+  include("TestFunctions.jl")
+  include("TestFunctionSpaces.jl")
+  include("TestICs.jl")
+  include("TestIntegrals.jl")
+  include("TestMesh.jl")
+  include("TestPhysics.jl")
 end
 
 @testset "Regression tests" begin

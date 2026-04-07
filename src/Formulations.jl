@@ -1,112 +1,119 @@
 """
 $(TYPEDEF)
 """
-abstract type AbstractElementFormulation{ND} end
+abstract type AbstractElementFormulation{ND, NF} end
 
 """
 $(TYPEDSIGNATURES)
 """
-num_dimensions(::AbstractElementFormulation{ND}) where ND = ND
+num_fields(::AbstractElementFormulation{ND, NF}) where {ND, NF} = NF
+num_dimensions(::AbstractElementFormulation{ND, NF}) where {ND, NF} = ND
 
 function discrete_gradient end # eventually to be deprecated
 function discrete_symmetric_gradient end # eventually to be deprecated
 function discrete_values end # eventually to be deprecated
-function modify_field_gradients(::AbstractElementFormulation{ND}, ∇u) where ND
+function modify_field_gradients(::AbstractElementFormulation, ∇u)
     return ∇u
 end
-function project_with_gradients!(
-    storage::AbstractField, form::AbstractElementFormulation{ND},
-    e, conns, ∇N_X, vals
-) where ND
-    N = size(∇N_X, 1)
-    for n in 1:N
-        global_base = ND * (conns[n] - 1)
-    
-        for d in axes(vals, 1)
-            contrib = zero(eltype(storage))
-            for j in axes(vals, 2)
-                contrib += ∇N_X[n, j] * vals[d, j]
-            end
-            # Atomix.@atomic storage.data[global_base + d] += contrib
-            fec_atomic_add!(storage, global_base + d, contrib)
-        end
-    end
-end
-# function project_with_gradients_and_gradients!(
-#   storage::AbstractField, form::AbstractElementFormulation{ND},
-#   e, conns, ∇N_X, vals::T
-# ) where {ND, T <: Number}
+# vector solution case (gradient is a matrix or tensor)
+"""
+$(TYPEDSIGNATURES)
+Method to in place take a set of ```vals``` and calculate
+f_i = G * vals where is the discrete_gradient
+"""
+function scatter_with_gradients!(
+  storage::AbstractField, form::AbstractElementFormulation{ND, NF},
+  e, conns, ∇N_X, vals
+) where {ND, NF}
+  N = size(∇N_X, 1)
 
-# end
+  # potentially more conversion types here
+  if isa(vals, Tensor)
+    vals = extract_stress(SMatrix, form, vals)
+  end
+
+  for n in 1:N
+    global_base = NF * (conns[n] - 1)
+
+    for d in axes(vals, 1)
+      contrib = zero(eltype(storage))
+      for j in axes(vals, 2)
+        contrib += ∇N_X[n, j] * vals[d, j]
+      end
+      fec_atomic_add!(storage, global_base + d, contrib)
+    end
+  end
+end
 # scalar case
-function project_with_gradients_and_gradients!(
+"""
+$(TYPEDSIGNATURES)
+scalar case to calculate in place things like
+K_el = k∇N_X ⋅ ∇N_X'
+"""
+function scatter_with_gradients_and_gradients!(
   storage::AbstractVector,
-  form::AbstractElementFormulation{ND},
+  ::AbstractElementFormulation{ND, NF},
   e,
   conns,
   ∇N_X,
-  k::T,
-  JxW::T
-) where {ND, T <: Number}
-  N = size(∇N_X, 1)
+  k::T
+) where {ND, NF, T <: Number}
+  @assert ND == size(∇N_X, 2)
+  N        = size(∇N_X, 1)
+  NDPE     = N * NF
+  start_id = (e - 1) * NDPE * NDPE + 1
+  ids      = start_id:(start_id + NDPE * NDPE - 1)
+  inc      = 1
 
   for n1 in 1:N
-    global_i = conns[n1]
-
     for n2 in 1:N
-      global_j = conns[n2]
-
       contrib = zero(T)
       for j in 1:ND
-          contrib += ∇N_X[n1, j] * k * ∇N_X[n2, j]
+        contrib += ∇N_X[n1, j] * k * ∇N_X[n2, j]
       end
-
-      # storage[global_i, global_j] += JxW * contrib
-      # TODO finish me
-      @assert false
+      storage[ids[inc]] += contrib
+      inc += 1
     end
   end
 
   return nothing
 end
-function project_with_gradients_and_gradients!(
+"""
+Case for total lagrange formulations
+of solid mechanics or other physics
+that need fourth order full 81 component tensors in 3d
+"""
+function scatter_with_gradients_and_gradients!(
   storage::AbstractVector,
-  form::AbstractElementFormulation{ND},
+  form::AbstractElementFormulation{ND, NF},
   e,
   conns,
   ∇N_X,
-  A::Tensor{4, 3, T, 81},  # material tangent, ND2 = ND^2
-  JxW::T
-) where {ND, T <: Number}
-  K_voigt = extract_stiffness(form, A)
-  N = size(∇N_X, 1)
+  A::Tensor{4, 3, T, 81}
+) where {ND, NF, T <: Number}
+  K_voigt  = extract_stiffness(form, A)
+  @assert ND == size(∇N_X, 2)
+  N        = size(∇N_X, 1)
+  NDPE     = N * NF
+  start_id = (e - 1) * NDPE * NDPE + 1
+  ids      = start_id:(start_id + NDPE * NDPE - 1)
+  inc      = 1
 
-  for n1 in 1:N
-    global_base_i = ND * (conns[n1] - 1)
-
-    for n2 in 1:N
-      global_base_j = ND * (conns[n2] - 1)
-
-      for d1 in 1:ND   # row DOF for node n1
-        for d2 in 1:ND  # col DOF for node n2
-          # Compute G[row, :]' * K * G[col, :]
-          # where row = global_base_i + d1, col = global_base_j + d2
-          # G[row, a] = ∇N_X[n1, ceil(a/ND)] if (a-1)%ND+1 == d1, else 0
-          # i.e. for column block a = (j-1)*ND + d1, G[row,a] = ∇N_X[n1, j]
+  for n2 in 1:N
+    for d2 in 1:NF
+      for n1 in 1:N
+        for d1 in 1:NF
           contrib = zero(T)
-          for j1 in 1:ND   # gradient direction for node n1
-              a = (j1 - 1) * ND + d1   # voigt row index into K
-              for j2 in 1:ND  # gradient direction for node n2
-                  b = (j2 - 1) * ND + d2  # voigt col index into K
-                  contrib += ∇N_X[n1, j1] * K_voigt[a, b] * ∇N_X[n2, j2]
-              end
+          for j1 in 1:ND
+            a = (j1 - 1) * ND + d1
+            for j2 in 1:ND
+              b = (j2 - 1) * ND + d2
+              contrib += ∇N_X[n1, j1] * K_voigt[a, b] * ∇N_X[n2, j2]
+            end
           end
 
-          # global_i = global_base_i + d1
-          # global_j = global_base_j + d2
-          # storage[global_i, global_j] += JxW * contrib
-          # TODO finish me, above is not right for indexing
-          @assert false
+          storage[ids[inc]] += contrib
+          inc += 1
         end
       end
     end
@@ -115,53 +122,87 @@ function project_with_gradients_and_gradients!(
   return nothing
 end
 # implement for those that have it
-function project_with_values!(
-  storage::AbstractField, ::AbstractElementFormulation{ND},
+"""
+Scalar equation specialization
+f_el = N * vals
+"""
+function scatter_with_values!(
+  storage::AbstractField, ::AbstractElementFormulation{ND, NF},
   e, conns, N, vals::T
-) where {ND, T <: Number}
+) where {ND, NF, T <: Number}
   # TODO make this compile time checked through generics
   n_dofs = size(storage, 1)
-  @assert n_dofs == ND
-  # for d in axes(storage, 1)
+  @assert n_dofs == NF
   for n in 1:length(N)
     contrib = N[n] * vals
     global_id = n_dofs * (conns[n] - 1) + 1
-    # Atomix.@atomic storage.data[global_id] += contrib
     fec_atomic_add!(storage, global_id, contrib)
   end
-  # end
 end
-function project_with_values!(
-    storage::AbstractField, ::AbstractElementFormulation{ND},
-    e, conns, N, vals::SVector{ND, T}
-) where {ND, T <: Number}
+"""
+General vector specialization
+f_el = N * vals
+"""
+function scatter_with_values!(
+    storage::AbstractField, ::AbstractElementFormulation{ND, NF},
+    e, conns, N, vals::SVector{NF, T}
+) where {ND, NF, T <: Number}
     # TODO make this compile time checked through generics
     n_dofs = size(storage, 1)
-    @assert n_dofs == ND
-    for d in axes(storage, 1)
+    @assert n_dofs == NF
+    for nf in axes(storage, 1)
       for n in 1:length(N)
         contrib = N[n] * vals
-        global_id = n_dofs * (conns[n] - 1) + d
-        # Atomix.@atomic storage.data[global_id] += contrib[d]
-        fec_atomic_add!(storage, global_id, contrib[d])
+        global_id = n_dofs * (conns[n] - 1) + nf
+        fec_atomic_add!(storage, global_id, contrib[nf])
       end
     end
 end
+"""
+scalar implementation
+"""
+function scatter_with_values_and_values!(
+  storage::AbstractVector,
+  ::AbstractElementFormulation{ND, NF},
+  e,
+  conns,
+  N,
+  ρ::T
+) where {ND, NF, T <: Number}
+  Nn   = length(N)
+  NDPE = Nn * NF
+  start_id = (e - 1) * NDPE * NDPE + 1
+  ids      = start_id:(start_id + NDPE * NDPE - 1)
+  inc      = 1
+
+  for n2 in 1:Nn
+    for n1 in 1:Nn
+      contrib = N[n1] * ρ * N[n2]
+      for d in 1:NF
+        storage[ids[inc]] += contrib
+        inc += 1
+      end
+    end
+  end
+
+  return nothing
+end
+
 # doesn't implement extract stress/stiffness
 
 ##########################################################################
 # General non-mechanics default
 ##########################################################################
-struct GeneralFormulation{ND} <: AbstractElementFormulation{ND}
+struct GeneralFormulation{ND, NF} <: AbstractElementFormulation{ND, NF}
 end
 
 ##########################################################################
 # Mechanics base
 ##########################################################################
-abstract type AbstractMechanicsElementFormulation{ND} <: AbstractElementFormulation{ND} end
+abstract type AbstractMechanicsElementFormulation{ND} <: AbstractElementFormulation{ND, ND} end
 function extract_stiffness end
 function extract_stress end
-function project_with_symmetric_gradient! end
+function scatter_with_symmetric_gradient! end
 
 ##########################################################################
 # Axisymmetric strain kinematics
@@ -244,6 +285,7 @@ end
 function extract_stress(::PlaneStrain, S::SymmetricTensor{2, 3, T, 6}) where T <: Number
   return SVector{3, T}((S[1, 1], S[2, 2], S[1, 2]))
 end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -253,6 +295,14 @@ function extract_stress(::PlaneStrain, P::Tensor{2, 3, T, 9}) where T <: Number
     P[1, 2], P[2, 2]
   ))
 end
+
+function extract_stress(::Type{<:SMatrix}, ::PlaneStrain, P::Tensor{2, 3, T, 9}) where T <: Number
+  return SMatrix{2, 2, T, 4}((
+    P[1, 1], P[2, 1],
+    P[1, 2], P[2, 2]
+  ))
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -277,7 +327,7 @@ function modify_field_gradients(::PlaneStrain, ∇u_q::SMatrix{2, 2, T, 4}) wher
   ))
 end
 
-function project_with_symmetric_gradients!(storage::AbstractField, form::PlaneStrain, e, conns, ∇N_X, S::SymmetricTensor{2, 3, T, 6}) where T <: Number
+function scatter_with_symmetric_gradients!(storage::AbstractField, form::PlaneStrain, e, conns, ∇N_X, S::SymmetricTensor{2, 3, T, 6}) where T <: Number
   N      = size(∇N_X, 1)
   n_dofs = size(storage, 1)
   S_vec = extract_stress(form, S)
@@ -415,6 +465,10 @@ function extract_stress(::ThreeDimensional, P::Tensor{2, 3, T, 9}) where T <: Nu
   return SVector{9, T}(P.data)
 end
 
+function extract_stress(::Type{<:SMatrix}, ::ThreeDimensional, P::Tensor{2, 3, T, 9}) where T <: Number
+  return SMatrix{3, 3, T, 9}(P.data)
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -429,7 +483,7 @@ function modify_field_gradients(::ThreeDimensional, ∇u_q::SMatrix{3, 3, T, 9})
   return Tensor{2, 3, T, 9}(∇u_q.data)
 end
 
-function project_with_symmetric_gradients!(
+function scatter_with_symmetric_gradients!(
   storage::AbstractField, 
   form::ThreeDimensional, 
   e, 

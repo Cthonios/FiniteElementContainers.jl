@@ -3,7 +3,8 @@ function assemble_mass!(
 ) where F <: Function
   assemble_matrix!(
     assembler.mass_storage, assembler.matrix_pattern, assembler.dof,
-    func, Uu, p
+    func, Uu, p;
+    use_static_arrays = _use_static_arrays(assembler)
   )
 end
 
@@ -12,7 +13,8 @@ function assemble_stiffness!(
 ) where F <: Function
   assemble_matrix!(
     assembler.stiffness_storage, assembler.matrix_pattern, assembler.dof,
-    func, Uu, p
+    func, Uu, p;
+    use_static_arrays = _use_static_arrays(assembler)
   )
 end
 
@@ -22,7 +24,8 @@ Note this is hard coded to storing the assembled sparse matrix in
 the stiffness_storage field of assembler.
 """
 function assemble_matrix!(
-  storage, pattern, dof, func::F, Uu, p
+  storage, pattern, dof, func::F, Uu, p;
+  use_static_arrays::Bool = true
 ) where F <: Function
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
@@ -35,16 +38,29 @@ function assemble_matrix!(
   return_type = AssembledMatrix()
   conns = fspace.elem_conns
   foreach_block(fspace, p) do physics, props, ref_fe, b
-    _assemble_block!(
-      # storage,
-      block_view(storage, pattern, b),
-      conns.data, conns.offsets[b],
-      func,
-      physics, ref_fe,
-      X, t, dt,
-      U, U_old, 
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
-      return_type
-    )
+    if use_static_arrays
+      _assemble_block!(
+        block_view(storage, pattern, b),
+        conns.data, conns.offsets[b],
+        func,
+        physics, ref_fe,
+        X, t, dt,
+        U, U_old, 
+        block_view(p.state_old, b), block_view(p.state_new, b), props,
+        return_type
+      )
+    else
+      _assemble_block!(
+        block_view(storage, pattern, b),
+        func,
+        physics,
+        t, dt,
+        props,
+        block_view(p.state_old, b), block_view(p.state_new, b),
+        conns.data, conns.offsets[b], ref_fe, X, U, U_old
+      )
+    end
   end
+
+  return nothing
 end
