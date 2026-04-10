@@ -67,6 +67,7 @@ export scatter_with_gradients!
 export scatter_with_gradients_and_gradients!
 export scatter_with_symmetric_gradients!
 export scatter_with_values!
+export scatter_with_values_and_values!
 
 # FunctionSpaces
 export FunctionSpace
@@ -135,10 +136,15 @@ export diagonal
 export energy
 export hvp
 export mass
+export mass!
 export mass_action
+export mass_action!
 export residual
+export residual!
 export stiffness
+export stiffness!
 export stiffness_action
+export stiffness_action!
 
 # PostProcessors
 export PostProcessor

@@ -4,7 +4,7 @@ function assemble_mass!(
   assemble_matrix!(
     assembler.mass_storage, assembler.matrix_pattern, assembler.dof,
     func, Uu, p;
-    use_static_arrays = _use_static_arrays(assembler)
+    use_inplace_methods = _use_inplace_methods(assembler)
   )
 end
 
@@ -14,7 +14,7 @@ function assemble_stiffness!(
   assemble_matrix!(
     assembler.stiffness_storage, assembler.matrix_pattern, assembler.dof,
     func, Uu, p;
-    use_static_arrays = _use_static_arrays(assembler)
+    use_inplace_methods = _use_inplace_methods(assembler)
   )
 end
 
@@ -25,7 +25,7 @@ the stiffness_storage field of assembler.
 """
 function assemble_matrix!(
   storage, pattern, dof, func::F, Uu, p;
-  use_static_arrays::Bool = true
+  use_inplace_methods::Bool = false
 ) where F <: Function
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
@@ -38,7 +38,17 @@ function assemble_matrix!(
   return_type = AssembledMatrix()
   conns = fspace.elem_conns
   foreach_block(fspace, p) do physics, props, ref_fe, b
-    if use_static_arrays
+    if use_inplace_methods
+      _assemble_block!(
+        block_view(storage, pattern, b),
+        func,
+        physics,
+        t, dt,
+        props,
+        block_view(p.state_old, b), block_view(p.state_new, b),
+        conns.data, conns.offsets[b], ref_fe, X, U, U_old
+      )
+    else
       _assemble_block!(
         block_view(storage, pattern, b),
         conns.data, conns.offsets[b],
@@ -48,16 +58,6 @@ function assemble_matrix!(
         U, U_old, 
         block_view(p.state_old, b), block_view(p.state_new, b), props,
         return_type
-      )
-    else
-      _assemble_block!(
-        block_view(storage, pattern, b),
-        func,
-        physics,
-        t, dt,
-        props,
-        block_view(p.state_old, b), block_view(p.state_new, b),
-        conns.data, conns.offsets[b], ref_fe, X, U, U_old
       )
     end
   end

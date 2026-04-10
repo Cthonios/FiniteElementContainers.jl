@@ -7,8 +7,9 @@ problems in time.
 struct SparseMatrixAssembler{
   Condensed,
   # NumArrDims,
+  UseInPlaceMethods,
   UseSparseVec,
-  UseStaticArrays,
+  # UseStaticArrays,
   IV           <: AbstractArray{Int, 1},
   RV           <: AbstractArray{Float64, 1},
   Var          <: AbstractFunction,
@@ -39,8 +40,8 @@ Can be used to create block arrays for mixed FEM problems.
 """
 function SparseMatrixAssembler(
   dof::DofManager;
-  use_sparse_vector::Bool = false,
-  use_static_arrays::Bool = true
+  use_inplace_methods::Bool = false,
+  use_sparse_vector::Bool = false
 )
   matrix_pattern = SparseMatrixPattern(dof)
   vector_pattern = SparseVectorPattern(dof)
@@ -68,8 +69,9 @@ function SparseMatrixAssembler(
   return SparseMatrixAssembler{
     _is_condensed(dof),
     # num_fields(residual_storage),
+    use_inplace_methods,
     use_sparse_vector,
-    use_static_arrays,
+    # use_static_arrays,
     typeof(dof.unknown_dofs),
     typeof(residual_storage.data),
     typeof(dof.var),
@@ -102,8 +104,9 @@ function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
   return SparseMatrixAssembler{
     _is_condensed(dof),
     # num_fields(residual_storage),
+    _use_inplace_methods(asm),
     _use_sparse_vector(asm),
-    _use_static_arrays(asm),
+    # _use_static_arrays(asm),
     typeof(dof.unknown_dofs),
     typeof(residual_storage.data),
     typeof(dof.var),
@@ -148,17 +151,19 @@ end
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
 
-function _use_sparse_vector(
-  ::SparseMatrixAssembler{T1, UseSVec, T3, T4, T5, T6, T7}
-) where {T1, UseSVec, T3, T4, T5, T6, T7}
-  return UseSVec
+
+function _use_inplace_methods(
+  ::SparseMatrixAssembler{T1, UseInPlaceMethods, T3, T4, T5, T6, T7}
+) where {T1, UseInPlaceMethods, T3, T4, T5, T6, T7}
+  return UseInPlaceMethods
 end
 
-function _use_static_arrays(
-  ::SparseMatrixAssembler{T1, T2, UseSArrs, T4, T5, T6, T7}
-) where {T1, T2, UseSArrs, T4, T5, T6, T7}
-  return UseSArrs
+function _use_sparse_vector(
+  ::SparseMatrixAssembler{T1, T2, UseSparseVec, T4, T5, T6, T7}
+) where {T1, T2, UseSparseVec, T4, T5, T6, T7}
+  return UseSparseVec
 end
+
 
 function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
   use_condensed = _is_condensed(assembler.dof)

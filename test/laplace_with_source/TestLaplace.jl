@@ -37,7 +37,7 @@ function test_laplace_dirichlet(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -93,7 +93,7 @@ function test_laplace_dirichlet_with_nodesets(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -149,7 +149,7 @@ function test_laplace_dirichlet_with_nodesets_gmsh_geo_tri3(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -202,7 +202,7 @@ function test_laplace_dirichlet_with_nodesets_gmsh_msh_tri3(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -255,7 +255,7 @@ function test_laplace_neumann(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -320,7 +320,7 @@ function test_laplace_dirichlet_multi_block_quad4_quad4(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -373,7 +373,7 @@ function test_laplace_dirichlet_multi_block_quad4_tri3(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -427,7 +427,7 @@ function test_laplace_dirichlet_structured_mesh_quad4(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -484,7 +484,7 @@ function test_laplace_dirichlet_structured_mesh_tri3(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   # setup and update bcs
@@ -552,7 +552,7 @@ function test_laplace_neumann_structured_mesh_quad4(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   dbcs = DirichletBC[
@@ -605,7 +605,7 @@ function test_laplace_neumann_structured_mesh_tri3(
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   dbcs = DirichletBC[

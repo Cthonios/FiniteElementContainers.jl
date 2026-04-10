@@ -18,10 +18,56 @@ end
 @inline function FiniteElementContainers.mass(
   physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el
 )
+  # interps = map_interpolants(interps, x_el)
+  # (; X_q, N, ∇N_X, JxW) = interps
+  # M_q = N * N'
+  # return JxW * M_q
+  cell = map_interpolants(interps, x_el)
+  (; N, JxW) = cell
+
+  # Build element mass matrix in interleaved DOF ordering:
+  #   M_el[3*(n-1)+d, 3*(m-1)+d'] = δ(d,d') * N[n] * N[m]
+  # i.e. kron(N*N', I_3).  The FEC assembly infrastructure expects
+  # rows/cols in the same interleaved order as discrete_gradient, so
+  # "N_vec * N_vec'" with a block-ordered N_vec would be wrong.
+  N_nodes = size(N, 1)
+  # NDIM = num_fields(physics.formulation)
+  NDIM = 1
+  NDOF = NDIM * N_nodes
+  tup = zeros(SVector{NDOF * NDOF, eltype(N)})
+  for n in 1:N_nodes
+    for m in 1:N_nodes
+      Nnm = N[n] * N[m]
+      for d in 1:NDIM
+          r = NDIM * (n - 1) + d
+          c = NDIM * (m - 1) + d
+          linear_idx = r + NDOF * (c - 1)   # column-major flat index
+          tup = setindex(tup, Nnm, linear_idx)
+      end
+    end
+  end
+  M_el = SMatrix{NDOF, NDOF, eltype(N), NDOF * NDOF}(tup.data)
+  return JxW * M_el
+end
+
+@inline function FiniteElementContainers.mass!(
+  storage, e,
+  physics::Poisson, t, dt, props_el, 
+  state_old_q, state_new_q,
+  conn, interps, x_el, u_el, u_el_old
+)
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
-  M_q = N * N'
-  return JxW * M_q
+  form = GeneralFormulation{size(X_q, 1), num_fields(physics)}()
+  scatter_with_values_and_values!(storage, form, e, conn, N, JxW)
+end
+
+@inline function FiniteElementContainers.mass_action(
+  physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el
+)
+  interps = map_interpolants(interps, x_el)
+  (; N, JxW) = interps
+  return JxW * dot(N, v_el) * N
 end
 
 @inline function FiniteElementContainers.residual(
@@ -66,8 +112,6 @@ end
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
-  # ∇u_q = interpolate_field_gradients(physics, interps, u_el)
-  # R_q = ∇u_q * ∇N_X' - N' * physics.func(X_q, 0.0)
   form = GeneralFormulation{size(X_q, 1), num_fields(physics)}()
   scatter_with_gradients_and_gradients!(storage, form, e, conn, ∇N_X, JxW)
 end
@@ -80,10 +124,14 @@ end
   return JxW * ∇N_X * (∇N_X' * v_el)
 end
 
-@inline function FiniteElementContainers.mass_action(
-  physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el
+@inline function FiniteElementContainers.stiffness_action!(
+  storage, e,
+  physics::Poisson, t, dt, props_el, 
+  state_old_q, state_new_q,
+  conn, interps, x_el, u_el, u_el_old, v_el
 )
   interps = map_interpolants(interps, x_el)
-  (; N, JxW) = interps
-  return JxW * dot(N, v_el) * N
+  (; X_q, N, ∇N_X, JxW) = interps
+  form = GeneralFormulation{size(X_q, 1), num_fields(physics)}()
+  scatter_with_gradients_and_gradients!(storage, form, e, conn, ∇N_X, JxW, v_el)
 end

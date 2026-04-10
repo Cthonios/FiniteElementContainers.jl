@@ -20,12 +20,12 @@ function DirectLinearSolver(assembler::SparseMatrixAssembler)
 end 
 
 function solve!(solver::DirectLinearSolver, Uu, p)
-  if _use_static_arrays(solver.assembler)
-    residual_method = residual
-    stiffness_method = stiffness
-  else
+  if _use_inplace_methods(solver.assembler)
     residual_method = residual!
     stiffness_method = stiffness!
+  else
+    residual_method = residual
+    stiffness_method = stiffness
   end
   assemble_vector!(solver.assembler, residual_method, Uu, p)
   assemble_vector_source!(solver.assembler, Uu, p)

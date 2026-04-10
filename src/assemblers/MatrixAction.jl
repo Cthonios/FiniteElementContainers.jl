@@ -85,7 +85,8 @@ function assemble_matrix_action!(
   assemble_matrix_action!(
     assembler.stiffness_action_storage,
     assembler.vector_pattern, assembler.dof,
-    func, Uu, Vu, p
+    func, Uu, Vu, p;
+    use_inplace_methods = _use_inplace_methods(assembler)
   )
   return nothing
 end
@@ -94,7 +95,8 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble_matrix_action!(
-  storage, pattern, dof, func, Uu, Vu, p
+  storage, pattern, dof, func, Uu, Vu, p;
+  use_inplace_methods::Bool = false
 )
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
@@ -107,15 +109,27 @@ function assemble_matrix_action!(
   _update_for_assembly!(p, dof, Uu, Vu)
   conns = fspace.elem_conns
   foreach_block(fspace, p) do physics, props, ref_fe, b
-    _assemble_block_matrix_action!(
-      storage,
-      conns.data, conns.offsets[b],
-      func,
-      physics, ref_fe,
-      X, t, Δt,
-      U, U_old, V,
-      block_view(p.state_old, b), block_view(p.state_new, b), props
-    )
+    if use_inplace_methods
+      _assemble_block_matrix_action!(
+        storage,
+        func,
+        physics,
+        t, Δt,
+        props,
+        block_view(p.state_old, b), block_view(p.state_new, b),
+        conns.data, conns.offsets[b], ref_fe, X, U, U_old, V
+      )
+    else
+      _assemble_block_matrix_action!(
+        storage,
+        conns.data, conns.offsets[b],
+        func,
+        physics, ref_fe,
+        X, t, Δt,
+        U, U_old, V,
+        block_view(p.state_old, b), block_view(p.state_new, b), props
+      )
+    end
   end
 end
 
@@ -148,5 +162,37 @@ function _assemble_block_matrix_action!(
     Kv_el = K_el * v_el
 
     _assemble_element!(field, Kv_el, conn, e)
+  end
+end
+
+function _assemble_block_matrix_action!(
+  field,
+  func!::Function,
+  physics::AbstractPhysics,
+  t::T, Δt::T,
+  props::P, state_old::S, state_new::S,
+  conns::Conn, coffset::Int, ref_fe::ReferenceFE,
+  X::AbstractField, U::Solution, U_old::Solution, V::Solution
+) where {
+  T        <: Number,
+  S,
+  P,
+  Conn     <: AbstractArray,
+  Solution <: AbstractField
+}
+  fec_foraxes(state_old, 3) do e
+    conn = connectivity(ref_fe, conns, e, coffset)
+    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
+    props_el = _element_level_properties(props, e)
+    for q in 1:num_cell_quadrature_points(ref_fe)
+      interps = _cell_interpolants(ref_fe, q)
+      state_old_q = _quadrature_level_state(state_old, q, e)
+      state_new_q = _quadrature_level_state(state_new, q, e)
+      func!(
+        field, e, physics, t, Δt, 
+        props_el, state_old_q, state_new_q,
+        conn, interps, x_el, u_el, u_el_old, v_el
+      )
+    end
   end
 end

@@ -69,6 +69,142 @@ function test_sparse_matrix_assembler()
   @show p
 end
 
+function test_sparse_matrix_assembler_consistency_poisson()
+  mesh_file = "./poisson/multi_block_mesh_quad4_tri3.g"
+  mesh = UnstructuredMesh(mesh_file)
+  V = FunctionSpace(mesh, H1Field, Lagrange)
+  f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
+  bc_func(_, _) = 0.
+  physics = Poisson(f)
+  props = SVector{0, Float64}()
+  u = ScalarFunction(V, :u)
+  # dbcs = DirichletBC[
+  #   DirichletBC(:u, bc_func; sideset_name = :sset_1),
+  #   DirichletBC(:u, bc_func; sideset_name = :sset_2),
+  #   DirichletBC(:u, bc_func; sideset_name = :sset_3),
+  #   DirichletBC(:u, bc_func; sideset_name = :sset_4),
+  # ]
+  dbcs = DirichletBC[
+    DirichletBC(:u, bc_func; sideset_name = :boundary)
+  ]
+  
+  for use_condensed in [false, true]
+    asm_1 = SparseMatrixAssembler(
+      u;
+      use_condensed = use_condensed,
+      use_inplace_methods = false
+    )
+    asm_2 = SparseMatrixAssembler(
+      u;
+      use_condensed = use_condensed,
+      use_inplace_methods = true
+    )
+
+    p_1 = create_parameters(mesh, asm_1, physics, props; dirichlet_bcs=dbcs)
+    p_2 = create_parameters(mesh, asm_2, physics, props; dirichlet_bcs=dbcs)
+    FiniteElementContainers.initialize!(p_1)
+    FiniteElementContainers.initialize!(p_2)
+    U_1 = create_unknowns(asm_1)
+    V_1 = create_unknowns(asm_1)
+    U_2 = create_unknowns(asm_2)
+    V_2 = create_unknowns(asm_2)
+    temp = rand(length(V_2))
+    V_1 .= temp
+    V_2 .= temp
+
+    # test vector consistency
+    assemble_vector!(asm_1, residual, U_1, p_1)
+    assemble_vector!(asm_2, residual!, U_2, p_2)
+    @test all(residual(asm_1) .≈ residual(asm_2))
+
+    # test stiffness consistency
+    assemble_stiffness!(asm_1, stiffness, U_1, p_1)
+    assemble_stiffness!(asm_2, stiffness!, U_2, p_2)
+    @test all(stiffness(asm_1) .≈ stiffness(asm_2))
+
+    # test stiffness action consistency
+    assemble_matrix_action!(asm_1, stiffness, U_1, V_1, p_1)
+    assemble_matrix_action!(asm_2, stiffness_action!, U_2, V_2, p_2)
+    @test all(hvp(asm_1, V_1) .≈ hvp(asm_2, V_2))
+
+    # test mass consistency
+    # assemble_mass!(asm_1, mass, U_1, p_1)
+    # assemble_mass!(asm_2, mass!, U_2, p_2)
+    # @test all(mass(asm_1) .≈ mass(asm_2))
+
+    # display(mass(asm_1))
+    # display(mass(asm_2))
+
+    # temp = mass(asm_1) - mass(asm_2)
+    # display(Matrix(temp))
+  end
+end
+
+function test_sparse_matrix_assembler_consistency_mechanics()
+  mesh_file = "./mechanics/mechanics.g"
+  mesh = UnstructuredMesh(mesh_file)
+  V = FunctionSpace(mesh, H1Field, Lagrange)
+  physics = Mechanics(1.0, PlaneStrain())
+  props = create_properties(physics)
+  u = VectorFunction(V, :displ)
+  fixed(_, _) = 0.
+  dbcs = DirichletBC[
+    DirichletBC(:displ_x, fixed; sideset_name = :sset_3),
+    DirichletBC(:displ_y, fixed; sideset_name = :sset_3),
+    DirichletBC(:displ_x, fixed; sideset_name = :sset_1),
+    DirichletBC(:displ_y, fixed; sideset_name = :sset_1),
+  ]
+  times = TimeStepper(0., 1., 1)
+  
+  for use_condensed in [false, true]
+    asm_1 = SparseMatrixAssembler(
+      u;
+      use_condensed = use_condensed,
+      use_inplace_methods = false
+    )
+    asm_2 = SparseMatrixAssembler(
+      u;
+      use_condensed = use_condensed,
+      use_inplace_methods = true
+    )
+
+    p_1 = create_parameters(mesh, asm_1, physics, props; dirichlet_bcs=dbcs, times=times)
+    p_2 = create_parameters(mesh, asm_2, physics, props; dirichlet_bcs=dbcs, times=times)
+    FiniteElementContainers.initialize!(p_1)
+    FiniteElementContainers.initialize!(p_2)
+    U_1 = create_unknowns(asm_1)
+    V_1 = create_unknowns(asm_1)
+    U_2 = create_unknowns(asm_2)
+    V_2 = create_unknowns(asm_2)
+
+    # test vector consistency
+    assemble_vector!(asm_1, residual, U_1, p_1)
+    assemble_vector!(asm_2, residual!, U_2, p_2)
+    @test all(residual(asm_1) .≈ residual(asm_2))
+
+    # test stiffness consistency
+    assemble_stiffness!(asm_1, stiffness, U_1, p_1)
+    assemble_stiffness!(asm_2, stiffness!, U_2, p_2)
+    # @test all(stiffness(asm_1) .≈ stiffness(asm_2))
+    # @show norm(stiffness(asm_1) - stiffness(asm_2))
+
+    # test stiffness action consistency
+    assemble_matrix_action!(asm_1, stiffness, U_1, V_1, p_1)
+    assemble_matrix_action!(asm_2, stiffness_action!, U_2, V_2, p_2)
+    @test all(hvp(asm_1, V_1) .≈ hvp(asm_2, V_2))
+
+
+    # test mass consistency
+    # assemble_mass!(asm_1, mass, U_1, p_1)
+    # assemble_mass!(asm_2, mass!, U_2, p_2)
+    # @test all(mass(asm_1) .≈ mass(asm_2))
+    # @show norm(mass(asm_1) - mass(asm_2))
+
+    # temp = mass(asm_1) - mass(asm_2)
+    # display(Matrix(temp))
+  end
+end
+
 function test_matrix_free_action(dev)
   # Poisson: scalar problem, tests both stiffness_action and mass_action
   mesh_file = "./poisson/poisson.g"
@@ -119,7 +255,7 @@ function test_matrix_free_action_mechanics(dev)
   mesh_file = "./mechanics/mechanics.g"
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
-  physics = Mechanics(PlaneStrain())
+  physics = Mechanics(1.0, PlaneStrain())
   props = create_properties(physics)
   u = VectorFunction(V, :displ)
   asm = SparseMatrixAssembler(u)
@@ -154,6 +290,8 @@ end
 @testset "Sparse matrix assembler" begin
   test_sparse_matrix_gpu_trace()
   test_sparse_matrix_assembler()
+  test_sparse_matrix_assembler_consistency_poisson()
+  test_sparse_matrix_assembler_consistency_mechanics()
 end
 
 @testset "Matrix-free action (CPU)" begin

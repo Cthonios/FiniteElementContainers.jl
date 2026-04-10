@@ -23,12 +23,12 @@ end
 
 # TODO specialize for operator like assemblers
 function solve!(solver::IterativeLinearSolver, Uu, p)
-  if _use_static_arrays(solver.assembler)
-    residual_method = residual
-    stiffness_method = stiffness
-  else
+  if _use_inplace_methods(solver.assembler)
     residual_method = residual!
     stiffness_method = stiffness!
+  else
+    residual_method = residual
+    stiffness_method = stiffness
   end
   # assemble relevant fields
   @timeit solver.timer "residual assembly" begin

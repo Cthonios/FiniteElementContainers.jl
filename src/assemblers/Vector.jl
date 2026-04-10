@@ -8,8 +8,8 @@ function assemble_vector!(
     assembler.residual_storage, 
     assembler.vector_pattern, assembler.dof,
     func, Uu, p;
+    use_inplace_methods = _use_inplace_methods(assembler),
     use_sparse_vector = _use_sparse_vector(assembler),
-    use_static_arrays = _use_static_arrays(assembler)
   )
   return nothing
 end
@@ -19,8 +19,8 @@ $(TYPEDSIGNATURES)
 """
 function assemble_vector!(
   storage, pattern, dof, func::F, Uu, p;
-  use_sparse_vector::Bool = false,
-  use_static_arrays::Bool = true
+  use_inplace_methods::Bool = false,
+  use_sparse_vector::Bool = false
 ) where F <: Function
   fill!(storage, zero(eltype(storage)))
   fspace = function_space(dof)
@@ -39,7 +39,17 @@ function assemble_vector!(
       field = storage
     end
 
-    if use_static_arrays
+    if use_inplace_methods
+      _assemble_block!(
+        field,
+        func,
+        physics,
+        t, Δt,
+        props,
+        block_view(p.state_old, b), block_view(p.state_new, b),
+        conns.data, conns.offsets[b], ref_fe, X, U, U_old
+      )
+    else
       _assemble_block!(
         field,
         conns.data, conns.offsets[b], 
@@ -49,16 +59,6 @@ function assemble_vector!(
         U, U_old,
         block_view(p.state_old, b), block_view(p.state_new, b), props,
         return_type
-      )
-    else
-      _assemble_block!(
-        field,
-        func,
-        physics,
-        t, Δt,
-        props,
-        block_view(p.state_old, b), block_view(p.state_new, b),
-        conns.data, conns.offsets[b], ref_fe, X, U, U_old
       )
     end
   end
