@@ -18,20 +18,10 @@ end
 @inline function FiniteElementContainers.mass(
   physics::Poisson, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el
 )
-  # interps = map_interpolants(interps, x_el)
-  # (; X_q, N, ∇N_X, JxW) = interps
-  # M_q = N * N'
-  # return JxW * M_q
   cell = map_interpolants(interps, x_el)
   (; N, JxW) = cell
 
-  # Build element mass matrix in interleaved DOF ordering:
-  #   M_el[3*(n-1)+d, 3*(m-1)+d'] = δ(d,d') * N[n] * N[m]
-  # i.e. kron(N*N', I_3).  The FEC assembly infrastructure expects
-  # rows/cols in the same interleaved order as discrete_gradient, so
-  # "N_vec * N_vec'" with a block-ordered N_vec would be wrong.
   N_nodes = size(N, 1)
-  # NDIM = num_fields(physics.formulation)
   NDIM = 1
   NDOF = NDIM * N_nodes
   tup = zeros(SVector{NDOF * NDOF, eltype(N)})
@@ -60,6 +50,18 @@ end
   (; X_q, N, ∇N_X, JxW) = interps
   form = GeneralFormulation{size(X_q, 1), num_fields(physics)}()
   scatter_with_values_and_values!(storage, form, e, conn, N, JxW)
+end
+
+@inline function FiniteElementContainers.mass_action!(
+  storage, e,
+  physics::Poisson, t, dt, props_el, 
+  state_old_q, state_new_q,
+  conn, interps, x_el, u_el, u_el_old, v_el
+)
+  interps = map_interpolants(interps, x_el)
+  (; X_q, N, ∇N_X, JxW) = interps
+  form = GeneralFormulation{size(X_q, 1), num_fields(physics)}()
+  scatter_with_values_and_values!(storage, form, e, conn, N, JxW, v_el)
 end
 
 @inline function FiniteElementContainers.mass_action(

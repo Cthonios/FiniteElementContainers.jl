@@ -95,6 +95,17 @@ end
   scatter_with_values_and_values!(storage, physics.formulation, e, conn, N, JxW * physics.density)
 end
 
+@inline function FiniteElementContainers.mass_action!(
+  storage, e,
+  physics::Mechanics, t, dt, props_el, 
+  state_old_q, state_new_q,
+  conn, interps, x_el, u_el, u_el_old, v_el
+)
+  interps = map_interpolants(interps, x_el)
+  (; N, JxW) = interps
+  scatter_with_values_and_values!(storage, physics.formulation, e, conn, N, JxW * physics.density, v_el)
+end
+
 # note for CUDA things crash without inline
 @inline function FiniteElementContainers.residual(
   physics::Mechanics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el

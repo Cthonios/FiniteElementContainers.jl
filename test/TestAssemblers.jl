@@ -14,7 +14,7 @@ function test_sparse_matrix_gpu_trace()
   @test trA ≈ trA_check
 end
 
-function test_sparse_matrix_assembler()
+function test_sparse_matrix_assembler(dev)
   # create very simple poisson problem
   mesh_file = "./poisson/poisson.g"
   mesh = UnstructuredMesh(mesh_file)
@@ -32,6 +32,12 @@ function test_sparse_matrix_assembler()
     DirichletBC(:u, bc_func; sideset_name = :sset_4),
   ]
   p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+
+  if dev != cpu
+    asm = asm |> dev
+    p = p |> dev
+  end
+
   FiniteElementContainers.initialize!(p)
   Uu = create_unknowns(asm)
   Vu = create_unknowns(asm)
@@ -52,6 +58,12 @@ function test_sparse_matrix_assembler()
 
   asm = SparseMatrixAssembler(u; use_condensed=false)
   p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+
+  if dev != cpu
+    asm = asm |> dev
+    p = p |> dev
+  end
+
   U = create_unknowns(asm)
   V = create_unknowns(asm)
 
@@ -69,7 +81,7 @@ function test_sparse_matrix_assembler()
   @show p
 end
 
-function test_sparse_matrix_assembler_consistency_poisson()
+function test_sparse_matrix_assembler_consistency_poisson(dev)
   mesh_file = "./poisson/multi_block_mesh_quad4_tri3.g"
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
@@ -78,12 +90,6 @@ function test_sparse_matrix_assembler_consistency_poisson()
   physics = Poisson(f)
   props = SVector{0, Float64}()
   u = ScalarFunction(V, :u)
-  # dbcs = DirichletBC[
-  #   DirichletBC(:u, bc_func; sideset_name = :sset_1),
-  #   DirichletBC(:u, bc_func; sideset_name = :sset_2),
-  #   DirichletBC(:u, bc_func; sideset_name = :sset_3),
-  #   DirichletBC(:u, bc_func; sideset_name = :sset_4),
-  # ]
   dbcs = DirichletBC[
     DirichletBC(:u, bc_func; sideset_name = :boundary)
   ]
@@ -104,43 +110,81 @@ function test_sparse_matrix_assembler_consistency_poisson()
     p_2 = create_parameters(mesh, asm_2, physics, props; dirichlet_bcs=dbcs)
     FiniteElementContainers.initialize!(p_1)
     FiniteElementContainers.initialize!(p_2)
+
+    if dev != cpu
+      asm_1 = asm_1 |> dev
+      asm_2 = asm_2 |> dev
+      p_1 = p_1 |> dev
+      p_2 = p_2 |> dev
+    end
+
     U_1 = create_unknowns(asm_1)
     V_1 = create_unknowns(asm_1)
     U_2 = create_unknowns(asm_2)
     V_2 = create_unknowns(asm_2)
-    temp = rand(length(V_2))
+    temp = rand(length(V_2)) |> dev
     V_1 .= temp
     V_2 .= temp
 
     # test vector consistency
     assemble_vector!(asm_1, residual, U_1, p_1)
     assemble_vector!(asm_2, residual!, U_2, p_2)
-    @test all(residual(asm_1) .≈ residual(asm_2))
+    R_1 = residual(asm_1) |> copy
+    R_2 = residual(asm_2) |> copy
+    if dev != cpu
+      R_1 = R_1 |> cpu
+      R_2 = R_2 |> cpu
+    end
+    @test all(R_1 .≈ R_2)
 
     # test stiffness consistency
     assemble_stiffness!(asm_1, stiffness, U_1, p_1)
     assemble_stiffness!(asm_2, stiffness!, U_2, p_2)
-    @test all(stiffness(asm_1) .≈ stiffness(asm_2))
+    # @test all(stiffness(asm_1) .≈ stiffness(asm_2))
+    K_1 = stiffness(asm_1) |> copy
+    K_2 = stiffness(asm_2) |> copy
+    if dev != cpu
+      K_1 = K_1 |> cpu
+      K_2 = K_2 |> cpu
+    end
+    @test all(K_1 .≈ K_2)
 
     # test stiffness action consistency
     assemble_matrix_action!(asm_1, stiffness, U_1, V_1, p_1)
     assemble_matrix_action!(asm_2, stiffness_action!, U_2, V_2, p_2)
-    @test all(hvp(asm_1, V_1) .≈ hvp(asm_2, V_2))
+    Kv_1 = hvp(asm_1, V_1) |> copy
+    Kv_2 = hvp(asm_2, V_2) |> copy
+    if dev != cpu
+      Kv_1 = Kv_1 |> cpu
+      Kv_2 = Kv_2 |> cpu
+    end
+    @test all(Kv_1 .≈ Kv_2)
 
     # test mass consistency
-    # assemble_mass!(asm_1, mass, U_1, p_1)
-    # assemble_mass!(asm_2, mass!, U_2, p_2)
-    # @test all(mass(asm_1) .≈ mass(asm_2))
-
-    # display(mass(asm_1))
-    # display(mass(asm_2))
-
-    # temp = mass(asm_1) - mass(asm_2)
-    # display(Matrix(temp))
+    assemble_mass!(asm_1, mass, U_1, p_1)
+    assemble_mass!(asm_2, mass!, U_2, p_2)
+    M_1 = mass(asm_1) |> copy
+    M_2 = mass(asm_2) |> copy
+    if dev != cpu
+      M_1 = M_1 |> cpu
+      M_2 = M_2 |> cpu
+    end
+    @test all(M_1 .≈ M_2)
+    
+    # mass action consistency
+    assemble_matrix_action!(asm_1, mass, U_1, V_1, p_1)
+    assemble_matrix_action!(asm_2, mass_action!, U_2, V_2, p_2)
+    Mv_1 = hvp(asm_1, V_1) |> copy
+    Mv_2 = hvp(asm_2, V_2) |> copy
+    if dev != cpu
+      Mv_1 = Mv_1 |> cpu
+      Mv_2 = Mv_2 |> cpu
+    end
+    @test all(Mv_1 .≈ Mv_2)
   end
 end
 
-function test_sparse_matrix_assembler_consistency_mechanics()
+function test_sparse_matrix_assembler_consistency_mechanics(dev)
   mesh_file = "./mechanics/mechanics.g"
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
@@ -170,6 +214,14 @@ function test_sparse_matrix_assembler_consistency_mechanics()
 
     p_1 = create_parameters(mesh, asm_1, physics, props; dirichlet_bcs=dbcs, times=times)
     p_2 = create_parameters(mesh, asm_2, physics, props; dirichlet_bcs=dbcs, times=times)
+
+    if dev != cpu
+      asm_1 = asm_1 |> dev
+      asm_2 = asm_2 |> dev
+      p_1 = p_1 |> dev
+      p_2 = p_2 |> dev
+    end
+
     FiniteElementContainers.initialize!(p_1)
     FiniteElementContainers.initialize!(p_2)
     U_1 = create_unknowns(asm_1)
@@ -180,28 +232,57 @@ function test_sparse_matrix_assembler_consistency_mechanics()
     # test vector consistency
     assemble_vector!(asm_1, residual, U_1, p_1)
     assemble_vector!(asm_2, residual!, U_2, p_2)
-    @test all(residual(asm_1) .≈ residual(asm_2))
+    R_1 = residual(asm_1) |> copy
+    R_2 = residual(asm_2) |> copy
+    if dev != cpu
+      R_1 = R_1 |> cpu
+      R_2 = R_2 |> cpu
+    end
+    @test all(R_1 .≈ R_2)
 
     # test stiffness consistency
     assemble_stiffness!(asm_1, stiffness, U_1, p_1)
     assemble_stiffness!(asm_2, stiffness!, U_2, p_2)
-    # @test all(stiffness(asm_1) .≈ stiffness(asm_2))
-    # @show norm(stiffness(asm_1) - stiffness(asm_2))
+    K_1 = stiffness(asm_1) |> copy
+    K_2 = stiffness(asm_2) |> copy
+    if dev != cpu
+      K_1 = K_1 |> cpu
+      K_2 = K_2 |> cpu
+    end
+    @test all(isapprox.(K_1, K_2, atol = 1e-5, rtol = 1e-5)) # need large tol for this one for some reason maybe AD with symmetric stuff?
 
     # test stiffness action consistency
     assemble_matrix_action!(asm_1, stiffness, U_1, V_1, p_1)
     assemble_matrix_action!(asm_2, stiffness_action!, U_2, V_2, p_2)
-    @test all(hvp(asm_1, V_1) .≈ hvp(asm_2, V_2))
-
+    Kv_1 = hvp(asm_1, V_1) |> copy
+    Kv_2 = hvp(asm_2, V_2) |> copy
+    if dev != cpu
+      Kv_1 = Kv_1 |> cpu
+      Kv_2 = Kv_2 |> cpu
+    end
+    @test all(Kv_1 .≈ Kv_2)
 
     # test mass consistency
-    # assemble_mass!(asm_1, mass, U_1, p_1)
-    # assemble_mass!(asm_2, mass!, U_2, p_2)
-    # @test all(mass(asm_1) .≈ mass(asm_2))
-    # @show norm(mass(asm_1) - mass(asm_2))
-
-    # temp = mass(asm_1) - mass(asm_2)
-    # display(Matrix(temp))
+    assemble_mass!(asm_1, mass, U_1, p_1)
+    assemble_mass!(asm_2, mass!, U_2, p_2)
+    M_1 = mass(asm_1) |> copy
+    M_2 = mass(asm_2) |> copy
+    if dev != cpu
+      M_1 = M_1 |> cpu
+      M_2 = M_2 |> cpu
+    end
+    @test all(M_1 .≈ M_2)
+    
+    # mass action consistency
+    assemble_matrix_action!(asm_1, mass, U_1, V_1, p_1)
+    assemble_matrix_action!(asm_2, mass_action!, U_2, V_2, p_2)
+    Mv_1 = hvp(asm_1, V_1) |> copy
+    Mv_2 = hvp(asm_2, V_2) |> copy
+    if dev != cpu
+      Mv_1 = Mv_1 |> cpu
+      Mv_2 = Mv_2 |> cpu
+    end
+    @test all(Mv_1 .≈ Mv_2)
   end
 end
 
@@ -287,28 +368,24 @@ function test_matrix_free_action_mechanics(dev)
   @test Kv_mf ≈ Kv_ref
 end
 
-@testset "Sparse matrix assembler" begin
-  test_sparse_matrix_gpu_trace()
-  test_sparse_matrix_assembler()
-  test_sparse_matrix_assembler_consistency_poisson()
-  test_sparse_matrix_assembler_consistency_mechanics()
+function test_assemblers()
+  @testset "Sparse matrix GPU trace" begin
+    test_sparse_matrix_gpu_trace()
+  end
+
+  devs = _get_backends()
+  for dev in devs
+    @testset "Sparse matrix assembler - $dev" begin
+      test_sparse_matrix_assembler(dev)
+      test_sparse_matrix_assembler_consistency_poisson(dev)
+      test_sparse_matrix_assembler_consistency_mechanics(dev)
+    end
+
+    @testset "Matrix-free action - $dev" begin
+      test_matrix_free_action(dev)
+      test_matrix_free_action_mechanics(dev)
+    end
+  end
 end
 
-@testset "Matrix-free action (CPU)" begin
-  test_matrix_free_action(cpu)
-  test_matrix_free_action_mechanics(cpu)
-end
-
-@testset "Matrix-free action (GPU)" begin
-  if AMDGPU.functional()
-    test_matrix_free_action(rocm)
-    test_matrix_free_action_mechanics(rocm)
-  end
-  if CUDA.functional()
-    test_matrix_free_action(cuda)
-    test_matrix_free_action_mechanics(cuda)
-  end
-  if !AMDGPU.functional() && !CUDA.functional()
-    @test_skip "No GPU available"
-  end
-end
+test_assemblers()

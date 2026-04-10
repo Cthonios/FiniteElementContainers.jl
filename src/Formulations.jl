@@ -238,56 +238,54 @@ function scatter_with_values_and_values!(
   N,
   ρ::T
 ) where {ND, NF, T <: Number}
-  # Nn   = length(N)
-  Nn = size(N, 1)
-  NDPE = Nn * NF
+  Nn       = size(N, 1)
+  NDPE     = Nn * NF
+  NDOF     = NDPE
   start_id = (e - 1) * NDPE * NDPE + 1
-  ids      = start_id:(start_id + NDPE * NDPE - 1)
-  inc      = 1
-  # TODO for coupled mechanics stuff NF is probably wrong for all below
-  NDOF = NF * Nn
-  for n2 in 1:Nn
-    for n1 in 1:Nn
-      contrib = N[n1] * ρ * N[n2]
-      for d in 1:NF
-        r = NF * (n2 - 1) + d
-        c = NF * (n1 - 1) + d
-        linear_idx = start_id + r + NDOF * (c - 1) - 1   # column-major flat index
-        storage[linear_idx] = contrib
-        # storage[ids[inc]] = contrib
-        # inc += 1
+
+  for n2 in 1:Nn          # col node — slow
+    for d in 1:NF       # col dof
+      c = NF * (n2 - 1) + d
+      for n1 in 1:Nn  # row node — fast
+        r          = NF * (n1 - 1) + d
+        linear_idx = start_id + r + NDOF * (c - 1) - 1
+        contrib    = N[n1] * ρ * N[n2]
+        storage[linear_idx] += contrib  # += not =
       end
     end
   end
 
   return nothing
 end
-# function scatter_with_values_and_values!(
-#   storage::AbstractVector,
-#   ::AbstractElementFormulation{ND, NF},
-#   e,
-#   conns,
-#   N,
-#   ρ::T
-# ) where {ND, NF, T <: Number}
-#   Nn   = length(N)
-#   NDPE = Nn * NF
-#   start_id = (e - 1) * NDPE * NDPE + 1
-#   ids      = start_id:(start_id + NDPE * NDPE - 1)
-#   inc      = 1
 
-#   for n2 in 1:Nn
-#       for n1 in 1:Nn
-#           contrib = N[n1] * ρ * N[n2]
-#           for d in 1:NF
-#               storage[ids[inc]] += contrib
-#               inc += 1
-#           end
-#       end
-#   end
+function scatter_with_values_and_values!(
+  storage::AbstractField,
+  ::AbstractElementFormulation{ND, NF},
+  e,
+  conns,
+  N,
+  ρ::T,
+  v_el::SVector{NDPE, T}
+) where {ND, NF, T <: Number, NDPE}
+  Nn = size(N, 1)
 
-#   return nothing
-# end
+  for n1 in 1:Nn
+    for d in 1:NF
+      global_id = NF * (conns[n1] - 1) + d
+      contrib   = zero(T)
+
+      for n2 in 1:Nn
+        local_id = NF * (n2 - 1) + d
+        contrib += N[n1] * ρ * N[n2] * v_el[local_id]
+      end
+
+      fec_atomic_add!(storage, global_id, contrib)
+    end
+  end
+
+  return nothing
+end
+
 # doesn't implement extract stress/stiffness
 
 ##########################################################################
