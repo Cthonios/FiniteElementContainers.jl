@@ -33,16 +33,16 @@ function test_laplace()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
   lsolvers = [cg_solver, DirectLinearSolver]
   use_condensed = [false, true]
-  use_static_arrays = [false, true]
+  use_inplace_methods = [false, true]
 
   for backend in backends
     for cond in use_condensed
-      for use_static_array in use_static_arrays
+      for use_inplace_method in use_inplace_methods
         for lsolver in lsolvers
           if backend != cpu && lsolver == DirectLinearSolver
             continue
           end
-          test_laplace(backend, NewtonSolver, lsolver; use_condensed = cond, use_static_arrays = use_static_array)
+          test_laplace(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
         end
       end
     end
@@ -54,16 +54,16 @@ function test_poisson()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
   lsolvers = [cg_solver, DirectLinearSolver]
   use_condensed = [false, true]
-  use_static_arrays = [false, true]
+  use_inplace_methods = [false, true]
 
   for backend in backends
     for cond in use_condensed
-      for use_static_array in use_static_arrays
+      for use_inplace_method in use_inplace_methods
         for lsolver in lsolvers
           if backend != cpu && lsolver == DirectLinearSolver
             continue
           end
-          test_poisson(backend, NewtonSolver, lsolver; use_condensed = cond, use_static_arrays = use_static_array)
+          test_poisson(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
         end
       end
     end
@@ -79,17 +79,16 @@ function test_mechanics()
   lsolvers = [cg_solver, DirectLinearSolver]
   lsolvers = [DirectLinearSolver]
   use_condensed = [false, true]
-  use_static_arrays = [false, true]
-
+  use_inplace_methods = [false, true]
 
   for backend in backends
     for cond in use_condensed
-      for use_static_array in use_static_arrays
+      for use_inplace_method in use_inplace_methods
         for lsolver in lsolvers
           if backend != cpu && lsolver == DirectLinearSolver
             continue
           end
-          test_mechanics_dirichlet_only(backend, NewtonSolver, lsolver; use_condensed = cond, use_static_arrays = use_static_array)
+          test_mechanics_dirichlet_only(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
         end
       end
     end

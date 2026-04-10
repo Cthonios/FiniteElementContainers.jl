@@ -13,7 +13,7 @@ function discrete_gradient end # eventually to be deprecated
 function discrete_symmetric_gradient end # eventually to be deprecated
 function discrete_values end # eventually to be deprecated
 function modify_field_gradients(::AbstractElementFormulation, ∇u)
-    return ∇u
+  return ∇u
 end
 # vector solution case (gradient is a matrix or tensor)
 """
@@ -121,6 +121,75 @@ function scatter_with_gradients_and_gradients!(
 
   return nothing
 end
+
+function scatter_with_gradients_and_gradients!(
+  storage::AbstractField,
+  ::AbstractElementFormulation{ND, NF},
+  e,
+  conns,
+  ∇N_X,
+  k::T,
+  v_el::SVector{NDPE, T}
+) where {ND, NF, T <: Number, NDPE}
+  @assert ND == size(∇N_X, 2)
+  N = size(∇N_X, 1)
+
+  for n1 in 1:N
+    for d1 in 1:NF
+      global_id = NF * (conns[n1] - 1) + d1
+      contrib   = zero(T)
+
+      for n2 in 1:N
+        # local index into v_el for node n2, dof d1
+        local_id = NF * (n2 - 1) + d1
+        for j in 1:ND
+          contrib += ∇N_X[n1, j] * k * ∇N_X[n2, j] * v_el[local_id]
+        end
+      end
+
+      fec_atomic_add!(storage, global_id, contrib)
+    end
+  end
+
+  return nothing
+end
+
+function scatter_with_gradients_and_gradients!(
+  storage::AbstractField,
+  form::AbstractElementFormulation{ND, NF},
+  e,
+  conns,
+  ∇N_X,
+  A::Tensor{4, 3, T, ND4},
+  v_el::SVector{NDPE, T}
+) where {ND, NF, T <: Number, ND4, NDPE}
+  @assert ND == size(∇N_X, 2)
+  K_voigt = extract_stiffness(form, A)
+  N       = size(∇N_X, 1)
+
+  for n1 in 1:N
+    for d1 in 1:NF
+      global_id = NF * (conns[n1] - 1) + d1
+      contrib   = zero(T)
+
+      for n2 in 1:N
+        local_id = NF * (n2 - 1) + d1
+        for j1 in 1:ND
+          a = (j1 - 1) * ND + d1
+          for j2 in 1:ND
+            b = (j2 - 1) * ND + d1  
+            contrib += ∇N_X[n1, j1] * K_voigt[a, b] * ∇N_X[n2, j2] * v_el[local_id]
+          end
+        end
+      end
+
+      fec_atomic_add!(storage, global_id, contrib)
+    end
+  end
+
+  return nothing
+end
+
 # implement for those that have it
 """
 Scalar equation specialization
@@ -169,25 +238,56 @@ function scatter_with_values_and_values!(
   N,
   ρ::T
 ) where {ND, NF, T <: Number}
-  Nn   = length(N)
+  # Nn   = length(N)
+  Nn = size(N, 1)
   NDPE = Nn * NF
   start_id = (e - 1) * NDPE * NDPE + 1
   ids      = start_id:(start_id + NDPE * NDPE - 1)
   inc      = 1
-
+  # TODO for coupled mechanics stuff NF is probably wrong for all below
+  NDOF = NF * Nn
   for n2 in 1:Nn
     for n1 in 1:Nn
       contrib = N[n1] * ρ * N[n2]
       for d in 1:NF
-        storage[ids[inc]] += contrib
-        inc += 1
+        r = NF * (n2 - 1) + d
+        c = NF * (n1 - 1) + d
+        linear_idx = start_id + r + NDOF * (c - 1) - 1   # column-major flat index
+        storage[linear_idx] = contrib
+        # storage[ids[inc]] = contrib
+        # inc += 1
       end
     end
   end
 
   return nothing
 end
+# function scatter_with_values_and_values!(
+#   storage::AbstractVector,
+#   ::AbstractElementFormulation{ND, NF},
+#   e,
+#   conns,
+#   N,
+#   ρ::T
+# ) where {ND, NF, T <: Number}
+#   Nn   = length(N)
+#   NDPE = Nn * NF
+#   start_id = (e - 1) * NDPE * NDPE + 1
+#   ids      = start_id:(start_id + NDPE * NDPE - 1)
+#   inc      = 1
 
+#   for n2 in 1:Nn
+#       for n1 in 1:Nn
+#           contrib = N[n1] * ρ * N[n2]
+#           for d in 1:NF
+#               storage[ids[inc]] += contrib
+#               inc += 1
+#           end
+#       end
+#   end
+
+#   return nothing
+# end
 # doesn't implement extract stress/stiffness
 
 ##########################################################################

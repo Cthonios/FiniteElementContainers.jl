@@ -16,14 +16,14 @@ function test_mechanics_dirichlet_only(
 )
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Mechanics(PlaneStrain())
+  physics = Mechanics(1.0, PlaneStrain())
   props = create_properties(physics)
 
   u = VectorFunction(V, :displ)
   asm = SparseMatrixAssembler(
     u; 
     use_condensed = kwargs[:use_condensed],
-    use_static_arrays = kwargs[:use_static_arrays]
+    use_inplace_methods = kwargs[:use_inplace_methods]
   )
 
   dbcs = DirichletBC[
