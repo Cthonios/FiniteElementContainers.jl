@@ -22,6 +22,7 @@ function test_mechanics_dirichlet_only(
   u = VectorFunction(V, :displ)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )

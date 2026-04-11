@@ -18,4 +18,8 @@ function FiniteElementContainers._csc_matrix_constructor(::CUDA.CUDABackend)
   return CUDA.CUSPARSE.CuSparseMatrixCSC
 end
 
+function FiniteElementContainers._csr_matrix_constructor(::CUDA.CUDABackend)
+  return CUDA.CUSPARSE.CuSparseMatrixCSR
+end
+
 end # module

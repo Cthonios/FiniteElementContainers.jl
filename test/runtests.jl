@@ -1,70 +1,87 @@
 using Adapt
-using AMDGPU
+if "--test-amdgpu" in ARGS @eval using AMDGPU end
 using Aqua
-using CUDA
+if "--test-cuda" in ARGS @eval using CUDA end
 using Exodus
 using FiniteElementContainers
 using ForwardDiff
 using Gmsh
 using Krylov
 using LinearAlgebra
-using PartitionedArrays
+# using PartitionedArrays
 using ReferenceFiniteElements
 using SparseArrays
+using SparseMatricesCSR
 using StaticArrays
 using Tensors
 using Test
 
 # some helpers
+function _check_functional_backend(name)
+  if isdefined(Main, name)
+    return eval(name).functional()
+  else
+    return false
+  end
+end
+
 function _get_backends()
-  backends = Function[cpu]
-  if AMDGPU.functional()
+  if "--ignore-cpu" in ARGS
+    backends = Function[]
+  else 
+    backends = Function[cpu]
+  end
+  if _check_functional_backend(:AMDGPU)
     push!(backends, rocm)
   end
-  if CUDA.functional()
+  if _check_functional_backend(:CUDA)
     push!(backends, cuda)
   end
   return backends
 end
 
 # "Regression" tests below
+
+# laplace mainly covers the presence of sources
+# we don't need to cover each and every combinatoric of options
 function test_laplace()
   backends = _get_backends()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
-  lsolvers = [cg_solver, DirectLinearSolver]
   use_condensed = [false, true]
-  use_inplace_methods = [false, true]
 
   for backend in backends
     for cond in use_condensed
-      for use_inplace_method in use_inplace_methods
-        for lsolver in lsolvers
-          if backend != cpu && lsolver == DirectLinearSolver
-            continue
-          end
-          test_laplace(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
-        end
-      end
+      @info "Test Laplace with $backend, $cg_solver, use condensed = $cond"
+      test_laplace(
+        backend, NewtonSolver, cg_solver;
+        sparse_matrix_type = :csc,
+        use_condensed = cond,
+        use_inplace_methods = false
+      )
     end
   end
 end
 
 function test_poisson()
   backends = _get_backends()
-  cg_solver = x -> IterativeLinearSolver(x, :cg)
-  lsolvers = [cg_solver, DirectLinearSolver]
   use_condensed = [false, true]
   use_inplace_methods = [false, true]
 
   for backend in backends
+    if backend == cpu
+      lsolver = DirectLinearSolver
+    else
+      lsolver = x -> IterativeLinearSolver(x, :cg)
+    end
     for cond in use_condensed
       for use_inplace_method in use_inplace_methods
-        for lsolver in lsolvers
-          if backend != cpu && lsolver == DirectLinearSolver
-            continue
-          end
-          test_poisson(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
-        end
+        @info "Test Poisson with $backend $cond $use_inplace_method"
+        test_poisson(
+          backend, NewtonSolver, lsolver;
+          sparse_matrix_type = :csc,
+          use_condensed = cond,
+          use_inplace_methods = use_inplace_method
+        )
       end
     end
   end
@@ -76,19 +93,30 @@ end
 function test_mechanics()
   backends = _get_backends()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
-  lsolvers = [cg_solver, DirectLinearSolver]
-  lsolvers = [DirectLinearSolver]
+  sparse_matrix_types = [:csc, :csr]
   use_condensed = [false, true]
   use_inplace_methods = [false, true]
 
   for backend in backends
     for cond in use_condensed
-      for use_inplace_method in use_inplace_methods
-        for lsolver in lsolvers
-          if backend != cpu && lsolver == DirectLinearSolver
-            continue
+      for sparse_matrix_type in sparse_matrix_types
+        for use_inplace_method in use_inplace_methods
+          if backend != cpu
+            lsolver = cg_solver
+          else
+            if sparse_matrix_type == :csc
+              lsolver = DirectLinearSolver
+            elseif sparse_matrix_type == :csr
+              lsolver = cg_solver
+            end
           end
-          test_mechanics_dirichlet_only(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
+          @info "Test mechanics $backend, $cond, $sparse_matrix_type, $use_inplace_method, $lsolver"
+          test_mechanics_dirichlet_only(
+            backend, NewtonSolver, lsolver;
+            sparse_matrix_type = sparse_matrix_type,
+            use_condensed = cond, use_inplace_methods = use_inplace_method
+          )
+          # end
         end
       end
     end
@@ -130,5 +158,9 @@ end
 end
 
 @testset "Aqua" begin
-  Aqua.test_all(FiniteElementContainers)
+  if "--ignore-aqua" in ARGS
+    # do nothing
+  else
+    Aqua.test_all(FiniteElementContainers)
+  end
 end

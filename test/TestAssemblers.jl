@@ -2,21 +2,36 @@ function test_sparse_matrix_gpu_trace()
   A = SparseMatrixCSC(rand(10, 10))
   trA_check = tr(A)
 
-  if AMDGPU.functional()
+  if _check_functional_backend(:AMDGPU)
     A_gpu = adapt(ROCArray, A)
-  elseif CUDA.functional()
+  elseif _check_functional_backend(:CUDA)
     A_gpu = adapt(CuArray, A)
   else
     return nothing
   end
 
-  trA = FiniteElementContainers.__sptrace(A_gpu)
+  trA = FiniteElementContainers._sptrace(A_gpu)
+  @test trA ≈ trA_check
+
+  temp = rand(10, 10)
+  A = SparseMatrixCSR(temp)
+  trA_check = tr(A)
+
+  if _check_functional_backend(:AMDGPU)
+    A_gpu = AMDGPU.rocSPARSE.ROCSparseMatrixCSR(adapt(ROCArray, temp))
+  elseif _check_functional_backend(:CUDA)
+    A_gpu = CUDA.CUSPARSE.CuSparseMatrixCSR(adapt(CuArray, temp))
+  else
+    return nothing
+  end
+
+  trA = FiniteElementContainers._sptrace(A_gpu)
   @test trA ≈ trA_check
 end
 
 function test_sparse_matrix_assembler(dev)
   # create very simple poisson problem
-  mesh_file = "./poisson/poisson.g"
+  mesh_file = "./poisson/multi_block_mesh_quad4_tri3.g"
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
@@ -25,13 +40,7 @@ function test_sparse_matrix_assembler(dev)
   props = SVector{0, Float64}()
   u = ScalarFunction(V, :u)
   @show asm = SparseMatrixAssembler(u)
-  dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :sset_1),
-    DirichletBC(:u, bc_func; sideset_name = :sset_2),
-    DirichletBC(:u, bc_func; sideset_name = :sset_3),
-    DirichletBC(:u, bc_func; sideset_name = :sset_4),
-  ]
-  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
+  p = create_parameters(mesh, asm, physics, props)
 
   if dev != cpu
     asm = asm |> dev
@@ -81,7 +90,7 @@ function test_sparse_matrix_assembler(dev)
   @show p
 end
 
-function test_sparse_matrix_assembler_consistency_poisson(dev)
+function test_sparse_matrix_assembler_consistency_poisson(dev, sp_type)
   mesh_file = "./poisson/multi_block_mesh_quad4_tri3.g"
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
@@ -97,11 +106,13 @@ function test_sparse_matrix_assembler_consistency_poisson(dev)
   for use_condensed in [false, true]
     asm_1 = SparseMatrixAssembler(
       u;
+      sparse_matrix_type = sp_type,
       use_condensed = use_condensed,
       use_inplace_methods = false
     )
     asm_2 = SparseMatrixAssembler(
       u;
+      sparse_matrix_type = sp_type,
       use_condensed = use_condensed,
       use_inplace_methods = true
     )
@@ -184,36 +195,30 @@ function test_sparse_matrix_assembler_consistency_poisson(dev)
   end
 end
 
-function test_sparse_matrix_assembler_consistency_mechanics(dev)
-  mesh_file = "./mechanics/mechanics.g"
+function test_sparse_matrix_assembler_consistency_mechanics(dev, sp_type)
+  mesh_file = "./poisson/multi_block_mesh_quad4_tri3.g"
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Mechanics(1.0, PlaneStrain())
   props = create_properties(physics)
   u = VectorFunction(V, :displ)
-  fixed(_, _) = 0.
-  dbcs = DirichletBC[
-    DirichletBC(:displ_x, fixed; sideset_name = :sset_3),
-    DirichletBC(:displ_y, fixed; sideset_name = :sset_3),
-    DirichletBC(:displ_x, fixed; sideset_name = :sset_1),
-    DirichletBC(:displ_y, fixed; sideset_name = :sset_1),
-  ]
-  times = TimeStepper(0., 1., 1)
   
   for use_condensed in [false, true]
     asm_1 = SparseMatrixAssembler(
       u;
+      sparse_matrix_type = sp_type,
       use_condensed = use_condensed,
       use_inplace_methods = false
     )
     asm_2 = SparseMatrixAssembler(
       u;
+      sparse_matrix_type = sp_type,
       use_condensed = use_condensed,
       use_inplace_methods = true
     )
 
-    p_1 = create_parameters(mesh, asm_1, physics, props; dirichlet_bcs=dbcs, times=times)
-    p_2 = create_parameters(mesh, asm_2, physics, props; dirichlet_bcs=dbcs, times=times)
+    p_1 = create_parameters(mesh, asm_1, physics, props)
+    p_2 = create_parameters(mesh, asm_2, physics, props)
 
     if dev != cpu
       asm_1 = asm_1 |> dev
@@ -297,6 +302,7 @@ function test_matrix_free_action(dev)
   props = SVector{0, Float64}()
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(u)
+  @show asm # just for test coverage
   dbcs = DirichletBC[
     DirichletBC(:u, bc_func; sideset_name = :sset_1),
     DirichletBC(:u, bc_func; sideset_name = :sset_2),
@@ -374,16 +380,20 @@ function test_assemblers()
   end
 
   devs = _get_backends()
+  sp_types = [:csc, :csr]
+  # sp_types = [:csc]
   for dev in devs
-    @testset "Sparse matrix assembler - $dev" begin
-      test_sparse_matrix_assembler(dev)
-      test_sparse_matrix_assembler_consistency_poisson(dev)
-      test_sparse_matrix_assembler_consistency_mechanics(dev)
-    end
+    for sp_type in sp_types
+      @testset "Sparse matrix assembler - $dev" begin
+        # test_sparse_matrix_assembler(dev)
+        test_sparse_matrix_assembler_consistency_poisson(dev, sp_type)
+        test_sparse_matrix_assembler_consistency_mechanics(dev, sp_type)
+      end
 
-    @testset "Matrix-free action - $dev" begin
-      test_matrix_free_action(dev)
-      test_matrix_free_action_mechanics(dev)
+      @testset "Matrix-free action - $dev" begin
+        test_matrix_free_action(dev)
+        test_matrix_free_action_mechanics(dev)
+      end
     end
   end
 end

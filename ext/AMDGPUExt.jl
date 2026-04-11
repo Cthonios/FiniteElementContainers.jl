@@ -18,4 +18,8 @@ function FiniteElementContainers._csc_matrix_constructor(::AMDGPU.ROCBackend)
   return AMDGPU.rocSPARSE.ROCSparseMatrixCSC
 end
 
+function FiniteElementContainers._csr_matrix_constructor(::AMDGPU.ROCBackend)
+  return AMDGPU.rocSPARSE.ROCSparseMatrixCSR
+end
+
 end # module

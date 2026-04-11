@@ -6,14 +6,12 @@ problems in time.
 """
 struct SparseMatrixAssembler{
   Condensed,
-  # NumArrDims,
+  SparseMatrixType,
   UseInPlaceMethods,
   UseSparseVec,
-  # UseStaticArrays,
   IV           <: AbstractArray{Int, 1},
   RV           <: AbstractArray{Float64, 1},
   Var          <: AbstractFunction,
-  # FieldStorage <: AbstractField{Float64, NumArrDims, RV}
   FieldStorage
 } <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
   dof::DofManager{Condensed, Int, IV, Var}
@@ -40,6 +38,7 @@ Can be used to create block arrays for mixed FEM problems.
 """
 function SparseMatrixAssembler(
   dof::DofManager;
+  sparse_matrix_type::Symbol = :csc,
   use_inplace_methods::Bool = false,
   use_sparse_vector::Bool = false
 )
@@ -68,10 +67,9 @@ function SparseMatrixAssembler(
 
   return SparseMatrixAssembler{
     _is_condensed(dof),
-    # num_fields(residual_storage),
+    _sym_to_sparse_matrix_type(sparse_matrix_type),
     use_inplace_methods,
     use_sparse_vector,
-    # use_static_arrays,
     typeof(dof.unknown_dofs),
     typeof(residual_storage.data),
     typeof(dof.var),
@@ -103,10 +101,9 @@ function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
   residual_storage = adapt(to, asm.residual_storage)
   return SparseMatrixAssembler{
     _is_condensed(dof),
-    # num_fields(residual_storage),
+    _sparse_matrix_type(asm),
     _use_inplace_methods(asm),
     _use_sparse_vector(asm),
-    # _use_static_arrays(asm),
     typeof(dof.unknown_dofs),
     typeof(residual_storage.data),
     typeof(dof.var),
@@ -143,6 +140,25 @@ function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledMatrix)
   return KA.zeros(backend, Float64, asm.matrix_pattern.max_entries[1])
 end
 
+# helper methods for accessing parametric types
+function _sparse_matrix_type(
+  ::SparseMatrixAssembler{T1, SparseMatrixType, T3, T4, T5, T6, T7, T8}
+) where {T1, SparseMatrixType, T3, T4, T5, T6, T7, T8}
+  return SparseMatrixType
+end
+
+function _use_inplace_methods(
+  ::SparseMatrixAssembler{T1, T2, UseInPlaceMethods, T4, T5, T6, T7, T8}
+) where {T1, T2, UseInPlaceMethods, T4, T5, T6, T7, T8}
+  return UseInPlaceMethods
+end
+
+function _use_sparse_vector(
+  ::SparseMatrixAssembler{T1, T2, T3, UseSparseVec, T5, T6, T7, T8}
+) where {T1, T2, T3, UseSparseVec, T5, T6, T7, T8}
+  return UseSparseVec
+end
+
 # TODO probably only works for H1 fields
 # TODO Need to specialize below for different field types
 # TODO make keyword use_condensed more clear
@@ -150,21 +166,6 @@ end
 # constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
-
-
-function _use_inplace_methods(
-  ::SparseMatrixAssembler{T1, UseInPlaceMethods, T3, T4, T5, T6, T7}
-) where {T1, UseInPlaceMethods, T3, T4, T5, T6, T7}
-  return UseInPlaceMethods
-end
-
-function _use_sparse_vector(
-  ::SparseMatrixAssembler{T1, T2, UseSparseVec, T4, T5, T6, T7}
-) where {T1, T2, UseSparseVec, T4, T5, T6, T7}
-  return UseSparseVec
-end
-
-
 function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
   use_condensed = _is_condensed(assembler.dof)
 

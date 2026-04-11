@@ -1,10 +1,3 @@
-using Adapt
-using AMDGPU
-using Exodus
-using FiniteElementContainers
-using StaticArrays
-using Test
-
 # mesh file
 gold_file = Base.source_dir() * "/poisson.gold"
 mesh_file = Base.source_dir() * "/poisson.g"
@@ -45,6 +38,7 @@ function test_poisson_dirichlet(dev, nsolver, lsolver; kwargs...)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -99,6 +93,7 @@ function test_poisson_robin(dev, nsolver, lsolver; kwargs...)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs.use_condensed,
     use_inplace_methods = kwargs.use_inplace_methods
   )
@@ -161,6 +156,7 @@ function test_poisson_dirichlet_with_nodesets(dev, nsolver, lsolver; kwargs...)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -214,6 +210,7 @@ function test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -264,6 +261,7 @@ function test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -312,6 +310,7 @@ function test_poisson_neumann(dev, nsolver, lsolver; kwargs...)
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -374,6 +373,7 @@ function test_poisson_dirichlet_multi_block_quad4_quad4(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -424,6 +424,7 @@ function test_poisson_dirichlet_multi_block_quad4_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -475,6 +476,7 @@ function test_poisson_dirichlet_structured_mesh_quad4(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -529,6 +531,7 @@ function test_poisson_dirichlet_structured_mesh_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -595,6 +598,7 @@ function test_poisson_neumann_structured_mesh_quad4(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -649,6 +653,7 @@ function test_poisson_neumann_structured_mesh_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u;
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )

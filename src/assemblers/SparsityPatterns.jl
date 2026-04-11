@@ -134,6 +134,10 @@ function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   )
 end
 
+function KA.get_backend(pattern::SparseMatrixPattern)
+  return KA.get_backend(pattern.Is)
+end
+
 function SparseArrays.sparse!(pattern::SparseMatrixPattern, storage)
   return @views SparseArrays.sparse!(
     pattern.Is, pattern.Js, storage[pattern.unknown_dofs],
@@ -250,6 +254,103 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
   pattern.permutation .= permutation
 
   return nothing
+end
+
+# some helpers for different sparse types
+abstract type AbstractSparseMatrixType end
+struct COOMatrix <: AbstractSparseMatrixType
+end
+struct CSCMatrix <: AbstractSparseMatrixType
+end
+struct CSRMatrix <: AbstractSparseMatrixType
+end
+
+struct UnsupportedSparseMatrixType <: Exception
+end
+
+function _sym_to_sparse_matrix_type(sym::Symbol)
+  if sym  == :coo
+    return COOMatrix()
+  elseif sym == :csc
+    return CSCMatrix()
+  elseif sym == :csr
+    return CSRMatrix()
+  else
+    throw(UnsupportedSparseMatrixType("Unsupported sparse matrix type $sym. Only :coo, :csc, and :csr are supported."))
+  end
+end
+
+# some low level sparse matrix type helpers
+function _coo_matrix(pattern::SparseMatrixPattern, dof, storage)
+  backend = KA.get_backend(pattern)
+  return _coo_matrix(backend, pattern, dof, storage)
+end
+
+function _coo_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, storage)
+  constructor = _coo_matrix_constructor(backend)
+
+  if FiniteElementContainers._is_condensed(dof)
+    n_dofs = length(dof)
+  else
+    n_dofs = length(dof.unknown_dofs)
+  end
+
+  rows, cols = pattern.Is, pattern.Js
+  perm = pattern.permutation
+  vals = storage[pattern.unknown_dofs]
+  return constructor(
+    rows[perm], cols[perm], vals[perm],
+    (n_dofs, n_dofs), length(pattern.Is)
+  )
+end
+
+# TODO could add SparseMatricsCOO.jl as a package to support this
+function _coo_matrix(::KA.CPU, ::SparseMatrixPattern, dof, storage)
+  @assert false "Currently unsupported"
+end
+
+function _coo_matrix_constructor(backend::KA.Backend) 
+  @assert false "Need to implement for $backend"
+end
+
+function _csc_matrix(pattern::SparseMatrixPattern, dof, storage)
+  backend = KA.get_backend(pattern)
+  return _csc_matrix(backend, pattern, dof, storage)
+end
+
+function _csc_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, storage)
+  coo = _coo_matrix(backend, pattern, dof, storage)
+  constructor = _csc_matrix_constructor(backend)
+  return constructor(coo)
+end
+
+function _csc_matrix(::KA.CPU, pattern::SparseMatrixPattern, dof, storage)
+  return SparseArrays.sparse!(pattern, storage)
+end
+
+function _csc_matrix_constructor(backend::KA.Backend)
+  @assert false "Need to implement for $backend"
+end
+
+function _csr_matrix(pattern::SparseMatrixPattern, dof, storage)
+  backend = KA.get_backend(pattern)
+  return _csr_matrix(backend, pattern, dof, storage)
+end
+
+function _csr_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, storage)
+  coo = _coo_matrix(backend, pattern, dof, storage)
+  constructor = _csr_matrix_constructor(backend)
+  return constructor(coo)
+end
+
+# TODO eventually write kernels to do this without going to csc first
+function _csr_matrix(backend::KA.CPU, pattern::SparseMatrixPattern, dof, storage)
+  csc = _csc_matrix(backend, pattern, dof, storage)
+  return SparseMatrixCSR(csc)
+end
+
+function _csr_matrix_constructor(backend::KA.Backend)
+  @assert false "Need to implement for $backend"
 end
 
 struct SparseVectorPattern{
