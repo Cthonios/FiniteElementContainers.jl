@@ -32,7 +32,7 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - name: test-rocm
         run: |
-          julia -e 'Pkg.add("AMDGPU")'
+          julia -e 'import Pkg; Pkg.add("AMDGPU")'
           julia --project=@. -e 'import Pkg; Pkg.test("FiniteElementContainers"; coverage=true, julia_args=["--check-bounds=yes", "--compiled-modules=yes", "--depwarn=yes"], force_latest_compatible_version=false, allow_reresolve=true, test_args=["--test-amdgpu", "--ignore-cpu"])'
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v5
