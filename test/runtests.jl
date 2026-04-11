@@ -1,7 +1,7 @@
 using Adapt
-# if "--test-amdgpu" in ARGS @eval using AMDGPU end
+if "--test-amdgpu" in ARGS @eval using AMDGPU end
 using Aqua
-# if "--test-cuda" in ARGS @eval using CUDA end
+if "--test-cuda" in ARGS @eval using CUDA end
 using Exodus
 using FiniteElementContainers
 using ForwardDiff
