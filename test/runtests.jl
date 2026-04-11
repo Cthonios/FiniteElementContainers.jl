@@ -158,5 +158,9 @@ end
 end
 
 @testset "Aqua" begin
-  Aqua.test_all(FiniteElementContainers)
+  if "--ignore-aqua" in ARGS
+    # do nothing
+  else
+    Aqua.test_all(FiniteElementContainers)
+  end
 end
