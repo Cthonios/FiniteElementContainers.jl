@@ -125,19 +125,19 @@ include("mechanics/TestMechanicsCommon.jl")
 include("poisson/TestPoissonCommon.jl")
 include("poisson/TestPoissonPBCs.jl")
 
-# @testset "Unit tests" begin
-#   include("TestAssemblers.jl")
-#   include("TestBCs.jl")
-#   include("TestDofManagers.jl")
-#   include("TestFields.jl")
-#   include("TestFormulations.jl")
-#   include("TestFunctions.jl")
-#   include("TestFunctionSpaces.jl")
-#   include("TestICs.jl")
-#   include("TestIntegrals.jl")
-#   include("TestMesh.jl")
-#   include("TestPhysics.jl")
-# end
+@testset "Unit tests" begin
+  include("TestAssemblers.jl")
+  include("TestBCs.jl")
+  include("TestDofManagers.jl")
+  include("TestFields.jl")
+  include("TestFormulations.jl")
+  include("TestFunctions.jl")
+  include("TestFunctionSpaces.jl")
+  include("TestICs.jl")
+  include("TestIntegrals.jl")
+  include("TestMesh.jl")
+  include("TestPhysics.jl")
+end
 
 @testset "Regression tests" begin
   include("laplace_with_source/TestLaplace.jl")
