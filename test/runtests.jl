@@ -72,6 +72,7 @@ function test_poisson()
       lsolver = DirectLinearSolver
     else
       lsolver = x -> IterativeLinearSolver(x, :cg)
+    end
     for cond in use_condensed
       for use_inplace_method in use_inplace_methods
         @info "Test Poisson with $backend $cond $use_inplace_method"
