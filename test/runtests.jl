@@ -68,11 +68,15 @@ function test_poisson()
   use_inplace_methods = [false, true]
 
   for backend in backends
+    if backend == cpu
+      lsolver = DirectLinearSolver
+    else
+      lsolver = x -> IterativeLinearSolver(x, :cg)
     for cond in use_condensed
       for use_inplace_method in use_inplace_methods
         @info "Test Poisson with $backend $cond $use_inplace_method"
         test_poisson(
-          backend, NewtonSolver, DirectLinearSolver;
+          backend, NewtonSolver, lsolver;
           sparse_matrix_type = :csc,
           use_condensed = cond,
           use_inplace_methods = use_inplace_method
