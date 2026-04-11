@@ -176,10 +176,12 @@ using Atomix
 using DocStringExtensions
 using Exodus
 using ForwardDiff
+using GPUArrays
 using Krylov
 using LinearAlgebra
 using ReferenceFiniteElements
 using SparseArrays
+using SparseMatricesCSR
 using StaticArrays
 using Tensors
 using TimerOutputs

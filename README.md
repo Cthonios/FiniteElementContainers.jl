@@ -20,6 +20,14 @@ From the julia package manager one can do the following
 pkg> add FiniteElementContainers
 ```
 
+# Testing
+By default only CPU code paths are test when running ```test``` from the package manager. To run tests on specific backend you can do the following
+```julia
+using Pkg
+Pkg.test(; test_args = ["--test-amdgpu", "--test-cuda"])
+```
+If a backend is not functional, those tests will be skipped. 
+
 # Tutorials
 A set of tutorials can be found at the following [link](https://cthonios.github.io/FiniteElementContainers.jl/dev/)
 

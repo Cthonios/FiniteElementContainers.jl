@@ -36,6 +36,7 @@ function test_laplace_dirichlet(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -92,6 +93,7 @@ function test_laplace_dirichlet_with_nodesets(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -148,6 +150,7 @@ function test_laplace_dirichlet_with_nodesets_gmsh_geo_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -201,6 +204,7 @@ function test_laplace_dirichlet_with_nodesets_gmsh_msh_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -254,6 +258,7 @@ function test_laplace_neumann(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -319,6 +324,7 @@ function test_laplace_dirichlet_multi_block_quad4_quad4(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -372,6 +378,7 @@ function test_laplace_dirichlet_multi_block_quad4_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -426,6 +433,7 @@ function test_laplace_dirichlet_structured_mesh_quad4(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -483,6 +491,7 @@ function test_laplace_dirichlet_structured_mesh_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -551,6 +560,7 @@ function test_laplace_neumann_structured_mesh_quad4(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )
@@ -604,6 +614,7 @@ function test_laplace_neumann_structured_mesh_tri3(
   u = ScalarFunction(V, :u)
   asm = SparseMatrixAssembler(
     u; 
+    sparse_matrix_type = kwargs[:sparse_matrix_type],
     use_condensed = kwargs[:use_condensed],
     use_inplace_methods = kwargs[:use_inplace_methods]
   )

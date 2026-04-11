@@ -1,27 +1,36 @@
 using Adapt
-using AMDGPU
+if "--test-amdgpu" in ARGS @eval using AMDGPU end
 using Aqua
-using CUDA
+if "--test-cuda" in ARGS @eval using CUDA end
 using Exodus
 using FiniteElementContainers
 using ForwardDiff
 using Gmsh
 using Krylov
 using LinearAlgebra
-using PartitionedArrays
+# using PartitionedArrays
 using ReferenceFiniteElements
 using SparseArrays
+using SparseMatricesCSR
 using StaticArrays
 using Tensors
 using Test
 
 # some helpers
+function _check_functional_backend(name)
+  if isdefined(Main, name)
+    return eval(name).functional()
+  else
+    return false
+  end
+end
+
 function _get_backends()
   backends = Function[cpu]
-  if AMDGPU.functional()
+  if _check_functional_backend(:AMDGPU)
     push!(backends, rocm)
   end
-  if CUDA.functional()
+  if _check_functional_backend(:CUDA)
     push!(backends, cuda)
   end
   return backends
@@ -32,17 +41,24 @@ function test_laplace()
   backends = _get_backends()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
   lsolvers = [cg_solver, DirectLinearSolver]
+  sparse_matrix_types = [:csc, :csr]
   use_condensed = [false, true]
   use_inplace_methods = [false, true]
 
   for backend in backends
     for cond in use_condensed
-      for use_inplace_method in use_inplace_methods
-        for lsolver in lsolvers
-          if backend != cpu && lsolver == DirectLinearSolver
-            continue
+      for sparse_matrix_type in sparse_matrix_types
+        for use_inplace_method in use_inplace_methods
+          for lsolver in lsolvers
+            if backend != cpu && lsolver == DirectLinearSolver
+              continue
+            end
+            test_laplace(
+              backend, NewtonSolver, lsolver;
+              sparse_matrix_type = sparse_matrix_type,
+              use_condensed = cond, use_inplace_methods = use_inplace_method
+            )
           end
-          test_laplace(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
         end
       end
     end
@@ -53,17 +69,24 @@ function test_poisson()
   backends = _get_backends()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
   lsolvers = [cg_solver, DirectLinearSolver]
+  sparse_matrix_types = [:csc, :csr]
   use_condensed = [false, true]
   use_inplace_methods = [false, true]
 
   for backend in backends
     for cond in use_condensed
-      for use_inplace_method in use_inplace_methods
-        for lsolver in lsolvers
-          if backend != cpu && lsolver == DirectLinearSolver
-            continue
+      for sparse_matrix_type in sparse_matrix_types
+        for use_inplace_method in use_inplace_methods
+          for lsolver in lsolvers
+            if backend != cpu && lsolver == DirectLinearSolver
+              continue
+            end
+            test_poisson(
+              backend, NewtonSolver, lsolver;
+              sparse_matrix_type = sparse_matrix_type,
+              use_condensed = cond, use_inplace_methods = use_inplace_method
+            )
           end
-          test_poisson(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
         end
       end
     end
@@ -78,17 +101,24 @@ function test_mechanics()
   cg_solver = x -> IterativeLinearSolver(x, :cg)
   lsolvers = [cg_solver, DirectLinearSolver]
   lsolvers = [DirectLinearSolver]
+  sparse_matrix_types = [:csc, :csr]
   use_condensed = [false, true]
   use_inplace_methods = [false, true]
 
   for backend in backends
     for cond in use_condensed
-      for use_inplace_method in use_inplace_methods
-        for lsolver in lsolvers
-          if backend != cpu && lsolver == DirectLinearSolver
-            continue
+      for sparse_matrix_type in sparse_matrix_types
+        for use_inplace_method in use_inplace_methods
+          for lsolver in lsolvers
+            if backend != cpu && lsolver == DirectLinearSolver
+              continue
+            end
+            test_mechanics_dirichlet_only(
+              backend, NewtonSolver, lsolver;
+              sparse_matrix_type = sparse_matrix_type,
+              use_condensed = cond, use_inplace_methods = use_inplace_method
+            )
           end
-          test_mechanics_dirichlet_only(backend, NewtonSolver, lsolver; use_condensed = cond, use_inplace_methods = use_inplace_method)
         end
       end
     end

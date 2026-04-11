@@ -249,6 +249,19 @@ function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::I
   return state_q
 end
 
+function _sparse_matrix(asm::AbstractAssembler, storage)
+  type = _sparse_matrix_type(asm)
+  if isa(type, COOMatrix)
+    return _coo_matrix(asm.matrix_pattern, asm.dof, storage)
+  elseif isa(type, CSCMatrix)
+    return _csc_matrix(asm.matrix_pattern, asm.dof, storage)
+  elseif isa(type, CSRMatrix)
+    return _csr_matrix(asm.matrix_pattern, asm.dof, storage)
+  else
+    @assert false "Should never happen. Handle this case better"
+  end
+end
+
 """
 $(TYPEDSIGNATURES)
 """
@@ -256,58 +269,7 @@ function _surface_interpolants(ref_fe::R, q::Int, side::Int) where R <: Referenc
   return @inbounds ref_fe.surf_interps[q, side]
 end
 
-# some low level sparse matrix type helpers
-
-function _coo_matrix_constructor(backend::KA.Backend) 
-  @assert false "Need to implement for $backend"
-end
-
-function _csc_matrix_constructor(backend::KA.Backend)
-  @assert false "Need to implement for $backend"
-end
-
-function _coo_matrix(asm::AbstractAssembler, storage)
-  backend = KA.get_backend(asm)
-  return _coo_matrix(backend, asm, storage)
-end
-
-function _coo_matrix(backend::KA.Backend, asm::AbstractAssembler, storage)
-  constructor = _coo_matrix_constructor(backend)
-
-  if FiniteElementContainers._is_condensed(asm.dof)
-    n_dofs = length(asm.dof)
-  else
-    n_dofs = length(asm.dof.unknown_dofs)
-  end
-
-  rows, cols = asm.matrix_pattern.Is, asm.matrix_pattern.Js
-  perm = asm.matrix_pattern.permutation
-  vals = storage[asm.matrix_pattern.unknown_dofs]
-  return constructor(
-    rows[perm], cols[perm], vals[perm],
-    (n_dofs, n_dofs), length(asm.matrix_pattern.Is)
-  )
-end
-
-function _coo_matrix(::KA.CPU, asm::AbstractAssembler, storage)
-  @assert false "Currently unsupported"
-end
-
-function _csc_matrix(asm::AbstractAssembler, storage)
-  backend = KA.get_backend(asm)
-  return _csc_matrix(backend, asm, storage)
-end
-
-function _csc_matrix(backend::KA.Backend, asm::AbstractAssembler, storage)
-  coo = _coo_matrix(backend, asm, storage)
-  constructor = _csc_matrix_constructor(backend)
-  return constructor(coo)
-end
-
-function _csc_matrix(::KA.CPU, asm::AbstractAssembler, storage)
-  return SparseArrays.sparse!(asm.matrix_pattern, storage)
-end
-
+# sort of public API
 function function_space(assembler::AbstractAssembler)
   return function_space(assembler.dof)
 end
@@ -316,11 +278,10 @@ end
 $(TYPEDSIGNATURES)
 """
 function hessian(asm::AbstractAssembler)
-  backend = KA.get_backend(asm)
-  H = _csc_matrix(asm, asm.hessian_storage)
+  H = _sparse_matrix(asm, asm.hessian_storage)
 
   if _is_condensed(asm.dof)
-    _adjust_matrix_entries_for_constraints!(H, asm.constraint_storage, backend)
+    _adjust_matrix_entries_for_constraints!(H, asm.constraint_storage)
   end
 
   return H
@@ -350,11 +311,10 @@ end
 $(TYPEDSIGNATURES)
 """
 function mass(asm::AbstractAssembler)
-  backend = KA.get_backend(asm)
-  M = _csc_matrix(asm, asm.mass_storage)
+  M = _sparse_matrix(asm, asm.mass_storage)
 
   if _is_condensed(asm.dof)
-    _adjust_matrix_entries_for_constraints!(M, asm.constraint_storage, backend)
+    _adjust_matrix_entries_for_constraints!(M, asm.constraint_storage)
   end
 
   return M
@@ -388,11 +348,10 @@ end
 $(TYPEDSIGNATURES)
 """
 function stiffness(asm::AbstractAssembler)
-  backend = KA.get_backend(asm)
-  K = _csc_matrix(asm, asm.stiffness_storage)
+  K = _sparse_matrix(asm, asm.stiffness_storage)
 
   if _is_condensed(asm.dof)
-    _adjust_matrix_entries_for_constraints!(K, asm.constraint_storage, backend)
+    _adjust_matrix_entries_for_constraints!(K, asm.constraint_storage)
   end
 
   return K
@@ -488,19 +447,18 @@ function create_assembler_cache(
 end
 
 # some utilities
-include("Constraints.jl")
 include("SparsityPatterns.jl")
 
 # types
 include("MatrixFreeAssembler.jl")
 include("SparseMatrixAssembler.jl")
-# include("SparseMatrixAssemblerNew.jl")
 
 # methods
+include("Diagonal.jl")
 include("Matrix.jl")
 include("MatrixAction.jl")
 include("QuadratureQuantity.jl")
 include("Source.jl")
+include("Utils.jl")
 include("Vector.jl")
 include("WeaklyEnforcedBCs.jl")
-include("Diagonal.jl")
