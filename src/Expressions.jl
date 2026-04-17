@@ -217,7 +217,7 @@ function _eval_ast(ast::ASTNode{T}, vars)::T where T <: Number
         return ast.value::T
     elseif ast.id == UNARY
         if ast.operator == :-
-            val = _eval_ast(ast.value, vars)
+            val = _eval_ast(ast.arg, vars)
             return -val
         else
             @assert false "Unsupport operator $(ast.operator)"
@@ -342,7 +342,7 @@ function _nud(p::Parser, t::Token, ::Type{T}) where T <: Number
     elseif t.id == OPERATOR
         if t.op == :-
             val = _parse_statement(p, 100)
-            return ASTNode{T}(nothing, UNARY, nothing, nothing, :-, nothing, val)
+            return ASTNode{T}(val, UNARY, nothing, nothing, :-, nothing, nothing)
         else
             error("Unexpected operator in _nud")
         end
