@@ -13,3 +13,5 @@ Manifest.toml
 *.g.pex
 *.g.*.*
 *.e.*.*
+*.out
+build/

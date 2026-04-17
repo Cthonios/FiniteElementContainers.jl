@@ -22,4 +22,12 @@ function FiniteElementContainers._csr_matrix_constructor(::AMDGPU.ROCBackend)
   return AMDGPU.rocSPARSE.ROCSparseMatrixCSR
 end
 
+function FiniteElementContainers._dense_array(::AMDGPU.ROCBackend, size...)
+  return AMDGPU.zeros(size...)
+end
+
+function FiniteElementContainers._dense_array(::AMDGPU.ROCBackend, ::Type{RT}, size...) where RT <: Number
+  return AMDGPU.zeros(RT, size...)
+end
+
 end # module

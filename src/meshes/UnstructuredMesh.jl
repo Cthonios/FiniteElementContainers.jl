@@ -13,19 +13,21 @@ struct UnstructuredMesh{
 } <: AbstractMesh
   mesh_obj::MeshObj
   nodal_coords::H1Field{RT, Vector{RT}, ND}
-  element_block_names::Dict{IT, Symbol}
-  element_types::Dict{Symbol, Symbol}
-  element_conns::Dict{Symbol, Matrix{IT}}
+  # element_block_names::Dict{IT, Symbol}
+  element_block_names::Vector{String}
+  element_block_names_map::Dict{IT, String}
+  element_types::Dict{String, String}
+  element_conns::Dict{String, Matrix{IT}}
   element_id_map::Vector{IT}
-  element_id_maps::Dict{Symbol, Vector{IT}}
+  element_id_maps::Dict{String, Vector{IT}}
   node_id_map::Vector{IT}
-  nodeset_names::Dict{IT, Symbol}
-  nodeset_nodes::Dict{Symbol, Vector{IT}}
-  sideset_names::Dict{Int, Symbol}
-  sideset_elems::Dict{Symbol, Vector{IT}}
-  sideset_nodes::Dict{Symbol, Vector{IT}}
-  sideset_sides::Dict{Symbol, Vector{IT}}
-  sideset_side_nodes::Dict{Symbol, Matrix{IT}}
+  nodeset_names::Dict{IT, String}
+  nodeset_nodes::Dict{String, Vector{IT}}
+  sideset_names::Dict{IT, String}
+  sideset_elems::Dict{String, Vector{IT}}
+  sideset_nodes::Dict{String, Vector{IT}}
+  sideset_sides::Dict{String, Vector{IT}}
+  sideset_side_nodes::Dict{String, Matrix{IT}}
   # new additions
   edge_conns::EdgeConns
   face_conns::FaceConns
@@ -49,19 +51,19 @@ interpolation/space type and determine this
 change in behavior from these inputs...
 """
 function UnstructuredMesh(
-  file::FileMesh{T}; 
+  file::FileMesh{T, V}; 
   create_edges::Bool                = false, 
   create_faces::Bool                = false,
   interp_type                       = Lagrange, # TODO further type me
   p_order::Union{Nothing, Int}      = nothing,
   space_type                        = H1Field                   
-) where T
+) where {T, V}
   # read nodal coords and ids
   nodal_coords, n_id_map = nodal_coordinates_and_ids(file)
   
   # read element block types, conn, etc.
   el_id_map = element_ids(file)
-  el_conns, el_id_maps, el_block_names, el_types = element_blocks(file)
+  el_conns, el_id_maps, el_block_names, el_block_names_map, el_types = element_blocks(file)
 
   # read nodesets
   nset_names, nset_nodes = nodesets(file)
@@ -117,7 +119,8 @@ function UnstructuredMesh(
   mesh = UnstructuredMesh(
     file,
     nodal_coords, 
-    el_block_names, el_types, el_conns, 
+    el_block_names, el_block_names_map,
+    el_types, el_conns, 
     el_id_map, el_id_maps, 
     n_id_map,
     nset_names, nset_nodes,

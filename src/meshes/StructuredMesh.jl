@@ -9,19 +9,20 @@ struct StructuredMesh{
     IT <: Integer
 } <: AbstractMesh
     nodal_coords::H1Field{RT, Vector{RT}, ND}
-    element_block_names::Dict{Int, Symbol}
-    element_types::Dict{Symbol, Symbol}
-    element_conns::Dict{Symbol, Matrix{IT}}
+    element_block_names::Vector{String}
+    element_block_names_map::Dict{Int, String}
+    element_types::Dict{String, String}
+    element_conns::Dict{String, Matrix{IT}}
     element_id_map::Vector{IT}
-    element_id_maps::Dict{Symbol, Vector{IT}}
+    element_id_maps::Dict{String, Vector{IT}}
     node_id_map::Vector{IT}
-    nodeset_names::Dict{IT, Symbol}
-    nodeset_nodes::Dict{Symbol, Vector{IT}}
-    sideset_names::Dict{IT, Symbol}
-    sideset_elems::Dict{Symbol, Vector{IT}}
-    sideset_nodes::Dict{Symbol, Vector{IT}}
-    sideset_sides::Dict{Symbol, Vector{IT}}
-    sideset_side_nodes::Dict{Symbol, Matrix{IT}}
+    nodeset_names::Dict{IT, String}
+    nodeset_nodes::Dict{String, Vector{IT}}
+    sideset_names::Dict{IT, String}
+    sideset_elems::Dict{String, Vector{IT}}
+    sideset_nodes::Dict{String, Vector{IT}}
+    sideset_sides::Dict{String, Vector{IT}}
+    sideset_side_nodes::Dict{String, Matrix{IT}}
 end
 
 function StructuredMesh(element_type, mins, maxs, counts)
@@ -35,13 +36,13 @@ function StructuredMesh(element_type, mins, maxs, counts)
     end
     element_type = uppercase(element_type)
     if occursin(element_type, "HEX")
-        element_type = :HEX8
+        element_type = "HEX8"
         num_dims = 3
         nodal_coords, element_conns, nodeset_nodes,
         sideset_elems, sideset_nodes, sideset_sides, sideset_side_nodes = 
             _hex8_structured_mesh_data(mins, maxs, counts)
     elseif occursin(element_type, "QUAD")
-        element_type = :QUAD4
+        element_type = "QUAD4"
         num_dims = 2
         nodal_coords, element_conns, nodeset_nodes,
         sideset_elems, sideset_nodes, sideset_sides, sideset_side_nodes = 
@@ -49,7 +50,7 @@ function StructuredMesh(element_type, mins, maxs, counts)
     elseif occursin(element_type, "TET")
         @assert false "Implement tet case"
     elseif occursin(element_type, "TRI")
-        element_type = :TRI3
+        element_type = "TRI3"
         num_dims = 2
         nodal_coords, element_conns, nodeset_nodes,
         sideset_elems, sideset_nodes, sideset_sides, sideset_side_nodes = 
@@ -59,19 +60,20 @@ function StructuredMesh(element_type, mins, maxs, counts)
     end
 
     nodal_coords = H1Field(nodal_coords)
-    element_block_names = Dict(1 => :block_1)
-    element_types = Dict(:block_1 => element_type)
+    element_block_names = ["block_1"]
+    element_block_names_map = Dict(1 => "block_1")
+    element_types = Dict("block_1" => element_type)
     element_id_map = 1:size(element_conns, 2) |> collect
-    element_id_maps = Dict(:block_1 => 1:size(element_conns, 2) |> collect)
-    element_conns = Dict(:block_1 => element_conns)
+    element_id_maps = Dict("block_1" => 1:size(element_conns, 2) |> collect)
+    element_conns = Dict("block_1" => element_conns)
     node_id_map = 1:size(nodal_coords, 2) |> collect
     nodeset_names = Dict(zip(1:length(nodeset_nodes), keys(nodeset_nodes)))
     sideset_names = Dict(zip(1:length(sideset_elems), keys(sideset_elems)))
 
     return StructuredMesh(
         nodal_coords,
-        element_block_names, element_types,
-        element_conns, 
+        element_block_names, element_block_names_map,
+        element_types, element_conns, 
         element_id_map, element_id_maps,
         node_id_map,
         nodeset_names, nodeset_nodes,
@@ -134,29 +136,29 @@ function _hex8_ssets(conns, N_x, N_y, N_z)
     E_z = N_z - 1
     elem(i, j, k) = (i - 1) * E_y * E_z + (j - 1) * E_z + k
 
-    sideset_elems = Dict{Symbol, Vector{Int}}(
-        :bottom => Int[],
-        :right => Int[],
-        :front => Int[],
-        :top => Int[],
-        :left => Int[],
-        :back => Int[]
+    sideset_elems = Dict{String, Vector{Int}}(
+        "bottom" => Int[],
+        "right"  => Int[],
+        "front"  => Int[],
+        "top"    => Int[],
+        "left"   => Int[],
+        "back"   => Int[]
     )
-    sideset_side_nodes = Dict{Symbol, Matrix{Int}}(
-        :bottom => Matrix{Int}(undef, 4, E_x),
-        :right => Matrix{Int}(undef, 4, E_y),
-        :front => Matrix{Int}(undef, 4, E_z),
-        :top => Matrix{Int}(undef, 4, E_x),
-        :left => Matrix{Int}(undef, 4, E_y),
-        :back => Matrix{Int}(undef, 4, E_z)
+    sideset_side_nodes = Dict{String, Matrix{Int}}(
+        "bottom" => Matrix{Int}(undef, 4, E_x),
+        "right"  => Matrix{Int}(undef, 4, E_y),
+        "front"  => Matrix{Int}(undef, 4, E_z),
+        "top"    => Matrix{Int}(undef, 4, E_x),
+        "left"   => Matrix{Int}(undef, 4, E_y),
+        "back"   => Matrix{Int}(undef, 4, E_z)
     )
-    sideset_sides = Dict{Symbol, Vector{Int}}(
-        :bottom => Int[],
-        :right => Int[],
-        :front => Int[],
-        :top => Int[],
-        :left => Int[],
-        :back => Int[]
+    sideset_sides = Dict{String, Vector{Int}}(
+        "bottom" => Int[],
+        "right"  => Int[],
+        "front"  => Int[],
+        "top"    => Int[],
+        "left"   => Int[],
+        "back"   => Int[]
     )
 
     # bottom
@@ -164,9 +166,9 @@ function _hex8_ssets(conns, N_x, N_y, N_z)
     for k in 1:E_z, i in 1:E_x
         e = elem(i, j, k)
         n1, n2, n3, n4 = conns[1,e], conns[2,e], conns[3,e], conns[4,e]
-        push!(sideset_elems[:bottom], e)
-        push!(sideset_sides[:bottom], 5)
-        sideset_side_nodes[:bottom][:, i] .= [n1, n2, n3, n4]
+        push!(sideset_elems["bottom"], e)
+        push!(sideset_sides["bottom"], 5)
+        sideset_side_nodes["bottom"][:, i] .= [n1, n2, n3, n4]
     end
 
     # right
@@ -174,9 +176,9 @@ function _hex8_ssets(conns, N_x, N_y, N_z)
     for k in 1:E_z, j in 1:E_y
         e = elem(i, j, k)
         n2, n3, n7, n6 = conns[2, e], conns[3, e], conns[7, e], conns[6, e]
-        push!(sideset_elems[:right], e)
-        push!(sideset_sides[:right], 2) 
-        sideset_side_nodes[:right][:, j] .= [n2, n3, n7, n6]   
+        push!(sideset_elems["right"], e)
+        push!(sideset_sides["right"], 2) 
+        sideset_side_nodes["right"][:, j] .= [n2, n3, n7, n6]   
     end
 
     # front
@@ -184,9 +186,9 @@ function _hex8_ssets(conns, N_x, N_y, N_z)
     for j in 1:E_y, i in 1:E_x
         e = elem(i, j, k)
         n1, n2, n6, n5 = conns[1, e], conns[2, e], conns[6, e], conns[5, e]
-        push!(sideset_elems[:front], e)
-        push!(sideset_sides[:front], 1) 
-        sideset_side_nodes[:front][:, j] .= [n1, n2, n6, n5]   
+        push!(sideset_elems["front"], e)
+        push!(sideset_sides["front"], 1) 
+        sideset_side_nodes["front"][:, j] .= [n1, n2, n6, n5]   
     end
 
     # top
@@ -194,9 +196,9 @@ function _hex8_ssets(conns, N_x, N_y, N_z)
     for k in 1:E_z, i in 1:E_x
         e = elem(i, j, k)
         n5, n6, n7, n8 = conns[5, e], conns[6, e], conns[7, e], conns[8, e]
-        push!(sideset_elems[:top], e)
-        push!(sideset_sides[:top], 6) 
-        sideset_side_nodes[:top][:, i] .= [n5, n6, n7, n8]
+        push!(sideset_elems["top"], e)
+        push!(sideset_sides["top"], 6) 
+        sideset_side_nodes["top"][:, i] .= [n5, n6, n7, n8]
     end
 
     # left
@@ -204,9 +206,9 @@ function _hex8_ssets(conns, N_x, N_y, N_z)
     for j in 1:E_y
         e = elem(i, j, k)
         n4, n1, n5, n8 = conns[4, e], conns[1, e], conns[5, e], conns[8, e]
-        push!(sideset_elems[:left], e)
-        push!(sideset_sides[:left], 4)
-        sideset_side_nodes[:left][:, j] .= [n4, n1, n5, n8]
+        push!(sideset_elems["left"], e)
+        push!(sideset_sides["left"], 4)
+        sideset_side_nodes["left"][:, j] .= [n4, n1, n5, n8]
     end
 
     # back
@@ -214,12 +216,12 @@ function _hex8_ssets(conns, N_x, N_y, N_z)
     for j in 1:E_y, i in 1:E_x
         e = elem(i, j, k)
         n3, n4, n8, n7 = conns[3, e], conns[4, e], conns[8, e], conns[7, e]
-        push!(sideset_elems[:back], e)
-        push!(sideset_sides[:back], 3) 
-        sideset_side_nodes[:back][:, j] .= [n3, n4, n8, n7]   
+        push!(sideset_elems["back"], e)
+        push!(sideset_sides["back"], 3) 
+        sideset_side_nodes["back"][:, j] .= [n3, n4, n8, n7]   
     end
 
-    sideset_nodes = Dict{Symbol, Vector{Int}}()
+    sideset_nodes = Dict{String, Vector{Int}}()
     for (k, v) in sideset_side_nodes
         sideset_nodes[k] = unique(v)
     end
@@ -257,23 +259,23 @@ function _quad4_ssets(conns, N_x, N_y)
     E_y = N_y - 1
     elem(i, j) = (i - 1) * E_y + j
 
-    sideset_elems = Dict{Symbol, Vector{Int}}(
-        :bottom => Int[],
-        :right => Int[],
-        :top => Int[],
-        :left => Int[]
+    sideset_elems = Dict{String, Vector{Int}}(
+        "bottom" => Int[],
+        "right"  => Int[],
+        "top"    => Int[],
+        "left"   => Int[]
     )
-    sideset_side_nodes = Dict{Symbol, Matrix{Int}}(
-        :bottom => Matrix{Int}(undef, 2, E_x),
-        :right => Matrix{Int}(undef, 2, E_y),
-        :top => Matrix{Int}(undef, 2, E_x),
-        :left => Matrix{Int}(undef, 2, E_y)
+    sideset_side_nodes = Dict{String, Matrix{Int}}(
+        "bottom" => Matrix{Int}(undef, 2, E_x),
+        "right"  => Matrix{Int}(undef, 2, E_y),
+        "top"    => Matrix{Int}(undef, 2, E_x),
+        "left"   => Matrix{Int}(undef, 2, E_y)
     )
-    sideset_sides = Dict{Symbol, Vector{Int}}(
-        :bottom => Int[],
-        :right => Int[],
-        :top => Int[],
-        :left => Int[]
+    sideset_sides = Dict{String, Vector{Int}}(
+        "bottom" => Int[],
+        "right"  => Int[],
+        "top"    => Int[],
+        "left"   => Int[]
     )
 
     # bottom
@@ -281,9 +283,9 @@ function _quad4_ssets(conns, N_x, N_y)
     for i in 1:E_x
         e = elem(i, j)
         n1, n2 = conns[1, e], conns[2, e]
-        push!(sideset_elems[:bottom], e)
-        push!(sideset_sides[:bottom], 1)
-        sideset_side_nodes[:bottom][:, i] .= [n1, n2]
+        push!(sideset_elems["bottom"], e)
+        push!(sideset_sides["bottom"], 1)
+        sideset_side_nodes["bottom"][:, i] .= [n1, n2]
     end
 
     # right
@@ -291,9 +293,9 @@ function _quad4_ssets(conns, N_x, N_y)
     for j in 1:E_y
         e = elem(i, j)
         n2, n3 = conns[2, e], conns[3, e]
-        push!(sideset_elems[:right], e)
-        push!(sideset_sides[:right], 2) 
-        sideset_side_nodes[:right][:, j] .= [n2, n3]   
+        push!(sideset_elems["right"], e)
+        push!(sideset_sides["right"], 2) 
+        sideset_side_nodes["right"][:, j] .= [n2, n3]   
     end
 
     # top
@@ -301,9 +303,9 @@ function _quad4_ssets(conns, N_x, N_y)
     for i in 1:E_x
         e = elem(i, j)
         n3, n4 = conns[3, e], conns[4, e]
-        push!(sideset_elems[:top], e)
-        push!(sideset_sides[:top], 3) 
-        sideset_side_nodes[:top][:, i] .= [n3, n4]
+        push!(sideset_elems["top"], e)
+        push!(sideset_sides["top"], 3) 
+        sideset_side_nodes["top"][:, i] .= [n3, n4]
     end
 
     # left
@@ -311,12 +313,12 @@ function _quad4_ssets(conns, N_x, N_y)
     for j in 1:E_y
         e = elem(i, j)
         n4, n1 = conns[4, e], conns[1, e]
-        push!(sideset_elems[:left], e)
-        push!(sideset_sides[:left], 4)
-        sideset_side_nodes[:left][:, j] .= [n4, n1]
+        push!(sideset_elems["left"], e)
+        push!(sideset_sides["left"], 4)
+        sideset_side_nodes["left"][:, j] .= [n4, n1]
     end
 
-    sideset_nodes = Dict{Symbol, Vector{Int}}()
+    sideset_nodes = Dict{String, Vector{Int}}()
     for (k, v) in sideset_side_nodes
         sideset_nodes[k] = unique(v)
     end
@@ -357,23 +359,23 @@ function _tri3_ssets(conns, N_x, N_y)
     tri_a(q) = 2q - 1
     tri_b(q) = 2q
 
-    sideset_elems = Dict{Symbol, Vector{Int}}(
-        :bottom => Int[],
-        :right => Int[],
-        :top => Int[],
-        :left => Int[]
+    sideset_elems = Dict{String, Vector{Int}}(
+        "bottom" => Int[],
+        "right"  => Int[],
+        "top"    => Int[],
+        "left"   => Int[]
     )
-    sideset_side_nodes = Dict{Symbol, Matrix{Int}}(
-        :bottom => Matrix{Int}(undef, 2, E_x),
-        :right => Matrix{Int}(undef, 2, E_y),
-        :top => Matrix{Int}(undef, 2, E_x),
-        :left => Matrix{Int}(undef, 2, E_y)
+    sideset_side_nodes = Dict{String, Matrix{Int}}(
+        "bottom" => Matrix{Int}(undef, 2, E_x),
+        "right"  => Matrix{Int}(undef, 2, E_y),
+        "top"    => Matrix{Int}(undef, 2, E_x),
+        "left"   => Matrix{Int}(undef, 2, E_y)
     )
-    sideset_sides = Dict{Symbol, Vector{Int}}(
-        :bottom => Int[],
-        :right => Int[],
-        :top => Int[],
-        :left => Int[]
+    sideset_sides = Dict{String, Vector{Int}}(
+        "bottom" => Int[],
+        "right"  => Int[],
+        "top"    => Int[],
+        "left"   => Int[]
     )
 
         # bottom
@@ -382,9 +384,9 @@ function _tri3_ssets(conns, N_x, N_y)
             q = quad(i, j)
             e = tri_a(q)
             n1, n2 = conns[1, e], conns[2, e]
-            push!(sideset_elems[:bottom], e)
-            push!(sideset_sides[:bottom], 1)
-            sideset_side_nodes[:bottom][:, i] .= [n1, n2]
+            push!(sideset_elems["bottom"], e)
+            push!(sideset_sides["bottom"], 1)
+            sideset_side_nodes["bottom"][:, i] .= [n1, n2]
         end
     
         # right
@@ -393,9 +395,9 @@ function _tri3_ssets(conns, N_x, N_y)
             q = quad(i, j)
             e = tri_a(q)
             n2, n3 = conns[2, e], conns[3, e]
-            push!(sideset_elems[:right], e)
-            push!(sideset_sides[:right], 2) 
-            sideset_side_nodes[:right][:, j] .= [n2, n3]   
+            push!(sideset_elems["right"], e)
+            push!(sideset_sides["right"], 2) 
+            sideset_side_nodes["right"][:, j] .= [n2, n3]   
         end
     
         # top
@@ -404,9 +406,9 @@ function _tri3_ssets(conns, N_x, N_y)
             q = quad(i, j)
             e = tri_b(q)
             n3, n4 = conns[2, e], conns[3, e]
-            push!(sideset_elems[:top], e)
-            push!(sideset_sides[:top], 2) 
-            sideset_side_nodes[:top][:, i] .= [n3, n4]
+            push!(sideset_elems["top"], e)
+            push!(sideset_sides["top"], 2) 
+            sideset_side_nodes["top"][:, i] .= [n3, n4]
         end
     
         # left
@@ -415,12 +417,12 @@ function _tri3_ssets(conns, N_x, N_y)
             q = quad(i, j)
             e = tri_b(q)
             n4, n1 = conns[3, e], conns[1, e]
-            push!(sideset_elems[:left], e)
-            push!(sideset_sides[:left], 3)
-            sideset_side_nodes[:left][:, j] .= [n4, n1]
+            push!(sideset_elems["left"], e)
+            push!(sideset_sides["left"], 3)
+            sideset_side_nodes["left"][:, j] .= [n4, n1]
         end
 
-    sideset_nodes = Dict{Symbol, Vector{Int}}()
+    sideset_nodes = Dict{String, Vector{Int}}()
     for (k, v) in sideset_side_nodes
         sideset_nodes[k] = unique(v)
     end 
@@ -457,13 +459,13 @@ function _three_dimensional_nsets(N_x, N_y, N_z)
     left   = [node(1, j, k) for j in 1:N_y, k in 1:N_z] |> vec
     back   = [node(i, j, 1) for i in 1:N_x, j in 1:N_y] |> vec
 
-    return Dict{Symbol, Vector{Int}}(
-        :bottom => bottom,
-        :right => right,
-        :front => front,
-        :top => top,
-        :left => left,
-        :back => back
+    return Dict{String, Vector{Int}}(
+        "bottom" => bottom,
+        "right"  => right,
+        "front"  => front,
+        "top"    => top,
+        "left"   => left,
+        "back"   => back
     )
 end
 
@@ -489,10 +491,10 @@ function _two_dimensional_nsets(N_x, N_y)
     top    = [node(i, N_y) for i in 1:N_x]
     left   = [node(1, j) for j in 1:N_y]
 
-    return Dict{Symbol, Vector{Int}}(
-        :bottom => bottom,
-        :right => right,
-        :top => top,
-        :left => left
+    return Dict{String, Vector{Int}}(
+        "bottom" => bottom,
+        "right"  => right,
+        "top"    => top,
+        "left"   => left
     )
 end

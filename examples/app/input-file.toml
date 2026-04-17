@@ -1,0 +1,32 @@
+[device]
+backend = "cpu"
+
+[functions.zero_func]
+type = "piecewise linear"
+values = [
+    [0.0, 0.0],
+    [1.0, 0.0]
+]
+
+[functions.one_func]
+type = "piecewise linear"
+values = [
+    [0.0, 1.0],
+    [1.0, 1.0]
+]
+
+[mesh]
+file_path = "poisson.g"
+file_type = "exodus"
+
+[function_spaces.V1]
+
+[variables.u]
+function_space = "V1"
+variable_type = "scalar"
+
+[physics]
+type = "SolidMechanics"
+
+[materials.block_1]
+model = "Hyperelastic"

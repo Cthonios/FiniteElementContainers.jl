@@ -27,6 +27,35 @@ struct SparseMatrixAssembler{
   stiffness_storage::RV
   stiffness_action_storage::FieldStorage
   stiffness_action_unknowns::RV
+
+  function SparseMatrixAssembler{
+    Condensed,
+    SparseMatrixType,
+    UseInPlaceMethods,
+    UseSparseVec
+  }(
+    dof, matrix_pattern, vector_pattern, constraint_storage,
+    damping_storage, hessian_storage, mass_storage,
+    residual_storage, residual_unknowns,
+    scalar_quadrature_storage,
+    stiffness_storage, stiffness_action_storage, stiffness_action_unknowns
+  ) where {Condensed, SparseMatrixType, UseInPlaceMethods, UseSparseVec}
+    new{
+      Condensed, SparseMatrixType, UseInPlaceMethods, UseSparseVec,
+      typeof(dof.unknown_dofs), typeof(residual_storage.data),
+      typeof(dof.var), typeof(stiffness_action_storage)
+    }(
+      dof, matrix_pattern, vector_pattern,
+      constraint_storage, 
+      damping_storage, 
+      hessian_storage,
+      mass_storage,
+      residual_storage, residual_unknowns,
+      scalar_quadrature_storage,
+      stiffness_storage, 
+      stiffness_action_storage, stiffness_action_unknowns
+    )
+  end
 end
 
 # TODO this will not work for other than single H1 spaces
@@ -42,6 +71,16 @@ function SparseMatrixAssembler(
   use_inplace_methods::Bool = false,
   use_sparse_vector::Bool = false
 )
+  return SparseMatrixAssembler{
+    _sym_to_sparse_matrix_type(sparse_matrix_type),
+    use_inplace_methods,
+    use_sparse_vector
+  }(dof)
+end
+
+function SparseMatrixAssembler{SparseMatrixType, UseInPlaceMethods, UseSparseVec}(
+  dof::DofManager
+) where {SparseMatrixType, UseInPlaceMethods, UseSparseVec}
   matrix_pattern = SparseMatrixPattern(dof)
   vector_pattern = SparseVectorPattern(dof)
 
@@ -67,13 +106,17 @@ function SparseMatrixAssembler(
 
   return SparseMatrixAssembler{
     _is_condensed(dof),
-    _sym_to_sparse_matrix_type(sparse_matrix_type),
-    use_inplace_methods,
-    use_sparse_vector,
-    typeof(dof.unknown_dofs),
-    typeof(residual_storage.data),
-    typeof(dof.var),
-    typeof(residual_storage)
+    SparseMatrixType,
+    UseInPlaceMethods,
+    UseSparseVec
+    # _sym_to_sparse_matrix_type(sparse_matrix_type),
+    # sparse_matrix_type,
+    # use_inplace_methods,
+    # use_sparse_vector,
+    # typeof(dof.unknown_dofs),
+    # typeof(residual_storage.data),
+    # typeof(dof.var),
+    # typeof(residual_storage)
   }(
     dof, matrix_pattern, vector_pattern,
     constraint_storage, 
@@ -97,26 +140,28 @@ function SparseMatrixAssembler(
 end
 
 function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
-  dof = adapt(to, asm.dof)
-  residual_storage = adapt(to, asm.residual_storage)
+  # dof = adapt(to, asm.dof)
+  # residual_storage = adapt(to, asm.residual_storage)
   return SparseMatrixAssembler{
-    _is_condensed(dof),
+    _is_condensed(asm.dof),
     _sparse_matrix_type(asm),
     _use_inplace_methods(asm),
     _use_sparse_vector(asm),
-    typeof(dof.unknown_dofs),
-    typeof(residual_storage.data),
-    typeof(dof.var),
-    typeof(residual_storage)
+    # typeof(dof.unknown_dofs),
+    # typeof(residual_storage.data),
+    # typeof(dof.var),
+    # typeof(residual_storage)
   }(
-    dof,
+    # dof,
+    adapt(to, asm.dof),
     adapt(to, asm.matrix_pattern),
     adapt(to, asm.vector_pattern),
     adapt(to, asm.constraint_storage),
     adapt(to, asm.damping_storage),
     adapt(to, asm.hessian_storage),
     adapt(to, asm.mass_storage),
-    residual_storage,
+    # residual_storage,
+    adapt(to, asm.residual_storage),
     adapt(to, asm.residual_unknowns),
     adapt(to, asm.scalar_quadrature_storage),
     adapt(to, asm.stiffness_storage),

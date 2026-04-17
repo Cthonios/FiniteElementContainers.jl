@@ -2,17 +2,13 @@ abstract type AbstractInitialCondition{F} end
 abstract type AbstractInitialConditionContainer end
 
 struct InitialCondition{F} <: AbstractInitialCondition{F}
-    block_name::Symbol
+    var_name::String
     func::F
-    var_name::Symbol
+    block_name::String
 
-    function InitialCondition(var_name::String, func::Function, block_name::String)
-        return InitialCondition(Symbol(var_name), func, Symbol(block_name))
-    end
-
-    function InitialCondition(var_name::Symbol, func, block_name::Symbol)
-        new{typeof(func)}(block_name, func, var_name)
-    end
+    # function InitialCondition(var_name::String, func, block_name::String)
+    #     new{typeof(func)}(block_name, func, var_name)
+    # end
 end
 
 struct InitialConditionContainer{
@@ -29,7 +25,7 @@ struct InitialConditionContainer{
     # to "do the right thing" depending upon the field type
     # this is set up
     function InitialConditionContainer(mesh, dof, ic::InitialCondition)
-        bk = BCBookKeeping(mesh, dof, ic.var_name; block_name=ic.block_name)
+        bk = BCBookKeeping(mesh, dof, ic.var_name; block_name = ic.block_name)
         vals = zeros(length(bk.dofs))
         new{typeof(bk.dofs), typeof(vals)}(bk.dofs, bk.nodes, vals)
     end

@@ -32,7 +32,8 @@ function assemble_vector!(
   _update_for_assembly!(p, dof, Uu)
   return_type = AssembledVector()
   conns = fspace.elem_conns
-  foreach_block(conns, p.physics, p.properties, fspace.ref_fes) do physics, props, ref_fe, b
+  # foreach_block(conns, p.physics, p.properties, fspace.ref_fes) do physics, props, ref_fe, b
+  foreach_block(fspace, p) do physics, props, ref_fe, b
     if use_sparse_vector
       field = block_view(storage, pattern, b)
     else

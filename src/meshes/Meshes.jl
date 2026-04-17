@@ -97,6 +97,10 @@ See FiniteElementContainersExodusExt for an example.
 struct FileMesh{MeshObj, MeshType} <: AbstractMesh
   file_name::String
   mesh_obj::MeshObj
+
+  function FileMesh{MeshObj, MeshType}(file_name::String, mesh_obj::MeshObj) where {MeshObj, MeshType}
+    new{MeshObj, MeshType}(file_name, mesh_obj)
+  end
 end
 
 mesh_type(::FileMesh{MeshObj, MeshType}) where {MeshObj, MeshType} = MeshType
@@ -266,11 +270,13 @@ function write_to_file(mesh::AbstractMesh, file_name::String; force::Bool = fals
   # write_id_map(exo, NodeMap, convert.(Int32, mesh.node_id_map))
 
   # write block names
-  block_names = map(String, values(mesh.element_block_names))
+  # block_names = map(String, values(mesh.element_block_names))
+  block_names = mesh.element_block_names
   write_names(exo, Block, block_names)
 
   # TODO write block id maps
-  for (n, block_name) in mesh.element_block_names
+  # for (n, block_name) in mesh.element_block_names
+  for (n, block_name) in mesh.element_block_names_map
     el_type = mesh.element_types[block_name]
     conn = mesh.element_conns[block_name]
     write_block(exo, n, String(el_type), conn |> collect)

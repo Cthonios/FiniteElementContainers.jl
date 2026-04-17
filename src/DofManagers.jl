@@ -23,6 +23,12 @@ struct DofManager{
     dirichlet_dofs::IDs
     unknown_dofs::IDs
     var::Var
+
+    function DofManager{Condensed}(dirichlet_dofs, unknown_dofs, var) where Condensed
+        new{Condensed, eltype(dirichlet_dofs), typeof(dirichlet_dofs), typeof(var)}(
+            dirichlet_dofs, unknown_dofs, var
+        )
+    end
 end
 
 # method that initializes dof manager
@@ -31,27 +37,47 @@ end
 $(TYPEDSIGNATURES)
 """
 function DofManager(var::AbstractFunction; use_condensed::Bool = false)
-    dirichlet_dofs = zeros(Int, 0)
-    unknown_dofs = 1:size(var.fspace.coords, 2) * length(names(var)) |> collect
-    return DofManager{
-        use_condensed,
-        eltype(dirichlet_dofs),
-        typeof(dirichlet_dofs),
-        typeof(var)
-    }(dirichlet_dofs, unknown_dofs, var)
+    return DofManager{use_condensed}(var)
 end
 
-function Adapt.adapt_structure(to, dof::DofManager{C, IT, IDs, Var}) where {C, IT, IDs, Var}
-    dirichlet_dofs = adapt(to, dof.dirichlet_dofs)
-    unknowns = adapt(to, dof.unknown_dofs)
-    var = adapt(to, dof.var)
-    return DofManager{
-      C, IT, typeof(dirichlet_dofs), typeof(var) 
-    }(dirichlet_dofs, unknowns, var)
+function DofManager{Condensed}(var::AbstractFunction) where Condensed
+    dirichlet_dofs = zeros(Int, 0)
+    unknown_dofs = 1:size(var.fspace.coords, 2) * length(names(var)) |> collect
+    # return DofManager{
+    #     use_condensed,
+    #     eltype(dirichlet_dofs),
+    #     typeof(dirichlet_dofs),
+    #     typeof(var)
+    # }(dirichlet_dofs, unknown_dofs, var)
+    return DofManager{Condensed}(dirichlet_dofs, unknown_dofs, var)
+end
+
+# function Adapt.adapt_structure(to, dof::DofManager{C, IT, IDs, Var}) where {C, IT, IDs, Var}
+    # dirichlet_dofs = adapt(to, dof.dirichlet_dofs)
+    # unknowns = adapt(to, dof.unknown_dofs)
+    # var = adapt(to, dof.var)
+    # return DofManager{
+    #   C, IT, typeof(dirichlet_dofs), typeof(var) 
+    # }(dirichlet_dofs, unknowns, var)
+function Adapt.adapt_structure(to, dof::DofManager)
+    return DofManager{_is_condensed(dof)}(
+        adapt(to, dof.dirichlet_dofs),
+        adapt(to, dof.unknown_dofs),
+        adapt(to, dof.var)
+    )
   end
 
-_field_type(dof::DofManager) = eval(typeof(dof.var.fspace.coords).name.name)
-_is_condensed(dof::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = C
+# _field_type(dof::DofManager) = eval(typeof(dof.var.fspace.coords).name.name)
+function _field_type(dof::DofManager)
+    coords = dof.var.fspace.coords
+    if isa(coords, H1Field)
+        return H1Field
+    else
+        @assert false "Finish me"
+    end
+end
+
+_is_condensed(::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = C
 
 """
 $(TYPEDSIGNATURES)
@@ -105,10 +131,24 @@ $(TYPEDSIGNATURES)
 Creates a field where ```typeof(field) <: AbstractField```
 based on the variable ```dof``` was created with
 """
-function create_field(dof::DofManager)
-    backend = KA.get_backend(dof)
-    field = KA.zeros(backend, Float64, size(dof))
-    return _field_type(dof)(field)
+function create_field(dof::DofManager, el_type::Type{RT} = Float64) where RT <: Number
+    return _create_field(KA.get_backend(dof), el_type, dof)
+end
+
+function _create_field(backend::KA.CPU, ::Type{RT}, dof::DofManager) where RT <: Number
+    coords = dof.var.fspace.coords
+    data = _dense_array(backend, RT, length(dof))
+    if isa(coords, H1Field)
+        field = H1Field{RT, Vector{RT}, num_fields(dof.var)}(data)
+    else
+        @assert false "Finish me"
+    end
+    return field
+end
+
+function _create_field(backend::KA.Backend, ::Type{RT}, dof::DofManager) where RT <: Number
+    data = KA.zeros(backend, RT, size(dof))
+    return _field_type(dof)(data)
 end
 
 """
@@ -122,7 +162,14 @@ This is used for solution techniques when vector/matrix rows are
 removed where dofs are fixed.
 """
 function create_unknowns(dof::DofManager{false, IT, IDs, Var}) where {IT, IDs, Var}
-    backend = KA.get_backend(dof)
+    return _create_unknowns(KA.get_backend(dof), dof)
+end
+
+function _create_unknowns(::KA.CPU, dof::DofManager{false, IT, IDs, Var}) where {IT, IDs, Var}
+    return zeros(Float64, length(dof.unknown_dofs))
+end
+
+function _create_unknowns(backend::KA.Backend, dof::DofManager{false, IT, IDs, Var}) where {IT, IDs, Var}
     return KA.zeros(backend, Float64, length(dof.unknown_dofs))
 end
 

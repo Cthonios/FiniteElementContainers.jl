@@ -1,26 +1,14 @@
 struct PeriodicBC{F} <: AbstractBC{F}
-    direction::Symbol
+    direction::String
     func::F
-    side_a_sset::Symbol
-    side_b_sset::Symbol
-    var_name::Symbol
+    side_a_sset::String
+    side_b_sset::String
+    var_name::String
 
     function PeriodicBC(
         var_name::String, direction::String, 
         func,
         side_a_sset::String, side_b_sset::String,
-    )
-        return new{typeof(func)}(
-            Symbol(direction), func, 
-            Symbol(side_a_sset), Symbol(side_b_sset), 
-            Symbol(var_name)
-        )
-    end
-
-    function PeriodicBC(
-        var_name::Symbol, direction::Symbol, 
-        func,
-        side_a_sset::Symbol, side_b_sset::Symbol,
     )
         return new{typeof(func)}(direction, func, side_a_sset, side_b_sset, var_name)
     end
@@ -45,11 +33,11 @@ function PeriodicBCContainer(
     tolerance=1.e-6
 )
     # get direction
-    if pbc.direction == :x
+    if pbc.direction == "x"
         dir_id = 1
-    elseif pbc.direction == :y
+    elseif pbc.direction == "y"
         dir_id = 2
-    elseif pbc.direction == :z
+    elseif pbc.direction == "z"
         @assert size(mesh.nodal_coords, 1) == 3
         dir_id = 3
     end

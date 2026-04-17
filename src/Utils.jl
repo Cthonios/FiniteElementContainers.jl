@@ -82,36 +82,43 @@ function fec_foraxes(
     end
 end
 
-@generated function foreach_block(
-    f, 
-    ::Connectivity{N, D, T},
-    physics::NamedTuple,
-    properties::NamedTuple,
-    ref_fes::NamedTuple
-) where {N, D, T}
-    stmts = Expr(:block)
-    for k in 1:N
-        push!(stmts.args, quote
-            f(
-                values(physics)[$k], values(properties)[$k],
-                values(ref_fes)[$k], $k
-            )
-        end)
-    end
-    return stmts
-end
+# @generated function foreach_block(
+#     f, 
+#     ::Connectivity{D, T},
+#     physics::NamedTuple,
+#     properties::NamedTuple,
+#     # ref_fes::NamedTuple
+#     ref_fes
+# ) where {D, T}
+#     stmts = Expr(:block)
+#     for k in 1:fieldcount(physics)
+#         push!(stmts.args, quote
+#             f(
+#                 values(physics)[$k], values(properties)[$k],
+#                 # values(ref_fes)[$k], $k
+#                 ref_fes[$k], $k
+#             )
+#         end)
+#     end
+#     return stmts
+# end
 
 @generated function foreach_block(
     f,
-    fspace::FunctionSpace{N, IT, IV, C, R},
+    fspace::FunctionSpace{IT, IV, C, R},
     p::Parameters
-) where {N, IT, IV, C, R}
+) where {IT, IV, C, R}
     stmts = Expr(:block)
+    # NOTE need to grab one of the NamedTuple types to get the field count
+    physics_type = fieldtype(p, :physics)
+    N = fieldcount(physics_type)
     for k in 1:N
         push!(stmts.args, quote
             f(
                 values(p.physics)[$k], values(p.properties)[$k],
-                values(fspace.ref_fes)[$k], $k
+                # values(fspace.ref_fes)[$k], $k
+                fspace.ref_fes[$k], $k
+                # block_reference_element(fspace, $k), $k
             )
         end)
     end

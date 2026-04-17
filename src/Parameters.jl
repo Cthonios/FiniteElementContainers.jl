@@ -73,7 +73,8 @@ function Parameters(
 
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
-    syms = keys(fspace.ref_fes)
+    # syms = keys(fspace.ref_fes)
+    syms = map(x -> Symbol("region_$x"), 1:length(fspace.ref_fes))
     physics = map(x -> physics, syms)
     physics = NamedTuple{tuple(syms...)}(tuple(physics...))
   else
@@ -82,7 +83,8 @@ function Parameters(
   end
 
   if isa(properties, AbstractArray)
-    syms = keys(fspace.ref_fes)
+    # syms = keys(fspace.ref_fes)
+    syms = map(x -> Symbol("region_$x"), 1:length(fspace.ref_fes))
     properties = map(x -> properties, syms)
     properties = NamedTuple{tuple(syms...)}(tuple(properties...))
   else
@@ -90,21 +92,25 @@ function Parameters(
   end
 
   state_old = Array{Float64, 3}[]
+  state_new = Array{Float64, 3}[]
   for (b, val) in enumerate(values(physics))
     # create state variables for this block physics
     NS = num_states(val)
     NQ, NE = block_quadrature_size(fspace, b)
 
     state_old_temp = zeros(NS, NQ, NE)
+    state_new_temp = zeros(NS, NQ, NE)
     for e in 1:NE
       for q in 1:NQ
         state_old_temp[:, q, e] = create_initial_state(val)
+        state_new_temp[:, q, e] = create_initial_state(val)
       end
     end
     push!(state_old, state_old_temp)
+    push!(state_new, state_new_temp)
   end
 
-  state_new = deepcopy(state_old)
+  # state_new = deepcopy(state_old)
   state_old = L2Field(state_old)
   state_new = L2Field(state_new)
 

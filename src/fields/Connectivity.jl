@@ -2,17 +2,18 @@
 $(TYPEDEF)
 """
 struct Connectivity{
-    N, # number of blocks, need to assert that the size of nepes, nelems, offsets never changes (we'll get there)
     T <: Integer, 
     D <: AbstractVector{T}
 }
     data::D
+    nblocks::T
     nepes::Vector{T}
     nelems::Vector{T}
     offsets::Vector{T}
 end
 
 function Connectivity(mats::Vector{<:AbstractArray{<:Integer, 2}})
+    nblocks = length(mats)
     nepes = map(x -> size(x, 1), mats)
     nelems = map(x -> size(x, 2), mats)
     offsets = Vector{eltype(nepes)}(undef, 0)
@@ -22,13 +23,13 @@ function Connectivity(mats::Vector{<:AbstractArray{<:Integer, 2}})
         offset += nepe * nelem
     end
     data = mapreduce(vec, vcat, mats)
-    return Connectivity{length(nepes), eltype(data), typeof(data)}(data, nepes, nelems, offsets)
+    return Connectivity(data, nblocks, nepes, nelems, offsets)
 end
 
-function Adapt.adapt_structure(to, conn::Connectivity{N, T, D}) where {N, T, D}
-    data = adapt(to, conn.data)
-    return Connectivity{length(conn.nepes), eltype(data), typeof(data)}(
-        data,
+function Adapt.adapt_structure(to, conn::Connectivity{T, D}) where {T, D}
+    return Connectivity(
+        adapt(to, conn.data),
+        conn.nblocks,
         conn.nepes,
         conn.nelems,
         conn.offsets
@@ -51,9 +52,9 @@ end
     return SVector{NNPE, Int}(data)
 end
 
-function num_blocks(conn::Connectivity{N, T, D}) where {N, D, T}
-    return N
-end 
+function num_blocks(conn::Connectivity)
+    return conn.nblocks
+end
 
 function num_elements(conn::Connectivity)
     return sum(conn.nelems)

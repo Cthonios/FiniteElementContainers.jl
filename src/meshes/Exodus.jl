@@ -26,15 +26,15 @@ function element_blocks(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
   conns = map(x -> convert(Matrix{Int}, x.conn), blocks)
   # el_id_maps = element_block_id_map.((mesh,), block_ids)
   el_id_maps = map(x -> convert(Vector{Int}, Exodus.read_block_id_map(mesh.mesh_obj, x)), block_ids)
-  names = Symbol.(Exodus.read_names(mesh.mesh_obj, Block))
-  types = map(x -> Symbol(x.elem_type), blocks)
+  names = Exodus.read_names(mesh.mesh_obj, Block)
+  types = map(x -> x.elem_type, blocks)
 
   conns = Dict(zip(names, conns))
   el_id_maps = Dict(zip(names, el_id_maps))
   types = Dict(zip(names, types))
-  names = Dict(zip(block_ids, names))
+  names_map = Dict(zip(block_ids, names))
 
-  return conns, el_id_maps, names, types
+  return conns, el_id_maps, names, names_map, types
 end
 
 function element_ids(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
@@ -49,14 +49,17 @@ function nodal_coordinates_and_ids(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
   return nodal_coordinates(mesh), node_id_map(mesh)
 end
 
+function nodal_coordinates_and_ids(type::Type{<:H1Field}, mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
+  return nodal_coordinates(type, mesh), node_id_map(mesh)
+end
+
 function nodesets(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
   ids = convert(Vector{Int}, Exodus.read_ids(mesh.mesh_obj, NodeSet))
   nsets = Exodus.read_sets(mesh.mesh_obj, NodeSet)
-  names = Symbol.(Exodus.read_names(mesh.mesh_obj, NodeSet))
+  names = Exodus.read_names(mesh.mesh_obj, NodeSet)
   nodes = map(x -> sort(convert(Vector{Int}, x.nodes)), nsets)
-
-  nodes = Dict(zip(names, nodes))
-  names = Dict(zip(ids, names))
+  nodes = Dict{String, Vector{Int}}(zip(names, nodes))
+  names = Dict{Int, String}(zip(ids, names))
   return names, nodes
 end
 
@@ -68,13 +71,13 @@ end
 
 function sidesets(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
   ids = convert(Vector{Int}, Exodus.read_ids(mesh.mesh_obj, SideSet))
-  names = Symbol.(Exodus.read_names(mesh.mesh_obj, SideSet))
+  names = Exodus.read_names(mesh.mesh_obj, SideSet)
   ssets = read_sets(mesh.mesh_obj, SideSet)
 
-  elems = Dict{Symbol, Vector{Int}}()
-  nodes = Dict{Symbol, Vector{Int}}()
-  sides = Dict{Symbol, Vector{Int}}()
-  side_nodes = Dict{Symbol, Matrix{Int}}()
+  elems = Dict{String, Vector{Int}}()
+  nodes = Dict{String, Vector{Int}}()
+  sides = Dict{String, Vector{Int}}()
+  side_nodes = Dict{String, Matrix{Int}}()
 
   for (id, name, sset) in zip(ids, names, ssets)
     perm = sortperm(sset.elements)
@@ -96,7 +99,7 @@ function sidesets(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
     )
   end
 
-  names = Dict(zip(ids, names))
+  names = Dict{Int, String}(zip(ids, names))
   return elems, names, nodes, sides, side_nodes
 end
 
@@ -107,6 +110,11 @@ $(TYPEDSIGNATURES)
 function nodal_coordinates(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
   coords = Exodus.read_coordinates(mesh.mesh_obj)
   return H1Field(coords)
+end
+
+function nodal_coordinates(type::Type{<:H1Field}, mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
+  coords = Exodus.read_coordinates(mesh.mesh_obj)
+  return type(vec(coords))
 end
 
 """
@@ -122,89 +130,11 @@ function node_id_map(
   return convert(Vector{Int}, read_id_map(mesh.mesh_obj, NodeMap))
 end
 
-# function nodeset(
-#   mesh::FileMesh{<:ExodusDatabase, ExodusMesh},
-#   id::Integer
-# ) 
-#   nset = read_set(mesh.mesh_obj, NodeSet, id)
-#   return sort!(convert.(Int64, nset.nodes))
-# end
-
-# function nodesets(
-#   mesh::FileMesh{<:ExodusDatabase, ExodusMesh},
-#   ids
-# ) 
-#   return nodeset.((mesh,), ids)
-# end
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# function nodeset_ids(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
-#   return Exodus.read_ids(mesh.mesh_obj, NodeSet)
-# end
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# function nodeset_names(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
-#   return Exodus.read_names(mesh.mesh_obj, NodeSet)
-# end
-
 function num_nodes(
   mesh::FileMesh{<:ExodusDatabase, ExodusMesh}
 )::Int32
   return Exodus.num_nodes(mesh.mesh_obj.init)
 end
-
-# function sideset(
-#   mesh::FileMesh{<:ExodusDatabase, ExodusMesh},
-#   id::Integer
-# ) 
-#   sset = read_set(mesh.mesh_obj, SideSet, id)
-#   elems = convert.(Int64, sset.elements)
-#   sides = convert.(Int64, sset.sides)
-#   nodes = convert.(Int64, Exodus.read_side_set_node_list(mesh.mesh_obj, id)[2])
-#   side_nodes = convert.(Int64, sset.side_nodes)
-
-#   # re-arrange some of these
-#   unique!(sort!(nodes))
-  
-#   # side_nodes = reshape(side_nodes, 1, length(side_nodes))
-#   perm = sortperm(elems)
-
-#   if length(sides) == 0
-#     num_nodes_per_side = 0
-#   else
-#     num_nodes_per_side = length(side_nodes) ÷ length(sides)
-#   end
-#   side_nodes = reshape(side_nodes, num_nodes_per_side, length(sides))[:, perm]
-#   side_nodes = reshape(side_nodes, 1, length(side_nodes))
-
-#   return elems[perm], nodes, sides[perm], side_nodes
-# end
-
-# function sidesets(
-#   mesh::FileMesh{<:ExodusDatabase, ExodusMesh},
-#   ids
-# ) 
-#   return sideset.((mesh,), ids)
-# end
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# function sideset_ids(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
-#   return Exodus.read_ids(mesh.mesh_obj, SideSet)
-# end
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# function sideset_names(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
-#   return Exodus.read_names(mesh.mesh_obj, SideSet)
-# end
-
 
 # TODO move below stuff to PostProcessor.jl since we'll always want to output
 # to exodus.
@@ -217,9 +147,9 @@ function PostProcessor(
 )
 
   # scratch arrays for var names
-  element_var_names = Symbol[]
-  nodal_var_names = Symbol[]
-  quadrature_var_names = Symbol[]
+  element_var_names = String[]
+  nodal_var_names = String[]
+  quadrature_var_names = String[]
 
   for var in vars
     if isa(var.fspace.coords, H1Field)
@@ -232,7 +162,8 @@ function PostProcessor(
       temp_names = Symbol[]
       for name in names(var)
         for q in 1:max_q_points
-          push!(temp_names, Symbol(String(name) * "_$q"))
+          # push!(temp_names, Symbol(String(name) * "_$q"))
+          push!(temp_names, "$(name)_$q")
         end
       end
       append!(quadrature_var_names, temp_names)
@@ -242,12 +173,9 @@ function PostProcessor(
   end
 
   # convert symbols to strings and append extra nodal names
-  nodal_var_names = String.(nodal_var_names)
   append!(nodal_var_names, extra_nodal_names)
-  # all_el_var_names = String.(vcat(element_var_names, quadrature_var_names))
   all_el_var_names = element_var_names
   append!(all_el_var_names, quadrature_var_names)
-  all_el_var_names = String.(all_el_var_names)
 
   # TODO need to add all the quadrature values labelled by block id
 
@@ -270,7 +198,7 @@ function write_field(
   pp::PostProcessor, time_index, block_name, field_name, field::Matrix{T}
 ) where T <: Number
   for q in axes(field, 1)
-    var_name = String(field_name) * "_$q"
+    var_name = "$(field_name)_$q"
     write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, field[q, :])
   end
 end
@@ -282,7 +210,7 @@ function write_field(
   exts = ("(XX)", "(XY)", "(XZ)", "(YY)", "(YZ)", "(ZZ)")
   for (n, ext) in enumerate(exts)
     for q in axes(field, 1)
-      var_name = String(field_name) * "_$(ext)_$q"
+      var_name = "$(field_name)_$(ext)_$q"
       temp = map(x -> x.data[n], field[q, :])
       write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, temp)
     end
@@ -296,7 +224,7 @@ function write_field(
   exts = ("(XX)", "(YX)", "(ZX)", "(XY)", "(YY)", "(ZY)", "(XZ)", "(YZ)", "(ZZ)")
   for (n, ext) in enumerate(exts)
     for q in axes(field, 1)
-      var_name = String(field_name) * "_$(ext)_$q"
+      var_name = "$(field_name)_$(ext)_$q"
       temp = map(x -> x.data[n], field[q, :])
       write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, temp)
     end
@@ -308,7 +236,7 @@ function write_field(
 ) where T <: AbstractArray{<:Number, 3}
   for q in axes(field, 2)
     for n in axes(field, 1)
-      var_name = String(field_name) * "_$n_$q"
+      var_name = "$(field_name)_$n_$q"
       write_values(pp.field_output_db, ElementVariable, time_index, block_name, var_name, field[n, q, :])
     end
   end
@@ -317,11 +245,12 @@ end
 function write_field(pp::PostProcessor, time_index::Int, field_names, field::H1Field)
   @assert length(field_names) == num_fields(field)
   for n in axes(field, 1)
-    name = String(field_names[n])
+    name = field_names[n]
     write_values(pp.field_output_db, NodalVariable, time_index, name, field[n, :])
   end
 end
 
+# DO SOMETHING ABOUT THIS ONE
 function write_field(pp::PostProcessor, time_index::Int, field_names, field::NamedTuple)
   @assert length(field_names) == length(field)
   field_names = String.(field_names)
