@@ -172,6 +172,10 @@ struct ASTNode{T <: Number}
     operator::Operator
     right::Union{Nothing, ASTNode{T}}
     value::Value{T}
+
+    function ASTNode{T}(arg, id, left, name_id, operator, right, value) where T <: Number
+        new{T}(arg, id, left, name_id, operator, right, value)
+    end
 end
 
 function __eval_ast_call(ast::ASTNode{T}, vars) where T <: Number
