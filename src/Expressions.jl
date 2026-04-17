@@ -41,7 +41,7 @@ struct Token{T <: Number}
     id::Int
     name::Name
     op::Operator
-    value::Value
+    value::Value{T}
 
     function Token{T}(id::Int) where T <: Number
         new{T}(id, nothing, nothing, -1.0)
