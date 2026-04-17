@@ -26,11 +26,11 @@ function assemble_vector_source!(storage, pattern, dof, Uu, p)
   X = coordinates(p)
   sources = p.sources
   conns = fspace.elem_conns
-  for (block_id, block_name, source) in zip(
-    sources.source_block_ids, sources.source_block_names,
-    sources.source_caches
+  for (block_id, source) in zip(
+    sources.source_block_ids, sources.source_caches
   )
-    ref_fe = getfield(fspace.ref_fes, block_name)
+    # ref_fe = getfield(fspace.ref_fes, block_name)
+    ref_fe = fspace.ref_fes[block_id]
     vals   = source.vals
 
     _assemble_block_vector_source!(

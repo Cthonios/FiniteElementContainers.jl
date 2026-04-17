@@ -1,6 +1,6 @@
 function test_dof_constructors(fspace)
   # TODO this could be made more complicated
-  u = ScalarFunction(fspace, :u)
+  u = ScalarFunction(fspace, "u")
   # v = ScalarFunction(fspace, :v)
   # w = VectorFunction(fspace, :w)
   dof = DofManager(u)
@@ -10,7 +10,7 @@ function test_dof_constructors(fspace)
 end
 
 function test_dof_methods(fspace)
-  u = VectorFunction(fspace, :u)
+  u = VectorFunction(fspace, "u")
   dof1 = DofManager(u)
   # @test eltype(dof1) == Int64
   # @test FiniteElementContainers.num_dofs_per_node(dof1) == 2

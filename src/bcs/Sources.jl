@@ -15,14 +15,10 @@ User-facing API to define a body force on an element block.
 """
 struct Source{F} <: AbstractBC{F}
   func::F
-  block_name::Symbol
-  var_name::Symbol
+  block_name::String
+  var_name::String
 
   function Source(var_name::String, func, block_name::String)
-    new{typeof(func)}(func, Symbol(block_name), Symbol(var_name))
-  end
-
-  function Source(var_name::Symbol, func, block_name::Symbol)
     new{typeof(func)}(func, block_name, var_name)
   end
 end
@@ -78,14 +74,14 @@ struct Sources{
   SourceFuncs  <: NamedTuple
 } <: AbstractBCs{SourceFuncs}
   source_block_ids::Vector{Int} # note this is the id order in FEC not the id in exodus
-  source_block_names::Vector{Symbol}
+  source_block_names::Vector{String}
   source_caches::Vector{SourceContainer{RV}}
   source_funcs::SourceFuncs
 end
 
 function Sources(mesh, dof::DofManager, sources::Vector{Source})
   if length(sources) == 0
-    return Sources(Int[], Symbol[], SourceContainer{Matrix{Float64}}[], NamedTuple())
+    return Sources(Int[], String[], SourceContainer{Matrix{Float64}}[], NamedTuple())
   end
 
   fspace = function_space(dof)
@@ -93,12 +89,13 @@ function Sources(mesh, dof::DofManager, sources::Vector{Source})
   caches = []
   funcs  = Function[]
   source_block_ids = Int[]
-  source_block_names = Symbol[]
+  source_block_names = String[]
   for source in sources
     block_name = source.block_name
-    block_id = indexin([block_name], collect(keys(fspace.ref_fes)))
-    @assert length(block_id) == 1
-    block_id = block_id[1]
+    # block_id = indexin([block_name], collect(keys(fspace.ref_fes)))
+    # @assert length(block_id) == 1
+    # block_id = block_id[1]
+    block_id = findfirst(x -> x == block_name, mesh.element_block_names)
     push!(source_block_ids, block_id)
     push!(source_block_names, block_name)
     NQ, NE = block_quadrature_size(fspace, block_id)
@@ -160,7 +157,7 @@ function update_source_values!(sources::Sources, assembler, X, t)
     if source.is_constant && source.initialized[]
       continue
     end
-    ref_fe = values(fspace.ref_fes)[block_id]
+    ref_fe = fspace.ref_fes[block_id]
     conns_data = fspace.elem_conns.data
     coffset = fspace.elem_conns.offsets[block_id]
     _update_source_values!(source.vals, func, ref_fe, conns_data, coffset, X, t)

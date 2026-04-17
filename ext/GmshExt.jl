@@ -37,10 +37,10 @@ function FiniteElementContainers.element_blocks(mesh::GmshFile)
     phys_groups = gmsh.model.getPhysicalGroups()
     temp = filter(pg -> pg[1] == dim, phys_groups)
     block_ids = map(x -> x[2], temp)
-    names = map(x -> Symbol(gmsh.model.getPhysicalName(dim, x)), block_ids)
-    conns = Dict{Symbol, Matrix{Int}}()
-    el_types = Dict{Symbol, Symbol}()
-    el_id_maps = Dict{Symbol, Vector{Int}}()
+    names = map(x -> gmsh.model.getPhysicalName(dim, x), block_ids)
+    conns = Dict{String, Matrix{Int}}()
+    el_types = Dict{String, String}()
+    el_id_maps = Dict{String, Vector{Int}}()
 
     for (block_id, name) in zip(block_ids, names)
         temp_el_types = String[]
@@ -56,14 +56,14 @@ function FiniteElementContainers.element_blocks(mesh::GmshFile)
         end
         @assert length(temp_conns) == 1 && length(temp_el_types) == 1
         conns[name] = temp_conns[1]
-        el_types[name] = Symbol(gmsh_to_exo[temp_el_types[1]])
+        el_types[name] = gmsh_to_exo[temp_el_types[1]]
 
         # TODO fix this up
         el_id_maps[name] = Vector{Int}(undef, 0)
     end
     block_ids = convert(Vector{Int}, block_ids)
-    names = Dict(zip(block_ids, names))
-    return conns, el_id_maps, names, el_types
+    names_map = Dict(zip(block_ids, names))
+    return conns, el_id_maps, names, names_map, el_types
 end
 
 function FiniteElementContainers.element_ids(mesh::GmshFile)
@@ -90,10 +90,10 @@ function FiniteElementContainers.nodesets(mesh::GmshFile)
     phys_groups = gmsh.model.getPhysicalGroups()
     temp = filter(pg -> pg[1] == dim, phys_groups)
     ids = map(x -> x[2], temp)
-    names = map(x -> Symbol(gmsh.model.getPhysicalName(dim, x)), ids)
+    names = map(x -> gmsh.model.getPhysicalName(dim, x), ids)
 
     # pre-allocate stuff
-    nodes = Dict{Symbol, Vector{Int}}()
+    nodes = Dict{String, Vector{Int}}()
 
     for (id, name) in zip(ids, names)
         temp = Vector{Int}(undef, 0)
@@ -123,13 +123,13 @@ function FiniteElementContainers.sidesets(mesh::GmshFile)
     phys_groups = gmsh.model.getPhysicalGroups()
     temp = filter(pg -> pg[1] == dim, phys_groups)
     sset_ids = map(x -> x[2], temp)
-    names = map(x -> Symbol(gmsh.model.getPhysicalName(dim, x)), sset_ids)
+    names = map(x -> gmsh.model.getPhysicalName(dim, x), sset_ids)
 
     # pre-allocate stuff
-    elems = Dict{Symbol, Vector{Int}}()
-    nodes = Dict{Symbol, Vector{Int}}()
-    sides = Dict{Symbol, Vector{Int}}()
-    side_nodes = Dict{Symbol, Matrix{Int}}()
+    elems = Dict{String, Vector{Int}}()
+    nodes = Dict{String, Vector{Int}}()
+    sides = Dict{String, Vector{Int}}()
+    side_nodes = Dict{String, Matrix{Int}}()
 
     # for (name, sset_id) in zip(names, sset_ids)
     #     for ent in gmsh.model.getEntitiesForPhysicalGroup(dim, sset_id)

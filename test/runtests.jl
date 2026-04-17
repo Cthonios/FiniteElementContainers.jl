@@ -1,3 +1,4 @@
+import FiniteElementContainers.Expressions: ExpressionFunction
 using Adapt
 if "--test-amdgpu" in ARGS @eval using AMDGPU end
 using Aqua
@@ -134,6 +135,7 @@ include("poisson/TestPoissonPBCs.jl")
   include("TestAssemblers.jl")
   include("TestBCs.jl")
   include("TestDofManagers.jl")
+  include("TestExpressions.jl")
   include("TestFields.jl")
   include("TestFormulations.jl")
   include("TestFunctions.jl")

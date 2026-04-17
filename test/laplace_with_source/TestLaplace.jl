@@ -33,7 +33,7 @@ function test_laplace_dirichlet(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -43,13 +43,13 @@ function test_laplace_dirichlet(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; sideset_name = :sset_1),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :sset_2),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :sset_3),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :sset_4),
+    DirichletBC("u", bc_func_laplace; sideset_name = "sset_1"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "sset_2"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "sset_3"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "sset_4"),
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # setup the parameters
@@ -90,7 +90,7 @@ function test_laplace_dirichlet_with_nodesets(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -100,13 +100,13 @@ function test_laplace_dirichlet_with_nodesets(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; nodeset_name = :nset_1),
-    DirichletBC(:u, bc_func_laplace; nodeset_name = :nset_2),
-    DirichletBC(:u, bc_func_laplace; nodeset_name = :nset_3),
-    DirichletBC(:u, bc_func_laplace; nodeset_name = :nset_4),
+    DirichletBC("u", bc_func_laplace; nodeset_name = "nset_1"),
+    DirichletBC("u", bc_func_laplace; nodeset_name = "nset_2"),
+    DirichletBC("u", bc_func_laplace; nodeset_name = "nset_3"),
+    DirichletBC("u", bc_func_laplace; nodeset_name = "nset_4"),
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # setup the parameters
@@ -147,7 +147,7 @@ function test_laplace_dirichlet_with_nodesets_gmsh_geo_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -157,10 +157,10 @@ function test_laplace_dirichlet_with_nodesets_gmsh_geo_tri3(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; nodeset_name = :boundary),
+    DirichletBC("u", bc_func_laplace; nodeset_name = "boundary"),
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # setup the parameters
@@ -201,7 +201,7 @@ function test_laplace_dirichlet_with_nodesets_gmsh_msh_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -211,10 +211,10 @@ function test_laplace_dirichlet_with_nodesets_gmsh_msh_tri3(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; nodeset_name = :boundary)
+    DirichletBC("u", bc_func_laplace; nodeset_name = "boundary")
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # setup the parameters
@@ -255,7 +255,7 @@ function test_laplace_neumann(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -265,15 +265,15 @@ function test_laplace_neumann(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; sideset_name = :sset_1),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :sset_2)
+    DirichletBC("u", bc_func_laplace; sideset_name = "sset_1"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "sset_2")
   ]
   nbcs = NeumannBC[
-    NeumannBC(:u, bc_func_neumann_lapace, :sset_3),
-    NeumannBC(:u, bc_func_neumann_lapace, :sset_4)
+    NeumannBC("u", bc_func_neumann_lapace, "sset_3"),
+    NeumannBC("u", bc_func_neumann_lapace, "sset_4")
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # direct solver test
@@ -321,7 +321,7 @@ function test_laplace_dirichlet_multi_block_quad4_quad4(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -331,10 +331,10 @@ function test_laplace_dirichlet_multi_block_quad4_quad4(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; sideset_name = :boundary)
+    DirichletBC("u", bc_func_laplace; sideset_name = "boundary")
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # setup the parameters
@@ -375,7 +375,7 @@ function test_laplace_dirichlet_multi_block_quad4_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -385,10 +385,10 @@ function test_laplace_dirichlet_multi_block_quad4_tri3(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; sideset_name = :boundary)
+    DirichletBC("u", bc_func_laplace; sideset_name = "boundary")
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # setup the parameters
@@ -430,7 +430,7 @@ function test_laplace_dirichlet_structured_mesh_quad4(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -440,13 +440,13 @@ function test_laplace_dirichlet_structured_mesh_quad4(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; sideset_name = :bottom),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :right),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :top),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :left),
+    DirichletBC("u", bc_func_laplace; sideset_name = "bottom"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "right"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "top"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "left"),
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # setup the parameters
@@ -488,7 +488,7 @@ function test_laplace_dirichlet_structured_mesh_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -498,13 +498,13 @@ function test_laplace_dirichlet_structured_mesh_tri3(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; sideset_name = :bottom),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :right),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :top),
-    DirichletBC(:u, bc_func_laplace; sideset_name = :left),
+    DirichletBC("u", bc_func_laplace; sideset_name = "bottom"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "right"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "top"),
+    DirichletBC("u", bc_func_laplace; sideset_name = "left"),
   ]
   sources = Source[
-    Source(:u, f_lapace, :block_1)
+    Source("u", f_lapace, "block_1")
   ]
 
   # setup the parameters
@@ -557,7 +557,7 @@ function test_laplace_neumann_structured_mesh_quad4(
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -566,11 +566,11 @@ function test_laplace_neumann_structured_mesh_quad4(
   )
 
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; sideset_name = :left),
+    DirichletBC("u", bc_func_laplace; sideset_name = "left"),
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, nbc_minus, :right),
+    NeumannBC("u", nbc_minus, "right"),
   ]
 
   p = create_parameters(
@@ -611,7 +611,7 @@ function test_laplace_neumann_structured_mesh_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Laplace()
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -620,11 +620,11 @@ function test_laplace_neumann_structured_mesh_tri3(
   )
 
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func_laplace; sideset_name = :left),
+    DirichletBC("u", bc_func_laplace; sideset_name = "left"),
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, nbc_minus, :right),
+    NeumannBC("u", nbc_minus, "right"),
   ]
 
   p = create_parameters(

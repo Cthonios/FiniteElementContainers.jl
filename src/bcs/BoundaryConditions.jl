@@ -28,7 +28,9 @@ function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
   return [id_map[x] for x in sorted_unique]
 end
 
-const SetName = Union{Nothing, Symbol}
+# const SetName = Union{Nothing, Symbol}
+const SetName = Union{Nothing, String}
+const VarName = String
 
 """
 $(TYPEDEF)
@@ -57,7 +59,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function BCBookKeeping(
-  mesh, dof::DofManager, var_name::Symbol; #sset_name::Symbol
+  mesh, dof::DofManager, var_name::VarName; #sset_name::Symbol
   block_name::SetName = nothing,
   nset_name::SetName = nothing,
   sset_name::SetName = nothing
@@ -279,7 +281,7 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
     end
 
     for block in blocks
-      block_name = mesh.element_block_names[block]
+      block_name = mesh.element_block_names_map[block]
       ids = findall(x -> x == block, bk.blocks)
       new_blocks = bk.blocks[ids]
       new_elements = bk.elements[ids]
@@ -288,7 +290,11 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
 
       # TODO update nodes and dofs
       new_bk = BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides, new_side_nodes)
-      ref_fe = getproperty(fspace.ref_fes, block_name)
+      # id = indexin(block_name, mesh.element_block_names)
+      id = findfirst(x -> x == block_name, mesh.element_block_names)
+      # ref_fe = getproperty(fspace.ref_fes, block_name)
+      # ref_fe = fspace.ref_fes[mesh.element_types]
+      ref_fe = fspace.ref_fes[id]
       NQ = num_surface_quadrature_points(ref_fe)
       ND = length(dof.var)
 

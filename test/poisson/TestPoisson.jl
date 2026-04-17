@@ -35,7 +35,7 @@ function test_poisson_dirichlet(dev, nsolver, lsolver; kwargs...)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -45,10 +45,10 @@ function test_poisson_dirichlet(dev, nsolver, lsolver; kwargs...)
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :sset_1),
-    DirichletBC(:u, bc_func; sideset_name = :sset_2),
-    DirichletBC(:u, bc_func; sideset_name = :sset_3),
-    DirichletBC(:u, bc_func; sideset_name = :sset_4),
+    DirichletBC("u", bc_func; sideset_name = "sset_1"),
+    DirichletBC("u", bc_func; sideset_name = "sset_2"),
+    DirichletBC("u", bc_func; sideset_name = "sset_3"),
+    DirichletBC("u", bc_func; sideset_name = "sset_4"),
   ]
 
   # setup the parameters
@@ -90,7 +90,7 @@ function test_poisson_robin(dev, nsolver, lsolver; kwargs...)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f_source)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -100,10 +100,10 @@ function test_poisson_robin(dev, nsolver, lsolver; kwargs...)
 
   # setup and update bcs
   # dbcs = DirichletBC[
-  #   DirichletBC(:u, bc_func; sideset_name = :sset_1),
-  #   DirichletBC(:u, bc_func; sideset_name = :sset_2),
-  #   DirichletBC(:u, bc_func; sideset_name = :sset_3),
-  #   DirichletBC(:u, bc_func; sideset_name = :sset_4),
+  #   DirichletBC("u", bc_func; sideset_name = "sset_1"),
+  #   DirichletBC("u", bc_func; sideset_name = "sset_2"),
+  #   DirichletBC("u", bc_func; sideset_name = "sset_3"),
+  #   DirichletBC("u", bc_func; sideset_name = "sset_4"),
   # ]
   α = 1.0
   dudn_x0(x, t, u) = SVector{1, eltype(u)}((α - 1.0) * sin(π * x[2])        - α * u[1])
@@ -111,10 +111,10 @@ function test_poisson_robin(dev, nsolver, lsolver; kwargs...)
   dudn_y0(x, t, u) = SVector{1, eltype(u)}(-π * exp(x[1])                    - α * u[1])
   dudn_y1(x, t, u) = SVector{1, eltype(u)}(-π * exp(x[1])                    - α * u[1])
   rbcs = RobinBC[
-    RobinBC(:u, dudn_y1, :sset_1)
-    RobinBC(:u, dudn_x0, :sset_2)
-    RobinBC(:u, dudn_y0, :sset_3)
-    RobinBC(:u, dudn_x1, :sset_4)
+    RobinBC("u", dudn_y1, "sset_1")
+    RobinBC("u", dudn_x0, "sset_2")
+    RobinBC("u", dudn_y0, "sset_3")
+    RobinBC("u", dudn_x1, "sset_4")
   ]
 
   # setup the parameters
@@ -153,7 +153,7 @@ function test_poisson_dirichlet_with_nodesets(dev, nsolver, lsolver; kwargs...)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -163,10 +163,10 @@ function test_poisson_dirichlet_with_nodesets(dev, nsolver, lsolver; kwargs...)
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; nodeset_name = :nset_1),
-    DirichletBC(:u, bc_func; nodeset_name = :nset_2),
-    DirichletBC(:u, bc_func; nodeset_name = :nset_3),
-    DirichletBC(:u, bc_func; nodeset_name = :nset_4),
+    DirichletBC("u", bc_func; nodeset_name = "nset_1"),
+    DirichletBC("u", bc_func; nodeset_name = "nset_2"),
+    DirichletBC("u", bc_func; nodeset_name = "nset_3"),
+    DirichletBC("u", bc_func; nodeset_name = "nset_4"),
   ]
 
   # setup the parameters
@@ -207,7 +207,7 @@ function test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -217,7 +217,7 @@ function test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; nodeset_name = :boundary),
+    DirichletBC("u", bc_func; nodeset_name = "boundary"),
   ]
 
   # setup the parameters
@@ -258,7 +258,7 @@ function test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -268,7 +268,7 @@ function test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; nodeset_name = :boundary)
+    DirichletBC("u", bc_func; nodeset_name = "boundary")
   ]
 
   # setup the parameters
@@ -307,7 +307,7 @@ function test_poisson_neumann(dev, nsolver, lsolver; kwargs...)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -317,13 +317,13 @@ function test_poisson_neumann(dev, nsolver, lsolver; kwargs...)
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :sset_1),
-    DirichletBC(:u, bc_func; sideset_name = :sset_2)
+    DirichletBC("u", bc_func; sideset_name = "sset_1"),
+    DirichletBC("u", bc_func; sideset_name = "sset_2")
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, bc_func_neumann, :sset_3),
-    NeumannBC(:u, bc_func_neumann, :sset_4)
+    NeumannBC("u", bc_func_neumann, "sset_3"),
+    NeumannBC("u", bc_func_neumann, "sset_4")
   ]
 
   # direct solver test
@@ -370,7 +370,7 @@ function test_poisson_dirichlet_multi_block_quad4_quad4(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -380,7 +380,7 @@ function test_poisson_dirichlet_multi_block_quad4_quad4(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :boundary)
+    DirichletBC("u", bc_func; sideset_name = "boundary")
   ]
 
   # setup the parameters
@@ -421,7 +421,7 @@ function test_poisson_dirichlet_multi_block_quad4_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -431,7 +431,7 @@ function test_poisson_dirichlet_multi_block_quad4_tri3(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :boundary)
+    DirichletBC("u", bc_func; sideset_name = "boundary")
   ]
 
   # setup the parameters
@@ -473,7 +473,7 @@ function test_poisson_dirichlet_structured_mesh_quad4(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -483,10 +483,10 @@ function test_poisson_dirichlet_structured_mesh_quad4(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :bottom),
-    DirichletBC(:u, bc_func; sideset_name = :right),
-    DirichletBC(:u, bc_func; sideset_name = :top),
-    DirichletBC(:u, bc_func; sideset_name = :left),
+    DirichletBC("u", bc_func; sideset_name = "bottom"),
+    DirichletBC("u", bc_func; sideset_name = "right"),
+    DirichletBC("u", bc_func; sideset_name = "top"),
+    DirichletBC("u", bc_func; sideset_name = "left"),
   ]
 
   # setup the parameters
@@ -528,7 +528,7 @@ function test_poisson_dirichlet_structured_mesh_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange) 
   physics = Poisson(f)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -538,10 +538,10 @@ function test_poisson_dirichlet_structured_mesh_tri3(
 
   # setup and update bcs
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :bottom),
-    DirichletBC(:u, bc_func; sideset_name = :right),
-    DirichletBC(:u, bc_func; sideset_name = :top),
-    DirichletBC(:u, bc_func; sideset_name = :left),
+    DirichletBC("u", bc_func; sideset_name = "bottom"),
+    DirichletBC("u", bc_func; sideset_name = "right"),
+    DirichletBC("u", bc_func; sideset_name = "top"),
+    DirichletBC("u", bc_func; sideset_name = "left"),
   ]
 
   # setup the parameters
@@ -595,7 +595,7 @@ function test_poisson_neumann_structured_mesh_quad4(
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Poisson(f_zero)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -604,11 +604,11 @@ function test_poisson_neumann_structured_mesh_quad4(
   )
 
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :left),
+    DirichletBC("u", bc_func; sideset_name = "left"),
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, nbc_minus, :right),
+    NeumannBC("u", nbc_minus, "right"),
   ]
 
   p = create_parameters(
@@ -650,7 +650,7 @@ function test_poisson_neumann_structured_mesh_tri3(
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Poisson(f_zero)
   props = create_properties(physics)
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(
     u;
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -659,11 +659,11 @@ function test_poisson_neumann_structured_mesh_tri3(
   )
 
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :left),
+    DirichletBC("u", bc_func; sideset_name = "left"),
   ]
 
   nbcs = NeumannBC[
-    NeumannBC(:u, nbc_minus, :right),
+    NeumannBC("u", nbc_minus, "right"),
   ]
 
   p = create_parameters(

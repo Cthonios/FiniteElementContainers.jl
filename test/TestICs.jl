@@ -1,18 +1,18 @@
 dummy_ic_func_1(x) = 3.
 
 function test_ic_input()
-    ic = InitialCondition(:my_var, dummy_ic_func_1, :my_block)
-    @test ic.block_name == :my_block
+    ic = InitialCondition("my_var", dummy_ic_func_1, "my_block")
+    @test ic.block_name == "my_block"
     @test typeof(ic.func) == typeof(dummy_ic_func_1)
-    @test ic.var_name == :my_var
+    @test ic.var_name == "my_var"
 end
 
 function ic_container_init()
     mesh = UnstructuredMesh("poisson/poisson.g")
     fspace = FunctionSpace(mesh, H1Field, Lagrange)
-    u = VectorFunction(fspace, :displ)
+    u = VectorFunction(fspace, "displ")
     dof = DofManager(u)
-    ic_in = InitialCondition(:displ_x, dummy_ic_func_1, :block_1)
+    ic_in = InitialCondition("displ_x", dummy_ic_func_1, "block_1")
     ics = InitialConditions(mesh, dof, [ic_in])
     U = create_field(dof)
     return ics, mesh.nodal_coords, U

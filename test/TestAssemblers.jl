@@ -38,7 +38,7 @@ function test_sparse_matrix_assembler(dev)
   bc_func(_, _) = 0.
   physics = Poisson(f)
   props = SVector{0, Float64}()
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   @show asm = SparseMatrixAssembler(u)
   p = create_parameters(mesh, asm, physics, props)
 
@@ -98,9 +98,9 @@ function test_sparse_matrix_assembler_consistency_poisson(dev, sp_type)
   bc_func(_, _) = 0.
   physics = Poisson(f)
   props = SVector{0, Float64}()
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :boundary)
+    DirichletBC("u", bc_func; sideset_name = "boundary")
   ]
   
   for use_condensed in [false, true]
@@ -201,7 +201,7 @@ function test_sparse_matrix_assembler_consistency_mechanics(dev, sp_type)
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Mechanics(1.0, PlaneStrain())
   props = create_properties(physics)
-  u = VectorFunction(V, :displ)
+  u = VectorFunction(V, "displ")
   
   for use_condensed in [false, true]
     asm_1 = SparseMatrixAssembler(
@@ -300,14 +300,14 @@ function test_matrix_free_action(dev)
   bc_func(_, _) = 0.
   physics = Poisson(f)
   props = SVector{0, Float64}()
-  u = ScalarFunction(V, :u)
+  u = ScalarFunction(V, "u")
   asm = SparseMatrixAssembler(u)
   @show asm # just for test coverage
   dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :sset_1),
-    DirichletBC(:u, bc_func; sideset_name = :sset_2),
-    DirichletBC(:u, bc_func; sideset_name = :sset_3),
-    DirichletBC(:u, bc_func; sideset_name = :sset_4),
+    DirichletBC("u", bc_func; sideset_name = "sset_1"),
+    DirichletBC("u", bc_func; sideset_name = "sset_2"),
+    DirichletBC("u", bc_func; sideset_name = "sset_3"),
+    DirichletBC("u", bc_func; sideset_name = "sset_4")
   ]
   p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs)
   FiniteElementContainers.initialize!(p)
@@ -344,14 +344,14 @@ function test_matrix_free_action_mechanics(dev)
   V = FunctionSpace(mesh, H1Field, Lagrange)
   physics = Mechanics(1.0, PlaneStrain())
   props = create_properties(physics)
-  u = VectorFunction(V, :displ)
+  u = VectorFunction(V, "displ")
   asm = SparseMatrixAssembler(u)
   fixed(_, _) = 0.
   dbcs = DirichletBC[
-    DirichletBC(:displ_x, fixed; sideset_name = :sset_3),
-    DirichletBC(:displ_y, fixed; sideset_name = :sset_3),
-    DirichletBC(:displ_x, fixed; sideset_name = :sset_1),
-    DirichletBC(:displ_y, fixed; sideset_name = :sset_1),
+    DirichletBC("displ_x", fixed; sideset_name = "sset_3"),
+    DirichletBC("displ_y", fixed; sideset_name = "sset_3"),
+    DirichletBC("displ_x", fixed; sideset_name = "sset_1"),
+    DirichletBC("displ_y", fixed; sideset_name = "sset_1")
   ]
   times = TimeStepper(0., 1., 1)
   p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs, times=times)

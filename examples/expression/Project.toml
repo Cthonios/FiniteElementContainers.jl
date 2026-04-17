@@ -1,0 +1,5 @@
+name = "MyApp"
+
+[deps]
+FiniteElementContainers = "d08262e4-672f-4e7f-a976-f2cea5767631"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"

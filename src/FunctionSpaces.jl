@@ -22,28 +22,96 @@ const _default_q = Dict{String, Int}(
   "TRI3"    => 2,
   "TRI6"    => 2,
   "TET"     => 2,
+  "TET4"    => 2,
   "TETRA"   => 2,
   "TETRA4"  => 2,
   "TETRA10" => 2
 )
 
-function _setup_ref_fes(mesh::AbstractMesh, interp_type, p_degree = nothing, q_degree = nothing;
-                        q_type::Type{<:AbstractQuadratureType} = GaussLobattoLegendre)
+function _get_p_degree(el_type::String, p_degree::Union{Int, Nothing} = nothing)
+  if p_degree === nothing
+    return _default_p[el_type]
+  else
+    return p_degree
+  end
+end
+
+function _get_q_degree(el_type::String, q_degree::Union{Int, Nothing} = nothing)
+  if q_degree === nothing
+    return _default_q[el_type]
+  else
+    return q_degree
+  end
+end
+
+const _el_name_to_juliac_safe_id = Dict{String, Int}(
+  "HEX"     => 1,
+  "HEX8"    => 1,
+  "QUAD"    => 2,
+  "QUAD4"   => 2,
+  "QUAD9"   => 3,
+  "TRI"     => 4,
+  "TRI3"    => 4,
+  "TRI6"    => 5,
+  "TET"     => 6,
+  "TET4"    => 6,
+  "TETRA"   => 6,
+  "TETRA4"  => 6,
+  "TETRA10" => 7
+)
+
+function _setup_block_to_ref_fe_id(mesh::AbstractMesh, is_juliac_safe::Bool)
+  if is_juliac_safe
+    block_ids = Vector{Int}(undef, 0)
+    for block_name in mesh.element_block_names
+      el_type = mesh.element_types[block_name]
+      push!(block_ids, _el_name_to_juliac_safe_id[el_type])
+    end
+    return block_ids
+  else
+    return 1:length(mesh.element_types) |> collect
+  end
+end
+
+# Lagrange elements
+# defaulting to fully integrated elements for now
+function _setup_juliac_safe_ref_fes(::Type{Lagrange}, q_type::Type{QT}) where {QT <: AbstractQuadratureType}
+  ref_fes = (
+    ReferenceFE(Hex{Lagrange, 1}(), QT(2, 2)),  # HEX8 for Lagrange
+    ReferenceFE(Quad{Lagrange, 1}(), QT(2, 2)), # QUAD4 for Lagrange
+    ReferenceFE(Quad{Lagrange, 2}(), QT(2, 2)), # QUAD9 for Lagrange
+    ReferenceFE(Tri{Lagrange, 1}(), QT(2, 2)),  # Tri3 for Lagrange
+    ReferenceFE(Tri{Lagrange, 2}(), QT(2, 2)),  # Tri3 for Lagrange
+    ReferenceFE(Tet{Lagrange, 1}(), QT(2, 2)),  # Tri3 for Lagrange
+    ReferenceFE(Tet{Lagrange, 2}(), QT(2, 2))   # Tri3 for Lagrange
+  )
+  return ref_fes
+end
+
+"""
+default code path that sets up ref fes as a namedtuple
+"""
+function _setup_ref_fes(
+  mesh::AbstractMesh, 
+  interp_type, p_degree,
+  q_type::Type{<:AbstractQuadratureType}, q_degree
+)
   block_names = mesh.element_block_names
   ref_fes = ReferenceFE[]
-  for elem_name in values(mesh.element_types)
-    elem_type = elem_type_map[uppercase(String(elem_name))]
+  for block_name in block_names
+    elem_name = mesh.element_types[block_name]
+    elem_type = elem_type_map[uppercase(elem_name)]
     if p_degree === nothing
-      p_degree = _default_p[uppercase(String(elem_name))]
+      p_degree = _default_p[uppercase(elem_name)]
     end
 
     if q_degree === nothing
-      q_degree = _default_q[uppercase(String(elem_name))]
+      q_degree = _default_q[uppercase(elem_name)]
     end
     ref_fe = ReferenceFE(elem_type{interp_type, p_degree}(), q_type(q_degree))
     push!(ref_fes, ref_fe)
   end
-  ref_fes = NamedTuple{tuple(values(block_names)...)}(tuple(ref_fes...))
+  ref_fes = NamedTuple{tuple(Symbol.(values(block_names))...)}(tuple(ref_fes...))
   return ref_fes
 end
 
@@ -78,24 +146,44 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct FunctionSpace{
-  N, # number of blocks
+  IsJuliaCSafe,
   IT <: Integer,
   IV <: AbstractVector{IT},
   Coords,
   RefFEs
 } <: AbstractFunctionSpace
+  block_names::Vector{String}
+  block_to_ref_fe_id::Vector{IT} # only used in juliac builds
   coords::Coords
-  elem_conns::Connectivity{N, IT, IV}
+  elem_conns::Connectivity{IT, IV}
   elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
   ref_fes::RefFEs
+
+  function FunctionSpace{is_juliac_safe}(
+    block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes
+  ) where is_juliac_safe
+    new{
+      is_juliac_safe, eltype(conns.data), typeof(conns.data), typeof(coords), typeof(ref_fes)
+    }(block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes)
+  end
 end
 
 function FunctionSpace(
-  mesh::AbstractMesh, ::Type{H1Field}, interp_type;
+  mesh::AbstractMesh, field_type::Type{H1Field}, interp_type,
+  ::Type{QT} = GaussLobattoLegendre;
+  is_juliac_safe::Bool = false,
   p_degree::Union{Int, Nothing} = nothing,
   q_degree::Union{Int, Nothing} = nothing,
-  q_type::Type{<:AbstractQuadratureType} = GaussLobattoLegendre
-)
+) where QT <: AbstractQuadratureType
+  return FunctionSpace{is_juliac_safe}(mesh, field_type, interp_type, QT; p_degree = p_degree, q_degree = q_degree)
+end
+
+function FunctionSpace{is_juliac_safe}(
+  mesh::AbstractMesh, ::Type{H1Field}, interp_type,
+  q_type::Type{QT} = GaussLobattoLegendre;
+  p_degree::Union{Int, Nothing} = nothing,
+  q_degree::Union{Int, Nothing} = nothing,
+) where {is_juliac_safe, QT <: AbstractQuadratureType}
   # TODO move to some common function so we can use it across
   # all constructors
   if p_degree !== nothing
@@ -105,12 +193,18 @@ function FunctionSpace(
     elseif p_degree == 0
       @assert false "TODO 0 order elements"
     else
-      ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_degree; q_type=q_type)
+      ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_type, q_degree)
+      # ref_fes = _setup_ref_fes(interp_type, Val{p_degree}(), q_type, q_degree)
       coords, conns = create_higher_order_mesh(mesh, H1Field, interp_type, p_degree)
       conns = Connectivity([val for val in values(conns)])
     end
   else
-    ref_fes = _setup_ref_fes(mesh, interp_type, nothing, q_degree; q_type=q_type)
+    # ref_fes = _setup_ref_fes(mesh, interp_type, Val{nothing}(), q_degree, q_type)
+    if is_juliac_safe
+      ref_fes = _setup_juliac_safe_ref_fes(interp_type, q_type)
+    else
+      ref_fes = _setup_ref_fes(mesh, interp_type, nothing, q_type, q_degree)
+    end
     coords = mesh.nodal_coords
     conns = Connectivity([val for val in values(mesh.element_conns)])
   end
@@ -118,28 +212,20 @@ function FunctionSpace(
   # conns = Connectivity([val for val in values(mesh.element_conns)])
   # elem_id_maps = [mesh.element_id_maps[name] for name in mesh.element_block_names]
   elem_id_maps = [val for val in values(mesh.element_id_maps)]
-  return FunctionSpace(coords, conns, elem_id_maps, ref_fes)
+  block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, is_juliac_safe)
+
+  return FunctionSpace{is_juliac_safe}(mesh.element_block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes)
 end
 
-function FunctionSpace(
-  mesh::AbstractMesh, ::Type{HdivField}, ::Type{Lagrange},
-  p_degree::Union{Int, Nothing} = nothing,
-  q_degree::Union{Int, Nothing} = nothing
-)
-  if p_degree !== nothing
-    @assert p_degree == 0 "Only 0 degree Hdiv elements supported so far"
-    # TODO finish
-  else
-
-  end
-end
-
+# TODO gonna have to fix this based on updates
 function FunctionSpace(
   mesh::AbstractMesh, ::Type{L2Field}, ::Type{Lagrange};
+  is_juliac_safe::Bool = false,
+  p_degree = nothing,
   q_degree = nothing,
   q_type::Type{<:AbstractQuadratureType} = GaussLobattoLegendre
 )
-  ref_fes = _setup_ref_fes(mesh, Lagrange, q_degree; q_type=q_type)
+  ref_fes = _setup_ref_fes(mesh, Lagrange, p_degree, q_type, q_degree)
 
   # conns = Connectivity([mesh.element_conns[name] for name in mesh.element_block_names])
   conns = Connectivity([val for val in values(mesh.element_conns)])
@@ -155,38 +241,67 @@ function FunctionSpace(
   end
   conns = Connectivity(new_conns)
 
-  return FunctionSpace(coords, conns, Vector{Vector{Int}}(undef, 0), ref_fes)
+  return FunctionSpace(is_juliac_safe, coords, conns, Vector{Vector{Int}}(undef, 0), ref_fes)
 end
 
 function Adapt.adapt_structure(to, fspace::FunctionSpace)
-  coords = adapt(to, fspace.coords)
-  elem_conns = adapt(to, fspace.elem_conns)
-  elem_id_maps = fspace.elem_id_maps
-  ref_fes = adapt(to, fspace.ref_fes)
-  return FunctionSpace(coords, elem_conns, elem_id_maps, ref_fes)
+  return FunctionSpace{_is_juliac_safe(fspace)}(
+    fspace.block_names, fspace.block_to_ref_fe_id,
+    adapt(to, fspace.coords),
+    adapt(to, fspace.elem_conns), 
+    fspace.elem_id_maps,
+    map(x -> adapt(to, x), fspace.ref_fes)
+  )
 end
 
 function Base.show(io::IO, fspace::FunctionSpace)
   println(io, "FunctionSpace:")
   println(io, "  Type: $(typeof(fspace.coords).name.name)")
-  for (key, ref_fe) in enumerate(fspace.ref_fes)
-    println(io, "    Block: $key")
+  for (block_name, block_id) in zip(fspace.block_names, fspace.block_to_ref_fe_id)
+    println(io, "  $block_name:")
+    # println(io, "    Element type = $(fspace.ref_fes[block_id].element)")
   end
+end
+
+function _is_juliac_safe(::FunctionSpace{B, I, V, C, R}) where {B, I, V, C, R}
+  return B
 end
 
 function block_entity_size(fspace::FunctionSpace, b::Int)
   return (num_entities_per_element(fspace, b), num_elements(fspace, b))
 end
 
-function block_quadrature_size(fspace::FunctionSpace, b::Int)
-  ref_fe = values(fspace.ref_fes)[b]
-  nq = num_cell_quadrature_points(ref_fe)
+function block_reference_element(fspace::FunctionSpace{false, I, V, C, R}, block_id::Int) where {I, V, C, R}
+  return fspace.ref_fes[block_id]
+end
+
+function block_reference_element_old(fspace::FunctionSpace{true, I, V, C, R}, block_id::Int) where {I, V, C, R}
+  ref_fe_id = fspace.block_to_ref_fe_id[block_id]
+  return fspace.ref_fes[ref_fe_id]
+end
+
+# this does not work behind juliac
+function block_quadrature_size(fspace::FunctionSpace{false}, b::Int)
+  ref_fe = block_reference_element(fspace, b)
+  nq = num_cell_quadrature_points(ref_fe)::Int
+  ne = num_elements(fspace, b)
+  return (nq, ne)
+end
+
+function block_quadrature_size(fspace::FunctionSpace{true}, b::Int)
+  # this map allow us to actually have type stability for some reason
+  nqs = map(x -> num_cell_quadrature_points(x), fspace.ref_fes)
+  nq = nqs[fspace.block_to_ref_fe_id[b]]
   ne = num_elements(fspace, b)
   return (nq, ne)
 end
 
 function block_quadrature_sizes(fspace::FunctionSpace)
-  return block_quadrature_size.((fspace,), 1:num_blocks(fspace))
+  sizes = Vector{Tuple{Int, Int}}(undef, num_blocks(fspace))
+  for b in 1:num_blocks(fspace)
+    sizes[b] = block_quadrature_size(fspace, b)
+  end
+  return sizes
 end
 
 function connectivity(fspace::FunctionSpace)

@@ -80,20 +80,20 @@ function test_structured_mesh()
   # Hex8 test
   mesh = StructuredMesh("hex", (0., 0., 0.), (1., 1., 1.), (3, 3, 3))
   coords = mesh.nodal_coords
-  @test all(coords[2, mesh.nodeset_nodes[:bottom]] .≈ 0.)
-  @test all(coords[1, mesh.nodeset_nodes[:right]] .≈ 1.)
-  @test all(coords[3, mesh.nodeset_nodes[:front]] .≈ 1.)
-  @test all(coords[2, mesh.nodeset_nodes[:top]] .≈ 1.)
-  @test all(coords[1, mesh.nodeset_nodes[:left]] .≈ 0.)
-  @test all(coords[3, mesh.nodeset_nodes[:back]] .≈ 0.)
+  @test all(coords[2, mesh.nodeset_nodes["bottom"]] .≈ 0.)
+  @test all(coords[1, mesh.nodeset_nodes["right"]] .≈ 1.)
+  @test all(coords[3, mesh.nodeset_nodes["front"]] .≈ 1.)
+  @test all(coords[2, mesh.nodeset_nodes["top"]] .≈ 1.)
+  @test all(coords[1, mesh.nodeset_nodes["left"]] .≈ 0.)
+  @test all(coords[3, mesh.nodeset_nodes["back"]] .≈ 0.)
 
   # currently failing TODO fix this
-  # @test all(coords[2, mesh.sideset_nodes[:bottom]] .≈ 0.)
-  # @test all(coords[1, mesh.sideset_nodes[:right]] .≈ 1.)
+  # @test all(coords[2, mesh.sideset_nodes["bottom"]] .≈ 0.)
+  # @test all(coords[1, mesh.sideset_nodes["right"]] .≈ 1.)
   # @test all(coords[3, mesh.sideset_nodes[:front]] .≈ 1.)
-  # @test all(coords[2, mesh.sideset_nodes[:top]] .≈ 1.)
-  # @test all(coords[1, mesh.sideset_nodes[:left]] .≈ 0.)
-  # @test all(coords[3, mesh.sideset_nodes[:right]] .≈ 0.)
+  # @test all(coords[2, mesh.sideset_nodes["top"]] .≈ 1.)
+  # @test all(coords[1, mesh.sideset_nodes["left"]] .≈ 0.)
+  # @test all(coords[3, mesh.sideset_nodes["right"]] .≈ 0.)
 
   # Quad4 test
   mesh = StructuredMesh("quad", (0., 0.), (1., 1.), (3, 3))
@@ -102,41 +102,41 @@ function test_structured_mesh()
     0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
     0.0 0.0 0.0 0.5 0.5 0.5 1.0 1.0 1.0
   ])
-  @test mesh.element_conns[:block_1] ≈ [
+  @test mesh.element_conns["block_1"] ≈ [
     1 4 2 5;
     2 5 3 6;
     5 8 6 9;
     4 7 5 8
   ]
-  @test all(coords[2, mesh.nodeset_nodes[:bottom]] .≈ 0.)
-  @test all(coords[1, mesh.nodeset_nodes[:right]] .≈ 1.)
-  @test all(coords[2, mesh.nodeset_nodes[:top]] .≈ 1.)
-  @test all(coords[1, mesh.nodeset_nodes[:left]] .≈ 0.)
+  @test all(coords[2, mesh.nodeset_nodes["bottom"]] .≈ 0.)
+  @test all(coords[1, mesh.nodeset_nodes["right"]] .≈ 1.)
+  @test all(coords[2, mesh.nodeset_nodes["top"]] .≈ 1.)
+  @test all(coords[1, mesh.nodeset_nodes["left"]] .≈ 0.)
 
-  @test all(coords[2, mesh.sideset_nodes[:bottom]] .≈ 0.)
-  @test all(coords[1, mesh.sideset_nodes[:right]] .≈ 1.)
-  @test all(coords[2, mesh.sideset_nodes[:top]] .≈ 1.)
-  @test all(coords[1, mesh.sideset_nodes[:left]] .≈ 0.)
+  @test all(coords[2, mesh.sideset_nodes["bottom"]] .≈ 0.)
+  @test all(coords[1, mesh.sideset_nodes["right"]] .≈ 1.)
+  @test all(coords[2, mesh.sideset_nodes["top"]] .≈ 1.)
+  @test all(coords[1, mesh.sideset_nodes["left"]] .≈ 0.)
   # tri3 test
   mesh = StructuredMesh("tri", (0., 0.), (1., 1.), (3, 3))
   @test mesh.nodal_coords ≈ H1Field([
     0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
     0.0 0.0 0.0 0.5 0.5 0.5 1.0 1.0  1.0
   ])
-  @test mesh.element_conns[:block_1] ≈ [
+  @test mesh.element_conns["block_1"] ≈ [
     1 1 4 4 2 2 5 5;
     2 5 5 8 3 6 6 9;
     5 4 8 7 6 5 9 8
   ]
-  @test all(coords[2, mesh.nodeset_nodes[:bottom]] .≈ 0.)
-  @test all(coords[1, mesh.nodeset_nodes[:right]] .≈ 1.)
-  @test all(coords[2, mesh.nodeset_nodes[:top]] .≈ 1.)
-  @test all(coords[1, mesh.nodeset_nodes[:left]] .≈ 0.)
+  @test all(coords[2, mesh.nodeset_nodes["bottom"]] .≈ 0.)
+  @test all(coords[1, mesh.nodeset_nodes["right"]] .≈ 1.)
+  @test all(coords[2, mesh.nodeset_nodes["top"]] .≈ 1.)
+  @test all(coords[1, mesh.nodeset_nodes["left"]] .≈ 0.)
 
-  @test all(coords[2, mesh.sideset_nodes[:bottom]] .≈ 0.)
-  @test all(coords[1, mesh.sideset_nodes[:right]] .≈ 1.)
-  @test all(coords[2, mesh.sideset_nodes[:top]] .≈ 1.)
-  @test all(coords[1, mesh.sideset_nodes[:left]] .≈ 0.)
+  @test all(coords[2, mesh.sideset_nodes["bottom"]] .≈ 0.)
+  @test all(coords[1, mesh.sideset_nodes["right"]] .≈ 1.)
+  @test all(coords[2, mesh.sideset_nodes["top"]] .≈ 1.)
+  @test all(coords[1, mesh.sideset_nodes["left"]] .≈ 0.)
 
   @show mesh
 end

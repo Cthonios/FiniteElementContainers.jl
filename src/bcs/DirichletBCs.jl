@@ -1,6 +1,6 @@
 abstract type AbstractDirichletBC{F} <: AbstractBC{F} end
 
-const EntityName = Union{Nothing, Symbol}
+const EntityName = Union{Nothing, String}
 
 """
 $(TYPEDEF)
@@ -13,22 +13,22 @@ struct DirichletBC{F} <: AbstractDirichletBC{F}
   block_name::EntityName
   nset_name::EntityName
   sset_name::EntityName
-  var_name::Symbol
+  var_name::String
 end
 
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-function DirichletBC(
-  var_name::Symbol, func::Function;
-  block_name::EntityName = nothing,
-  nodeset_name::EntityName = nothing,
-  sideset_name::EntityName = nothing
-)
-  return DirichletBC(func, block_name, nodeset_name, sideset_name, var_name)
-end
+# """
+# $(TYPEDEF)
+# $(TYPEDSIGNATURES)
+# $(TYPEDFIELDS)
+# """
+# function DirichletBC(
+#   var_name::Symbol, func::Function;
+#   block_name::EntityName = nothing,
+#   nodeset_name::EntityName = nothing,
+#   sideset_name::EntityName = nothing
+# )
+#   return DirichletBC(func, block_name, nodeset_name, sideset_name, var_name)
+# end
 
 """
 $(TYPEDEF)
@@ -41,18 +41,18 @@ function DirichletBC(
   nodeset_name::Union{Nothing, String} = nothing,
   sideset_name::Union{Nothing, String} = nothing
 )
-  if block_name !== nothing
-    block_name = Symbol(block_name)
-  end
+  # if block_name !== nothing
+  #   block_name = Symbol(block_name)
+  # end
   
-  if nodeset_name !== nothing
-    nodeset_name = Symbol(nodeset_name)
-  end
+  # if nodeset_name !== nothing
+  #   nodeset_name = Symbol(nodeset_name)
+  # end
 
-  if sideset_name !== nothing
-    sideset_name = Symbol(sideset_name)
-  end
-  return DirichletBC(func, block_name, nodeset_name, sideset_name, Symbol(var_name))
+  # if sideset_name !== nothing
+  #   sideset_name = Symbol(sideset_name)
+  # end
+  return DirichletBC(func, block_name, nodeset_name, sideset_name, var_name)
 end
 
 """

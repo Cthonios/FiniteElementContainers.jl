@@ -6,26 +6,17 @@ User facing API to define a ```RobinBC````.
 """
 struct RobinBC{F} <: AbstractBC{F}
   func::F
-  sset_name::Symbol
-  var_name::Symbol
+  sset_name::String
+  var_name::String
 
   """
   $(TYPEDEF)
   $(TYPEDSIGNATURES)
   $(TYPEDFIELDS)
   """
-  function RobinBC(var_name::Symbol, func, sset_name::Symbol)
+  function RobinBC(var_name::String, func, sset_name::String)
     new{typeof(func)}(func, sset_name, var_name)
   end
-end
-
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-function RobinBC(var_name::String, func::Function, sset_name::String)
-  return RobinBC(Symbol(var_name), func, Symbol(sset_name))
 end
 
 """
@@ -41,7 +32,7 @@ struct RobinBCContainer{
   dRV <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2},
   RE  <: ReferenceFE
 } <: AbstractWeaklyEnforcedBCContainer{IT, IV, RV, RE}
-  element_conns::Connectivity{1, IT, IV}
+  element_conns::Connectivity{IT, IV}
   elements::IV
   sides::IV
   ref_fe::RE

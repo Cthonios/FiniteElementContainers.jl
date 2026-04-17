@@ -186,8 +186,13 @@ using StaticArrays
 using Tensors
 using TimerOutputs
 
+#########################################
 # hooks for extensions
+#########################################
+# device stuff
 function cpu end
+# TODO need to further specialize for staticarrays, etc.
+cpu(x) = adapt(Array, x)
 function cuda end
 function rocm end
 
@@ -203,9 +208,17 @@ function global_colorings end
 # function _global_elem_to_global_node end
 # function _global_node_to_global_elem end
 # function _renumber_mesh end
-
-# TODO need to further specialize for staticarrays, etc.
-cpu(x) = adapt(Array, x)
+# general array stuff
+function _coo_matrix end
+function _csc_matrix end
+function _csr_matrix end
+function _dense_vector end
+function _dense_array(::KA.CPU, size...)
+    return zeros(size...)
+end
+function _dense_array(::KA.CPU, ::Type{RT}, size...) where RT <: Number
+    return zeros(RT, size...)
+end
 
 # TODO clean this up, make it make sense in an ordered way
 # include("parallel/Parallel.jl")
@@ -237,5 +250,9 @@ include("integrators/Integrators.jl")
 # maybe through a package extension?
 include("Enzyme.jl")
 include("Utils.jl")
+
+# extras
+include("Expressions.jl")
+include("AppTools.jl")
 
 end # module

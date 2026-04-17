@@ -17,14 +17,14 @@ function test_poisson_pbcs()
     V = FunctionSpace(mesh, H1Field, Lagrange) 
     physics = Poisson(f)
     props = create_properties(physics)
-    u = ScalarFunction(V, :u)
+    u = ScalarFunction(V, "u")
     dof = DofManager(u; use_condensed=true)
     asm = SparseMatrixAssembler(dof)
     p = create_parameters(mesh, asm, physics, props)
 
     pbcs = PeriodicBCs(mesh, dof, PeriodicBC[
-        PeriodicBC(:u, :x, zero_func, :sset_1, :sset_3)
-        PeriodicBC(:u, :y, zero_func, :sset_2, :sset_4)
+        PeriodicBC("u", "x", zero_func, "sset_1", "sset_3")
+        PeriodicBC("u", "y", zero_func, "sset_2", "sset_4")
     ])
 
     U = create_unknowns(dof)

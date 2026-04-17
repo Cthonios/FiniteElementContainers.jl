@@ -19,7 +19,7 @@ function test_mechanics_dirichlet_only(
   physics = Mechanics(1.0, PlaneStrain())
   props = create_properties(physics)
 
-  u = VectorFunction(V, :displ)
+  u = VectorFunction(V, "displ")
   asm = SparseMatrixAssembler(
     u; 
     sparse_matrix_type = kwargs[:sparse_matrix_type],
@@ -28,10 +28,10 @@ function test_mechanics_dirichlet_only(
   )
 
   dbcs = DirichletBC[
-    DirichletBC(:displ_x, fixed; sideset_name = :sset_3),
-    DirichletBC(:displ_y, fixed; sideset_name = :sset_3),
-    DirichletBC(:displ_x, fixed; sideset_name = :sset_1),
-    DirichletBC(:displ_y, displace; sideset_name = :sset_1),
+    DirichletBC("displ_x", fixed; sideset_name = "sset_3"),
+    DirichletBC("displ_y", fixed; sideset_name = "sset_3"),
+    DirichletBC("displ_x", fixed; sideset_name = "sset_1"),
+    DirichletBC("displ_y", displace; sideset_name = "sset_1"),
   ]
 
   # pre-setup some scratch arrays
