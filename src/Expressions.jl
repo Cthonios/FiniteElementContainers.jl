@@ -171,7 +171,7 @@ struct ASTNode{T <: Number}
     name_id::NameID
     operator::Operator
     right::Union{Nothing, ASTNode{T}}
-    value::Value
+    value::Value{T}
 end
 
 function __eval_ast_call(ast::ASTNode{T}, vars) where T <: Number
