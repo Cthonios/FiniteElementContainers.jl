@@ -28,17 +28,30 @@ $(TYPEDFIELDS)
 struct ScalarFunction{F} <: AbstractFunction{F, 1}
   fspace::F
   names::NTuple{1, String}
+
+  function ScalarFunction(fspace::F, sym::String) where F <: FunctionSpace
+    new{F}(fspace, (sym,))
+  end
+
+  function ScalarFunction{F}(fspace::F, sym::String) where F <: FunctionSpace
+    new{F}(fspace, (sym,))
+  end
+
+  function ScalarFunction{F}(fspace::F, syms::NTuple{1, String}) where F <: FunctionSpace
+    new{F}(fspace, syms)
+  end
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function ScalarFunction(fspace::FunctionSpace, sym::String)
-  return ScalarFunction(fspace, (sym,))
-end
+# """
+# $(TYPEDSIGNATURES)
+# """
+# function ScalarFunction(fspace::FunctionSpace, sym::String)
+#   return ScalarFunction(fspace, (sym,))
+# end
 
 function Adapt.adapt_structure(to, f::ScalarFunction)
-  return ScalarFunction(adapt(to, f.fspace), f.names)
+  fspace = adapt(to, f.fspace)
+  return ScalarFunction{typeof(fspace)}(fspace, f.names)
 end
 
 """

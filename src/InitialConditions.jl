@@ -5,10 +5,6 @@ struct InitialCondition{F} <: AbstractInitialCondition{F}
     var_name::String
     func::F
     block_name::String
-
-    # function InitialCondition(var_name::String, func, block_name::String)
-    #     new{typeof(func)}(block_name, func, var_name)
-    # end
 end
 
 struct InitialConditionContainer{
@@ -52,6 +48,7 @@ KA.get_backend(ic::InitialConditionContainer) = KA.get_backend(ic.dofs)
 
 function _update_field_ics!(U, ic::InitialConditionContainer)
     fec_foreach(ic.dofs) do n
+    # for n in axes(ic.dofs, 1)
         dof = ic.dofs[n]
         val = ic.vals[n]
         U[dof] = val
@@ -60,7 +57,8 @@ function _update_field_ics!(U, ic::InitialConditionContainer)
 end
 
 function _update_ic_values!(ic::InitialConditionContainer, func, X)
-    fec_foreach(ic.locations) do n
+    # fec_foreach(ic.locations) do n
+    for n in axes(ic.locations, 1)
         ND = num_fields(X)
         loc = ic.locations[n]
       
@@ -87,25 +85,45 @@ function (func::InitialConditionFunction{F})(x) where F
 end
 
 struct InitialConditions{
+    ICFuncs,
     IV      <: AbstractArray{<:Integer, 1},
     RV      <: AbstractArray{<:Number, 1},
-    ICFuncs <: NamedTuple
 }
     ic_caches::Vector{InitialConditionContainer{IV, RV}}
     ic_funcs::ICFuncs
-end
 
-function InitialConditions(mesh, dof, ics)
-
-    if length(ics) == 0
-        ic_caches = InitialConditionContainer{Vector{Int}, Vector{Float64}}[]
-        ic_funcs = NamedTuple()
-    else
-        ic_caches = InitialConditionContainer.((mesh,), (dof,), ics)
-        syms = map(x -> Symbol("initial_condition_$x"), 1:length(ics))
-        ic_funcs = NamedTuple{tuple(syms...)}(map(x -> InitialConditionFunction(x.func), ics))
+    function InitialConditions(ic_caches::Vector{InitialConditionContainer{IV, RV}}, ic_funcs) where {IV, RV}
+        new{typeof(ic_funcs), IV, RV}(ic_caches, ic_funcs)
     end
-    return InitialConditions(ic_caches, ic_funcs)
+
+    function InitialConditions(mesh, dof, ics)
+        if length(ics) == 0
+            ic_caches = InitialConditionContainer{Vector{Int}, Vector{Float64}}[]
+            ic_funcs = InitialConditionFunction[]
+        else
+            ic_caches = InitialConditionContainer.((mesh,), (dof,), ics)
+            ic_funcs = map(x -> InitialConditionFunction(x.func), ics)
+        end
+        return InitialConditions(ic_caches, ic_funcs)
+    end
+
+    # juliac safe, all funcs must have same type
+    function InitialConditions{F}(mesh, dof, ics) where F <: Function
+        ic_funcs = InitialConditionFunction{F}[]
+        if length(ics) == 0
+            IV = Vector{Int}
+            RV = Vector{Float64}
+            ic_caches = InitialConditionContainer{IV, RV}[]
+        else
+            ic_caches = InitialConditionContainer.((mesh,), (dof,), ics)
+            for ic in ics
+                push!(ic_funcs, InitialConditionFunction{F}(ic.func))
+            end
+            IV = typeof(ic_caches[1].dofs)
+            RV = typeof(ic_caches[1].vals)
+        end
+        new{typeof(ic_funcs), IV, RV}(ic_caches, ic_funcs)
+    end
 end
 
 function Adapt.adapt_structure(to, ics::InitialConditions)
@@ -119,12 +137,11 @@ function Adapt.adapt_structure(to, ics::InitialConditions)
         temp_int = adapt(to, zeros(Int, 0))
         temp_floats = adapt(to, zeros(Float64, 0))
         ic_caches = InitialConditionContainer{typeof(temp_int), typeof(temp_floats)}[]
-
     end
 
     return InitialConditions(
         ic_caches,
-        adapt(to, ics.ic_funcs)
+        ics.ic_funcs
     )
 end
 
@@ -137,15 +154,15 @@ function Base.show(io::IO, ics::InitialConditions)
 end
 
 function update_field_ics!(U::AbstractField, ics::InitialConditions)
-    for ic in values(ics.ic_caches)
+    for ic in ics.ic_caches
         _update_field_ics!(U, ic)
     end
     return nothing
 end
 
 function update_ic_values!(ics::InitialConditions, X::AbstractField)
-    for (ic, func) in zip(values(ics.ic_caches), values(ics.ic_funcs))
-        _update_ic_values!(ic, func, X)
+    for n in axes(ics.ic_caches, 1)
+        _update_ic_values!(ics.ic_caches[n], ics.ic_funcs[n], X)
     end
     return nothing
 end

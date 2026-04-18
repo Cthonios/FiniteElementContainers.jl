@@ -222,6 +222,7 @@ end
 
 # TODO clean this up, make it make sense in an ordered way
 # include("parallel/Parallel.jl")
+include("Expressions.jl")
 include("PostProcessors.jl")
 include("fields/Fields.jl")
 # include("Utils.jl")
@@ -252,7 +253,6 @@ include("Enzyme.jl")
 include("Utils.jl")
 
 # extras
-include("Expressions.jl")
 include("AppTools.jl")
 
 end # module
