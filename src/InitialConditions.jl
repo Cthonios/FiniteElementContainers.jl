@@ -48,7 +48,6 @@ KA.get_backend(ic::InitialConditionContainer) = KA.get_backend(ic.dofs)
 
 function _update_field_ics!(U, ic::InitialConditionContainer)
     fec_foreach(ic.dofs) do n
-    # for n in axes(ic.dofs, 1)
         dof = ic.dofs[n]
         val = ic.vals[n]
         U[dof] = val
@@ -57,8 +56,7 @@ function _update_field_ics!(U, ic::InitialConditionContainer)
 end
 
 function _update_ic_values!(ic::InitialConditionContainer, func, X)
-    # fec_foreach(ic.locations) do n
-    for n in axes(ic.locations, 1)
+    fec_foreach(ic.locations) do n
         ND = num_fields(X)
         loc = ic.locations[n]
       
