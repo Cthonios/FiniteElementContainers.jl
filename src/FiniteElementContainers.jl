@@ -223,8 +223,9 @@ end
 # TODO clean this up, make it make sense in an ordered way
 # include("parallel/Parallel.jl")
 include("Expressions.jl")
+include("Fields.jl")
 include("PostProcessors.jl")
-include("fields/Fields.jl")
+# include("fields/Fields.jl")
 # include("Utils.jl")
 include("meshes/Meshes.jl")
 include("FunctionSpaces.jl")
@@ -235,7 +236,7 @@ include("DofManagers.jl")
 # include("Utils.jl")
 
 include("bcs/BoundaryConditions.jl")
-include("constraints/Constraints.jl")
+include("Constraints.jl")
 include("InitialConditions.jl")
 
 include("Formulations.jl")
