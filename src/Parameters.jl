@@ -16,8 +16,10 @@ struct Parameters{
   RV <: AbstractArray{RT, 1}, # Real vector type
   RM <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
   IV <: AbstractArray{<:Integer, 1},
-  ICFuncs <: NamedTuple,
-  DBCFuncs <: NamedTuple,
+  # ICFuncs <: NamedTuple,
+  # DBCFuncs <: NamedTuple,
+  ICFuncs,
+  DBCFuncs,
   NBCs <: NeumannBCs,
   RBCs <: RobinBCs,
   SourceFuncs <: NamedTuple,
@@ -28,7 +30,7 @@ struct Parameters{
   Coords <: AbstractField{RT, N, RV},
   Field <: AbstractField{RT, N, RV}
 } <: AbstractParameters
-  ics::InitialConditions{IV, RV, ICFuncs}
+  ics::InitialConditions{ICFuncs, IV, RV}
   dirichlet_bcs::DirichletBCs{IV, RV, DBCFuncs}
   neumann_bcs::NBCs
   robin_bcs::RBCs

@@ -379,7 +379,7 @@ end
 ########################################################
 # Front facing API
 ########################################################
-struct ExpressionFunction{T <: Number}
+struct ExpressionFunction{T <: Number} <: Function
     ast::ASTNode{T}
     num_vars::Int
 
@@ -392,6 +392,8 @@ struct ExpressionFunction{T <: Number}
     end
 end
 
+Base.eltype(::ExpressionFunction{T}) where T <: Number = T
+
 function (f::ExpressionFunction)(var::T) where T <: Number
     @assert f.num_vars == 1
     return _eval_ast(f.ast, var)
@@ -403,13 +405,13 @@ end
 
 # for ic type funcs
 function (f::ExpressionFunction)(X::SVector{ND, T}) where {ND, T <: Number}
-    @assert f.num_vars == ND
+    @assert f.num_vars == ND "You need $ND variables for this function"
     return _eval_ast(f.ast, X)
 end
 
 # for bc type funcs
 function (f::ExpressionFunction)(X::SVector{ND, T}, t::T) where {ND, T <: Number}
-    @assert f.num_vars == ND + 1
+    @assert f.num_vars == ND + 1 "You need $(ND + 1) variables for this function"
     vars = SVector{ND + 1, T}(X..., t)
     return _eval_ast(f.ast, vars)
 end
