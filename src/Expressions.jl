@@ -30,9 +30,15 @@ const UNARY       = 13
 const VARIABLE    = 14
 
 # internally supported analytic functions
-const FUNC_NAMES = String["exp", "sin"]
-const FUNC_EXP = 1
-const FUNC_SIN = 2
+const FUNC_COS  = 1
+const FUNC_COSH = 2
+const FUNC_EXP  = 3
+const FUNC_LOG  = 4
+const FUNC_SIN  = 5
+const FUNC_SINH = 6
+const FUNC_SQRT = 7
+const FUNC_TAN  = 8
+const FUNC_TANH = 9
 
 ########################################################
 # Tokens
@@ -59,6 +65,19 @@ end
 ########################################################
 # Lexer
 ########################################################
+struct InvalidScientificNotationError <: Exception
+    input::String
+end
+
+function Base.showerror(io::IO, e::InvalidScientificNotationError) 
+    print(io, "Invalid conversion to scientific notation for input $(e.input)")
+end
+
+function invalid_scientific_notation_error(num)
+    err = InvalidScientificNotationError(string(num))
+    throw(err)
+end
+
 mutable struct Lexer
     string::String
     index::Int
@@ -134,7 +153,8 @@ function _read_number(l::Lexer, ::Type{T} = Float64) where T
 
         # must have at least one digit
         if !isdigit(_peek(l))
-            error("Invalid scientific notation")
+            # error("Invalid scientific notation")
+            invalid_scientific_notation_error(_peek(l))
         end
 
         while isdigit(_peek(l))
@@ -180,10 +200,24 @@ end
 
 function __eval_ast_call(ast::ASTNode{T}, vars) where T <: Number
     input = _eval_ast(ast.arg, vars)
-    if ast.name_id == FUNC_EXP
+    if ast.name_id == FUNC_COS
+        return cos(input)
+    elseif ast.name_id == FUNC_COSH
+        return cosh(input)
+    elseif ast.name_id == FUNC_EXP
         return exp(input)
+    elseif ast.name_id == FUNC_LOG
+        return log(input)
     elseif ast.name_id == FUNC_SIN
         return sin(input)
+    elseif ast.name_id == FUNC_SINH
+        return sinh(input)
+    elseif ast.name_id == FUNC_SQRT
+        return sqrt(input)
+    elseif ast.name_id == FUNC_TAN
+        return tan(input)
+    elseif ast.name_id == FUNC_TANH
+        return tanh(input)
     else
         @assert false "Unsupported function with id $(ast.name_id)"
     end
@@ -269,10 +303,24 @@ function _find_parameters(p::Parser)
 end
 
 function _func_id(func_name::String)
-    if func_name == "exp"
+    if func_name == "cos"
+        return FUNC_COS
+    elseif func_name == "cosh"
+        return FUNC_COSH
+    elseif func_name == "exp"
         return FUNC_EXP
+    elseif func_name == "log"
+        return FUNC_LOG
     elseif func_name == "sin"
         return FUNC_SIN
+    elseif func_name == "sinh"
+        return FUNC_SINH
+    elseif func_name == "sqrt"
+        return FUNC_SQRT
+    elseif func_name == "tan"
+        return FUNC_TAN
+    elseif func_name == "tanh"
+        return FUNC_TANH
     else
         @assert false "Function $func_name not supported internally"
     end

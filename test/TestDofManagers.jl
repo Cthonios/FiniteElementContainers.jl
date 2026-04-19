@@ -1,4 +1,9 @@
-function test_dof_constructors(fspace)
+@testsnippet DofHelper begin
+  mesh = UnstructuredMesh("./poisson/poisson.g")
+  fspace = FunctionSpace(mesh, H1Field, Lagrange)
+end
+
+@testitem "DofManager - test_dof_constructors" setup=[DofHelper] begin
   # TODO this could be made more complicated
   u = ScalarFunction(fspace, "u")
   # v = ScalarFunction(fspace, :v)
@@ -9,7 +14,7 @@ function test_dof_constructors(fspace)
   @show dof
 end
 
-function test_dof_methods(fspace)
+@testitem "DofManager - test_dof_methods" setup=[DofHelper] begin
   u = VectorFunction(fspace, "u")
   dof1 = DofManager(u)
   # @test eltype(dof1) == Int64
@@ -60,15 +65,3 @@ end
 #   @test FiniteElementContainers.num_unknowns(dof) == 15
 #   @test FiniteElementContainers.num_bcs(dof) == 5
 # end
-
-@testset "DofManager" begin
-  # mesh = FileMesh(FiniteElementContainers.ExodusMesh, "./poisson/poisson.g")
-  mesh = UnstructuredMesh("./poisson/poisson.g")
-  fspace = FunctionSpace(mesh, H1Field, Lagrange)
-
-  test_dof_constructors(fspace)
-  test_dof_methods(fspace)
-  # test_bc_ids(mesh)
-  # test_update_unknown_dofs(mesh)
-  # test_dof_correctness()
-end

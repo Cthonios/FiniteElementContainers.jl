@@ -88,40 +88,21 @@ end
 #   # # )
 # end
 
-struct SomethingNotSupported <: ReferenceFiniteElements.AbstractPolynomialType
+@testsnippet FunctionSpaceHelper begin
+  using ReferenceFiniteElements
+  struct SomethingNotSupported <: ReferenceFiniteElements.AbstractPolynomialType
+  end
+
+  mesh = UnstructuredMesh("mechanics/mechanics.g")
 end
 
-function test_bad_interp_type(mesh)
+# struct SomethingNotSupported <: ReferenceFiniteElements.AbstractPolynomialType
+# end
+
+@testitem "FunctionSpaces - test_bad_interp_type" setup=[FunctionSpaceHelper] begin
   @test_throws MethodError FunctionSpace(mesh, H1Field, SomethingNotSupported)
 end
 
-function test_fspace_h1_field(mesh)
+@testitem "FunctionSpaces - test_fspace_h1_field" setup=[FunctionSpaceHelper] begin
   @show fspace = FunctionSpace(mesh, H1Field, Lagrange)
-end
-
-function test_fspace_l2_element_field(mesh)
-  @show fspace = FunctionSpace(mesh, L2ElementField, Lagrange)
-end
-
-function test_fspace_l2_quadrature_field(mesh)
-  @show fspace = FunctionSpace(mesh, L2QuadratureField, Lagrange)
-end
-
-function test_function_spaces()
-  # coords, conns = FiniteElementContainers.create_structured_mesh_data(7, 7, [0., 1.], [0., 1.])
-  # target_disp_grad = [
-  #   0.1 0.4;
-  #   -0.2 -0.1
-  # ]
-  # coords = H1Field(coords)
-
-  mesh = UnstructuredMesh("mechanics/mechanics.g")
-  test_bad_interp_type(mesh)
-  test_fspace_h1_field(mesh)
-  # test_fspace_l2_element_field(mesh)
-  # test_fspace_l2_quadrature_field(mesh)
-end
-
-@testset "Function spaces" begin
-  test_function_spaces()
 end

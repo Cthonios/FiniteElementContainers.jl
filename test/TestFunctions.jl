@@ -1,4 +1,4 @@
-function test_functions()
+@testitem "Functions - test_functions" begin
   mesh = UnstructuredMesh("poisson/poisson.g")
   fspace = FunctionSpace(mesh, H1Field, Lagrange)
 
@@ -39,8 +39,4 @@ function test_functions()
   @show u
   @test length(u) == 3
   @test names(u) == ("u_x", "u_y", "t")
-end
-
-@testset "Functions" begin
-  test_functions()
 end

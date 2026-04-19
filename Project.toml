@@ -23,8 +23,8 @@ Tensors = "48a634ad-e948-5137-8d70-aa71f2a747f4"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [weakdeps]
-AbaqusReader = "bc6b9049-e460-56d6-94b4-a597b2c0390d"
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+AbaqusReader = "bc6b9049-e460-56d6-94b4-a597b2c0390d"
 BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
@@ -45,7 +45,6 @@ AMDGPU = "2"
 AbaqusReader = "0.2.7"
 AcceleratedKernels = "0.4"
 Adapt = "4"
-Aqua = "0.8"
 Atomix = "1"
 BlockArrays = "1"
 CUDA = "5"
@@ -66,15 +65,16 @@ StaticArrays = "1"
 TOML = "1"
 Tensors = "1"
 Test = "1"
+TestItemRunner = "1"
+TestItems = "1"
 TimerOutputs = "0.5"
 julia = "1"
 
 [extras]
-AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
-Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
-PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
+TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
 
 [targets]
-test = ["AMDGPU", "Aqua", "Gmsh", "PartitionedArrays", "Test"]
+test = ["Gmsh", "Test", "TestItemRunner", "TestItems"]

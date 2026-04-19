@@ -1,14 +1,17 @@
-using FiniteElementContainers
-using ReferenceFiniteElements
-using StaticArrays
-using Tensors
-using Test
-
-# TODO need tests for the default imlementations
-# values
-# etc.
-
-function test_plane_strain(interps, ∇u_q, A_q)
+@testitem "Formulations - test_plane_strain" begin
+  using ReferenceFiniteElements
+  using StaticArrays
+  using Tensors
+  X = SMatrix{2, 4, Float64, 8}([
+    0.0 0.0;
+    1.0 0.0;
+    1.0 1.0; 
+    0.0 1.0
+  ]')
+  ref_fe = ReferenceFE(Quad{Lagrange, 1}(), GaussLobattoLegendre(1))
+  interps = MappedH1OrL2Interpolants(ref_fe, X, 1)
+  ∇u_q = SMatrix{2, 2, Float64, 4}((1., 2., 3., 4.))
+  A_q = Tensor{4, 3, Float64, 81}(reshape(1:81, 9, 9)')
   ∇N_X = interps.∇N_X
   form = PlaneStrain()
   @test FiniteElementContainers.num_fields(form) == 2
@@ -141,7 +144,25 @@ function test_plane_strain(interps, ∇u_q, A_q)
   @test all(BSv .≈ storage.data)
 end 
 
-function test_three_dimensional(interps, ∇u_q, A_q)
+@testitem "Formulations - test_three_dimensional" begin
+  using ReferenceFiniteElements
+  using StaticArrays
+  using Tensors
+  A_q = Tensor{4, 3, Float64, 81}(reshape(1:81, 9, 9)')
+  X = SMatrix{3, 8, Float64, 24}([
+    0.0 0.0 0.0;
+    1.0 0.0 0.0;
+    1.0 1.0 0.0; 
+    0.0 1.0 0.0;
+    0.0 0.0 1.0;
+    1.0 0.0 1.0;
+    1.0 1.0 1.0; 
+    0.0 1.0 1.0;
+  ]')
+  ref_fe = ReferenceFE(Hex{Lagrange, 1}(), GaussLobattoLegendre(1))
+  # ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
+  interps = MappedH1OrL2Interpolants(ref_fe, X, 1)
+  ∇u_q = SMatrix{3, 3, Float64, 9}((1., 2., 3., 4., 5., 6., 7., 8., 9.))
   ∇N_X = interps.∇N_X
   form = ThreeDimensional()
   @test FiniteElementContainers.num_fields(form) == 3
@@ -327,38 +348,4 @@ function test_three_dimensional(interps, ∇u_q, A_q)
   scatter_with_symmetric_gradients!(storage, form, 1, conns, ∇N_X, S)
 
   @test all(BSv .≈ storage.data)
-end
-
-# TODO test formulations on various element types
-function test_formulations()
-  X = SMatrix{2, 4, Float64, 8}([
-    0.0 0.0;
-    1.0 0.0;
-    1.0 1.0; 
-    0.0 1.0
-  ]')
-  ref_fe = ReferenceFE(Quad{Lagrange, 1}(), GaussLobattoLegendre(1))
-  interps = MappedH1OrL2Interpolants(ref_fe, X, 1)
-  ∇u_q = SMatrix{2, 2, Float64, 4}((1., 2., 3., 4.))
-  A_q = Tensor{4, 3, Float64, 81}(reshape(1:81, 9, 9)')
-  test_plane_strain(interps, ∇u_q, A_q)
-  X = SMatrix{3, 8, Float64, 24}([
-    0.0 0.0 0.0;
-    1.0 0.0 0.0;
-    1.0 1.0 0.0; 
-    0.0 1.0 0.0;
-    0.0 0.0 1.0;
-    1.0 0.0 1.0;
-    1.0 1.0 1.0; 
-    0.0 1.0 1.0;
-  ]')
-  ref_fe = ReferenceFE(Hex{Lagrange, 1}(), GaussLobattoLegendre(1))
-  # ∇N_X = FiniteElementContainers.map_shape_function_gradients(X, shape_function_gradient(ref_fe, 1))
-  interps = MappedH1OrL2Interpolants(ref_fe, X, 1)
-  ∇u_q = SMatrix{3, 3, Float64, 9}((1., 2., 3., 4., 5., 6., 7., 8., 9.))
-  test_three_dimensional(interps, ∇u_q, A_q)
-end
-
-@testset "Formulations" begin
-  test_formulations()
 end
