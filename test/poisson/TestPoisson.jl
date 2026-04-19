@@ -266,6 +266,7 @@ end
 end
 
 @testitem "Regression test - test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3" setup=[PoissonRegressionHelper] begin
+  using Gmsh
   msh_file_tri3 = dirname(Base.source_dir()) * "/gmsh/square_meshed_with_tris.msh"
   output_file = "poisson_test_4.e"
   mesh = UnstructuredMesh(msh_file_tri3)

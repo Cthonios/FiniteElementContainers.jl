@@ -420,7 +420,6 @@ function parse_input_file(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} =
     functions = _parse_function_settings(log_file, data, T)
     bcs = _parse_boundary_condition_settings(log_file, data, functions)
     ics = _parse_initial_condition_settings(log_file, data, functions)
-    println(log_file.io, "HERER")
     mesh = _parse_mesh_settings(log_file, data)
     # fspaces = _parse_function_space_settings(log_file, data)
     # vars = _parse_variable_settings(log_file, data)
@@ -432,7 +431,7 @@ end
 # MeshIO strongly typed helpers
 #######################################################
 function read_exodus_mesh(mesh_settings::MeshSettings)
-    mesh_path = mesh_settings.file_path
+    mesh_path = joinpath(pwd(), mesh_settings.file_path)
     exo = ExodusDatabase{Int32, Int32, Int32, Float64}(mesh_path, "r")
     fm = FileMesh{
         ExodusDatabase{Int32, Int32, Int32, Float64},
@@ -634,7 +633,7 @@ function generate_app(
     end
 
     if "mpi" in backends
-        push!("deps", "PartitionedArrays" => "5a9dfac6-5c52-46f7-8278-5e2210713be9")
+        push!(deps, "PartitionedArrays" => "5a9dfac6-5c52-46f7-8278-5e2210713be9")
     end
 
     if "rocm" in backends

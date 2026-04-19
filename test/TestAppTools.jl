@@ -107,8 +107,35 @@ end
     import FiniteElementContainers.AppTools as AT
     args = [
         "--input-file", "input-file.toml",
-        "--log-file", "log.log"
+        "--log-file", "log.log",
+        "--backend", "cpu"
     ]
     app = AT.App("MyApp")
+    AT.add_cli_arg!(app, "--backend")
+    AT.parse!(app.cli_arg_parser, args)
+    arg = AT.get_cli_arg(app, "--backend")
+    @test arg == "cpu"
+
+    sim = AT.setup(app, args)
     # sim = AT.setup(app, args)
+end
+
+@testitem "AppTools - generate app" begin
+    import FiniteElementContainers.AppTools as AT
+    AT.generate_app("MyApp")
+    @test isdir("MyApp")
+    @test isfile("MyApp/build.jl")
+    @test isfile("MyApp/Project.toml")
+    @test isdir("MyApp/src")
+    @test isfile("MyApp/src/MyApp.jl")
+    rm("MyApp"; force = true, recursive = true)
+
+    mkdir("app_dir")
+    AT.generate_app("MyApp"; backends = ["cpu", "cuda", "mpi", "rocm"], directory = "app_dir", trim = true)
+    @test isdir("app_dir/MyApp")
+    @test isfile("app_dir/MyApp/build.jl")
+    @test isfile("app_dir/MyApp/Project.toml")
+    @test isdir("app_dir/MyApp/src")
+    @test isfile("app_dir/MyApp/src/MyApp.jl")
+    rm("app_dir"; force = true, recursive = true)
 end
