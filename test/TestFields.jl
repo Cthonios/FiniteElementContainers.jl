@@ -1,4 +1,6 @@
-function test_connectivity()
+@testitem "Fields - test_connectivity" begin
+  using ReferenceFiniteElements
+
   ref_fe_1 = ReferenceFE(Quad{Lagrange, 1}(), GaussLobattoLegendre(1))
   ref_fe_2 = ReferenceFE(Tri{Lagrange, 1}(), GaussLobattoLegendre(1))
   conns_in = [
@@ -30,7 +32,7 @@ function test_connectivity()
   @test connectivity(ref_fe_2, conn.data, 5, 13) == [25, 26, 27]
 end
 
-function test_h1_field()
+@testitem "Fields - test_h1_field" begin
   data = rand(2, 20)
   field = H1Field(data)
   
@@ -62,7 +64,7 @@ function test_h1_field()
   end
 end
 
-function test_hcurl_field()
+@testitem "Fields - test_hcurl_field" begin
   data = rand(2, 20)
   field = HcurlField(data)
   
@@ -94,7 +96,7 @@ function test_hcurl_field()
   end
 end
 
-function test_hdiv_field()
+@testitem "Fields - test_hdiv_field" begin
   data = rand(2, 20)
   field = HdivField(data)
   
@@ -126,7 +128,7 @@ function test_hdiv_field()
   end
 end
 
-function test_l2_field()
+@testitem "Fields - test_l2_field" begin
   a1 = rand(2, 3, 40)
   a2 = rand(3, 4, 10)
   field = L2Field([a1, a2])
@@ -150,12 +152,4 @@ function test_l2_field()
       end
     end
   end
-end
-
-@testset "Fields" begin
-  test_connectivity()
-  test_h1_field()
-  test_hcurl_field()
-  test_hdiv_field()
-  test_l2_field()
 end

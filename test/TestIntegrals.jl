@@ -1,4 +1,5 @@
-function test_scalar_integral()
+@testitem "Integrals - test_scalar_integral" begin
+    include("poisson/TestPoissonCommon.jl")
     mesh_file = "./poisson/poisson.g"
     mesh = UnstructuredMesh(mesh_file)
     V = FunctionSpace(mesh, H1Field, Lagrange)
@@ -8,8 +9,4 @@ function test_scalar_integral()
     physics = Poisson(f)
     integral = FiniteElementContainers.ScalarCellIntegral(asm, energy)
     grad_integral = FiniteElementContainers.gradient(integral)
-end
-
-@testset "Integrals" begin
-    test_scalar_integral()
 end

@@ -85,7 +85,7 @@ mutable struct CLIArgParser
 
     function CLIArgParser()
         cli_args = CLIArg[
-            CLIArg("--help"; is_required = false, short_name = "-h")
+            CLIArg("--help"; has_input = false, is_required = false, short_name = "-h")
             CLIArg("--input-file"; short_name = "-i")
             CLIArg("--log-file"; short_name = "-l")
         ]
@@ -97,6 +97,8 @@ function Base.show(io::IO, p::CLIArgParser)
     print_dict(io, p.parsed_args)
 end
 
+# TODO need to add check to make sure you don't
+# add a CLI arg that is already there
 function add_cli_arg!(p::CLIArgParser, name::String; kwargs...)
     cli_arg = CLIArg(name; kwargs...)
     push!(p.cli_args, cli_arg)
@@ -157,11 +159,22 @@ function parse!(p::CLIArgParser, args::Vector{String})
                         error_msg *= argument_not_found_message(arg)
                     end
                 end
+
+                # TODO currently if we don't have an input
+                # after a parameter that requires one
+                # it will just return whatever it sees next
+                # which could be another option name or out of bounds
+                # this one we need to handle carefully
                 p.parsed_args[arg.name] = args[index + 1]
             else
                 p.parsed_args[arg.name] = "true"
             end
         end
+    end
+
+    # if we see help just abort early
+    if haskey(p.parsed_args, "--help")
+        @assert false help_message(p, "")
     end
 
     # check for required args
