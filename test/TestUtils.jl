@@ -1,3 +1,4 @@
+import KernelAbstractions as KA
 using TestItems
 
 function _check_functional_backend(name)
@@ -8,6 +9,18 @@ function _check_functional_backend(name)
     end
 end
   
+function _backend_to_array_type(backend::Function)
+    if isa(backend, typeof(cpu))
+        return Array
+    elseif isa(backend, typeof(cuda))
+        return CUDA.CuArray
+    elseif isa(backend, typeof(rocm))
+        return AMDGPU.ROCArray
+    else
+        @assert false "Unsupported backend $backend"
+    end
+end
+
 function _get_backends()
     if "--ignore-cpu" in ARGS
         backends = Function[]

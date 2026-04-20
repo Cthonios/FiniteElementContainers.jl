@@ -33,14 +33,34 @@
 end
 
 @testitem "Fields - test_h1_field" begin
+  import KernelAbstractions as KA
+  using Adapt
+  if "--test-amdgpu" in ARGS @eval using AMDGPU end
+  if "--test-cuda" in ARGS @eval using CUDA end
+  include("TestUtils.jl")
+  backends = _get_backends()
   data = rand(2, 20)
   field = H1Field(data)
   
   @test eltype(field) == eltype(data)
+  @test ndims(field) == 2
   @test size(field) == size(data)
   @test num_fields(field) == size(data, 1)
   @test num_entities(field) == size(data, 2)
   @test typeof(similar(field)) == typeof(field) 
+  @test all(unique(field) .≈ unique(field.data))
+  @test KA.get_backend(field) == KA.CPU()
+
+  # test adapt
+  for backend in backends
+    if backend == cpu
+      continue
+    end
+    to = _backend_to_array_type(backend)
+    field_gpu = adapt(to, field)
+    field_cpu = adapt(Array, field)
+    @test all(field_cpu .≈ field)
+  end
 
   # test basic axes and basic getindex
   for n in axes(data)
@@ -62,6 +82,15 @@ end
       @test field[d, n] == data_2[d, n]
     end
   end
+
+  # test fill!
+  fill!(field, 3.9)
+  @test all(field .≈ 3.9)
+
+  # similar
+  new_field = similar(field)
+  new_field .= field
+  @test all(field .≈ new_field)
 end
 
 @testitem "Fields - test_hcurl_field" begin
@@ -132,6 +161,7 @@ end
   a1 = rand(2, 3, 40)
   a2 = rand(3, 4, 10)
   field = L2Field([a1, a2])
+  @show field
   @test size(FiniteElementContainers.block_view(field, 1)) == (2, 3, 40)
   @test size(FiniteElementContainers.block_view(field, 2)) == (3, 4, 10)
 

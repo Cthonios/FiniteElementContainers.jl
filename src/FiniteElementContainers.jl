@@ -186,6 +186,15 @@ using StaticArrays
 using Tensors
 using TimerOutputs
 
+##################
+# exceptions
+##################
+abstract type AbstractFECError <: Exception end
+function Base.showerror(io::IO, e::AbstractFECError)
+    println(io, e.msg)
+end
+
+
 #########################################
 # hooks for extensions
 #########################################

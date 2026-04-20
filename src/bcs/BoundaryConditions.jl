@@ -1,23 +1,26 @@
+struct EntityNameNotProvidedError <: AbstractFECError
+  msg::String
+end
+_entity_not_provided_error(msg::String) = throw(EntityNameNotProvidedError(msg))
+struct UnsureEntityTypeError <: AbstractFECError
+  msg::String
+end
+_unsure_entity_type_error(msg::String) = throw(UnsureEntityTypeError(msg))
 struct VariableNameNotFoundError <: Exception
 end
-
 _var_not_found_err() = throw(VariableNameNotFoundError())
 
 function _dof_index_from_var_name(dof, var_name)
-  dof_index = 0
-  found = false
-  for name in names(dof.var)
-      dof_index = dof_index + 1
-      if var_name == name
-          found = true
-          break
-      end
-  end
+  # dbc case
+  dof_index = findfirst(x -> x == var_name, names(dof.var))
+  if dof_index === nothing
+    # try a neumann/robin bc type
+    dof_index = findfirst(x -> occursin("$(var_name)_", x), names(dof.var))
 
-  if dof_index == 0 || dof_index > length(names(dof.var))
-    _var_not_found_err()
+    if dof_index === nothing
+      _var_not_found_err()
+    end
   end
-
   return dof_index
 end
 
@@ -59,26 +62,39 @@ end
 $(TYPEDSIGNATURES)
 """
 function BCBookKeeping(
-  mesh, dof::DofManager, var_name::VarName; #sset_name::Symbol
+  mesh, dof::DofManager, var_name::VarName;
   block_name::SetName = nothing,
   nset_name::SetName = nothing,
   sset_name::SetName = nothing
 )
   # check to ensure at least one name is supplied
-  if block_name === nothing &&
-     nset_name === nothing &&
-     sset_name === nothing
-    @assert false "Need to specify either a block, nodeset or sideset."
-  end
+  # if block_name === nothing &&
+  #    nset_name === nothing &&
+  #    sset_name === nothing
+  #   # @assert false "Need to specify either a block, nodeset or sideset."
+  #   _entity_not_provided_error("Need to specify either a block, nodeset or sideset.")
+  # end
 
-  # now check to make sure only one name is not nothing
-  if block_name !== nothing
-    @assert nset_name === nothing && sset_name === nothing
-  elseif nset_name !== nothing
-    @assert block_name === nothing && sset_name === nothing
-  elseif sset_name !== nothing  
-    @assert block_name === nothing && nset_name === nothing
-  end 
+  # # now check to make sure only one name is not nothing
+  # if block_name !== nothing
+  #   @assert nset_name === nothing && sset_name === nothing
+  # elseif nset_name !== nothing
+  #   @assert block_name === nothing && sset_name === nothing
+  # elseif sset_name !== nothing  
+  #   @assert block_name === nothing && nset_name === nothing
+  # end 
+  if block_name === nothing && nset_name === nothing && sset_name === nothing
+    _entity_not_provided_error(
+      "block_name, nodeset_name, or sideset_name required" *
+      " as input arguments in DirichletBC"
+    )
+  end
+  count = (block_name !== nothing) +
+          (nset_name !== nothing) +
+          (sset_name !== nothing)
+  if count != 1
+    _unsure_entity_type_error("More than one entity type specificed in DirichletBC")
+  end
 
   # get dof index associated with this var
   dof_index = _dof_index_from_var_name(dof, var_name)
