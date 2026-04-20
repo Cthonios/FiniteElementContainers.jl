@@ -10,11 +10,11 @@ function _check_functional_backend(name)
 end
   
 function _backend_to_array_type(backend::Function)
-    if isa(backend, cpu)
+    if isa(backend, typeof(cpu))
         return Array
-    elseif isa(backend, cuda)
+    elseif isa(backend, typeof(cuda))
         return CUDA.CuArray
-    elseif isa(backend, rocm)
+    elseif isa(backend, typeof(rocm))
         return AMDGPU.ROCArray
     else
         @assert false "Unsupported backend $backend"
