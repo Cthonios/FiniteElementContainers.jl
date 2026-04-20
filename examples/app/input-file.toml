@@ -12,7 +12,7 @@ expression = "1.0"
 variables = ["x", "y"]
 
 [mesh]
-file_path = "poisson/poisson.g"
+file_path = "poisson.g"
 file_type = "exodus"
 
 [[initial_conditions]]

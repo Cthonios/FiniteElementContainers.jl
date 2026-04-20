@@ -14,45 +14,32 @@ struct DirichletBC{F} <: AbstractDirichletBC{F}
   nset_name::EntityName
   sset_name::EntityName
   var_name::String
-end
 
-# """
-# $(TYPEDEF)
-# $(TYPEDSIGNATURES)
-# $(TYPEDFIELDS)
-# """
-# function DirichletBC(
-#   var_name::Symbol, func::Function;
-#   block_name::EntityName = nothing,
-#   nodeset_name::EntityName = nothing,
-#   sideset_name::EntityName = nothing
-# )
-#   return DirichletBC(func, block_name, nodeset_name, sideset_name, var_name)
-# end
-
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-function DirichletBC(
-  var_name::String, func::Function;
-  block_name::Union{Nothing, String} = nothing,
-  nodeset_name::Union{Nothing, String} = nothing,
-  sideset_name::Union{Nothing, String} = nothing
-)
-  # if block_name !== nothing
-  #   block_name = Symbol(block_name)
-  # end
-  
-  # if nodeset_name !== nothing
-  #   nodeset_name = Symbol(nodeset_name)
-  # end
-
-  # if sideset_name !== nothing
-  #   sideset_name = Symbol(sideset_name)
-  # end
-  return DirichletBC(func, block_name, nodeset_name, sideset_name, var_name)
+  """
+  $(TYPEDEF)
+  $(TYPEDSIGNATURES)
+  $(TYPEDFIELDS)
+  """
+  function DirichletBC(
+    var_name::String, func::Function;
+    block_name::Union{Nothing, String} = nothing,
+    nodeset_name::Union{Nothing, String} = nothing,
+    sideset_name::Union{Nothing, String} = nothing
+  )
+    if block_name === nothing && nodeset_name === nothing && sideset_name === nothing
+      _entity_not_provided_error(
+        "block_name, nodeset_name, or sideset_name required" *
+        " as input arguments in DirichletBC"
+      )
+    end
+    count = (block_name !== nothing) +
+            (nodeset_name !== nothing) +
+            (sideset_name !== nothing)
+    if count != 1
+      _unsure_entity_type_error("More than one entity type specificed in DirichletBC")
+    end
+    new{typeof(func)}(func, block_name, nodeset_name, sideset_name, var_name)
+  end
 end
 
 """
@@ -70,39 +57,41 @@ struct DirichletBCContainer{
   vals::RV
   vals_dot::RV
   vals_dot_dot::RV
-end
 
-"""
-$(TYPEDEF)
-$(TYPEDSIGNATURES)
-$(TYPEDFIELDS)
-"""
-function DirichletBCContainer(mesh, dof::DofManager, dbc::DirichletBC)
-  if dbc.block_name !== nothing
-    bk = BCBookKeeping(mesh, dof, dbc.var_name, block_name=dbc.block_name)
-  elseif dbc.nset_name !== nothing
-    bk = BCBookKeeping(mesh, dof, dbc.var_name, nset_name=dbc.nset_name)
-  elseif dbc.sset_name !== nothing
-    bk = BCBookKeeping(mesh, dof, dbc.var_name, sset_name=dbc.sset_name)
-  else
-    @assert false
+  """
+  $(TYPEDEF)
+  $(TYPEDSIGNATURES)
+  $(TYPEDFIELDS)
+  """
+  function DirichletBCContainer(mesh, dof::DofManager, dbc::DirichletBC)
+    if dbc.block_name !== nothing
+      bk = BCBookKeeping(mesh, dof, dbc.var_name, block_name=dbc.block_name)
+    elseif dbc.nset_name !== nothing
+      bk = BCBookKeeping(mesh, dof, dbc.var_name, nset_name=dbc.nset_name)
+    elseif dbc.sset_name !== nothing
+      bk = BCBookKeeping(mesh, dof, dbc.var_name, sset_name=dbc.sset_name)
+    end
+
+    # bk = BCBookKeeping(mesh, dof, dbc.var_name, sset_name=dbc.sset_name)
+
+    # sort nodes and dofs for dirichlet bc
+    dof_perm = _unique_sort_perm(bk.dofs)
+    dofs = bk.dofs[dof_perm]
+    nodes = bk.nodes[dof_perm]
+    resize!(bk.dofs, length(dofs))
+    resize!(bk.nodes, length(nodes))
+    copyto!(bk.dofs, dofs)
+    copyto!(bk.nodes, nodes)
+
+    vals = zeros(length(bk.nodes))
+    vals_dot = zeros(length(bk.nodes))
+    vals_dot_dot = zeros(length(bk.nodes))
+    return DirichletBCContainer(bk.dofs, bk.nodes, vals, vals_dot, vals_dot_dot)
   end
 
-  # bk = BCBookKeeping(mesh, dof, dbc.var_name, sset_name=dbc.sset_name)
-
-  # sort nodes and dofs for dirichlet bc
-  dof_perm = _unique_sort_perm(bk.dofs)
-  dofs = bk.dofs[dof_perm]
-  nodes = bk.nodes[dof_perm]
-  resize!(bk.dofs, length(dofs))
-  resize!(bk.nodes, length(nodes))
-  copyto!(bk.dofs, dofs)
-  copyto!(bk.nodes, nodes)
-
-  vals = zeros(length(bk.nodes))
-  vals_dot = zeros(length(bk.nodes))
-  vals_dot_dot = zeros(length(bk.nodes))
-  return DirichletBCContainer(bk.dofs, bk.nodes, vals, vals_dot, vals_dot_dot)
+  function DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
+    new{typeof(dofs), typeof(vals)}(dofs, nodes, vals, vals_dot, vals_dot_dot)
+  end
 end
 
 function Adapt.adapt_structure(to, bc::DirichletBCContainer)

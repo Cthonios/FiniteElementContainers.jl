@@ -23,16 +23,16 @@ KA.get_backend(field::AbstractField) = KA.get_backend(field.data)
 abstract type AbstractContinuousField{T, D <: AbstractArray{T, 1}, NF} <: AbstractField{T, 2, D} end
 
 function Adapt.adapt_structure(to, field::AbstractContinuousField{T, D, NF}) where {T, D, NF}
-  data = adapt(to, field.data)
-  type = typeof(field).name.name
-  return eval(type){T, typeof(data), NF}(data)
+    data = adapt(to, field.data)
+    type = typeof(field).name.name
+    return eval(type){T, typeof(data), NF}(data)
 end
 
 # minimal abstractarray interface methods below
 
 function Base.axes(field::AbstractContinuousField{T, D, NF}) where {T, D, NF}
-  NN = length(field) ÷ NF
-  return (Base.OneTo(NF), Base.OneTo(NN))
+    NN = length(field) ÷ NF
+    return (Base.OneTo(NF), Base.OneTo(NN))
 end
 
 function Base.getindex(field::AbstractContinuousField, n::Int)
@@ -40,24 +40,25 @@ function Base.getindex(field::AbstractContinuousField, n::Int)
 end
 
 function Base.getindex(field::AbstractContinuousField, d::Int, n::Int)
-  @assert d > 0 && d <= num_fields(field)
-  @assert n > 0 && n <= num_entities(field)
-  getindex(field.data, (n - 1) * num_fields(field) + d)
+    @assert d > 0 && d <= num_fields(field)
+    @assert n > 0 && n <= num_entities(field)
+    return getindex(field.data, (n - 1) * num_fields(field) + d)
 end
 
 function Base.IndexStyle(::Type{<:AbstractContinuousField}) 
-  return IndexLinear()
+    return IndexLinear()
 end
 
 function Base.setindex!(field::AbstractContinuousField{T, D, NF}, v::T, n::Int) where {T, D, NF}
-  setindex!(field.data, v, n)
-  return nothing
+    setindex!(field.data, v, n)
+    return nothing
 end 
 
 function Base.setindex!(field::AbstractContinuousField{T, D, NF}, v, d::Int, n::Int) where {T, D, NF}
-  @assert d > 0 && d <= num_fields(field)
-  @assert n > 0 && n <= num_entities(field)
-  setindex!(field.data, v, (n - 1) * num_fields(field) + d)
+    @assert d > 0 && d <= num_fields(field)
+    @assert n > 0 && n <= num_entities(field)
+    setindex!(field.data, v, (n - 1) * num_fields(field) + d)
+    return nothing
 end
 
 function Base.similar(field::AbstractContinuousField)
@@ -190,21 +191,22 @@ $(TYPEDSIGNATURES)
 Implementation of fields that live on nodes.
 """
 struct H1Field{T, D, NF} <: AbstractContinuousField{T, D, NF}
-  data::D
-end
+    data::D
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function H1Field(data::M) where M <: AbstractMatrix
-  NF = size(data, 1)
-  data = vec(data)
-  return H1Field{eltype(data), typeof(data), NF}(data)
-end
+    function H1Field{T, D, NF}(data::D) where {T, D, NF}
+        new{T, D, NF}(data)
+    end
 
-function Base.zeros(::Type{<:H1Field}, nf::Int, ne::Int)
-  data = zeros(nf * ne)
-  return H1Field{eltype(data), typeof(data), nf}(data)
+    function H1Field{T, D, NF}(data::AbstractMatrix{T}) where {T, D, NF}
+        data = vec(data)
+        return H1Field{T, D, NF}(data)
+    end
+
+    function H1Field(data::M) where M <: AbstractMatrix
+        NF = size(data, 1)
+        data = vec(data)
+        return H1Field{eltype(data), typeof(data), NF}(data)
+    end
 end
 
 ######################################################################################################
@@ -228,11 +230,6 @@ function HcurlField(data::M) where M <: AbstractMatrix
     return HcurlField{eltype(data), typeof(data), NF}(data)
 end
 
-function Base.zeros(::Type{<:HcurlField}, nf::Int, ne::Int)
-    data = zeros(nf * ne)
-    return HcurlField{eltype(data), typeof(data), nf}(data)
-end
-
 ######################################################################################################
 # HdivField
 ######################################################################################################
@@ -252,11 +249,6 @@ function HdivField(data::M) where M <: AbstractMatrix
     NF = size(data, 1)
     data = vec(data)
     return HdivField{eltype(data), typeof(data), NF}(data)
-end
-
-function Base.zeros(::Type{<:HdivField}, nf::Int, ne::Int)
-    data = zeros(nf * ne)
-    return HdivField{eltype(data), typeof(data), nf}(data)
 end
 
 ######################################################################################################
