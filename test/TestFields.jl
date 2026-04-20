@@ -34,6 +34,7 @@ end
 
 @testitem "Fields - test_h1_field" begin
   import KernelAbstractions as KA
+  using Adapt
   if "--test-amdgpu" in ARGS @eval using AMDGPU end
   if "--test-cuda" in ARGS @eval using CUDA end
   include("TestUtils.jl")
