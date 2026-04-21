@@ -237,55 +237,64 @@ function update_dofs!(dof::DofManager, dirichlet_dofs::V) where V <: AbstractArr
     return nothing
 end
 
-################################################
-
-# Instead of a closure, define an explicit functor
-# struct UpdateFieldFunctorConsts{U <: AbstractArray{<:Integer}}
-#     unknown_dofs::U
-# end
-
-# struct UpdateFieldFunctor{
-#     F <: AbstractField,
-#     U <: UpdateFieldFunctorConsts,
-#     V
-# }
-#     U::F
-#     # unknown_dofs::I
-#     unknown_dofs::U
-#     Uu::V
-#     flag::Bool
-# end
-
-# # The call method is a plain function - no hidden captures
-# function (f::UpdateFieldFunctor)(n)
-#     @inbounds dof = f.unknown_dofs.unknown_dofs[n]
-#     if f.flag
-#         @inbounds f.U.data[dof] = f.Uu[dof]
-#     else
-#         @inbounds f.U.data[dof] = f.Uu[n]
-#     end
-#     return nothing
-# end
-
-# ##################################################
+# COV_EXCL_START
+KA.@kernel function _update_field_unknowns_kernel_1!(
+    U::AbstractField, 
+    unknown_dofs::IDs,
+    Uu::V
+) where {V <: AbstractVector{<:Number}, IDs}
+    N = KA.@index(Global)
+    @inbounds U.data[unknown_dofs[N]] = Uu[unknown_dofs[N]]
+end
+# COV_EXCL_STOP
+  
+# COV_EXCL_START
+KA.@kernel function _update_field_unknowns_kernel_2!(
+    U::AbstractField, 
+    unknown_dofs::IDs,
+    Uu::V
+) where {V <: AbstractVector{<:Number}, IDs}
+    N = KA.@index(Global)
+    @inbounds U.data[unknown_dofs[N]] = Uu[N]
+end
+# COV_EXCL_STOP
 
 function _update_field_unknowns!(
-    U::AbstractField,
-    unknown_dofs::I,
-    Uu::V,
-    flag::Bool
-) where {I <: AbstractVector{<:Integer}, V <: AbstractVector{<:Number}}
-    fec_foreach(unknown_dofs) do n
-        @inbounds dof = unknown_dofs[n]
-        if flag
-            @inbounds U.data[dof] = Uu[dof]
-        else
-            @inbounds U.data[dof] = Uu[n]
-        end
+    backend::KA.Backend,
+    U::AbstractField, 
+    dof::DofManager{flag, IT, IDs, Var}, 
+    Uu::T
+) where {
+    T <: AbstractVector{<:Number},
+    flag, IT, IDs, Var
+}
+    if _is_condensed(dof)
+        kernel! = _update_field_unknowns_kernel_1!(backend)
+    else
+        kernel! = _update_field_unknowns_kernel_2!(backend)
     end
-    # kernel_consts = UpdateFieldFunctorConsts(unknown_dofs)
-    # kernel = UpdateFieldFunctor(U, kernel_consts, Uu, flag)
-    # fec_foreach(kernel, unknown_dofs)
+    kernel!(U, dof.unknown_dofs, Uu, ndrange = length(dof.unknown_dofs))
+    return nothing
+end
+  
+# Need a seperate CPU method since CPU is basically busted in KA
+function _update_field_unknowns!(
+    ::KA.CPU,
+    U::AbstractField, 
+    dof::DofManager{false, IT, IDs, Var}, 
+    Uu::T
+) where {T <: AbstractVector{<:Number}, IT, IDs, Var}
+    U[dof.unknown_dofs] .= Uu
+    return nothing
+end
+
+function _update_field_unknowns!(
+    ::KA.CPU,
+    U::AbstractField, 
+    dof::DofManager{true, IT, IDs, Var}, 
+    Uu::T, 
+) where {T <: AbstractVector{<:Number}, IT, IDs, Var}
+    @views U[dof.unknown_dofs] .= Uu[dof.unknown_dofs]
     return nothing
 end
 
@@ -297,8 +306,8 @@ the values of ```Uu```.
 function update_field_unknowns!(
     U::AbstractField, 
     dof::DofManager,
-    Uu::V,
-    enzyme_safe::Bool = false
+    Uu::V
+    # enzyme_safe::Bool = false
 ) where V <: AbstractVector{<:Number}
     backend = KA.get_backend(dof)
     @assert KA.get_backend(U) == backend
@@ -310,24 +319,16 @@ function update_field_unknowns!(
         @assert length(Uu) == length(dof.unknown_dofs)
     end
 
-    if enzyme_safe
-        _update_field_unknowns_enzyme_safe!(U, dof, Uu, KA.get_backend(U))
-    else
-        # _update_field_unknowns!(U, dof, Uu, backend)
-        _update_field_unknowns!(U, dof.unknown_dofs, Uu, _is_condensed(dof))
-    end
+    _update_field_unknowns!(KA.get_backend(U), U, dof, Uu)
     return nothing
 end
 
 """
 $(TYPEDSIGNATURES)
 Takes in a field and updates the field
-
-I think this one can be removed/deprecated
 """
 function update_field_unknowns!(
-    U::F, dof::DofManager, Uu::F,
-    enzyme_safe::Bool = false
+U::F, dof::DofManager, Uu::F
 ) where F <: AbstractField
-    update_field_unknowns!(U, dof, Uu.data, enzyme_safe)
+    update_field_unknowns!(U, dof, Uu.data)
 end

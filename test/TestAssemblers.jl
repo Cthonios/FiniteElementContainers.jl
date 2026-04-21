@@ -315,7 +315,7 @@ end
   backends = _get_backends()
   for dev in backends
     asm = SparseMatrixAssembler(u)
-    p = create_parameters(mesh, asm, physics, props; dirichlet_bcs=dbcs, times=times)
+    p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs, times = times)
     FiniteElementContainers.initialize!(p)
     Uu = create_unknowns(asm)
     Vu = create_unknowns(asm)
@@ -336,35 +336,14 @@ end
   end
 end
 
-function test_assemblers()
-  @testset "Sparse matrix GPU trace" begin
-    test_sparse_matrix_gpu_trace()
-  end
-
-  devs = _get_backends()
-  sp_types = [:csc, :csr]
-  # sp_types = [:csc]
-
-  # common mesh/fspace used in several tests
-  mesh_file = "./poisson/multi_block_mesh_quad4_tri3.g"
-  mesh = UnstructuredMesh(mesh_file)
-  V = FunctionSpace(mesh, H1Field, Lagrange) 
-
-  for dev in devs
-    for sp_type in sp_types
-      @testset "Sparse matrix assembler - $dev" begin
-        # test_sparse_matrix_assembler(dev)
-        @info "Test assembler $dev $sp_type"
-        test_sparse_matrix_assembler_consistency_poisson(dev, sp_type, mesh, V)
-        test_sparse_matrix_assembler_consistency_mechanics(dev, sp_type, mesh, V)
-      end
-
-      @testset "Matrix-free action - $dev" begin
-        test_matrix_free_action(dev)
-        test_matrix_free_action_mechanics(dev)
-      end
-    end
-  end
+@testitem "Assemblers - test_enzyme_safe_consistency" setup=[AssemblerHelperPoisson] begin
+  asm = SparseMatrixAssembler(u)
+  p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
+  FiniteElementContainers.initialize!(p)
+  Uu = create_unknowns(asm)
+  R1 = create_field(asm)
+  R2 = create_field(asm)
+  assemble_vector!(R1, asm.matrix_pattern, asm.dof, residual, Uu, p)
+  FiniteElementContainers.assemble_vector_enzyme_safe!(R2, asm.matrix_pattern, asm.dof, residual, Uu, p)
+  @test all(R1 .≈ R2)
 end
-
-test_assemblers()

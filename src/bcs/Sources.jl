@@ -48,8 +48,6 @@ function Adapt.adapt_structure(to, source::SourceContainer)
   )
 end
 
-Base.length(bc::SourceContainer) = size(bc.vals, 2)
-
 function _update_source_values!(vals, func, ref_fe, conns, coffset, X, t)
   fec_foraxes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, coffset)

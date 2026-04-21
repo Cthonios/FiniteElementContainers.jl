@@ -2,6 +2,10 @@ struct EntityNameNotProvidedError <: AbstractFECError
   msg::String
 end
 _entity_not_provided_error(msg::String) = throw(EntityNameNotProvidedError(msg))
+struct UnsupportedWeakBCError <: AbstractFECError
+  msg::String
+end
+_unsupported_weak_bc_error(msg::String) = throw(UnsupportedWeakBCError(msg))
 struct UnsureEntityTypeError <: AbstractFECError
   msg::String
 end
@@ -11,12 +15,13 @@ end
 _var_not_found_err() = throw(VariableNameNotFoundError())
 
 function _dof_index_from_var_name(dof, var_name)
-  # dbc case
+  # dbc/nbc or robin for scalar case
   dof_index = findfirst(x -> x == var_name, names(dof.var))
   if dof_index === nothing
-    # try a neumann/robin bc type
+    # try a vector/tensor neumann/robin bc type
     dof_index = findfirst(x -> occursin("$(var_name)_", x), names(dof.var))
 
+    # if we still haven't found anything, this variable likely doesn't exist
     if dof_index === nothing
       _var_not_found_err()
     end
@@ -31,9 +36,7 @@ function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
   return [id_map[x] for x in sorted_unique]
 end
 
-# const SetName = Union{Nothing, Symbol}
 const SetName = Union{Nothing, String}
-const VarName = String
 
 """
 $(TYPEDEF)
@@ -62,36 +65,20 @@ end
 $(TYPEDSIGNATURES)
 """
 function BCBookKeeping(
-  mesh, dof::DofManager, var_name::VarName;
+  mesh, dof::DofManager, var_name::String;
   block_name::SetName = nothing,
   nset_name::SetName = nothing,
-  sset_name::SetName = nothing
+  sideset_name::SetName = nothing
 )
-  # check to ensure at least one name is supplied
-  # if block_name === nothing &&
-  #    nset_name === nothing &&
-  #    sset_name === nothing
-  #   # @assert false "Need to specify either a block, nodeset or sideset."
-  #   _entity_not_provided_error("Need to specify either a block, nodeset or sideset.")
-  # end
-
-  # # now check to make sure only one name is not nothing
-  # if block_name !== nothing
-  #   @assert nset_name === nothing && sset_name === nothing
-  # elseif nset_name !== nothing
-  #   @assert block_name === nothing && sset_name === nothing
-  # elseif sset_name !== nothing  
-  #   @assert block_name === nothing && nset_name === nothing
-  # end 
-  if block_name === nothing && nset_name === nothing && sset_name === nothing
+  if block_name === nothing && nset_name === nothing && sideset_name === nothing
     _entity_not_provided_error(
-      "block_name, nodeset_name, or sideset_name required" *
+      "block_name, nset_name, or sideset_name required" *
       " as input arguments in DirichletBC"
     )
   end
   count = (block_name !== nothing) +
           (nset_name !== nothing) +
-          (sset_name !== nothing)
+          (sideset_name !== nothing)
   if count != 1
     _unsure_entity_type_error("More than one entity type specificed in DirichletBC")
   end
@@ -124,11 +111,11 @@ function BCBookKeeping(
     # below 2 don't make sense for other mesh entity types
     sides = Vector{Int64}(undef, 0)
     side_nodes = Matrix{Int64}(undef, 0, 0)
-  elseif sset_name !== nothing
-    elements = mesh.sideset_elems[sset_name]
-    nodes = mesh.sideset_nodes[sset_name]
-    sides = mesh.sideset_sides[sset_name]
-    side_nodes = mesh.sideset_side_nodes[sset_name]
+  elseif sideset_name !== nothing
+    elements = mesh.sideset_elems[sideset_name]
+    nodes = mesh.sideset_nodes[sideset_name]
+    sides = mesh.sideset_sides[sideset_name]
+    side_nodes = mesh.sideset_side_nodes[sideset_name]
 
     blocks = Vector{Int64}(undef, 0)
 
@@ -155,8 +142,6 @@ function BCBookKeeping(
     # setup dofs local to this BC
     # all_dofs = reshape(1:length(dof), size(dof))
     dofs = all_dofs[dof_index, nodes]
-  else
-    @assert false "Either you need to provide a nodeset, sideset or block"
   end
 
   return BCBookKeeping(
@@ -231,9 +216,22 @@ $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
-abstract type AbstractBCs{
-  Funcs <: NamedTuple
-} end
+abstract type AbstractBCs{Funcs} end
+
+# required interface to implement
+"""
+$(TYPEDSIGNATURES)
+Required interface to implement. Will typically take the
+form of
+
+``
+function update_bc_values!(bcs::SomeBCs, X, t, args...)
+...
+end
+``
+"""
+function update_bc_values! end
+
 
 function Adapt.adapt_structure(to, bcs::AbstractBCs)
   type = typeof(bcs).name.name
@@ -245,27 +243,15 @@ end
 
 Base.length(bcs::AbstractBCs) = length(bcs.bc_funcs)
 
-function Base.show(io::IO, bcs::AbstractBCs)
-  type = typeof(bcs).name.name
-  for (n, (cache, func)) in enumerate(zip(bcs.bc_caches, bcs.bc_funcs))
-    show(io, "$(type)_$n")
-    show(io, cache)
-    show(io, func)
-    show(io, "\n")
-  end
-end
-
-"""
-$(TYPEDSIGNATURES)
-Wrapper that is generic for all architectures to
-update bc values based on the stored function
-"""
-function update_bc_values!(bcs::AbstractBCs, X, t, args...)
-  for (bc, func) in zip(values(bcs.bc_caches), values(bcs.bc_funcs))
-    _update_bc_values!(bc, func, X, t, args...)
-  end
-  return nothing
-end
+# function Base.show(io::IO, bcs::AbstractBCs)
+#   type = typeof(bcs).name.name
+#   for (n, (cache, func)) in enumerate(zip(bcs.bc_caches, bcs.bc_funcs))
+#     show(io, "$(type)_$n")
+#     show(io, cache)
+#     show(io, func)
+#     show(io, "\n")
+#   end
+# end
 
 include("DirichletBCs.jl")
 include("NeumannBCs.jl")
@@ -283,7 +269,7 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
   # NOTE neumann bcs must be present on a sideset
   # so that is the only mesh entity that will be
   # supported for this BC type
-  bks = map((v, s) -> BCBookKeeping(mesh, dof, v; sset_name = s), vars, sets)
+  bks = map((v, s) -> BCBookKeeping(mesh, dof, v; sideset_name = s), vars, sets)
 
   fspace = function_space(dof)
   new_bcs = type[]
@@ -335,7 +321,7 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
           conns, new_bk.elements, new_bk.sides, ref_fe, vals, dvalsdu
         )
       else
-        @assert false "Unsupported bc type"
+        _unsupported_weak_bc_error("Unsupported weak bc type $type encountered in _setup_weakly_enforced_bc_container")
       end
       push!(new_bcs, new_bc)
       push!(new_funcs, func)
