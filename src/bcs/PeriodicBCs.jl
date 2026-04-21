@@ -43,8 +43,8 @@ function PeriodicBCContainer(
     end
 
     # set up some book keeping
-    side_a_bk = BCBookKeeping(mesh, dof, pbc.var_name, sset_name=pbc.side_a_sset)
-    side_b_bk = BCBookKeeping(mesh, dof, pbc.var_name, sset_name=pbc.side_b_sset)
+    side_a_bk = BCBookKeeping(mesh, dof, pbc.var_name, sideset_name = pbc.side_a_sset)
+    side_b_bk = BCBookKeeping(mesh, dof, pbc.var_name, sideset_name = pbc.side_b_sset)
 
     # sort the side a sets
     dof_perm = _unique_sort_perm(side_a_bk.dofs)

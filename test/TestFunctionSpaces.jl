@@ -106,3 +106,7 @@ end
 @testitem "FunctionSpaces - test_fspace_h1_field" setup=[FunctionSpaceHelper] begin
   @show fspace = FunctionSpace(mesh, H1Field, Lagrange)
 end
+
+@testitem "FunctionSpaces - test_fspace_l2_field" setup=[FunctionSpaceHelper] begin
+  @show fspace = FunctionSpace(mesh, L2Field, Lagrange)
+end

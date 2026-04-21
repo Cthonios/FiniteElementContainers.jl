@@ -25,7 +25,7 @@ function assemble_vector_enzyme_safe!(
   Δt = time_step(p)
   U = p.field
   U_old = p.field_old
-  _update_for_assembly!(p, dof, Uu, true)
+  _update_for_assembly!(p, dof, Uu)
   return_type = AssembledVector()
   conns = fspace.elem_conns
   for (b, (
@@ -163,55 +163,4 @@ function _assemble_block_enzyme_safe!(
     ndrange = size(state_old, 3)
   )
   return nothing
-end
-
-# COV_EXCL_START
-KA.@kernel function _update_field_unknowns_enzyme_safe_kernel!(
-    U::AbstractField, 
-    unknown_dofs::IDs,
-    Uu::V,
-    flag::Bool
-) where {V <: AbstractVector{<:Number}, IDs}
-    N = KA.@index(Global)
-    if flag
-        @inbounds U.data[unknown_dofs[N]] = Uu[unknown_dofs[N]]
-    else
-        @inbounds U.data[unknown_dofs[N]] = Uu[N]
-    end
-end
-# COV_EXCL_STOP
-  
-function _update_field_unknowns_enzyme_safe!(
-    U::AbstractField, 
-    dof::DofManager{flag, IT, IDs, Var}, 
-    Uu::T, 
-    backend::KA.Backend
-) where {
-    T <: AbstractVector{<:Number},
-    flag, IT, IDs, Var
-}
-    kernel! = _update_field_unknowns_enzyme_safe_kernel!(backend)
-    kernel!(U, dof.unknown_dofs, Uu, flag, ndrange = length(dof.unknown_dofs))
-    return nothing
-end
-  
-# Need a seperate CPU method since CPU is basically busted in KA
-function _update_field_unknowns_enzyme_safe!(
-    U::AbstractField, 
-    dof::DofManager{false, IT, IDs, Var}, 
-    Uu::T, 
-    ::KA.CPU
-) where {T <: AbstractVector{<:Number}, IT, IDs, Var}
-    U[dof.unknown_dofs] .= Uu
-    return nothing
-end
-
-function _update_field_unknowns_enzyme_safe!(
-    U::AbstractField, 
-    dof::DofManager{true, IT, IDs, Var}, 
-    Uu::T, 
-    ::KA.CPU
-) where {T <: AbstractVector{<:Number}, IT, IDs, Var}
-    @views U[dof.unknown_dofs] .= Uu[dof.unknown_dofs]
-    return nothing
 end

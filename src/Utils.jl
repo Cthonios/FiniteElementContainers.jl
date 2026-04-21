@@ -154,7 +154,7 @@ end
 @generated function foreach_block(
     f,
     fspace::FunctionSpace{IT, IV, C, R},
-    p::Parameters
+    p::AbstractParameters
 ) where {IT, IV, C, R}
     stmts = Expr(:block)
     # NOTE need to grab one of the NamedTuple types to get the field count

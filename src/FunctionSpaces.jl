@@ -169,12 +169,12 @@ struct FunctionSpace{
 end
 
 function FunctionSpace(
-  mesh::AbstractMesh, field_type::Type{H1Field}, interp_type,
+  mesh::AbstractMesh, field_type::Type{IT}, interp_type,
   ::Type{QT} = GaussLobattoLegendre;
   is_juliac_safe::Bool = false,
   p_degree::Union{Int, Nothing} = nothing,
   q_degree::Union{Int, Nothing} = nothing,
-) where QT <: AbstractQuadratureType
+) where {IT, QT <: AbstractQuadratureType}
   return FunctionSpace{is_juliac_safe}(mesh, field_type, interp_type, QT; p_degree = p_degree, q_degree = q_degree)
 end
 
@@ -194,12 +194,10 @@ function FunctionSpace{is_juliac_safe}(
       @assert false "TODO 0 order elements"
     else
       ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_type, q_degree)
-      # ref_fes = _setup_ref_fes(interp_type, Val{p_degree}(), q_type, q_degree)
       coords, conns = create_higher_order_mesh(mesh, H1Field, interp_type, p_degree)
       conns = Connectivity([val for val in values(conns)])
     end
   else
-    # ref_fes = _setup_ref_fes(mesh, interp_type, Val{nothing}(), q_degree, q_type)
     if is_juliac_safe
       ref_fes = _setup_juliac_safe_ref_fes(interp_type, q_type)
     else
@@ -208,9 +206,6 @@ function FunctionSpace{is_juliac_safe}(
     coords = mesh.nodal_coords
     conns = Connectivity([val for val in values(mesh.element_conns)])
   end
-  # conns = Connectivity([mesh.element_conns[name] for name in mesh.element_block_names])
-  # conns = Connectivity([val for val in values(mesh.element_conns)])
-  # elem_id_maps = [mesh.element_id_maps[name] for name in mesh.element_block_names]
   elem_id_maps = [val for val in values(mesh.element_id_maps)]
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, is_juliac_safe)
 
@@ -218,30 +213,33 @@ function FunctionSpace{is_juliac_safe}(
 end
 
 # TODO gonna have to fix this based on updates
-function FunctionSpace(
-  mesh::AbstractMesh, ::Type{L2Field}, ::Type{Lagrange};
-  is_juliac_safe::Bool = false,
+function FunctionSpace{is_juliac_safe}(
+  mesh::AbstractMesh, ::Type{L2Field}, interp_type,
+  q_type::Type{QT} = GaussLobattoLegendre;
   p_degree = nothing,
-  q_degree = nothing,
-  q_type::Type{<:AbstractQuadratureType} = GaussLobattoLegendre
-)
-  ref_fes = _setup_ref_fes(mesh, Lagrange, p_degree, q_type, q_degree)
+  q_degree = nothing
+) where {is_juliac_safe, QT <: AbstractQuadratureType}
+  if is_juliac_safe
+    ref_fes = _setup_juliac_safe_ref_fes(interp_type, q_type)
+  else
+    ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_type, q_degree)
+  end
 
-  # conns = Connectivity([mesh.element_conns[name] for name in mesh.element_block_names])
   conns = Connectivity([val for val in values(mesh.element_conns)])
   coords = L2Field(map(x -> mesh.nodal_coords[:, x], [values(mesh.element_conns)...]))
 
   new_conns = Array{Int, 2}[]
   offset = 1
-  # for name in mesh.element_block_names
   for name in keys(mesh.element_conns)
     conn = mesh.element_conns[name]
     push!(new_conns, reshape(offset:offset + length(conn) - 1, size(conn)...))
     offset += size(conn, 1) * size(conn, 2)
   end
   conns = Connectivity(new_conns)
+  elem_id_maps = [val for val in values(mesh.element_id_maps)]
+  block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, is_juliac_safe)
 
-  return FunctionSpace(is_juliac_safe, coords, conns, Vector{Vector{Int}}(undef, 0), ref_fes)
+  return FunctionSpace{is_juliac_safe}(mesh.element_block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes)
 end
 
 function Adapt.adapt_structure(to, fspace::FunctionSpace)

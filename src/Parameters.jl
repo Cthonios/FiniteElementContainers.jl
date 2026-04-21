@@ -5,37 +5,31 @@ $(TYPEDFIELDS)
 """
 abstract type AbstractParameters end
 
-# TODO need to break up bcs to different field types
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct Parameters{
-  RT <: Number, # Real type
-  RV <: AbstractArray{RT, 1}, # Real vector type
-  RM <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  IV <: AbstractArray{<:Integer, 1},
-  # ICFuncs <: NamedTuple,
-  # DBCFuncs <: NamedTuple,
-  ICFuncs,
-  DBCFuncs,
-  NBCs <: NeumannBCs,
-  RBCs <: RobinBCs,
-  SourceFuncs <: NamedTuple,
-  Times <: TimeStepper,
-  Phys <: NamedTuple,
-  Props <: NamedTuple,
-  N, # Generic for AbstractField
-  Coords <: AbstractField{RT, N, RV},
-  Field <: AbstractField{RT, N, RV}
+  RT       <: Number,
+  IV       <: AbstractVector{<:Integer},
+  RV       <: AbstractVector{RT},
+  ICFuncs  <: AbstractVector,
+  DBCFuncs <: AbstractVector,
+  NBCs,
+  RBCs,
+  SRCs,
+  Phys,
+  Props,
+  Coords   <: AbstractField,
+  Field    <: AbstractField 
 } <: AbstractParameters
   ics::InitialConditions{ICFuncs, IV, RV}
-  dirichlet_bcs::DirichletBCs{IV, RV, DBCFuncs}
+  dirichlet_bcs::DirichletBCs{DBCFuncs, IV, RV}
   neumann_bcs::NBCs
   robin_bcs::RBCs
-  sources::Sources{RM, SourceFuncs}
-  times::Times
+  sources::SRCs
+  times::TimeStepper{RT}
   physics::Phys
   properties::Props
   state_old::L2Field{RT, RV}
@@ -46,36 +40,31 @@ struct Parameters{
   # scratch fields
   hvp_scratch_field::Field
 end
-
-# TODO 
-# 1. need to loop over bcs and vars in dof
-#    to make organize different bcs based on fspace type
-# 2. group all dbcs, nbcs of similar fspaces into a single struct?
-# 3. figure out how to handle function pointers on the GPU - done
-# 4. add different fspace types
-# 5. convert vectors of dbcs/nbcs into namedtuples - done
-"""
-$(TYPEDSIGNATURES)
-"""
+  
 function Parameters(
-  mesh, assembler, physics,
-  properties,
+  mesh, assembler,
+  physics, properties,
   ics,
-  dirichlet_bcs,
-  neumann_bcs,
-  robin_bcs,
+  dbcs, nbcs, rbcs,
   sources,
   times
 )
-  fspace = function_space(assembler.dof)
+  dof = assembler.dof
+  fspace = function_space(dof)
   coords = coordinates(fspace)
-  field = create_field(assembler)
-  field_old = create_field(assembler)
-  hvp_scratch_field = create_field(assembler)
+
+  ics = InitialConditions(mesh, dof, ics)
+  dbcs = DirichletBCs(mesh, dof, dbcs)
+  nbcs = NeumannBCs(mesh, dof, nbcs)
+  rbcs = RobinBCs(mesh, dof, rbcs)
+  sources = Sources(mesh, dof, sources)
+
+  if times === nothing
+    times = TimeStepper(0., 0., 1)
+  end
 
   # for mixed spaces we'll need to do this more carefully
   if isa(physics, AbstractPhysics)
-    # syms = keys(fspace.ref_fes)
     syms = map(x -> Symbol("region_$x"), 1:length(fspace.ref_fes))
     physics = map(x -> physics, syms)
     physics = NamedTuple{tuple(syms...)}(tuple(physics...))
@@ -85,7 +74,6 @@ function Parameters(
   end
 
   if isa(properties, AbstractArray)
-    # syms = keys(fspace.ref_fes)
     syms = map(x -> Symbol("region_$x"), 1:length(fspace.ref_fes))
     properties = map(x -> properties, syms)
     properties = NamedTuple{tuple(syms...)}(tuple(properties...))
@@ -93,6 +81,7 @@ function Parameters(
     @assert isa(properties, NamedTuple)
   end
 
+  # setup state variables
   state_old = Array{Float64, 3}[]
   state_new = Array{Float64, 3}[]
   for (b, val) in enumerate(values(physics))
@@ -111,42 +100,23 @@ function Parameters(
     push!(state_old, state_old_temp)
     push!(state_new, state_new_temp)
   end
-
-  # state_new = deepcopy(state_old)
   state_old = L2Field(state_old)
   state_new = L2Field(state_new)
 
-  ics = InitialConditions(mesh, assembler.dof, ics)
-  dirichlet_bcs = DirichletBCs(mesh, assembler.dof, dirichlet_bcs)
-  neumann_bcs = NeumannBCs(mesh, assembler.dof, neumann_bcs)
-  robin_bcs = RobinBCs(mesh, assembler.dof, robin_bcs)
-  sources = Sources(mesh, assembler.dof, sources)
+  # scratch
+  field = create_field(dof)
+  field_old = create_field(dof)
+  hvp_scratch_field = create_field(dof)
 
-  # dummy time stepper for a static problem
-  if times === nothing
-    times = TimeStepper(0., 0., 1)
-  end
+  # update assembler, where should this really live?
+  update_dofs!(assembler, dbcs)
 
-  p = Parameters(
-    ics,
-    dirichlet_bcs,
-    neumann_bcs,
-    robin_bcs,
-    sources,
-    times,
-    physics,
-    properties,
+  return Parameters(
+    ics, dbcs, nbcs, rbcs, sources, times,
+    physics, properties,
     state_old, state_new,
-    coords, field, field_old,
-    # scratch fields
-    hvp_scratch_field
+    coords, field, field_old, hvp_scratch_field
   )
-
-  # updating assembly patterns based on bcs
-  # present in p at this point
-  update_dofs!(assembler, p)
-
-  return p
 end
 
 function Adapt.adapt_structure(to, p::Parameters)
@@ -171,7 +141,7 @@ function Adapt.adapt_structure(to, p::Parameters)
     adapt(to, p.sources),
     adapt(to, p.times),
     adapt(to, p.physics),
-    props, # TODO this will need an adapt when you get to element level props
+    props,
     adapt(to, p.state_old),
     adapt(to, p.state_new),
     adapt(to, p.coords),
@@ -222,28 +192,28 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function coordinates(p::Parameters)
+function coordinates(p::AbstractParameters)
   return p.coords
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function current_time(p::Parameters)
+function current_time(p::AbstractParameters)
   return current_time(p.times)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function dirichlet_dofs(p::Parameters)
+function dirichlet_dofs(p::AbstractParameters)
   return dirichlet_dofs(p.dirichlet_bcs)
 end
 
 """
 $(TYPEDSIGNATURES)
 """
-function initialize!(p::Parameters)
+function initialize!(p::AbstractParameters)
   update_ic_values!(p.ics, coordinates(p))
   update_field_ics!(p.field, p.ics)
   return nothing
@@ -252,7 +222,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function time_step(p::Parameters)
+function time_step(p::AbstractParameters)
   return time_step(p.times)
 end
 
@@ -266,7 +236,7 @@ for Dirichlet and Neumann BCs
 
 Robin BC updates are handled in robin assembly method
 """
-function update_bc_values!(p::Parameters, assembler)
+function update_bc_values!(p::AbstractParameters, assembler)
   X = coordinates(p)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
@@ -291,19 +261,19 @@ function update_dofs!(asm::AbstractAssembler, p::Parameters)
   return nothing
 end
 
-function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, enzyme_safe::Bool = false)
+function _update_for_assembly!(p::AbstractParameters, dof::DofManager, Uu)
   update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
-  update_field_unknowns!(p.field, dof, Uu, enzyme_safe)
+  update_field_unknowns!(p.field, dof, Uu)
 
   # # Robin BC values need to be updated here to be correct
   # update_bc_values!(p.robin_bcs, p.coords, current_time(p), p.field)
   return nothing
 end
 
-function _update_for_assembly!(p::Parameters, dof::DofManager, Uu, Vu, enzyme_safe::Bool = false)
+function _update_for_assembly!(p::AbstractParameters, dof::DofManager, Uu, Vu)
   update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
-  update_field_unknowns!(p.field, dof, Uu, enzyme_safe)
-  update_field_unknowns!(p.hvp_scratch_field, dof, Vu, enzyme_safe)
+  update_field_unknowns!(p.field, dof, Uu)
+  update_field_unknowns!(p.hvp_scratch_field, dof, Vu)
 
   # # Robin BC values need to be updated here to be correct
   # update_bc_values!(p.robin_bcs, p.coords, current_time(p), p.field)
@@ -313,7 +283,7 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-function update_time!(p::Parameters)
+function update_time!(p::AbstractParameters)
   p.times.time_current = current_time(p.times) + time_step(p.times)
   return nothing
 end
