@@ -14,11 +14,12 @@ struct Parameters{
   RT       <: Number,
   IV       <: AbstractVector{<:Integer},
   RV       <: AbstractVector{RT},
+  RM       <: AbstractMatrix,
   ICFuncs  <: AbstractVector,
   DBCFuncs <: AbstractVector,
+  SrcFuncs <: AbstractVector,
   NBCs,
   RBCs,
-  SRCs,
   Phys,
   Props,
   Coords   <: AbstractField,
@@ -28,7 +29,7 @@ struct Parameters{
   dirichlet_bcs::DirichletBCs{DBCFuncs, IV, RV}
   neumann_bcs::NBCs
   robin_bcs::RBCs
-  sources::SRCs
+  sources::Sources{SrcFuncs, RM}
   times::TimeStepper{RT}
   physics::Phys
   properties::Props

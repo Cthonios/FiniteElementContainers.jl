@@ -5,6 +5,8 @@ trim mode for small binaries
 """
 module AppTools
 
+export App
+
 import ..DirichletBC
 import ..Expressions.ExpressionFunction
 import ..ExodusMesh
@@ -622,11 +624,15 @@ end
 #########################################################################
 # tools to create new projects
 #########################################################################
+function build_app(; path::String = pwd())
+    run(`julia --project=$path $(joinpath(path, "build.jl"))`)
+end
+
 function generate_app(
     name::String;
     backends::Vector{String} = ["cpu"],
     directory::String = pwd(),
-    trim::Bool = false
+    trim::Bool = true
 )
     path = joinpath(directory, name)
     @info "Creating new FiniteElementContainers app at $path"
@@ -686,9 +692,20 @@ function generate_app(
     # create basic src file
     open(joinpath(path, "src", "$(name).jl"), "w") do io
         src = """
+        import FiniteElementContainers as FEC
         import FiniteElementContainers.AppTools as AT
+        using Exodus
+        using FiniteElementContainers
+
+        function app_main(ARGS::Vector{String})
+            app = AT.App(\"$(name)\")
+            AT.add_cli_arg(app, \"--backend\"; default = \"cpu\")
+            sim = AT.setup(app, ARGS)
+            println(sim.log_file.io, "Setup complete")
+        end
 
         function @main(ARGS::Vector{String})
+            app_main(ARGS)
             return 0
         end
         """
@@ -734,6 +751,20 @@ function generate_app(
         """
         print(io, src)
     end
+end
+
+function run_app(
+    args::Vector{String};
+    exe_name::Union{Nothing, String} = nothing,
+    path::String = pwd()
+)
+    # first figure out exe name
+    if exe_name === nothing
+        data = TOML.parsefile(joinpath(path, "Project.toml"))
+        exe_name = lowercase(data["name"])
+    end
+    run_cmds = pushfirst!(args, joinpath(path, "build", "bin", exe_name))
+    run(Cmd(run_cmds))
 end
 
 end # module AppTools

@@ -120,14 +120,19 @@ end
     # sim = AT.setup(app, args)
 end
 
-@testitem "AppTools - generate app" begin
+@testitem "AppTools - generate/build/run app" begin
     import FiniteElementContainers.AppTools as AT
+    if isdir("MyApp/")
+        rm("MyApp/"; force = true, recursive = true)
+    end
     AT.generate_app("MyApp")
     @test isdir("MyApp")
     @test isfile("MyApp/build.jl")
     @test isfile("MyApp/Project.toml")
     @test isdir("MyApp/src")
     @test isfile("MyApp/src/MyApp.jl")
+    # TODO re-enable after future release
+    # AT.build_app(; path = "MyApp")
     rm("MyApp"; force = true, recursive = true)
 
     mkdir("app_dir")

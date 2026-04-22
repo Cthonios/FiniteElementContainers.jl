@@ -19,15 +19,6 @@ struct NeumannBC{F} <: AbstractBC{F}
   end
 end
 
-# """
-# $(TYPEDEF)
-# $(TYPEDSIGNATURES)
-# $(TYPEDFIELDS)
-# """
-# function NeumannBC(var_name::String, func::Function, sset_name::String)
-#   return NeumannBC(Symbol(var_name), func, Symbol(sset_name))
-# end
-
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
