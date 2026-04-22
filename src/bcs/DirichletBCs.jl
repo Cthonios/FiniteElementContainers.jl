@@ -339,8 +339,6 @@ end
 
 function Adapt.adapt_structure(to, bcs::DirichletBCs{BCF, IV, RV}) where {BCF, IV, RV}
   bc_cache = adapt(to, bcs.bc_cache)
-  display(typeof(bc_cache))
-  display(BCF)
   return DirichletBCs{BCF, typeof(bc_cache.dofs), typeof(bc_cache.vals)}(
     bc_cache,
     bcs.bc_funcs,
