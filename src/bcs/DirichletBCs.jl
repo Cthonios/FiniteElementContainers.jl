@@ -93,6 +93,10 @@ struct DirichletBCContainer{
   function DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
     new{typeof(dofs), typeof(vals)}(dofs, nodes, vals, vals_dot, vals_dot_dot)
   end
+
+  function DirichletBCContainer{IV, RV}() where {IV, RV}
+    new{IV, RV}(Int[], Int[], Float64[], Float64[], Float64[])
+  end
 end
 
 function Adapt.adapt_structure(to, bc::DirichletBCContainer)
@@ -111,7 +115,7 @@ function Base.show(io::IO, bc::DirichletBCContainer)
 end
 
 # this will break whatever is in vals and zero things out
-function fuse_bcs(bc1::DirichletBCContainer, args...; sort_and_unique::Bool = true)
+function fuse_bcs(sort_and_unique::Bool, bc1::DirichletBCContainer, args...)
   dofs = bc1.dofs
   nodes = bc1.nodes
   for bc2 in args
@@ -131,16 +135,44 @@ function fuse_bcs(bc1::DirichletBCContainer, args...; sort_and_unique::Bool = tr
   return DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
 end
 
+function _fuse_bcs(sort_and_unique::Bool, bc1::DirichletBCContainer, bc2::DirichletBCContainer)
+  dofs = bc1.dofs
+  nodes = bc1.nodes
+  append!(dofs, bc2.dofs)
+  append!(nodes, bc2.nodes)
+
+  if sort_and_unique
+    perm = _unique_sort_perm(dofs)
+    dofs = dofs[perm]
+    nodes = nodes[perm]
+  end
+
+  vals = zeros(eltype(bc1.vals), length(dofs))
+  vals_dot = zeros(eltype(bc1.vals_dot), length(dofs))
+  vals_dot_dot = zeros(eltype(bc1.vals_dot_dot), length(dofs))
+  return DirichletBCContainer(dofs, nodes, vals, vals_dot, vals_dot_dot)
+end
+
 struct DirichletBCFunction{F1, F2, F3} <: AbstractBCFunction{F1}
   func::F1
   func_dot::F2
   func_dot_dot::F3
-end
 
-function DirichletBCFunction(func)
-  func_dot = (x, t) -> ForwardDiff.derivative(z -> func(x, z), t)
-  func_dot_dot = (x, t) -> ForwardDiff.derivative(z -> func_dot(x, z), t)
-  return DirichletBCFunction(func, func_dot, func_dot_dot)
+  function DirichletBCFunction(func::F) where F <: Function
+    func_dot = (x, t) -> ForwardDiff.derivative(z -> func(x, z), t)
+    func_dot_dot = (x, t) -> ForwardDiff.derivative(z -> func_dot(x, z), t)
+    new{F, typeof(func_dot), typeof(func_dot_dot)}(func, func_dot, func_dot_dot)
+  end
+
+  function DirichletBCFunction{F1, F2, F3}(
+    f::F1, f_dot::F2, f_dot_dot::F3
+  ) where {
+    F1 <: Function, 
+    F2 <: Function, 
+    F3 <: Function
+  }
+    new{F1, F2, F3}(f, f_dot, f_dot_dot)
+  end
 end
 
 """
@@ -182,9 +214,7 @@ struct DirichletBCs{
   function DirichletBCs(mesh, dof, bcs_input)
     # base case return empty stuff
     if length(bcs_input) == 0
-      bc_cache = DirichletBCContainer(
-        zeros(Int, 0), zeros(Int, 0), zeros(Float64, 0), zeros(Float64, 0), zeros(Float64, 0)
-      )
+      bc_cache = DirichletBCContainer{Vector{Int}, Vector{Float64}}()
       bc_funcs = DirichletBCFunction[]
       return new{Vector{DirichletBCFunction}, Vector{Int}, Vector{Float64}}(
         bc_cache, bc_funcs, Int[]
@@ -212,7 +242,7 @@ struct DirichletBCs{
     bc_funcs = DirichletBCFunction[]
     for (func, ids) in pairs(func_to_ids)
       push!(bc_funcs, func)
-      push!(bc_cache, fuse_bcs(caches[ids]...))
+      push!(bc_cache, fuse_bcs(true, caches[ids]...))
     end
 
     # get all lengths for indexing purposes later
@@ -223,7 +253,7 @@ struct DirichletBCs{
     # for dispatching to individual kernels for the different functions
     # TODO the setup could be made more efficient
     # make sure not to sort and unique
-    bc_cache = fuse_bcs(bc_cache...; sort_and_unique = false)
+    bc_cache = fuse_bcs(false, bc_cache...)
 
     # finally update dofs in dof based on bcs
     temp_dofs = unique(sort(bc_cache.dofs))
@@ -235,7 +265,74 @@ struct DirichletBCs{
     )
   end
 
-  function DirichletBCs{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths) where {BCF, IV, RV}
+  # juliac safe, for now will only work for static
+  # need to change bc input to have bindings
+  # for user provided first and/or second derivatives
+  function DirichletBCs{F}(mesh::AbstractMesh, dof, bcs_input) where {F <: Function}
+    bc_funcs = DirichletBCFunction{F, F, F}[]
+    if length(bcs_input) == 0
+      IV = Vector{Int}
+      RV = Vector{Float64}
+      bc_cache = DirichletBCContainer{IV, RV}()
+      return new{typeof(bc_funcs), IV, RV}(bc_cache, bc_funcs)
+    end
+
+    # TODO change me, will fail if F is not an ExpressionFunction
+    # and not a 2d func time-dependent
+    zero_func = F("0.0", ["x", "y", "t"])
+    for bc in bcs_input
+      push!(bc_funcs, DirichletBCFunction{F, F, F}(bc.func, zero_func, zero_func))
+    end
+
+    bc_caches = DirichletBCContainer.((mesh,), (dof,), bcs_input)
+
+    # fusing bcs with a common function
+    func_to_ids = Dict{DirichletBCFunction, Vector{Int}}()
+    for (n, func) in enumerate(bc_funcs)
+      if haskey(func_to_ids, func)
+        push!(func_to_ids[func], n)
+      else
+        func_to_ids[func] = [n]
+      end
+    end
+
+    bc_cache = typeof(bc_caches[1])[]
+    bc_funcs = DirichletBCFunction{F, F, F}[]
+    for (func, ids) in pairs(func_to_ids)
+      ids_typed = ids::Vector{Int}
+      temp_cache = bc_caches[ids_typed[1]]
+      for n in 2:length(ids_typed)
+        temp_cache = _fuse_bcs(true, temp_cache, bc_caches[ids_typed[n]])
+      end
+      push!(bc_cache, temp_cache)
+      push!(bc_funcs, func)
+    end
+
+
+    # get all lengths for indexing purposes later
+    bc_lengths = map(x -> length(x.dofs), bc_cache)
+
+    # now we'll fuse bcs one more time so we only have a single
+    # container for all dirichlet bcs. We just use the indexes
+    # for dispatching to individual kernels for the different functions
+    # TODO the setup could be made more efficient
+    # make sure not to sort and unique
+    # bc_cache = _fuse_bcs_final(false, bc_cache)
+    bc_cache_new = bc_cache[1]
+    for n in 2:length(bc_cache)
+      bc_cache_new = _fuse_bcs(false, bc_cache_new, bc_cache[n])
+    end
+
+    # finally update dofs in dof based on bcs
+    temp_dofs = unique(sort(bc_cache_new.dofs))
+    update_dofs!(dof, temp_dofs)
+
+    new{typeof(bc_funcs), typeof(bc_lengths), typeof(bc_cache_new.vals)}(
+      bc_cache_new, bc_funcs, bc_lengths
+    )
+  end
+
+  function DirichletBCs{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths) where {BCF <: Function, IV <: AbstractVector, RV <: AbstractVector}
     new{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths)
   end
 end

@@ -30,6 +30,15 @@ function error_message(io::IO, msg::String)
     @assert false _print_error_message(io, msg)
 end
 
+# this one isn't quite working yet for some reason
+function has_key_check(io::IO, d::Dict{String, Any}, k::String, msg::String)
+    # !haskey(d, k)::Bool && error_message(io, msg)
+    if !haskey(d, k)
+        error_message(io, msg)
+    end
+    return nothing
+end
+
 #######################################################
 # CLI IO
 #######################################################
@@ -307,10 +316,17 @@ end
 
 function _parse_boundary_condition_settings(log_file, data, functions::FunctionSettings{T}) where T <: Number
     print_banner(log_file, "Boundary conditions")
-    bc_settings = data["boundary_conditions"]::Dict{String, Any}
+    # if length(data["boundary_conditions"])
+    if haskey(data, "boundary_conditions")
+        bc_settings = data["boundary_conditions"]::Dict{String, Any}
+    else
+        bc_settings = Dict{String, Any}()
+    end
     dbc_settings = bc_settings["dirichlet"]::Vector{Any}
     dbcs = DirichletBC{ExpressionFunction{T}}[]
     for bc in dbc_settings
+        # has_key_check(log_file, bc, "function", "key \"function\" not found for DirichletBC")
+        # has_key_check(log_file, bc, "variable", "key \"variable\" not found for DirichletBC")
         temp = bc::Dict{String, Any}
         func = temp["function"]::String
         func = functions.expr_funcs[func]
@@ -563,6 +579,7 @@ function get_cli_arg(app::App, name::String)
 end
 
 struct Simulation{T <: Number, IO, Mesh}
+    dbcs::Vector{DirichletBC{ExpressionFunction{T}}}
     ics::Vector{InitialCondition{ExpressionFunction{T}}}
     log_file::LogFile{IO}
     mesh::Mesh
@@ -584,7 +601,7 @@ struct Simulation{T <: Number, IO, Mesh}
         else
             T = Float64
         end
-        new{T, IO, typeof(mesh)}(settings.ics, log_file, mesh)
+        new{T, IO, typeof(mesh)}(settings.bcs.dirichlet, settings.ics, log_file, mesh)
     end
 end
 

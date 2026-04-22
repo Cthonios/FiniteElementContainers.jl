@@ -30,9 +30,8 @@ function _dof_index_from_var_name(dof, var_name)
 end
 
 function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
-  # chatgpt BS below. Make this not use a dict
   sorted_unique = sort(unique(array))
-  id_map = Dict(x => findfirst(==(x), array) for x in sorted_unique)
+  id_map = Dict{T, Int}(x => findfirst(==(x), array) for x in sorted_unique)
   return [id_map[x] for x in sorted_unique]
 end
 
