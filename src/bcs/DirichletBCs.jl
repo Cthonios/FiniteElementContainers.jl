@@ -211,7 +211,7 @@ struct DirichletBCs{
   bc_funcs::BCFuncs
   bc_lengths::Vector{Int}
 
-  function DirichletBCs(mesh, dof, bcs_input)
+  function DirichletBCs(mesh::AbstractMesh, dof, bcs_input)
     # base case return empty stuff
     if length(bcs_input) == 0
       bc_cache = DirichletBCContainer{Vector{Int}, Vector{Float64}}()
@@ -332,13 +332,15 @@ struct DirichletBCs{
     )
   end
 
-  function DirichletBCs{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths) where {BCF <: Function, IV <: AbstractVector, RV <: AbstractVector}
+  function DirichletBCs{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths) where {BCF <: Vector, IV <: AbstractVector, RV <: AbstractVector}
     new{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths)
   end
 end
 
 function Adapt.adapt_structure(to, bcs::DirichletBCs{BCF, IV, RV}) where {BCF, IV, RV}
   bc_cache = adapt(to, bcs.bc_cache)
+  display(typeof(bc_cache))
+  display(BCF)
   return DirichletBCs{BCF, typeof(bc_cache.dofs), typeof(bc_cache.vals)}(
     bc_cache,
     bcs.bc_funcs,
