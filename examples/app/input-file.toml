@@ -9,18 +9,18 @@ variables = ["x", "y"]
 [functions.one]
 type = "constant"
 expression = "1.0"
-variables = ["x", "y"]
+variables = ["x", "y", "t"]
 
 [mesh]
 file_path = "poisson.g"
 file_type = "exodus"
 
 [[initial_conditions]]
-function = "one"
+function = "zero"
 block = "block_1"
 variable = "u"
 
 [[boundary_conditions.dirichlet]]
-function = "zero"
+function = "one"
 side_set = "sset_1"
 variable = "u"

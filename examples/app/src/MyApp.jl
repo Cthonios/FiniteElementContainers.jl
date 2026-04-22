@@ -29,11 +29,16 @@ function app_main(ARGS::Vector{String})
     # U = create_unknowns(asm)
     U = create_field(asm)
 
-    # trying to set up ics
+    # setting up ics
     FT = AT.ExpressionFunction{Float64}
     ics = InitialConditions{FT}(sim.mesh, dof, sim.ics)
     update_ic_values!(ics, sim.mesh.nodal_coords)
     update_field_ics!(U, ics)
+
+    # setting up dbcs
+    dbcs = DirichletBCs{FT}(sim.mesh, dof, sim.dbcs)
+    update_bc_values!(dbcs, sim.mesh.nodal_coords, 1.0)
+    update_field_dirichlet_bcs!(U, dbcs)
 
     # # p = create_parameters(mesh, asm, physics, props)
     println(sim.log_file.io, "Setup complete")

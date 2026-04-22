@@ -30,6 +30,7 @@ export RobinBCs
 export Source
 export Sources
 export dirichlet_dofs
+export update_bc_values!
 export update_field_dirichlet_bcs!
 
 # Connectivities
