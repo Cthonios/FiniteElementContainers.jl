@@ -33,12 +33,18 @@ volume quadrature points for one block.
   and have assemblers just ping the correct block
 """
 struct SourceContainer{
-  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2}
+  RM <: AbstractArray{<:Union{<:Number, <:SVector}, 2}
 }
-  vals::RV                    # size (NQ_cell, nelem) of SVector{ND}
+  vals::RM                    # size (NQ_cell, nelem) of SVector{ND}
   is_constant::Bool           # skip re-evaluation after first call
   initialized::Base.RefValue{Bool}
+
+  function SourceContainer(vals::RM, is_constant, initialized) where RM
+    new{RM}(vals, is_constant, initialized)
+  end
 end
+
+_vals_type(::Vector{SourceContainer{RM}}) where RM = RM
 
 function Adapt.adapt_structure(to, source::SourceContainer)
   SourceContainer(
@@ -61,6 +67,14 @@ function _update_source_values!(vals, func, ref_fe, conns, coffset, X, t)
   end
 end
 
+struct SourceFunction{F} <: AbstractBCFunction{F}
+  func::F
+end
+
+function (f::SourceFunction)(x, t)
+  return f.func(x, t)
+end
+
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -68,62 +82,62 @@ $(TYPEDFIELDS)
 Collection of body force containers, one per specified body force entry.
 """
 struct Sources{
-  RV           <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  SourceFuncs  <: NamedTuple
+  SourceFuncs,
+  RM           <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
 } <: AbstractBCs{SourceFuncs}
   source_block_ids::Vector{Int} # note this is the id order in FEC not the id in exodus
   source_block_names::Vector{String}
-  source_caches::Vector{SourceContainer{RV}}
+  source_caches::Vector{SourceContainer{RM}}
   source_funcs::SourceFuncs
-end
 
-function Sources(mesh, dof::DofManager, sources::Vector{Source})
-  if length(sources) == 0
-    return Sources(Int[], String[], SourceContainer{Matrix{Float64}}[], NamedTuple())
+  function Sources{SourceFuncs, RM}(
+    source_block_ids, source_block_names, source_caches, source_funcs
+  ) where {SourceFuncs, RM}
+    new{SourceFuncs, RM}(source_block_ids, source_block_names, source_caches, source_funcs)
   end
 
-  fspace = function_space(dof)
-  ND = length(dof.var)
-  caches = []
-  funcs  = Function[]
-  source_block_ids = Int[]
-  source_block_names = String[]
-  for source in sources
-    block_name = source.block_name
-    # block_id = indexin([block_name], collect(keys(fspace.ref_fes)))
-    # @assert length(block_id) == 1
-    # block_id = block_id[1]
-    block_id = findfirst(x -> x == block_name, mesh.element_block_names)
-    push!(source_block_ids, block_id)
-    push!(source_block_names, block_name)
-    NQ, NE = block_quadrature_size(fspace, block_id)
-    # conns = Connectivity([conns_full])
-    # if ND == 1
-    #   vals = zeros(Float64, NQ, nelem)
-    # else
-    vals  = zeros(SVector{ND, Float64}, NQ, NE)
-    # end
+  # TODO should we really allow for scalar funcs for this in the case of scalar variables?
+  function Sources(mesh, dof::DofManager, sources::Vector{Source}, ::Type{RT} = Float64) where RT <: Number
+    ND = size(dof, 1)
+    caches = SourceContainer{Matrix{SVector{ND, RT}}}[]
+    funcs = SourceFunction[]
+    if length(sources) == 0
+      return Sources{typeof(funcs), Matrix{SVector{ND, RT}}}(Int[], String[], SourceContainer{Matrix{RT}}[], funcs)
+    end
 
-    # Detect constant: the is_constant flag is set by the caller (Carina)
-    # via the Source struct. For now, default to false (re-evaluate every step).
-    is_constant = false
+    fspace = function_space(dof)
+    ND = length(dof.var)
+    source_block_ids = Int[]
+    source_block_names = String[]
+    for source in sources
+      block_name = source.block_name
+      block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+      push!(source_block_ids, block_id)
+      push!(source_block_names, block_name)
+      NQ, NE = block_quadrature_size(fspace, block_id)
+      # conns = Connectivity([conns_full])
+      # if ND == 1
+      #   vals = zeros(Float64, NQ, nelem)
+      # else
+      vals  = zeros(SVector{ND, Float64}, NQ, NE)
+      # end
 
-    # push!(caches, SourceContainer(conns, ref_fe, vals, is_constant, Ref(false)))
-    push!(caches, SourceContainer(vals, is_constant, Ref(false)))
-    push!(funcs, source.func)
+      # Detect constant: the is_constant flag is set by the caller (Carina)
+      # via the Source struct. For now, default to false (re-evaluate every step).
+      is_constant = false
+
+      push!(caches, SourceContainer(vals, is_constant, Ref(false)))
+      push!(funcs, SourceFunction(source.func))
+    end
+
+    # return Sources(source_block_ids, source_block_names, caches, funcs)
+    return Sources{typeof(funcs), Matrix{SVector{ND, RT}}}(
+      source_block_ids, source_block_names, caches, funcs
+    )
   end
-
-  # what happens if they're not all the same type?
-  caches = convert(Vector{typeof(caches[1])}, caches)
-
-  syms = tuple(map(x -> Symbol("source_$x"), 1:length(caches))...)
-  return Sources(
-    source_block_ids, source_block_names, caches,
-    NamedTuple{syms}(tuple(funcs...)),
-  )
 end
 
-function Adapt.adapt(to, sources::Sources)
+function Adapt.adapt(to, sources::Sources{SourceFuncs, RM}) where {SourceFuncs, RM}
   # needed due to failures on 1.10 and 1.11
   if length(sources.source_caches) == 0
     caches = Vector{SourceContainer{Matrix{Float64}}}(undef, 0)
@@ -131,11 +145,11 @@ function Adapt.adapt(to, sources::Sources)
     caches = map(x -> adapt(to, x), sources.source_caches)
   end
 
-  return Sources(
+  return Sources{SourceFuncs, _vals_type(caches)}(
     sources.source_block_ids,
     sources.source_block_names,
     caches,
-    adapt(to, sources.source_funcs)
+    sources.source_funcs
   )
 end
 
@@ -151,15 +165,19 @@ end
 
 function update_source_values!(sources::Sources, assembler, X, t)
   fspace = function_space(assembler)
-  for (block_id, source, func) in zip(sources.source_block_ids, sources.source_caches, sources.source_funcs)
-    if source.is_constant && source.initialized[]
+  for n in axes(sources.source_block_ids, 1)
+    block_id = sources.source_block_ids[n]
+    cache = sources.source_caches[n]
+    if cache.is_constant && cache.initialized[]
       continue
     end
-    ref_fe = fspace.ref_fes[block_id]
+
+    func = sources.source_funcs[n]
+    ref_fe = block_reference_element(fspace, block_id)
     conns_data = fspace.elem_conns.data
     coffset = fspace.elem_conns.offsets[block_id]
-    _update_source_values!(source.vals, func, ref_fe, conns_data, coffset, X, t)
-    source.initialized[] = true
+    _update_source_values!(cache.vals, func, ref_fe, conns_data, coffset, X, t)
+    cache.initialized[] = true
   end
   return nothing
 end
