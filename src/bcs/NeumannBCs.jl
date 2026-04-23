@@ -112,8 +112,13 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
 end
 
 function Adapt.adapt_structure(to, bcs::NeumannBCs)
+  if length(bcs.bc_caches) == 0
+    caches = Vector{NeumannBCContainer{Int, Vector{Int}, Matrix{Float64}}}[]
+  else
+    caches = map(x -> adapt(to, x), bcs.bc_caches)
+  end
   return NeumannBCs(
-    map(x -> adapt(to, x), bcs.bc_caches),
+    caches,
     bcs.bc_funcs,
     bcs.block_ids,
     bcs.block_names
