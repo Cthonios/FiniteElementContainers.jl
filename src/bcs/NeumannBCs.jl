@@ -113,7 +113,7 @@ end
 
 function Adapt.adapt_structure(to, bcs::NeumannBCs)
   if length(bcs.bc_caches) == 0
-    caches = Vector{NeumannBCContainer{Int, Vector{Int}, Matrix{Float64}}}[]
+    caches = NeumannBCContainer{Int, Vector{Int}, Matrix{Float64}}[]
   else
     caches = map(x -> adapt(to, x), bcs.bc_caches)
   end
