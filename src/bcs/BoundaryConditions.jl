@@ -175,19 +175,8 @@ $(TYPEDFIELDS)
 abstract type AbstractWeaklyEnforcedBCContainer{
   IT <: Integer,
   IV <: AbstractArray{IT, 1},
-  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  RE <: ReferenceFE
+  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2}
 } <: AbstractBCContainer{IV, RV} end
-
-function Adapt.adapt_structure(to, bc::AbstractWeaklyEnforcedBCContainer)
-  el_conns = adapt(to, bc.element_conns)
-  elements = adapt(to, bc.elements)
-  sides = adapt(to, bc.sides)
-  ref_fe = adapt(to, bc.ref_fe)
-  vals = adapt(to, bc.vals)
-  type = eval(typeof(bc).name.name)
-  return type(el_conns, elements, sides, ref_fe, vals)
-end
 
 Base.length(bc::AbstractWeaklyEnforcedBCContainer) = size(bc.vals, 2)
 
@@ -231,15 +220,6 @@ end
 """
 function update_bc_values! end
 
-
-function Adapt.adapt_structure(to, bcs::AbstractBCs)
-  type = typeof(bcs).name.name
-  return eval(type)(
-    map(x -> adapt(to, x), bcs.bc_caches),
-    adapt(to, bcs.bc_funcs)
-  )
-end
-
 Base.length(bcs::AbstractBCs) = length(bcs.bc_funcs)
 
 # function Base.show(io::IO, bcs::AbstractBCs)
@@ -273,6 +253,10 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
   fspace = function_space(dof)
   new_bcs = type[]
   new_funcs = Function[]
+  block_ids = Int[]
+  block_names = String[]
+  # sideset_ids = Int[]
+  # sideset_names = String[]
   for (bk, func) in zip(bks, funcs)
     blocks = sort(unique(bk.blocks))
 
@@ -283,6 +267,10 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
 
     for block in blocks
       block_name = mesh.element_block_names_map[block]
+      block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+      push!(block_ids, block_id)
+      push!(block_names, block_name)
+
       ids = findall(x -> x == block, bk.blocks)
       new_blocks = bk.blocks[ids]
       new_elements = bk.elements[ids]
@@ -311,13 +299,13 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
 
       if type <: NeumannBCContainer
         new_bc = type(
-          conns, new_bk.elements, new_bk.sides, ref_fe, vals
+          conns, new_bk.elements, new_bk.sides, vals
         )
       elseif type <: RobinBCContainer
         # dvalsdu = copy(vals)
         dvalsdu = zeros(SMatrix{ND, ND, Float64, ND * ND}, NQ, length(bk.sides))
         new_bc = type(
-          conns, new_bk.elements, new_bk.sides, ref_fe, vals, dvalsdu
+          conns, new_bk.elements, new_bk.sides, vals, dvalsdu
         )
       else
         _unsupported_weak_bc_error("Unsupported weak bc type $type encountered in _setup_weakly_enforced_bc_container")
@@ -326,5 +314,5 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
       push!(new_funcs, func)
     end
   end
-  return new_bcs, new_funcs
+  return new_bcs, new_funcs, block_ids, block_names
 end

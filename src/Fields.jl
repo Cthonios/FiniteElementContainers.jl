@@ -101,20 +101,30 @@ struct Connectivity{
     nepes::Vector{T}
     nelems::Vector{T}
     offsets::Vector{T}
-end
+# end
 
-function Connectivity(mats::Vector{<:AbstractArray{<:Integer, 2}})
-    nblocks = length(mats)
-    nepes = map(x -> size(x, 1), mats)
-    nelems = map(x -> size(x, 2), mats)
-    offsets = Vector{eltype(nepes)}(undef, 0)
-    offset = 1
-    for (nepe, nelem) in zip(nepes, nelems)
-        push!(offsets, offset)
-        offset += nepe * nelem
+    function Connectivity(mats::Vector{<:AbstractArray{<:Integer, 2}})
+        nblocks = length(mats)
+        nepes = map(x -> size(x, 1), mats)
+        nelems = map(x -> size(x, 2), mats)
+        offsets = Vector{eltype(nepes)}(undef, 0)
+        offset = 1
+        for (nepe, nelem) in zip(nepes, nelems)
+            push!(offsets, offset)
+            offset += nepe * nelem
+        end
+        data = mapreduce(vec, vcat, mats)
+        # return Connectivity(data, nblocks, nepes, nelems, offsets)
+        new{eltype(data), typeof(data)}(data, nblocks, nepes, nelems, offsets)
     end
-    data = mapreduce(vec, vcat, mats)
-    return Connectivity(data, nblocks, nepes, nelems, offsets)
+
+    function Connectivity(data, nblocks, nepes, nelems, offsets)
+        new{eltype(data), typeof(data)}(data, nblocks, nepes, nelems, offsets)
+    end
+
+    function Connectivity{T, D}() where {T, D}
+        new{T, D}(T[], 0, T[], T[], T[])
+    end
 end
 
 function Adapt.adapt_structure(to, conn::Connectivity{T, D}) where {T, D}

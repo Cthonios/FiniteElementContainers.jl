@@ -29,13 +29,11 @@ struct RobinBCContainer{
   IT  <: Integer,
   IV  <: AbstractArray{IT, 1},
   RV  <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  dRV <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2},
-  RE  <: ReferenceFE
-} <: AbstractWeaklyEnforcedBCContainer{IT, IV, RV, RE}
+  dRV <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2}
+} <: AbstractWeaklyEnforcedBCContainer{IT, IV, RV}
   element_conns::Connectivity{IT, IV}
   elements::IV
   sides::IV
-  ref_fe::RE
   vals::RV
   dvalsdu::dRV
 end
@@ -44,11 +42,9 @@ function Adapt.adapt_structure(to, bc::RobinBCContainer)
   el_conns = adapt(to, bc.element_conns)
   elements = adapt(to, bc.elements)
   sides = adapt(to, bc.sides)
-  ref_fe = adapt(to, bc.ref_fe)
   vals = adapt(to, bc.vals)
   dvalsdu = adapt(to, bc.dvalsdu)
-  type = eval(typeof(bc).name.name)
-  return type(el_conns, elements, sides, ref_fe, vals, dvalsdu)
+  return RobinBCContainer(el_conns, elements, sides, vals, dvalsdu)
 end
 
 struct RobinBCFunction{F1, F2} <: AbstractBCFunction{F1}
@@ -83,24 +79,43 @@ struct RobinBCs{
   } <: AbstractBCs{BCFuncs}
     bc_caches::BCCaches
     bc_funcs::BCFuncs
+    block_ids::Vector{Int}
+    block_names::Vector{String}
 end
 
 function RobinBCs(mesh, dof::DofManager, robin_bcs::Vector{RobinBC})
     if length(robin_bcs) == 0
-        return RobinBCs(NamedTuple(), NamedTuple())
+        return RobinBCs(NamedTuple(), NamedTuple(), Int[], String[])
     end
 
-    new_bcs, new_funcs = _setup_weakly_enforced_bc_container(mesh, dof, robin_bcs, RobinBCContainer)
+    new_bcs, new_funcs, block_ids, block_names = _setup_weakly_enforced_bc_container(mesh, dof, robin_bcs, RobinBCContainer)
     new_funcs = RobinBCFunction.(new_funcs)
     syms = tuple(map(x -> Symbol("robin_bc_$x"), 1:length(new_bcs))...)
     new_bcs = NamedTuple{syms}(tuple(new_bcs...))
     new_funcs = NamedTuple{syms}(tuple(new_funcs...))
-    return RobinBCs(new_bcs, new_funcs)
+    return RobinBCs(new_bcs, new_funcs, block_ids, block_names)
 end
 
-function update_bc_values!(bcs::RobinBCs, X, t, U)
-  for (bc, func) in zip(bcs.bc_caches, bcs.bc_funcs)
-    _update_bc_values!(bc.vals, bc.dvalsdu, func, bc.ref_fe, bc.element_conns.data, bc.sides, X, t, U)
+function Adapt.adapt_structure(to, bcs::RobinBCs)
+  return RobinBCs(
+    map(x -> adapt(to, x), bcs.bc_caches),
+    bcs.bc_funcs,
+    bcs.block_ids,
+    bcs.block_names
+  )
+end
+
+function update_bc_values!(bcs::RobinBCs, assembler, X, t, U)
+  # for (bc, func) in zip(bcs.bc_caches, bcs.bc_funcs)
+  #   _update_bc_values!(bc.vals, bc.dvalsdu, func, bc.ref_fe, bc.element_conns.data, bc.sides, X, t, U)
+  # end
+  fspace = function_space(assembler.dof)
+  for n in axes(bcs.block_ids, 1)
+    bc = values(bcs.bc_caches)[n]
+    block_id = bcs.block_ids[n]
+    func = values(bcs.bc_funcs)[n]
+    ref_fe = block_reference_element(fspace, block_id)
+    _update_bc_values!(bc.vals, bc.dvalsdu, func, ref_fe, bc.element_conns.data, bc.sides, X, t, U)
   end
   return nothing
 end

@@ -8,7 +8,7 @@ function assemble_vector_neumann_bc!(
   # been conducted previously?
   _update_for_assembly!(p, assembler.dof, Uu)
   assemble_vector_weakly_enforced_bc!(
-    assembler.residual_storage,
+    assembler.residual_storage, assembler.dof,
     p.field, coordinates(p), p.neumann_bcs
   )
   return nothing
@@ -25,7 +25,7 @@ function assemble_vector_robin_bc!(
   _update_for_assembly!(p, assembler.dof, Uu)
   update_bc_values!(p.robin_bcs, coordinates(p), current_time(p), p.field)
   assemble_vector_weakly_enforced_bc!(
-    assembler.residual_storage,
+    assembler.residual_storage, assembler.dof,
     p.field, coordinates(p), p.neumann_bcs
   )
   return nothing
@@ -36,14 +36,16 @@ end
 $(TYPEDSIGNATURES)
 """
 function assemble_vector_weakly_enforced_bc!(
-  storage, U, X, bcs
+  storage, dof, U, X, bcs
 )
   # do not zero!
-  for bc in values(bcs.bc_caches)
+  for (n, bc) in enumerate(values(bcs.bc_caches))
+    block_id = bcs.block_ids[n]
+    ref_fe = block_reference_element(function_space(dof), block_id)
     _assemble_block_vector_weakly_enforced_bc!(
       storage,
       U, X,
-      bc.element_conns.data, bc.ref_fe, bc.sides, bc.vals
+      bc.element_conns.data, ref_fe, bc.sides, bc.vals
     )
   end
 end
