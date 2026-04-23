@@ -17,12 +17,13 @@ struct Parameters{
   RV       <: AbstractVector{RT},
   RM1      <: AbstractMatrix,
   RM2      <: AbstractMatrix,
+  RM3      <: AbstractMatrix,
+  RM4      <: AbstractMatrix,
   ICFuncs  <: AbstractVector,
   DBCFuncs <: AbstractVector,
-  SrcFuncs <: AbstractVector,
-  # NBCs,
+  SRCFuncs <: AbstractVector,
   NBCFuncs <: AbstractVector,
-  RBCs,
+  RBCFuncs <: AbstractVector,
   Phys,
   Props,
   Coords   <: AbstractField,
@@ -30,10 +31,9 @@ struct Parameters{
 } <: AbstractParameters
   ics::InitialConditions{ICFuncs, IV, RV}
   dirichlet_bcs::DirichletBCs{DBCFuncs, IV, RV}
-  # neumann_bcs::NBCs
   neumann_bcs::NeumannBCs{NBCFuncs, IT, IV, RM1}
-  robin_bcs::RBCs
-  sources::Sources{SrcFuncs, RM2}
+  robin_bcs::RobinBCs{RBCFuncs, IT, IV, RM2, RM3}
+  sources::Sources{SRCFuncs, RM4}
   times::TimeStepper{RT}
   physics::Phys
   properties::Props

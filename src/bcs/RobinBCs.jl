@@ -28,14 +28,22 @@ Internal implementation of dirichlet BCs
 struct RobinBCContainer{
   IT  <: Integer,
   IV  <: AbstractArray{IT, 1},
-  RV  <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  dRV <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2}
-} <: AbstractWeaklyEnforcedBCContainer{IT, IV, RV}
+  RM  <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
+  dRM <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2}
+} <: AbstractWeaklyEnforcedBCContainer{IT, IV, RM}
   element_conns::Connectivity{IT, IV}
   elements::IV
   sides::IV
-  vals::RV
-  dvalsdu::dRV
+  vals::RM
+  dvalsdu::dRM
+
+  function RobinBCContainer(conns::Connectivity{IT, IV}, elems::IV, sides::IV, vals::RM, dvalsdu::dRM) where {IT, IV, RM, dRM}
+    new{IT, IV, RM, dRM}(conns, elems, sides, vals, dvalsdu)
+  end
+
+  function RobinBCContainer{IT, IV, RM, dRM}() where {IT, IV, RM, dRM}
+    new{IT, IV, RM, dRM}(Connectivity{IT, IV}(), IV(undef, 0), IV(undef, 0), RM(undef, 0, 0), dRM(undef, 0, 0))
+  end
 end
 
 function Adapt.adapt_structure(to, bc::RobinBCContainer)
@@ -74,10 +82,13 @@ function _update_bc_values!(vals, dvalsdu, func, ref_fe, conns, sides, X, t, U)
 end
 
 struct RobinBCs{
-    BCCaches <: NamedTuple, 
-    BCFuncs  <: NamedTuple
-  } <: AbstractBCs{BCFuncs}
-    bc_caches::BCCaches
+    BCFuncs,
+    IT       <: Integer,
+    IV       <: AbstractArray{IT, 1},
+    RM       <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
+    dRM      <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2}  
+} <: AbstractBCs{BCFuncs}
+    bc_caches::Vector{RobinBCContainer{IT, IV, RM, dRM}}
     bc_funcs::BCFuncs
     block_ids::Vector{Int}
     block_names::Vector{String}
@@ -85,20 +96,31 @@ end
 
 function RobinBCs(mesh, dof::DofManager, robin_bcs::Vector{RobinBC})
     if length(robin_bcs) == 0
-        return RobinBCs(NamedTuple(), NamedTuple(), Int[], String[])
+      bc_caches = RobinBCContainer{Int, Vector{Int}, Matrix{Float64}, Matrix{Float64}}[]
+      return RobinBCs(bc_caches, RobinBCFunction[], Int[], String[])
     end
 
     new_bcs, new_funcs, block_ids, block_names = _setup_weakly_enforced_bc_container(mesh, dof, robin_bcs, RobinBCContainer)
+    # TODO fix this up eventually
+    new_bcs = convert(Vector{typeof(new_bcs[1])}, new_bcs)
     new_funcs = RobinBCFunction.(new_funcs)
-    syms = tuple(map(x -> Symbol("robin_bc_$x"), 1:length(new_bcs))...)
-    new_bcs = NamedTuple{syms}(tuple(new_bcs...))
-    new_funcs = NamedTuple{syms}(tuple(new_funcs...))
     return RobinBCs(new_bcs, new_funcs, block_ids, block_names)
 end
 
 function Adapt.adapt_structure(to, bcs::RobinBCs)
+  # NOTE
+  # below logic is needed due to improper
+  # adapt mapping for an empty array in julia 1.10/1.11
+  # where Vector{T}(undef, 0) gets mappend to Vector{Any}
+  if length(bcs.bc_caches) > 0
+    bc_caches = map(x -> adapt(to, x), bcs.bc_caches)
+  else
+    temp_int = adapt(to, zeros(Int, 0))
+    temp_floats = adapt(to, zeros(Float64, 0, 0))
+    bc_caches = RobinBCContainer{Int, typeof(temp_int), typeof(temp_floats), typeof(temp_floats)}[]
+  end
   return RobinBCs(
-    map(x -> adapt(to, x), bcs.bc_caches),
+    bc_caches,
     bcs.bc_funcs,
     bcs.block_ids,
     bcs.block_names
@@ -106,9 +128,6 @@ function Adapt.adapt_structure(to, bcs::RobinBCs)
 end
 
 function update_bc_values!(bcs::RobinBCs, assembler, X, t, U)
-  # for (bc, func) in zip(bcs.bc_caches, bcs.bc_funcs)
-  #   _update_bc_values!(bc.vals, bc.dvalsdu, func, bc.ref_fe, bc.element_conns.data, bc.sides, X, t, U)
-  # end
   fspace = function_space(assembler.dof)
   for n in axes(bcs.block_ids, 1)
     bc = values(bcs.bc_caches)[n]
