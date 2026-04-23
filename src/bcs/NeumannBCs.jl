@@ -28,14 +28,28 @@ Internal implementation of dirichlet BCs
 struct NeumannBCContainer{
   IT <: Integer,
   IV <: AbstractArray{IT, 1},
-  RV <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  RE <: ReferenceFE
-} <: AbstractWeaklyEnforcedBCContainer{IT, IV, RV, RE}
+  RM <: AbstractArray{<:Union{<:Number, <:SVector}, 2}
+} <: AbstractWeaklyEnforcedBCContainer{IT, IV, RM}
   element_conns::Connectivity{IT, IV}
   elements::IV
   sides::IV
-  ref_fe::RE
-  vals::RV
+  vals::RM
+
+  function NeumannBCContainer(element_conns::Connectivity{IT, IV}, elements::IV, sides::IV, vals::RM) where {IT, IV, RM}
+    new{IT, IV, RM}(element_conns, elements, sides, vals)
+  end
+
+  function NeumannBCContainer{IT, IV, RM}() where {IT, IV, RM}
+    new{IT, IV, RM}(Connectivity{IT, IV}(), IV(undef, 0), IV(undef, 0), RM(undef, 0))
+  end
+end
+
+function Adapt.adapt_structure(to, bc::NeumannBCContainer)
+  el_conns = adapt(to, bc.element_conns)
+  elements = adapt(to, bc.elements)
+  sides = adapt(to, bc.sides)
+  vals = adapt(to, bc.vals)
+  return NeumannBCContainer(el_conns, elements, sides, vals)
 end
 
 function _update_bc_values!(vals, func, ref_fe, conns, sides, X, t)
@@ -51,12 +65,24 @@ function _update_bc_values!(vals, func, ref_fe, conns, sides, X, t)
   end
 end
 
+struct NeumannBCFunction{F} <: AbstractBCFunction{F}
+  func::F
+end
+
+function (f::NeumannBCFunction)(x, t)
+  return f.func(x, t)
+end
+
 struct NeumannBCs{
-  BCCaches <: NamedTuple, 
-  BCFuncs  <: NamedTuple
+  BCFuncs,
+  IT      <: Integer,
+  IV      <: AbstractArray{IT, 1},
+  RM      <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
 } <: AbstractBCs{BCFuncs}
-  bc_caches::BCCaches
+  bc_caches::Vector{NeumannBCContainer{IT, IV, RM}}
   bc_funcs::BCFuncs
+  block_ids::Vector{Int}
+  block_names::Vector{String}
 end
 
 # note this method has the potential to make 
@@ -69,21 +95,39 @@ end
 # TODO below method also currently likely doesn't
 # handle blocks correclty 
 function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
+  bc_caches = NeumannBCContainer{Int, Vector{Int}, Matrix{Float64}}[]
   if length(neumann_bcs) == 0
-    return NeumannBCs(NamedTuple(), NamedTuple())
+    return NeumannBCs(bc_caches, NeumannBCFunction[], Int[], String[])
   end
 
-  new_bcs, new_funcs = _setup_weakly_enforced_bc_container(mesh, dof, neumann_bcs, NeumannBCContainer)
+  new_bcs, new_funcs, block_ids, block_names = _setup_weakly_enforced_bc_container(mesh, dof, neumann_bcs, NeumannBCContainer)
 
-  syms = tuple(map(x -> Symbol("neumann_bc_$x"), 1:length(new_bcs))...)
-  new_bcs = NamedTuple{syms}(tuple(new_bcs...))
-  new_funcs = NamedTuple{syms}(tuple(new_funcs...))
-  return NeumannBCs(new_bcs, new_funcs)
+  # TODO fix this up eventually
+  new_bcs = convert(Vector{typeof(new_bcs[1])}, new_bcs)
+  new_funcs = NeumannBCFunction.(new_funcs)
+  # syms = tuple(map(x -> Symbol("neumann_bc_$x"), 1:length(new_bcs))...)
+  # new_bcs = NamedTuple{syms}(tuple(new_bcs...))
+  # new_funcs = NamedTuple{syms}(tuple(new_funcs...))
+  return NeumannBCs(new_bcs, new_funcs, block_ids, block_names)
 end
 
-function update_bc_values!(bcs::NeumannBCs, X, t)
-  for (bc, func) in zip(bcs.bc_caches, bcs.bc_funcs)
-    _update_bc_values!(bc.vals, func, bc.ref_fe, bc.element_conns.data, bc.sides, X, t)
+function Adapt.adapt_structure(to, bcs::NeumannBCs)
+  return NeumannBCs(
+    map(x -> adapt(to, x), bcs.bc_caches),
+    bcs.bc_funcs,
+    bcs.block_ids,
+    bcs.block_names
+  )
+end
+
+function update_bc_values!(bcs::NeumannBCs, assembler, X, t)
+  fspace = function_space(assembler.dof)
+  for n in axes(bcs.block_ids, 1)
+    bc = bcs.bc_caches[n]
+    block_id = bcs.block_ids[n]
+    func = bcs.bc_funcs[n]
+    ref_fe = block_reference_element(fspace, block_id)
+    _update_bc_values!(bc.vals, func, ref_fe, bc.element_conns.data, bc.sides, X, t)
   end
   return nothing
 end

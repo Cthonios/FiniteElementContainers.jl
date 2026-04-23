@@ -11,14 +11,17 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct Parameters{
+  IT       <: Integer,
   RT       <: Number,
-  IV       <: AbstractVector{<:Integer},
+  IV       <: AbstractVector{IT},
   RV       <: AbstractVector{RT},
-  RM       <: AbstractMatrix,
+  RM1      <: AbstractMatrix,
+  RM2      <: AbstractMatrix,
   ICFuncs  <: AbstractVector,
   DBCFuncs <: AbstractVector,
   SrcFuncs <: AbstractVector,
-  NBCs,
+  # NBCs,
+  NBCFuncs <: AbstractVector,
   RBCs,
   Phys,
   Props,
@@ -27,9 +30,10 @@ struct Parameters{
 } <: AbstractParameters
   ics::InitialConditions{ICFuncs, IV, RV}
   dirichlet_bcs::DirichletBCs{DBCFuncs, IV, RV}
-  neumann_bcs::NBCs
+  # neumann_bcs::NBCs
+  neumann_bcs::NeumannBCs{NBCFuncs, IT, IV, RM1}
   robin_bcs::RBCs
-  sources::Sources{SrcFuncs, RM}
+  sources::Sources{SrcFuncs, RM2}
   times::TimeStepper{RT}
   physics::Phys
   properties::Props
@@ -241,7 +245,7 @@ function update_bc_values!(p::AbstractParameters, assembler)
   X = coordinates(p)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
-  update_bc_values!(p.neumann_bcs, X, t)
+  update_bc_values!(p.neumann_bcs, assembler, X, t)
   update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?
