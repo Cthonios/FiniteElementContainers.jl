@@ -112,13 +112,19 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
 end
 
 function Adapt.adapt_structure(to, bcs::NeumannBCs)
-  if length(bcs.bc_caches) == 0
-    caches = NeumannBCContainer{Int, Vector{Int}, Matrix{Float64}}[]
+  # NOTE
+  # below logic is needed due to improper
+  # adapt mapping for an empty array in julia 1.10/1.11
+  # where Vector{T}(undef, 0) gets mappend to Vector{Any}
+  if length(bcs.bc_caches) > 0
+    bc_caches = map(x -> adapt(to, x), bcs.bc_caches)
   else
-    caches = map(x -> adapt(to, x), bcs.bc_caches)
+    temp_int = adapt(to, zeros(Int, 0))
+    temp_floats = adapt(to, zeros(Float64, 0, 0))
+    bc_caches = NeumannBCContainer{Int, typeof(temp_int), typeof(temp_floats)}[]
   end
   return NeumannBCs(
-    caches,
+    bc_caches,
     bcs.bc_funcs,
     bcs.block_ids,
     bcs.block_names
