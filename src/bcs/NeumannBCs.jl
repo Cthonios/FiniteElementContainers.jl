@@ -95,8 +95,8 @@ end
 # TODO below method also currently likely doesn't
 # handle blocks correclty 
 function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
-  bc_caches = NeumannBCContainer{Int, Vector{Int}, Matrix{Float64}}[]
   if length(neumann_bcs) == 0
+    bc_caches = NeumannBCContainer{Int, Vector{Int}, Matrix{Float64}}[]
     return NeumannBCs(bc_caches, NeumannBCFunction[], Int[], String[])
   end
 
@@ -105,9 +105,6 @@ function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
   # TODO fix this up eventually
   new_bcs = convert(Vector{typeof(new_bcs[1])}, new_bcs)
   new_funcs = NeumannBCFunction.(new_funcs)
-  # syms = tuple(map(x -> Symbol("neumann_bc_$x"), 1:length(new_bcs))...)
-  # new_bcs = NamedTuple{syms}(tuple(new_bcs...))
-  # new_funcs = NamedTuple{syms}(tuple(new_funcs...))
   return NeumannBCs(new_bcs, new_funcs, block_ids, block_names)
 end
 

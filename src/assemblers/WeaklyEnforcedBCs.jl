@@ -39,7 +39,7 @@ function assemble_vector_weakly_enforced_bc!(
   storage, dof, U, X, bcs
 )
   # do not zero!
-  for (n, bc) in enumerate(values(bcs.bc_caches))
+  for (n, bc) in enumerate(bcs.bc_caches)
     block_id = bcs.block_ids[n]
     ref_fe = block_reference_element(function_space(dof), block_id)
     _assemble_block_vector_weakly_enforced_bc!(
