@@ -135,6 +135,8 @@ function Adapt.adapt_structure(to, conn::Connectivity{T, D}) where {T, D}
     )
 end
 
+Base.eltype(::Connectivity{T, D}) where {T, D} = T
+
 # NOT GPU safe
 function connectivity(conn::Connectivity, b::Int)
     nepe = conn.nepes[b]

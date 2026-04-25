@@ -135,6 +135,46 @@ struct Sources{
       source_block_ids, source_block_names, caches, funcs
     )
   end
+
+  function Sources{F}(mesh, dof::DofManager, sources) where F
+    ND = size(dof, 1)
+    RM = Matrix{SVector{ND, Float64}}
+    caches = SourceContainer{RM}[]
+    funcs = SourceFunction{F}[]
+    if length(sources) == 0
+      return Sources{typeof(funcs), RM}(Int[], String[], SourceContainer{RM}[], funcs)
+    end
+
+    fspace = function_space(dof)
+    ND = length(dof.var)
+    source_block_ids = Int[]
+    source_block_names = String[]
+    for source in sources
+      block_name = source.block_name
+      block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+      push!(source_block_ids, block_id)
+      push!(source_block_names, block_name)
+      NQ, NE = block_quadrature_size(fspace, block_id)
+      # conns = Connectivity([conns_full])
+      # if ND == 1
+      #   vals = zeros(Float64, NQ, nelem)
+      # else
+      vals  = zeros(SVector{ND, Float64}, NQ, NE)
+      # end
+
+      # Detect constant: the is_constant flag is set by the caller (Carina)
+      # via the Source struct. For now, default to false (re-evaluate every step).
+      is_constant = false
+
+      push!(caches, SourceContainer(vals, is_constant, Ref(false)))
+      push!(funcs, SourceFunction{F}(source.func))
+    end
+
+    # return Sources(source_block_ids, source_block_names, caches, funcs)
+    return Sources{typeof(funcs), RM}(
+      source_block_ids, source_block_names, caches, funcs
+    )
+  end
 end
 
 function Adapt.adapt(to, sources::Sources{SourceFuncs, RM}) where {SourceFuncs, RM}

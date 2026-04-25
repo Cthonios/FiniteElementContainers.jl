@@ -44,7 +44,11 @@ function app_main(ARGS::Vector{String})
     end
 
     times = TimeStepper(0.0, 0.0, 1)
-    p = FEC.TypeStableParameters{FT}(sim.mesh, asm, physics, props, sim.ics, sim.dbcs, times)
+    p = FEC.TypeStableParameters{FT}(
+        sim.mesh, asm,
+        physics, props,
+        sim.ics, sim.dbcs, sim.nbcs, sim.srcs, times
+    )
     # U = create_field(asm)
     # Uu = create_unknowns(asm)
 
