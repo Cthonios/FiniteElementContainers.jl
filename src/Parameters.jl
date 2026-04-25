@@ -1,3 +1,27 @@
+function _setup_state_variables(fspace, physics)
+  state_old = Array{Float64, 3}[]
+  state_new = Array{Float64, 3}[]
+  for (b, val) in enumerate(values(physics))
+    # create state variables for this block physics
+    NS = num_states(val)
+    NQ, NE = block_quadrature_size(fspace, b)
+
+    state_old_temp = zeros(NS, NQ, NE)
+    state_new_temp = zeros(NS, NQ, NE)
+    for e in 1:NE
+      for q in 1:NQ
+        state_old_temp[:, q, e] = create_initial_state(val)
+        state_new_temp[:, q, e] = create_initial_state(val)
+      end
+    end
+    push!(state_old, state_old_temp)
+    push!(state_new, state_new_temp)
+  end
+  state_old = L2Field(state_old)
+  state_new = L2Field(state_new)
+  return state_old, state_new
+end
+
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -87,26 +111,27 @@ function Parameters(
   end
 
   # setup state variables
-  state_old = Array{Float64, 3}[]
-  state_new = Array{Float64, 3}[]
-  for (b, val) in enumerate(values(physics))
-    # create state variables for this block physics
-    NS = num_states(val)
-    NQ, NE = block_quadrature_size(fspace, b)
+  # state_old = Array{Float64, 3}[]
+  # state_new = Array{Float64, 3}[]
+  # for (b, val) in enumerate(values(physics))
+  #   # create state variables for this block physics
+  #   NS = num_states(val)
+  #   NQ, NE = block_quadrature_size(fspace, b)
 
-    state_old_temp = zeros(NS, NQ, NE)
-    state_new_temp = zeros(NS, NQ, NE)
-    for e in 1:NE
-      for q in 1:NQ
-        state_old_temp[:, q, e] = create_initial_state(val)
-        state_new_temp[:, q, e] = create_initial_state(val)
-      end
-    end
-    push!(state_old, state_old_temp)
-    push!(state_new, state_new_temp)
-  end
-  state_old = L2Field(state_old)
-  state_new = L2Field(state_new)
+  #   state_old_temp = zeros(NS, NQ, NE)
+  #   state_new_temp = zeros(NS, NQ, NE)
+  #   for e in 1:NE
+  #     for q in 1:NQ
+  #       state_old_temp[:, q, e] = create_initial_state(val)
+  #       state_new_temp[:, q, e] = create_initial_state(val)
+  #     end
+  #   end
+  #   push!(state_old, state_old_temp)
+  #   push!(state_new, state_new_temp)
+  # end
+  # state_old = L2Field(state_old)
+  # state_new = L2Field(state_new)
+  state_old, state_new = _setup_state_variables(fspace, physics)
 
   # scratch
   field = create_field(dof)
@@ -182,14 +207,87 @@ function KA.get_backend(p::Parameters)
   return KA.get_backend(p.field)
 end
 
+struct TypeStableParameters{
+  # Funcs  <: AbstractVector,
+  FuncT,
+  IT     <: Integer,
+  RT     <: Number,
+  IV     <: AbstractVector{IT},
+  RV     <: AbstractVector{RT},
+  # RM1    <: AbstractMatrix,
+  # RM2    <: AbstractMatrix,
+  # RM3    <: AbstractMatrix,
+  # RM4    <: AbstractMatrix,
+  Phys,
+  Props,
+  Coords <: AbstractField,
+  Field  <: AbstractField 
+} <: AbstractParameters
+  ics::InitialConditions{Vector{InitialConditionFunction{FuncT}}, IV, RV}
+  dirichlet_bcs::DirichletBCs{Vector{DirichletBCFunction{FuncT, FuncT, FuncT}}, IV, RV}
+  # neumann_bcs::NeumannBCs{NBCFuncs, IT, IV, RM1}
+  # robin_bcs::RobinBCs{RBCFuncs, IT, IV, RM2, RM3}
+  # sources::Sources{SRCFuncs, RM4}
+  times::TimeStepper{RT}
+  physics::Phys
+  properties::Props
+  state_old::L2Field{RT, RV}
+  state_new::L2Field{RT, RV}
+  coords::Coords
+  field::Field
+  field_old::Field
+  # scratch fields
+  hvp_scratch_field::Field
+
+  function TypeStableParameters{F}(mesh, assembler, physics, props, ics, dbcs, times) where F
+    dof = assembler.dof
+    fspace = function_space(dof)
+    ics = InitialConditions{F}(mesh, dof, ics)
+    dbcs = DirichletBCs{F}(mesh, dof, dbcs)
+
+    state_old, state_new = _setup_state_variables(fspace, physics)
+
+    coords = mesh.nodal_coords
+    field = create_field(assembler)
+    field_old = create_field(assembler)
+    hvp_scratch_field = create_field(assembler)
+
+    # update assembler, where should this really live?
+    update_dofs!(assembler, dbcs)
+
+    new{
+      F, Int, Float64, Vector{Int}, Vector{Float64},
+      typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
+    }(
+      ics, dbcs, times, 
+      physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
+    )
+
+    # TODO need to settle on expected format for nbcs, rbcs, and sources...
+    # should we always expect a staticarrays even for a 1 dof problem?
+    # RM1 = Matrix{Float64}
+    # RM2 = Matrix{Float64}
+    # RM3 = Matrix{Float64}
+    # RM4 = Matrix{Float64}
+
+    # new{
+    #   F, Int, Float64, Vector{Int}, Vector{Float64}, RM1, RM2, RM3, RM4,
+    #   typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
+    # }(
+    #   ics, dbcs, times, 
+    #   physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
+    # )
+  end
+end
+
 function create_parameters(
   mesh, assembler, physics, props;
-  ics=InitialCondition[],
-  dirichlet_bcs=DirichletBC[],
-  neumann_bcs=NeumannBC[],
-  robin_bcs=RobinBC[],
-  sources=Source[],
-  times=nothing
+  ics                  = InitialCondition[],
+  dirichlet_bcs        = DirichletBC[],
+  neumann_bcs          = NeumannBC[],
+  robin_bcs            = RobinBC[],
+  sources              = Source[],
+  times                = nothing
 )
   return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, robin_bcs, sources, times)
 end
@@ -247,6 +345,23 @@ function update_bc_values!(p::AbstractParameters, assembler)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, assembler, X, t)
   update_source_values!(p.sources, assembler, X, t)
+
+  # TODO how to handle Robin BCs?
+  # currently assembly methods handle updating the field
+  # in parameters with the current unknown dofs
+  # we need field here to reflect that for the robin bcs
+  # to be correct...
+
+  # order of operations goes
+  return nothing
+end
+
+function update_bc_values!(p::TypeStableParameters, assembler)
+  X = coordinates(p)
+  t = current_time(p)
+  update_bc_values!(p.dirichlet_bcs, X, t)
+  # update_bc_values!(p.neumann_bcs, assembler, X, t)
+  # update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?
   # currently assembly methods handle updating the field

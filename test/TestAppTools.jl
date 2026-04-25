@@ -132,7 +132,7 @@ end
     @test isdir("MyApp/src")
     @test isfile("MyApp/src/MyApp.jl")
     # TODO re-enable after future release
-    # AT.build_app(; path = "MyApp")
+    AT.build_app(; path = "MyApp")
     rm("MyApp"; force = true, recursive = true)
 
     mkdir("app_dir")

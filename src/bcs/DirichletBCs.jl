@@ -347,7 +347,7 @@ function Adapt.adapt_structure(to, bcs::DirichletBCs{BCF, IV, RV}) where {BCF, I
   else
     temp_int = adapt(to, zeros(Int, 0))
     temp_floats = adapt(to, zeros(Float64, 0))
-    bc_cache = DirichletBCContainer{typeof(temp_int), typeof(temp_float)}(
+    bc_cache = DirichletBCContainer(
       temp_int, copy(temp_int),
       temp_floats, copy(temp_floats), copy(temp_floats)
     )

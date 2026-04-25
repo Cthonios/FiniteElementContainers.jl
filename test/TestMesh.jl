@@ -1,9 +1,3 @@
-using FiniteElementContainers
-using Test
-
-geo_file_tri3 = Base.source_dir() * "/gmsh/square_meshed_with_tris.geo"
-msh_file_tri3 = Base.source_dir() * "/gmsh/square_meshed_with_tris.msh"
-
 # TODO revive this guy
 function test_amr_mesh()
   mesh = StructuredMesh("tri", (0., 0.), (1., 1.), (5, 5))
@@ -68,7 +62,7 @@ function test_amr_mesh()
   FiniteElementContainers.write_to_file(amr, "atri.exo"; force = true)
 end
 
-@testitem "Meshes - test_gmsh_mesh" begin
+@testitem "Meshes - test_gmsh_mesh" tags=[:gmsh] begin
   using Gmsh
   geo_file_tri3 = Base.source_dir() * "/gmsh/square_meshed_with_tris.geo"
   msh_file_tri3 = Base.source_dir() * "/gmsh/square_meshed_with_tris.msh"

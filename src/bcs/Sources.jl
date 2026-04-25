@@ -33,7 +33,7 @@ volume quadrature points for one block.
   and have assemblers just ping the correct block
 """
 struct SourceContainer{
-  RM <: AbstractArray{<:Union{<:Number, <:SVector}, 2}
+  RM <: AbstractMatrix{<:SVector}
 }
   vals::RM                    # size (NQ_cell, nelem) of SVector{ND}
   is_constant::Bool           # skip re-evaluation after first call
@@ -83,7 +83,7 @@ Collection of body force containers, one per specified body force entry.
 """
 struct Sources{
   SourceFuncs,
-  RM           <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
+  RM           <: AbstractMatrix{<:SVector},
 } <: AbstractBCs{SourceFuncs}
   source_block_ids::Vector{Int} # note this is the id order in FEC not the id in exodus
   source_block_names::Vector{String}
@@ -102,7 +102,7 @@ struct Sources{
     caches = SourceContainer{Matrix{SVector{ND, RT}}}[]
     funcs = SourceFunction[]
     if length(sources) == 0
-      return Sources{typeof(funcs), Matrix{SVector{ND, RT}}}(Int[], String[], SourceContainer{Matrix{RT}}[], funcs)
+      return Sources{typeof(funcs), Matrix{SVector{ND, RT}}}(Int[], String[], SourceContainer{Matrix{SVector{ND, RT}}}[], funcs)
     end
 
     fspace = function_space(dof)
@@ -138,11 +138,11 @@ struct Sources{
 end
 
 function Adapt.adapt(to, sources::Sources{SourceFuncs, RM}) where {SourceFuncs, RM}
-  # needed due to failures on 1.10 and 1.11
-  if length(sources.source_caches) == 0
-    caches = Vector{SourceContainer{Matrix{Float64}}}(undef, 0)
-  else
+  if length(sources.source_caches) > 0
     caches = map(x -> adapt(to, x), sources.source_caches)
+  else
+    temp = adapt(to, _vals_type(sources.source_caches)(undef, 0, 0))
+    caches = SourceContainer{typeof(temp)}[]
   end
 
   return Sources{SourceFuncs, _vals_type(caches)}(

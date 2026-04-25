@@ -60,6 +60,8 @@ const _el_name_to_juliac_safe_id = Dict{String, Int}(
   "TETRA10" => 7
 )
 
+const MAX_BLOCKS = 16
+
 function _setup_block_to_ref_fe_id(mesh::AbstractMesh, is_juliac_safe::Bool)
   if is_juliac_safe
     block_ids = Vector{Int}(undef, 0)
@@ -71,6 +73,17 @@ function _setup_block_to_ref_fe_id(mesh::AbstractMesh, is_juliac_safe::Bool)
   else
     return 1:length(mesh.element_types) |> collect
   end
+end
+
+function _setup_juliac_safe_block_to_ref_fe_id(mesh::AbstractMesh)
+  names = mesh.element_block_names
+  el_types = map(x -> _el_name_to_juliac_safe_id[mesh.element_types[x]], names)
+  N = length(names)
+  return ntuple(i -> i <= N ? el_types[i] : -1, Val(MAX_BLOCKS))  # replace `i` with your actual block value
+end
+
+function _setup_block_to_ref_fe_id(mesh::AbstractMesh)
+  return 1:length(mesh.element_types) |> collect
 end
 
 # Lagrange elements
@@ -147,13 +160,15 @@ $(TYPEDFIELDS)
 """
 struct FunctionSpace{
   IsJuliaCSafe,
-  IT <: Integer,
-  IV <: AbstractVector{IT},
+  IT            <: Integer,
+  IV            <: AbstractVector{IT},
+  BTRE,
   Coords,
   RefFEs
 } <: AbstractFunctionSpace
   block_names::Vector{String}
-  block_to_ref_fe_id::Vector{IT} # only used in juliac builds
+  # block_to_ref_fe_id::Vector{IT} # only used in juliac builds
+  block_to_ref_fe_id::BTRE
   coords::Coords
   elem_conns::Connectivity{IT, IV}
   elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
@@ -163,7 +178,8 @@ struct FunctionSpace{
     block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes
   ) where is_juliac_safe
     new{
-      is_juliac_safe, eltype(conns.data), typeof(conns.data), typeof(coords), typeof(ref_fes)
+      is_juliac_safe, eltype(conns.data), typeof(conns.data), 
+      typeof(block_to_ref_fe_id), typeof(coords), typeof(ref_fes)
     }(block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes)
   end
 end
@@ -207,7 +223,12 @@ function FunctionSpace{is_juliac_safe}(
     conns = Connectivity([val for val in values(mesh.element_conns)])
   end
   elem_id_maps = [val for val in values(mesh.element_id_maps)]
-  block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, is_juliac_safe)
+  if is_juliac_safe
+    block_to_ref_fe_id = _setup_juliac_safe_block_to_ref_fe_id(mesh)
+  else
+    # block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, is_juliac_afe)
+    block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh)
+  end
 
   return FunctionSpace{is_juliac_safe}(mesh.element_block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes)
 end
@@ -273,7 +294,7 @@ function block_reference_element(fspace::FunctionSpace{false, I, V, C, R}, block
   return fspace.ref_fes[block_id]
 end
 
-function block_reference_element_old(fspace::FunctionSpace{true, I, V, C, R}, block_id::Int) where {I, V, C, R}
+function block_reference_element(fspace::FunctionSpace{true, I, V, C, R}, block_id::Int) where {I, V, C, R}
   ref_fe_id = fspace.block_to_ref_fe_id[block_id]
   return fspace.ref_fes[ref_fe_id]
 end

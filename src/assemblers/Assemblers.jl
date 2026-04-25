@@ -258,7 +258,7 @@ function _sparse_matrix(asm::AbstractAssembler, storage)
   elseif isa(type, CSRMatrix)
     return _csr_matrix(asm.matrix_pattern, asm.dof, storage)
   else
-    @assert false "Should never happen. Handle this case better"
+    @assert false "Should never happen. Handle this case better. Type is $(_sparse_matrix_type(asm))"
   end
 end
 
@@ -325,9 +325,9 @@ $(TYPEDSIGNATURES)
 assumes assemble_vector! has already been called
 """
 function residual(asm::AbstractAssembler; use_sparse_vector = false)
-  if use_sparse_vector
-    return sparsevec(asm.vector_pattern, asm.residual_unknowns)
-  else
+  # if use_sparse_vector
+    # return sparsevec(asm.vector_pattern, asm.residual_unknowns)
+  # else
     if _is_condensed(asm.dof)
       _adjust_vector_entries_for_constraints!(
         asm.residual_storage, asm.constraint_storage
@@ -341,7 +341,7 @@ function residual(asm::AbstractAssembler; use_sparse_vector = false)
       )
       return asm.residual_unknowns
     end
-  end
+  # end
 end
 
 """
