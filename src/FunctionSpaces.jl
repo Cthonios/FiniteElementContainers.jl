@@ -88,17 +88,19 @@ end
 
 # Lagrange elements
 # defaulting to fully integrated elements for now
-function _setup_juliac_safe_ref_fes(::Type{Lagrange}, q_type::Type{QT}) where {QT <: AbstractQuadratureType}
-  ref_fes = (
-    ReferenceFE(Hex{Lagrange, 1}(), QT(2, 2)),  # HEX8 for Lagrange
-    ReferenceFE(Quad{Lagrange, 1}(), QT(2, 2)), # QUAD4 for Lagrange
-    ReferenceFE(Quad{Lagrange, 2}(), QT(2, 2)), # QUAD9 for Lagrange
-    ReferenceFE(Tri{Lagrange, 1}(), QT(2, 2)),  # Tri3 for Lagrange
-    ReferenceFE(Tri{Lagrange, 2}(), QT(2, 2)),  # Tri3 for Lagrange
-    ReferenceFE(Tet{Lagrange, 1}(), QT(2, 2)),  # Tri3 for Lagrange
-    ReferenceFE(Tet{Lagrange, 2}(), QT(2, 2))   # Tri3 for Lagrange
-  )
-  return ref_fes
+@generated function _setup_juliac_safe_ref_fes(::Type{Lagrange}, q_type::Type{QT}) where {QT <: AbstractQuadratureType}
+  quote 
+    (
+      ReferenceFE(Hex{Lagrange, 1}(), QT(2, 2)),  # HEX8 for Lagrange
+      ReferenceFE(Quad{Lagrange, 1}(), QT(2, 2)), # QUAD4 for Lagrange
+      ReferenceFE(Quad{Lagrange, 2}(), QT(2, 2)), # QUAD9 for Lagrange
+      ReferenceFE(Tri{Lagrange, 1}(), QT(2, 2)),  # Tri3 for Lagrange
+      ReferenceFE(Tri{Lagrange, 2}(), QT(2, 2)),  # Tri3 for Lagrange
+      ReferenceFE(Tet{Lagrange, 1}(), QT(2, 2)),  # Tri3 for Lagrange
+      ReferenceFE(Tet{Lagrange, 2}(), QT(2, 2))   # Tri3 for Lagrange
+    )
+  end
+  # return ref_fes
 end
 
 """
@@ -282,7 +284,7 @@ function Base.show(io::IO, fspace::FunctionSpace)
   end
 end
 
-function _is_juliac_safe(::FunctionSpace{B, I, V, C, R}) where {B, I, V, C, R}
+function _is_juliac_safe(::FunctionSpace{B, I, V, BTRE, C, R}) where {B, I, V, BTRE, C, R}
   return B
 end
 
@@ -290,14 +292,61 @@ function block_entity_size(fspace::FunctionSpace, b::Int)
   return (num_entities_per_element(fspace, b), num_elements(fspace, b))
 end
 
-function block_reference_element(fspace::FunctionSpace{false, I, V, C, R}, block_id::Int) where {I, V, C, R}
+function block_reference_element(fspace::FunctionSpace{false, I, V, BTRE, C, R}, block_id::Int) where {I, V, BTRE, C, R}
   return fspace.ref_fes[block_id]
 end
 
-function block_reference_element(fspace::FunctionSpace{true, I, V, C, R}, block_id::Int) where {I, V, C, R}
-  ref_fe_id = fspace.block_to_ref_fe_id[block_id]
-  return fspace.ref_fes[ref_fe_id]
-end
+# @generated function block_reference_element(
+#   fspace::FunctionSpace{true, I, V, BTRE, C, R},
+#   block_id::Int
+# ) where {I, V, BTRE, C, R}
+
+#   n_refs = length(BTRE.parameters)
+
+#   cases = map(1:n_refs) do j
+#       quote
+#           if fspace.block_to_ref_fe_id[block_id] == $j
+#               return fspace.ref_fes[$j]
+#           end
+#       end
+#   end
+
+#   quote
+#       id = fspace.block_to_ref_fe_id[block_id]
+#       if id == -1
+#           error("Inactive block ", block_id)
+#       end
+#       $(cases...)
+#       error("Invalid ref_fe id ", id)
+#   end
+# end
+# @generated function block_reference_element(
+#   fspace::FunctionSpace{true, IT, IV, BTRE, C, R},
+#   block_id::Int
+# ) where {IT, IV, BTRE, C, R}
+
+#   n_refs = length(BTRE.parameters)
+
+#   cases = map(1:n_refs) do j
+#       quote
+#           if block_id == $j
+#               return fspace.ref_fes[$j]
+#           end
+#       end
+#   end
+
+#   quote
+#       id = fspace.block_to_ref_fe_id[block_id]  # runtime value (OK)
+
+#       if id == -1
+#           error("Inactive block ", block_id)
+#       end
+
+#       $(cases...)  # ONLY depends on compile-time j
+
+#       error("Invalid ref_fe id ", id)
+#   end
+# end
 
 # this does not work behind juliac
 function block_quadrature_size(fspace::FunctionSpace{false}, b::Int)

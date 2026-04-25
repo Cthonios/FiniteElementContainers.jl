@@ -197,3 +197,28 @@ end
     end
     quote $(exprs...) end
 end
+
+@generated function foreach_block(
+    f,
+    fspace::FunctionSpace{B, IT, IV, BTRE, C, R}
+) where {B, IT, IV, BTRE, C, R}
+    exprs = map(1:MAX_BLOCKS) do i
+        # For each slot i, generate a branch over ALL possible ref_fe indices
+        # block_to_ref_fe_id[i] == -1 means inactive block
+        # Otherwise it's 1..length(REFS) — enumerate them all statically
+        n_refs = length(BTRE.parameters)
+        ref_dispatches = map(1:n_refs) do j
+            quote
+                if fspace.block_to_ref_fe_id[$i] == $j
+                    f(fspace.ref_fes[$j], $i)
+                end
+            end
+        end
+        quote
+            if fspace.block_to_ref_fe_id[$i] != -1
+                $(ref_dispatches...)
+            end
+        end
+    end
+    quote $(exprs...) end
+end

@@ -279,10 +279,7 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
 
       # TODO update nodes and dofs
       new_bk = BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides, new_side_nodes)
-      # id = indexin(block_name, mesh.element_block_names)
       id = findfirst(x -> x == block_name, mesh.element_block_names)
-      # ref_fe = getproperty(fspace.ref_fes, block_name)
-      # ref_fe = fspace.ref_fes[mesh.element_types]
       ref_fe = fspace.ref_fes[id]
       NQ = num_surface_quadrature_points(ref_fe)
       ND = length(dof.var)
@@ -315,4 +312,150 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
     end
   end
   return new_bcs, new_funcs, block_ids, block_names
+end
+
+function _setup_sideset(mesh, dof, bc)
+  # just check that this is here..., if its not
+  # below method call will throw an error
+  _dof_index_from_var_name(dof, bc.var_name)
+
+  # get sset specific fields
+  sideset_name = bc.sset_name
+  elements = mesh.sideset_elems[sideset_name]
+  sides = mesh.sideset_sides[sideset_name]
+  side_nodes = mesh.sideset_side_nodes[sideset_name]
+
+  # gather the blocks that are present in this sideset
+  # and also map global element id to local element id
+  blocks = Vector{Int64}(undef, 0)
+  for (n, val) in enumerate(values(mesh.element_id_maps))
+    # note these are the local elem id to the block, e.g. starting from 1.
+    indices_in_sset = indexin(val, elements)
+    filter!(x -> x !== nothing, indices_in_sset)
+
+    if length(indices_in_sset) > 0
+      append!(blocks, repeat([n], length(indices_in_sset)))
+    end
+  end
+
+  unique_block_ids = sort(unique(blocks))
+  @assert length(unique_block_ids) == 1 "Sidesets need to be in a single block"
+  block_name = mesh.element_block_names[unique_block_ids[1]]
+  ids = findall(x -> x == unique_block_ids[1], blocks)
+  indices_in_sset = indexin(elements, mesh.element_id_maps[block_name])
+  filter!(x -> x !== nothing, indices_in_sset)
+  elements = convert(Vector{Int}, indices_in_sset)
+
+  # end bc bookkeeping
+
+  block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+
+  # this probably doesn't do anything for when we just have one block
+  blocks = blocks[ids]
+  elements = elements[ids]
+  sides = sides[ids]
+  side_nodes = side_nodes[ids]
+
+  # setup cache and connectivity
+  fspace = function_space(dof)
+  ref_fe = block_reference_element(fspace, block_id)
+  # NQs = Int[]
+  # # NQ = -1
+  # foreach_block(fspace.block_to_ref_fe_id) do ref_fe, b
+  #   # if fspace.block_to_ref_fe_id == -1
+  #   #   push!(NQs, -1)
+  #   # else
+  #   #   NQ = num_surface_quadrature_points(ref_fe)
+  #   #   push!(NQs, NQ)
+  #   if b == block_id
+  #     NQ = num_surface_quadrature_points(ref_fe)
+  #     push!(NQ, NQ)
+  #   end
+  # end
+  # @assert length(NQs) == 1
+  # NQ = NQs[1]
+  # @assert NQ != -1 "Bad quadrature"
+
+  NQ = num_surface_quadrature_points(ref_fe)
+  ND = size(dof, 1)
+
+  # need to carefully check this guy
+  conns = mesh.element_conns[block_name][:, elements]
+  conns = Connectivity(Matrix{Int}[conns])
+  vals = zeros(SVector{ND, Float64}, NQ, length(sides))
+
+  return block_id, block_name, conns, elements, sides, vals
+end
+
+function _setup_sideset_juliac_safe(mesh, dof, bc)
+  # just check that this is here..., if its not
+  # below method call will throw an error
+  _dof_index_from_var_name(dof, bc.var_name)
+
+  # get sset specific fields
+  sideset_name = bc.sset_name
+  elements = mesh.sideset_elems[sideset_name]
+  sides = mesh.sideset_sides[sideset_name]
+  side_nodes = mesh.sideset_side_nodes[sideset_name]
+
+  # gather the blocks that are present in this sideset
+  # and also map global element id to local element id
+  blocks = Vector{Int64}(undef, 0)
+  for (n, val) in enumerate(values(mesh.element_id_maps))
+    # note these are the local elem id to the block, e.g. starting from 1.
+    indices_in_sset = indexin(val, elements)
+    filter!(x -> x !== nothing, indices_in_sset)
+
+    if length(indices_in_sset) > 0
+      append!(blocks, repeat([n], length(indices_in_sset)))
+    end
+  end
+
+  unique_block_ids = sort(unique(blocks))
+  @assert length(unique_block_ids) == 1 "Sidesets need to be in a single block"
+  block_name = mesh.element_block_names[unique_block_ids[1]]
+  ids = findall(x -> x == unique_block_ids[1], blocks)
+  indices_in_sset = indexin(elements, mesh.element_id_maps[block_name])
+  filter!(x -> x !== nothing, indices_in_sset)
+  elements = convert(Vector{Int}, indices_in_sset)
+
+  # end bc bookkeeping
+
+  block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+
+  # this probably doesn't do anything for when we just have one block
+  blocks = blocks[ids]
+  elements = elements[ids]
+  sides = sides[ids]
+  side_nodes = side_nodes[ids]
+
+  # setup cache and connectivity
+  fspace = function_space(dof)
+  # ref_fe = block_reference_element(fspace, block_id)
+  NQs = Int[]
+  # NQ = -1
+  foreach_block(fspace.block_to_ref_fe_id) do ref_fe, b
+    # if fspace.block_to_ref_fe_id == -1
+    #   push!(NQs, -1)
+    # else
+    #   NQ = num_surface_quadrature_points(ref_fe)
+    #   push!(NQs, NQ)
+    if b == block_id
+      NQ = num_surface_quadrature_points(ref_fe)
+      push!(NQ, NQ)
+    end
+  end
+  @assert length(NQs) == 1
+  NQ = NQs[1]
+  @assert NQ != -1 "Bad quadrature"
+
+  # NQ = num_surface_quadrature_points(ref_fe)
+  ND = size(dof, 1)
+
+  # need to carefully check this guy
+  conns = mesh.element_conns[block_name][:, elements]
+  conns = Connectivity(Matrix{Int}[conns])
+  vals = zeros(SVector{ND, Float64}, NQ, length(sides))
+
+  return block_id, block_name, conns, elements, sides, vals
 end
