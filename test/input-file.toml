@@ -17,10 +17,10 @@ file_type = "exodus"
 
 [[initial_conditions]]
 function = "one"
-block = "block_1"
-variable = "u"
+blocks = ["block_1"]
+variables = ["u"]
 
 [[boundary_conditions.dirichlet]]
 function = "zero"
-side_set = "sset_1"
-variable = "u"
+side_sets = ["sset_1"]
+variables = ["u"]

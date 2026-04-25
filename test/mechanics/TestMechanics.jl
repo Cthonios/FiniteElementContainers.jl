@@ -21,7 +21,7 @@
 # )
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Mechanics(1.0, PlaneStrain())
+  physics = Mechanics(PlaneStrain())
   props = create_properties(physics)
   u = VectorFunction(V, "displ")
   times = TimeStepper(0., 1., 1)

@@ -101,7 +101,6 @@ struct Connectivity{
     nepes::Vector{T}
     nelems::Vector{T}
     offsets::Vector{T}
-# end
 
     function Connectivity(mats::Vector{<:AbstractArray{<:Integer, 2}})
         nblocks = length(mats)
@@ -114,7 +113,6 @@ struct Connectivity{
             offset += nepe * nelem
         end
         data = mapreduce(vec, vcat, mats)
-        # return Connectivity(data, nblocks, nepes, nelems, offsets)
         new{eltype(data), typeof(data)}(data, nblocks, nepes, nelems, offsets)
     end
 

@@ -1,20 +1,20 @@
 # using Enzyme
 
-struct Mechanics{Form} <: AbstractPhysics{2, 2, 0}
-  density::Float64
+struct Mechanics{Form} <: AbstractPhysics{2, 3, 0}
   formulation::Form
 end
 
 function FiniteElementContainers.create_properties(::Mechanics)
+  ρ = 1e3
   K = 10.e9
   G = 1.e9
-  return SVector{2, Float64}(K, G)
+  return SVector{3, Float64}(ρ, K, G)
 end
 
 @inline function strain_energy(
   ∇u, state_old, props, dt
 )
-  K, G = props[1], props[2]
+  K, G = props[2], props[3]
   ε = symmetric(∇u)
   ψ = 0.5 * K * tr(ε)^2 + G * dcontract(dev(ε), dev(ε))
 end
@@ -22,7 +22,7 @@ end
 @inline function pk1_stress(
   ∇u, state_old, props, dt
 )
-  K, G = props[1], props[2]
+  K, G = props[2], props[3]
   ε = symmetric(∇u)
   # ε_dev = dev(ε)
   I = one(Tensor{2, 3, Float64, 9})
@@ -81,7 +81,7 @@ end
     end
   end
   M_el = SMatrix{NDOF, NDOF, eltype(N), NDOF * NDOF}(tup.data)
-  return JxW * physics.density * M_el
+  return JxW * props_el[1] * M_el
 end
 
 @inline function FiniteElementContainers.mass!(
@@ -92,7 +92,7 @@ end
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
-  scatter_with_values_and_values!(storage, physics.formulation, e, conn, N, JxW * physics.density)
+  scatter_with_values_and_values!(storage, physics.formulation, e, conn, N, JxW * props_el[1])
 end
 
 @inline function FiniteElementContainers.mass_action!(
@@ -103,7 +103,7 @@ end
 )
   interps = map_interpolants(interps, x_el)
   (; N, JxW) = interps
-  scatter_with_values_and_values!(storage, physics.formulation, e, conn, N, JxW * physics.density, v_el)
+  scatter_with_values_and_values!(storage, physics.formulation, e, conn, N, JxW * props_el[1], v_el)
 end
 
 # note for CUDA things crash without inline

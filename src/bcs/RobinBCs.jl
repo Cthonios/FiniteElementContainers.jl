@@ -27,9 +27,9 @@ Internal implementation of dirichlet BCs
 """
 struct RobinBCContainer{
   IT  <: Integer,
-  IV  <: AbstractArray{IT, 1},
-  RM  <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-  dRM <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2}
+  IV  <: AbstractVector{IT},
+  RM  <: AbstractMatrix{<:SVector},
+  dRM <: AbstractMatrix{<:SMatrix}
 } <: AbstractWeaklyEnforcedBCContainer{IT, IV, RM}
   element_conns::Connectivity{IT, IV}
   elements::IV
@@ -45,6 +45,10 @@ struct RobinBCContainer{
     new{IT, IV, RM, dRM}(Connectivity{IT, IV}(), IV(undef, 0), IV(undef, 0), RM(undef, 0, 0), dRM(undef, 0, 0))
   end
 end
+
+_dvals_type(::Vector{RobinBCContainer{IT, IV, RM, dRM}}) where {IT, IV, RM, dRM} = dRM
+_vals_type(::Vector{RobinBCContainer{IT, IV, RM, dRM}}) where {IT, IV, RM, dRM} = RM
+
 
 function Adapt.adapt_structure(to, bc::RobinBCContainer)
   el_conns = adapt(to, bc.element_conns)
@@ -84,9 +88,9 @@ end
 struct RobinBCs{
     BCFuncs,
     IT       <: Integer,
-    IV       <: AbstractArray{IT, 1},
-    RM       <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
-    dRM      <: AbstractArray{<:Union{<:Number, <:SMatrix}, 2}  
+    IV       <: AbstractVector{IT},
+    RM       <: AbstractMatrix{<:SVector},
+    dRM      <: AbstractMatrix{<:SMatrix}  
 } <: AbstractBCs{BCFuncs}
     bc_caches::Vector{RobinBCContainer{IT, IV, RM, dRM}}
     bc_funcs::BCFuncs
@@ -96,7 +100,8 @@ end
 
 function RobinBCs(mesh, dof::DofManager, robin_bcs::Vector{RobinBC})
     if length(robin_bcs) == 0
-      bc_caches = RobinBCContainer{Int, Vector{Int}, Matrix{Float64}, Matrix{Float64}}[]
+      ND = size(dof, 1)
+      bc_caches = RobinBCContainer{Int, Vector{Int}, Matrix{SVector{ND, Float64}}, Matrix{SMatrix{ND, ND, Float64, ND * ND}}}[]
       return RobinBCs(bc_caches, RobinBCFunction[], Int[], String[])
     end
 
@@ -116,8 +121,9 @@ function Adapt.adapt_structure(to, bcs::RobinBCs)
     bc_caches = map(x -> adapt(to, x), bcs.bc_caches)
   else
     temp_int = adapt(to, zeros(Int, 0))
-    temp_floats = adapt(to, zeros(Float64, 0, 0))
-    bc_caches = RobinBCContainer{Int, typeof(temp_int), typeof(temp_floats), typeof(temp_floats)}[]
+    temp_vals = adapt(to, _vals_type(bcs.bc_caches)(undef, 0, 0))
+    temp_dvals = adapt(to, _dvals_type(bcs.bc_caches)(undef, 0, 0))
+    bc_caches = RobinBCContainer{Int, typeof(temp_int), typeof(temp_vals), typeof(temp_dvals)}[]
   end
   return RobinBCs(
     bc_caches,

@@ -27,8 +27,8 @@ Internal implementation of dirichlet BCs
 """
 struct NeumannBCContainer{
   IT <: Integer,
-  IV <: AbstractArray{IT, 1},
-  RM <: AbstractArray{<:Union{<:Number, <:SVector}, 2}
+  IV <: AbstractVector{IT},
+  RM <: AbstractMatrix{<:SVector}
 } <: AbstractWeaklyEnforcedBCContainer{IT, IV, RM}
   element_conns::Connectivity{IT, IV}
   elements::IV
@@ -43,6 +43,8 @@ struct NeumannBCContainer{
     new{IT, IV, RM}(Connectivity{IT, IV}(), IV(undef, 0), IV(undef, 0), RM(undef, 0))
   end
 end
+
+_vals_type(::Vector{NeumannBCContainer{IT, IV, RM}}) where {IT, IV, RM} = RM
 
 function Adapt.adapt_structure(to, bc::NeumannBCContainer)
   el_conns = adapt(to, bc.element_conns)
@@ -76,8 +78,8 @@ end
 struct NeumannBCs{
   BCFuncs,
   IT      <: Integer,
-  IV      <: AbstractArray{IT, 1},
-  RM      <: AbstractArray{<:Union{<:Number, <:SVector}, 2},
+  IV      <: AbstractVector{IT},
+  RM      <: AbstractMatrix{<:SVector},
 } <: AbstractBCs{BCFuncs}
   bc_caches::Vector{NeumannBCContainer{IT, IV, RM}}
   bc_funcs::BCFuncs
@@ -96,7 +98,8 @@ end
 # handle blocks correclty 
 function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
   if length(neumann_bcs) == 0
-    bc_caches = NeumannBCContainer{Int, Vector{Int}, Matrix{Float64}}[]
+    ND = size(dof, 1)
+    bc_caches = NeumannBCContainer{Int, Vector{Int}, Matrix{SVector{ND, Float64}}}[]
     return NeumannBCs(bc_caches, NeumannBCFunction[], Int[], String[])
   end
 
@@ -117,8 +120,8 @@ function Adapt.adapt_structure(to, bcs::NeumannBCs)
     bc_caches = map(x -> adapt(to, x), bcs.bc_caches)
   else
     temp_int = adapt(to, zeros(Int, 0))
-    temp_floats = adapt(to, zeros(Float64, 0, 0))
-    bc_caches = NeumannBCContainer{Int, typeof(temp_int), typeof(temp_floats)}[]
+    temp_vals = adapt(to, _vals_type(bcs.bc_caches)(undef, 0, 0))
+    bc_caches = NeumannBCContainer{Int, typeof(temp_int), typeof(temp_vals)}[]
   end
   return NeumannBCs(
     bc_caches,

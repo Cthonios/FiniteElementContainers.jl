@@ -209,7 +209,7 @@ end
 end
 
 # MOVE below two to standalone gmsh ci testing maybe?
-@testitem "Regression test - test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3" setup=[PoissonRegressionHelper] begin
+@testitem "Regression test - test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3" setup=[PoissonRegressionHelper] tags=[:gmsh] begin
   using Gmsh
   geo_file_tri3 = dirname(Base.source_dir()) * "/gmsh/square_meshed_with_tris.geo"
   output_file = "poisson_test_3.e"
@@ -265,7 +265,7 @@ end
   end
 end
 
-@testitem "Regression test - test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3" setup=[PoissonRegressionHelper] begin
+@testitem "Regression test - test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3" setup=[PoissonRegressionHelper] tags=[:gmsh] begin
   using Gmsh
   msh_file_tri3 = dirname(Base.source_dir()) * "/gmsh/square_meshed_with_tris.msh"
   output_file = "poisson_test_4.e"

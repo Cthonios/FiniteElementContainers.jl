@@ -1,8 +1,37 @@
 abstract type AbstractPhysics{NF, NP, NS} end
-
 num_fields(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NF
 num_properties(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NP
 num_states(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NS
+
+# physics like methods
+function damping end
+function energy end
+function mass end
+function mass! end
+function mass_action end
+function mass_action! end
+function residual end
+function residual! end
+function stiffness end
+function stiffness! end
+function stiffness_action end
+function stiffness_action! end
+
+# optimization like methods
+function gradient end
+function hessian end
+function value end
+
+# default
+function create_function(fspace, physics::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS}
+  names = field_names(physics)
+  return GeneralFunction(fspace, names)
+end
+
+# default
+function create_initial_state(::AbstractPhysics{NF, NP, 0}) where {NF, NP}
+  return SVector{0, Float64}()
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -12,12 +41,19 @@ function create_properties(physics::AbstractPhysics{NF, NP, NS}) where {NF, NP, 
   type $(typeof(physics))!"
 end
 
+# default
 function create_properties(::AbstractPhysics{NF, 0, NS}) where {NF, NS}
   return SVector{0, Float64}()
 end
 
-function create_initial_state(::AbstractPhysics{NF, NP, 0}) where {NF, NP}
-  return SVector{0, Float64}()
+# default
+function field_names(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS}
+  if NF == 0
+    field_names = String[]
+  else
+    field_names = map(x -> "field_$x", 1:NF)
+  end
+  return field_names
 end
 
 @inline function interpolate_field_values(
@@ -55,7 +91,7 @@ end
   return interps
 end
 
-# # TODO to make bcs a little clenaer
+# TODO to make bcs a little clenaer
 # @inline function map_surface_interpolants(
 #   interps::I, x_el::SVector{NxD, T}
 # ) where {I <: ReferenceFiniteElements.AbstractInterpolants, NxD, T <: Number}
@@ -63,6 +99,16 @@ end
 #   interps = MappedH1OrL2Interpolants(interps, x_el)
 #   return interps
 # end
+
+# default
+function property_names(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS}
+  if NP == 0
+    prop_names = String[]
+  else
+    prop_names = map(x -> "property_$x", 1:NP)
+  end
+  return prop_names
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -84,6 +130,16 @@ $(TYPEDSIGNATURES)
   NDof = num_fields(physics)
   N = NxNDof ÷ NDof
   return SMatrix{NDof, N, T, NxNDof}(u_el)
+end
+
+# default
+function state_variable_names(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS}
+  if NS == 0
+    state_var_names = String[]
+  else
+    state_var_names = map(x -> "state_variable_$x", 1:NS)
+  end
+  return state_var_names
 end
 
 """
@@ -121,50 +177,3 @@ crucial for performance with ```StaticArrays```.
   dofs = SVector{D, Int}(dof_start:dof_end)
   return SMatrix{D, N, T, D * N}(field[dofs, ids])
 end
-
-# Can we make something that makes interfacing with kernels easier?
-# How can we make something like this work nicely with AD?
-# struct PhysicsQuadratureState{T, ND, NN, NF, NP, NS, NDxNF, NNxND, NNxNNxND}
-#   # u::SVector{NF, T}
-#   # ∇u::SMatrix{NF, ND, T, NDxNF}
-#   # props::SVector{NP, T}
-#   # state_old::SVector{NS, T}
-#   # interpolants and gauss weight at quadrature point
-#   N::SVector{NN, T}
-#   ∇N_ξ::SMatrix{NN, ND, T, NNxND}
-#   ∇∇N_ξ::SArray{Tuple{NN, ND, ND}, T, 3, NNxNNxND}
-#   JxW::T
-#   # element level fields
-#   u_el::SMatrix{}
-# end 
-
-# physics like methods
-function damping end
-function energy end
-function mass end
-function mass! end
-function mass_action end
-function mass_action! end
-function residual end
-function residual! end
-function stiffness end
-function stiffness! end
-function stiffness_action end
-function stiffness_action! end
-
-# optimization like methods
-function gradient end
-function hessian end
-function value end
-
-# function energy(::AbstractPhysics)
-
-# end
-
-# function residual(
-#   physics, interps::ReferenceFiniteElements.Interpolants,
-#   u_el, x_el, state_old_q, props_el, dt
-# )
-#   mapped_interps = MappedInterpolants(interps, x_el)
-#   return residual(physics, mapped_interps, u_el, state_old_q, props_el, dt)
-# end

@@ -7,5 +7,5 @@ using TestItems
 if "--test-amdgpu" in ARGS || "--test-cuda" in ARGS
     @run_package_tests
 else
-    @run_package_tests filter=ti->!(:gpu in ti.tags)
+    @run_package_tests filter = ti -> !(:gpu in ti.tags)
 end

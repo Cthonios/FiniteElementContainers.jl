@@ -64,7 +64,7 @@ end
   mesh_file = "./poisson/multi_block_mesh_quad4_tri3.g"
   mesh = UnstructuredMesh(mesh_file)
   V = FunctionSpace(mesh, H1Field, Lagrange)
-  physics = Mechanics(1.0, PlaneStrain())
+  physics = Mechanics(PlaneStrain())
   props = create_properties(physics)
   u = VectorFunction(V, "displ")
   fixed(_, _) = 0.

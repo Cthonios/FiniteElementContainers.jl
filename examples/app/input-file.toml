@@ -1,14 +1,14 @@
 [device]
 backend = "cpu"
 
-[functions.zero]
+[functions.zero_ic]
 type = "constant"
 expression = "0.0"
 variables = ["x", "y"]
 
-[functions.one]
+[functions.zero_bc]
 type = "constant"
-expression = "1.0"
+expression = "0.0"
 variables = ["x", "y", "t"]
 
 [mesh]
@@ -16,11 +16,11 @@ file_path = "poisson.g"
 file_type = "exodus"
 
 [[initial_conditions]]
-function = "zero"
-block = "block_1"
-variable = "u"
+function = "zero_ic"
+blocks = ["block_1"]
+variables = ["u"]
 
 [[boundary_conditions.dirichlet]]
-function = "one"
-side_set = "sset_1"
-variable = "u"
+function = "zero_bc"
+side_sets = ["sset_1", "sset_2", "sset_3", "sset_4"]
+variables = ["u"]

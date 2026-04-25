@@ -14,6 +14,9 @@ import ..FileMesh
 import ..FunctionSpace
 import ..H1Field
 import ..InitialCondition
+import ..NeumannBC
+import ..RobinBC
+import ..Source
 import ..UnstructuredMesh
 import ..element_blocks
 import ..element_ids
@@ -284,6 +287,9 @@ print_dict(l::LogFile, d::Dict{String, String}) = print_dict(l, d)
 #######################################################
 struct BCSettings{T <: Number}
     dirichlet::Vector{DirichletBC{ExpressionFunction{T}}}
+    neumann::Vector{NeumannBC{ExpressionFunction{T}}}
+    robin::Vector{RobinBC{ExpressionFunction{T}}}
+    source::Vector{Source{ExpressionFunction{T}}}
 end
 
 struct FunctionSettings{T <: Number}
@@ -318,35 +324,102 @@ end
 
 function _parse_boundary_condition_settings(log_file, data, functions::FunctionSettings{T}) where T <: Number
     print_banner(log_file, "Boundary conditions")
-    # if length(data["boundary_conditions"])
     if haskey(data, "boundary_conditions")
         bc_settings = data["boundary_conditions"]::Dict{String, Any}
     else
         bc_settings = Dict{String, Any}()
     end
-    dbc_settings = bc_settings["dirichlet"]::Vector{Any}
     dbcs = DirichletBC{ExpressionFunction{T}}[]
-    for bc in dbc_settings
-        # has_key_check(log_file, bc, "function", "key \"function\" not found for DirichletBC")
-        # has_key_check(log_file, bc, "variable", "key \"variable\" not found for DirichletBC")
-        temp = bc::Dict{String, Any}
-        func = temp["function"]::String
-        func = functions.expr_funcs[func]
-        var = temp["variable"]::String
-        if haskey(temp, "block")
-            block = temp["block"]::String
-            push!(dbcs, DirichletBC(var, func; block_name = block))
-        elseif haskey(temp, "node_set")
-            node_set = temp["node_set"]::String
-            push!(dbcs, DirichletBC(var, func; nodeset_name = node_set))
-        elseif haskey(temp, "side_set")
-            side_set = temp["side_set"]::String
-            push!(dbcs, DirichletBC(var, func; sideset_name = side_set))
-        else
-            error_message(log_file, "Requires block, node_set, or side_set")
+    nbcs = NeumannBC{ExpressionFunction{T}}[]
+    rbcs = RobinBC{ExpressionFunction{T}}[]
+    srcs = Source{ExpressionFunction{T}}[]
+    if haskey(bc_settings, "dirichlet")
+        dbc_settings = bc_settings["dirichlet"]::Vector{Any}
+        for bc in dbc_settings
+            # has_key_check(log_file, bc, "function", "key \"function\" not found for DirichletBC")
+            # has_key_check(log_file, bc, "variable", "key \"variable\" not found for DirichletBC")
+            temp = bc::Dict{String, Any}
+            func = temp["function"]::String
+            func = functions.expr_funcs[func]
+            vars = temp["variables"]::Vector{String}
+            if haskey(temp, "blocks")
+                blocks = temp["blocks"]::Vector{String}
+                for block in blocks
+                    for var in vars
+                        push!(dbcs, DirichletBC(var, func; block_name = block))
+                    end
+                end
+            elseif haskey(temp, "node_sets")
+                node_sets = temp["node_sets"]::Vector{String}
+                for node_set in node_sets
+                    for var in vars
+                        push!(dbcs, DirichletBC(var, func; nodeset_name = node_set))
+                    end
+                end
+            elseif haskey(temp, "side_sets")
+                side_sets = temp["side_sets"]::Vector{String}
+                for side_set in side_sets
+                    for var in vars
+                        push!(dbcs, DirichletBC(var, func; sideset_name = side_set))
+                    end
+                end
+            else
+                error_message(log_file, "Requires block, node_set, or side_set")
+            end
         end
     end
-    return BCSettings(dbcs)
+
+    if haskey(bc_settings, "neumann")
+        nbc_settings = bc_settings["neumann"]::Vector{Any}
+        for bc in nbc_settings
+            temp = bc::Dict{String, Any}
+            func = temp["function"]::String
+            func = functions.expr_funcs[func]
+            sidesets = temp["side_sets"]::Vector{String}
+            vars = temp["variables"]::Vector{String}
+            for side_set in sidesets
+                for var in vars
+                    push!(nbcs, NeumannBC(var, func, side_set))
+                end
+            end
+        end
+    end
+
+    if haskey(bc_settings, "robin")
+        rbc_settings = bc_settings["robin"]::Vector{Any}
+        for bc in rbc_settings
+            temp = bc::Dict{String, Any}
+            func = temp["function"]::String
+            func = functions.expr_funcs[func]
+            sidesets = temp["side_sets"]::Vector{String}
+            vars = temp["variables"]::Vector{String}
+            for side_set in sidesets
+                for var in vars
+                    push!(nbcs, RobinBC(var, func, side_set))
+                end
+            end
+        end
+    end
+
+    if haskey(bc_settings, "source")
+        src_settings = bc_settings["source"]::Vector{Any}
+        for src in src_settings
+            temp = src::Dict{String, Any}
+            blocks = temp["blocks"]::Vector{String}
+            func = temp["function"]::String
+            func = functions.expr_funcs[func]
+            sidesets = temp["side_sets"]::Vector{String}
+            vars = temp["variables"]::Vector{String}
+            for block in blocks
+                for var in vars
+                    push!(nbcs, Source(var, func, block))
+                end
+            end
+        end
+    end
+
+    # nbc_settings = 
+    return BCSettings(dbcs, nbcs, rbcs, srcs)
 end
 
 function _parse_function_space_settings(log_file, data)
@@ -395,11 +468,15 @@ function _parse_initial_condition_settings(log_file, data, functions)
     ics = InitialCondition{ExpressionFunction{Float64}}[]
     for ic in ic_settings
         temp = ic::Dict{String, Any}
-        block = temp["block"]::String
+        blocks = temp["blocks"]::Vector{String}
         func = temp["function"]::String
-        var = temp["variable"]::String
         func = functions.expr_funcs[func]
-        push!(ics, InitialCondition(var, func, block))
+        vars = temp["variables"]::Vector{String}
+        for block in blocks
+            for var in vars
+                push!(ics, InitialCondition(var, func, block))
+            end
+        end
     end
     return ics
 end
@@ -585,6 +662,9 @@ struct Simulation{T <: Number, IO, Mesh}
     ics::Vector{InitialCondition{ExpressionFunction{T}}}
     log_file::LogFile{IO}
     mesh::Mesh
+    nbcs::Vector{NeumannBC{ExpressionFunction{T}}}
+    rbcs::Vector{RobinBC{ExpressionFunction{T}}}
+    srcs::Vector{Source{ExpressionFunction{T}}}
 
     function Simulation(settings::InputSettings, log_file::LogFile{IO}) where IO
         print_banner(log_file, "Mesh")
@@ -603,7 +683,10 @@ struct Simulation{T <: Number, IO, Mesh}
         else
             T = Float64
         end
-        new{T, IO, typeof(mesh)}(settings.bcs.dirichlet, settings.ics, log_file, mesh)
+        new{T, IO, typeof(mesh)}(
+            settings.bcs.dirichlet, settings.ics, log_file, mesh,
+            settings.bcs.neumann, settings.bcs.robin, settings.bcs.source
+        )
     end
 end
 
@@ -699,7 +782,6 @@ function generate_app(
 
         function app_main(ARGS::Vector{String})
             app = AT.App(\"$(name)\")
-            AT.add_cli_arg(app, \"--backend\"; default = \"cpu\")
             sim = AT.setup(app, ARGS)
             println(sim.log_file.io, "Setup complete")
         end
@@ -725,14 +807,14 @@ function generate_app(
         src_path = joinpath(@__DIR__)
         @show build_path
         @show src_path
-        rm(build_path; force=true, recursive=true)
+        rm(build_path; force = true, recursive = true)
 
         img = ImageRecipe(
             output_type    = "--output-exe",
             file           = "\$src_path/src/$name.jl",
             trim_mode      = "$trim_str",
             add_ccallables = false,
-            verbose        = true,
+            verbose        = false,
         )
 
         link = LinkRecipe(
@@ -742,9 +824,9 @@ function generate_app(
 
         bun = BundleRecipe(
             link_recipe = link,
-            output_dir  = build_path # or `nothing` to skip bundling
+            #output_dir  = build_path # or `nothing` to skip bundling
+            output_dir  = nothing
         )
-
         compile_products(img)
         link_products(link)
         bundle_products(bun)
