@@ -18,8 +18,6 @@ struct SparseMatrixAssembler{
   matrix_pattern::SparseMatrixPattern{IV, RV}
   vector_pattern::SparseVectorPattern{IV}
   constraint_storage::RV
-  damping_storage::RV
-  hessian_storage::RV
   mass_storage::RV
   residual_storage::FieldStorage
   residual_unknowns::RV
@@ -35,7 +33,7 @@ struct SparseMatrixAssembler{
     UseSparseVec
   }(
     dof, matrix_pattern, vector_pattern, constraint_storage,
-    damping_storage, hessian_storage, mass_storage,
+    mass_storage,
     residual_storage, residual_unknowns,
     scalar_quadrature_storage,
     stiffness_storage, stiffness_action_storage, stiffness_action_unknowns
@@ -46,13 +44,11 @@ struct SparseMatrixAssembler{
       typeof(dof.var), typeof(stiffness_action_storage)
     }(
       dof, matrix_pattern, vector_pattern,
-      constraint_storage, 
-      damping_storage, 
-      hessian_storage,
+      constraint_storage,
       mass_storage,
       residual_storage, residual_unknowns,
       scalar_quadrature_storage,
-      stiffness_storage, 
+      stiffness_storage,
       stiffness_action_storage, stiffness_action_unknowns
     )
   end
@@ -69,19 +65,27 @@ function SparseMatrixAssembler(
   dof::DofManager;
   sparse_matrix_type::Symbol = :csc,
   use_inplace_methods::Bool = false,
-  use_sparse_vector::Bool = false
+  use_sparse_vector::Bool = false,
+  matrix_free::Bool = false
 )
   return SparseMatrixAssembler{
     _sym_to_sparse_matrix_type(sparse_matrix_type),
     use_inplace_methods,
     use_sparse_vector
-  }(dof)
+  }(dof; matrix_free = matrix_free)
 end
 
 function SparseMatrixAssembler{SparseMatrixType, UseInPlaceMethods, UseSparseVec}(
-  dof::DofManager
+  dof::DofManager;
+  matrix_free::Bool = false
 ) where {SparseMatrixType, UseInPlaceMethods, UseSparseVec}
-  matrix_pattern = SparseMatrixPattern(dof)
+  # When matrix_free=true, the matrix-side storage (the sparse pattern and the
+  # matrix-value buffers) are constructed empty.  This avoids ~7 GB of
+  # allocations on a ~530 k-DOF mesh for integrators that never assemble a
+  # global matrix (e.g. central difference, L-BFGS).  Calling assemble_matrix!
+  # on such an assembler errors with a clear message; the mass/stiffness
+  # accessors return a zero sparse matrix of the correct shape.
+  matrix_pattern = matrix_free ? _empty_matrix_pattern(dof) : SparseMatrixPattern(dof)
   vector_pattern = SparseVectorPattern(dof)
 
   ND, NN = size(dof)
@@ -89,13 +93,11 @@ function SparseMatrixAssembler{SparseMatrixType, UseInPlaceMethods, UseSparseVec
   constraint_storage = zeros(n_total_dofs)
   constraint_storage[dof.dirichlet_dofs] .= 1.
 
-  damping_storage = zeros(num_entries(matrix_pattern))
-  hessian_storage = zeros(num_entries(matrix_pattern))
-  mass_storage = zeros(num_entries(matrix_pattern))
+  n_matrix_entries = matrix_free ? 0 : num_entries(matrix_pattern)
+  mass_storage = zeros(n_matrix_entries)
   residual_storage = create_field(dof)
-  # residual_storage = create_assembler_cache(matrix_pattern, AssembledVector())
   residual_unknowns = create_unknowns(dof)
-  stiffness_storage = zeros(num_entries(matrix_pattern))
+  stiffness_storage = zeros(n_matrix_entries)
   stiffness_action_storage = create_field(dof)
   stiffness_action_unknowns = create_unknowns(dof)
 
@@ -109,23 +111,13 @@ function SparseMatrixAssembler{SparseMatrixType, UseInPlaceMethods, UseSparseVec
     SparseMatrixType,
     UseInPlaceMethods,
     UseSparseVec
-    # _sym_to_sparse_matrix_type(sparse_matrix_type),
-    # sparse_matrix_type,
-    # use_inplace_methods,
-    # use_sparse_vector,
-    # typeof(dof.unknown_dofs),
-    # typeof(residual_storage.data),
-    # typeof(dof.var),
-    # typeof(residual_storage)
   }(
     dof, matrix_pattern, vector_pattern,
-    constraint_storage, 
-    damping_storage, 
-    hessian_storage,
+    constraint_storage,
     mass_storage,
     residual_storage, residual_unknowns,
     scalar_quadrature_storage,
-    stiffness_storage, 
+    stiffness_storage,
     stiffness_action_storage, stiffness_action_unknowns
   )
 end
@@ -139,28 +131,44 @@ function SparseMatrixAssembler(
   return SparseMatrixAssembler(dof; kwargs...)
 end
 
+# Construct a SparseMatrixPattern with all internal arrays empty.  Used as a
+# placeholder for matrix-free assemblers; carries no sparsity information and
+# cannot be used by SparseArrays.sparse! or block_view.
+function _empty_matrix_pattern(dof::DofManager)
+  IV = typeof(dof.unknown_dofs)
+  return SparseMatrixPattern{IV, Vector{Float64}}(
+    similar(dof.unknown_dofs, 0),  # Is
+    similar(dof.unknown_dofs, 0),  # Js
+    similar(dof.unknown_dofs, 0),  # unknown_dofs
+    Int[],                          # block_start_indices
+    [0],                            # max_entries  (single zero — see create_assembler_cache)
+    similar(dof.unknown_dofs, 0),  # klasttouch
+    similar(dof.unknown_dofs, 0),  # csrrowptr
+    similar(dof.unknown_dofs, 0),  # csrcolval
+    Float64[],                      # csrnzval
+    similar(dof.unknown_dofs, 0),  # csccolptr
+    similar(dof.unknown_dofs, 0),  # cscrowval
+    Float64[],                      # cscnzval
+    similar(dof.unknown_dofs, 0)   # permutation
+  )
+end
+
+# True if this assembler was constructed with matrix_free=true: the sparsity
+# pattern and matrix-value buffers are empty and assemble_matrix! is forbidden.
+_is_matrix_free(asm::SparseMatrixAssembler) = isempty(asm.matrix_pattern.Is)
+
 function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
-  # dof = adapt(to, asm.dof)
-  # residual_storage = adapt(to, asm.residual_storage)
   return SparseMatrixAssembler{
     _is_condensed(asm.dof),
     _sparse_matrix_type(asm),
     _use_inplace_methods(asm),
     _use_sparse_vector(asm),
-    # typeof(dof.unknown_dofs),
-    # typeof(residual_storage.data),
-    # typeof(dof.var),
-    # typeof(residual_storage)
   }(
-    # dof,
     adapt(to, asm.dof),
     adapt(to, asm.matrix_pattern),
     adapt(to, asm.vector_pattern),
     adapt(to, asm.constraint_storage),
-    adapt(to, asm.damping_storage),
-    adapt(to, asm.hessian_storage),
     adapt(to, asm.mass_storage),
-    # residual_storage,
     adapt(to, asm.residual_storage),
     adapt(to, asm.residual_unknowns),
     adapt(to, asm.scalar_quadrature_storage),
@@ -181,6 +189,10 @@ function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledSparseVec
 end
 
 function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledMatrix)
+  if _is_matrix_free(asm)
+    error("create_assembler_cache(::AssembledMatrix) called on a matrix-free " *
+          "SparseMatrixAssembler.  Re-create the assembler with matrix_free=false.")
+  end
   backend = KA.get_backend(asm)
   return KA.zeros(backend, Float64, asm.matrix_pattern.max_entries[1])
 end
@@ -233,8 +245,15 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
   else
     resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
     resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
-  
-    _update_dofs!(assembler.matrix_pattern, assembler.dof, ddofs)
+
+    # Skip matrix-pattern update on matrix-free assemblers — _update_dofs!
+    # would otherwise rebuild the pattern from scratch and silently flip the
+    # assembler back into the matrix-bearing mode.
+    if assembler isa SparseMatrixAssembler && _is_matrix_free(assembler)
+      # no-op: matrix pattern stays empty
+    else
+      _update_dofs!(assembler.matrix_pattern, assembler.dof, ddofs)
+    end
     _update_dofs!(assembler.vector_pattern, assembler.dof, ddofs)
   end
   return nothing
