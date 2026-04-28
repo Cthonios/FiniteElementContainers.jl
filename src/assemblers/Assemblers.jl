@@ -276,15 +276,13 @@ end
 
 """
 $(TYPEDSIGNATURES)
+The Hessian operator currently aliases the assembled stiffness — no FE code
+path in this repository writes a separate Hessian buffer.  If a future caller
+needs `H ≠ K`, add a dedicated `hessian_storage` field on the assembler and
+specialize this method accordingly.
 """
 function hessian(asm::AbstractAssembler)
-  H = _sparse_matrix(asm, asm.hessian_storage)
-
-  if _is_condensed(asm.dof)
-    _adjust_matrix_entries_for_constraints!(H, asm.constraint_storage)
-  end
-
-  return H
+  return stiffness(asm)
 end
 
 # new approach requiring access to the v that makes Hv
@@ -311,6 +309,10 @@ end
 $(TYPEDSIGNATURES)
 """
 function mass(asm::AbstractAssembler)
+  if isempty(asm.mass_storage)
+    return _zero_sparse_matrix(asm)
+  end
+
   M = _sparse_matrix(asm, asm.mass_storage)
 
   if _is_condensed(asm.dof)
@@ -348,6 +350,10 @@ end
 $(TYPEDSIGNATURES)
 """
 function stiffness(asm::AbstractAssembler)
+  if isempty(asm.stiffness_storage)
+    return _zero_sparse_matrix(asm)
+  end
+
   K = _sparse_matrix(asm, asm.stiffness_storage)
 
   if _is_condensed(asm.dof)
@@ -355,6 +361,18 @@ function stiffness(asm::AbstractAssembler)
   end
 
   return K
+end
+
+# Zero sparse matrix of the right shape for an assembler that hasn't (yet)
+# assembled.  Matches the shape `_sparse_matrix` would produce: condensed →
+# full ND*NN; uncondensed → length(unknown_dofs).
+function _zero_sparse_matrix(asm::AbstractAssembler)
+  if _is_condensed(asm.dof)
+    n = length(asm.dof)
+  else
+    n = length(asm.dof.unknown_dofs)
+  end
+  return SparseArrays.spzeros(n, n)
 end
 
 function _assemble_block!(
