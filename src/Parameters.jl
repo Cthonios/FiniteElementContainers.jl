@@ -195,10 +195,6 @@ struct TypeStableParameters{
   IV     <: AbstractVector{IT},
   RV     <: AbstractVector{RT},
   RM     <: AbstractMatrix{<:SVector},
-  # RM1    <: AbstractMatrix,
-  # RM2    <: AbstractMatrix,
-  # RM3    <: AbstractMatrix,
-  # RM4    <: AbstractMatrix,
   Phys,
   Props,
   Coords <: AbstractField,
@@ -247,21 +243,6 @@ struct TypeStableParameters{
       times, 
       physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
     )
-
-    # TODO need to settle on expected format for nbcs, rbcs, and sources...
-    # should we always expect a staticarrays even for a 1 dof problem?
-    # RM1 = Matrix{Float64}
-    # RM2 = Matrix{Float64}
-    # RM3 = Matrix{Float64}
-    # RM4 = Matrix{Float64}
-
-    # new{
-    #   F, Int, Float64, Vector{Int}, Vector{Float64}, RM1, RM2, RM3, RM4,
-    #   typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
-    # }(
-    #   ics, dbcs, times, 
-    #   physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
-    # )
   end
 end
 
@@ -345,8 +326,8 @@ function update_bc_values!(p::TypeStableParameters, assembler)
   X = coordinates(p)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
-  # update_bc_values!(p.neumann_bcs, assembler, X, t)
-  # update_source_values!(p.sources, assembler, X, t)
+  update_bc_values!(p.neumann_bcs, assembler, X, t)
+  update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?
   # currently assembly methods handle updating the field

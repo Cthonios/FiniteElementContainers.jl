@@ -5,6 +5,12 @@ function copy_mesh(mesh, file_2::String, ::Type{ExodusMesh})
   return nothing
 end
 
+function copy_mesh(mesh, file_2::String, ::Type{ExodusMesh}, exo_type::Type{ExodusDatabase{M, I, B, F}}) where {M, I, B, F}
+  file_1 = mesh.mesh_obj.file_name
+  Exodus.copy_mesh(exo_type, file_1, file_2)
+  return nothing
+end
+
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
@@ -191,7 +197,16 @@ function PostProcessor(
   end
   Exodus.write_time(exo, 1, 0.0)
   
-  return PostProcessor(exo)
+  return PostProcessor(
+    file_name, exo,
+    nodal_var_names, all_el_var_names, String[]
+  )
+end
+
+function PostProcessor{O}(::Type{<:ExodusMesh}, mesh, output_file) where O <: ExodusDatabase
+  copy_mesh(mesh, output_file, ExodusMesh, O)
+  exo = O(output_file, "rw")
+  return PostProcessor{O}(output_file, exo, String[], String[], String[])
 end
 
 function write_field(

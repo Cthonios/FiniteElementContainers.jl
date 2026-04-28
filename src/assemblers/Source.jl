@@ -26,18 +26,18 @@ function assemble_vector_source!(storage, pattern, dof, Uu, p)
   X = coordinates(p)
   sources = p.sources
   conns = fspace.elem_conns
-  for (block_id, source) in zip(
-    sources.source_block_ids, sources.source_caches
-  )
-    # ref_fe = getfield(fspace.ref_fes, block_name)
-    ref_fe = fspace.ref_fes[block_id]
-    vals   = source.vals
-
-    _assemble_block_vector_source!(
-      storage,
-      conns.data, conns.offsets[block_id],
-      ref_fe, X, U, vals,
-    )
+  foreach_block(fspace) do ref_fe, b
+    block_id = sources.block_id_to_source[b]
+    if block_id == -1
+      # do nothing
+    else
+      cache = sources.source_caches[block_id]
+      _assemble_block_vector_source!(
+        storage,
+        conns.data, conns.offsets[block_id],
+        ref_fe, X, U, cache.vals
+      )
+    end
   end
   return nothing
 end

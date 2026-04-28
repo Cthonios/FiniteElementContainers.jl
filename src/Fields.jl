@@ -102,7 +102,7 @@ struct Connectivity{
     nelems::Vector{T}
     offsets::Vector{T}
 
-    function Connectivity(mats::Vector{<:AbstractArray{<:Integer, 2}})
+    function Connectivity(mats::Vector{<:AbstractMatrix{<:Integer}})
         nblocks = length(mats)
         nepes = map(x -> size(x, 1), mats)
         nelems = map(x -> size(x, 2), mats)

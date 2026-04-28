@@ -19,16 +19,13 @@ function app_main(ARGS::Vector{String})
     #####################################
     # need to define some types
     #####################################
+    ET = ExodusDatabase{Int32, Int32, Int32, Float64}
     FT = AT.ExpressionFunction{Float64}
     SPT = FEC.CSCMatrix()
 
     #####################################
     # setup function space
     #####################################
-    # block_ids = FEC._setup_juliac_safe_block_to_ref_fe_id(sim.mesh)
-    # for n in 1:16
-    #     println(Core.stdout, "Block $n element type $(block_ids[n])")
-    # end
     V = FunctionSpace{true}(sim.mesh, H1Field, Lagrange)
     u = ScalarFunction(V, "u")
     dof = DofManager{false}(u)
@@ -49,40 +46,16 @@ function app_main(ARGS::Vector{String})
         physics, props,
         sim.ics, sim.dbcs, sim.nbcs, sim.srcs, times
     )
-    # U = create_field(asm)
-    # Uu = create_unknowns(asm)
-
-    # # setting up ics
-    # # ics = InitialConditions{FT}(sim.mesh, dof, sim.ics)
-    # X = sim.mesh.nodal_coords
-    # # println(Core.stdout, "X size 1 = $(size(X, 1))")
-    # # println(Core.stdout, "X size 2 = $(size(X, 2))")
-    # # for block_id in 1:1
-    # #     ref_fe = FEC.block_reference_element(V, block_id)
-    # #     println(Core.stdout, ref_fe)
-    # # end
-
     FEC.initialize!(p)
-    # FEC._update_for_assembly!(p, dof, Uu)
 
-    # # lsolver = DirectLinearSolver(asm)
-    # # lsolver = x -> IterativeLinearSolver(x, :cg)
     preconditioner = I
     timer = TimerOutput()
     workspace = CgWorkspace(stiffness(asm), residual(asm))
     ΔUu = create_unknowns(asm)
     lsolver = IterativeLinearSolver(asm, preconditioner, workspace, timer, ΔUu)
     nlsolver = NewtonSolver(lsolver)
-
-    # println(Core.stdout, "Number of blocks = $(length(sim.mesh.element_types))")
-    # # N = length(sim.mesh.element_types)
-    # # # N = Val(N)
-    # # N = Val{N}()
-    # # ref_fe = _get_ref_fe(V, N)
-    # # indices = ntuple(x -> x, N)
-    # # indices = ntuple(x -> x, Val(N))
-    # # s = MyStruct{N}(N)::MyStruct{N}
     integrator = QuasiStaticIntegrator(nlsolver)
+
     println(sim.log_file.io, "Setup complete")
     println(sim.log_file.io, "Solving...")
     evolve!(integrator, p)
@@ -90,8 +63,12 @@ function app_main(ARGS::Vector{String})
     println(Core.stdout, maximum(p.field.data))
     println(Core.stdout, minimum(p.field.data))
 
-    # pp = PostProcessor(sim.mesh, "juliac_output.e", u)
-
+    pp = PostProcessor{ET}(FEC.ExodusMesh, sim.mesh, "juliac_output.e")
+    FEC.add_function!(pp, u)
+    FEC.finalize_setup!(pp)
+    write_times(pp, 1, 0.0)
+    write_field(pp, 1, ("u",), p.field)
+    close(pp)
 end
 
 function @main(ARGS::Vector{String})

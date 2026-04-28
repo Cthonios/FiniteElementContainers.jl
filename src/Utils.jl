@@ -154,9 +154,9 @@ end
 # this one only does the right thing when physics is a namedtuple
 @generated function foreach_block(
     f,
-    fspace::FunctionSpace{IT, IV, C, R},
+    fspace::FunctionSpace,
     p::Parameters
-) where {IT, IV, C, R}
+)
     stmts = Expr(:block)
     # NOTE need to grab one of the NamedTuple types to get the field count
     physics_type = fieldtype(p, :physics)
@@ -197,11 +197,39 @@ end
     end
     quote $(exprs...) end
 end
+# function foreach_block(
+#     f,
+#     fspace,
+#     p::TypeStableParameters
+# )
+#     for b in 1:num_blocks(fspace)
+#         f(p.physics[b], p.properties[b], block_reference_element(fspace, b), b)
+#     end
+# end
+
+# assumes ref_fes is a namedtuple
+@generated function foreach_block(
+    f,
+    fspace::FunctionSpace{false, IT, IV, BTRE, C, R}
+) where {IT, IV, BTRE, C, R}
+    stmts = Expr(:block)
+    # NOTE need to grab one of the NamedTuple types to get the field count
+    ref_fes_type = fieldtype(fspace, :ref_fes)
+    N = fieldcount(ref_fes_type)
+    for k in 1:N
+        push!(stmts.args, quote
+            f(
+                block_reference_element(fspace, $k), $k
+            )
+        end)
+    end
+    return stmts
+end
 
 @generated function foreach_block(
     f,
-    fspace::FunctionSpace{B, IT, IV, BTRE, C, R}
-) where {B, IT, IV, BTRE, C, R}
+    fspace::FunctionSpace{true, IT, IV, BTRE, C, R}
+) where {IT, IV, BTRE, C, R}
     exprs = map(1:MAX_BLOCKS) do i
         # For each slot i, generate a branch over ALL possible ref_fe indices
         # block_to_ref_fe_id[i] == -1 means inactive block
