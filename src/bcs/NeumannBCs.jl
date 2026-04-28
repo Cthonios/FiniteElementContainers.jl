@@ -44,6 +44,8 @@ struct NeumannBCContainer{
   end
 end
 
+_eltype(::Vector{NeumannBCContainer{IT, IV, RM}}) where {IT, IV, RM} = IT
+_indices_type(::Vector{NeumannBCContainer{IT, IV, RM}}) where {IT, IV, RM} = IV
 _vals_type(::Vector{NeumannBCContainer{IT, IV, RM}}) where {IT, IV, RM} = RM
 
 function Adapt.adapt_structure(to, bc::NeumannBCContainer)
@@ -81,34 +83,55 @@ struct NeumannBCs{
   IV      <: AbstractVector{IT},
   RM      <: AbstractMatrix{<:SVector},
 } <: AbstractBCs{BCFuncs}
+  block_id_to_bc::NTuple{MAX_BLOCKS, IT}
   bc_caches::Vector{NeumannBCContainer{IT, IV, RM}}
   bc_funcs::BCFuncs
-  block_ids::Vector{Int}
+  block_ids::Vector{IT}
   block_names::Vector{String}
-end
 
-# note this method has the potential to make 
-# bookkeeping.dofs and bookkeeping.nodes nonsensical
-# since we're splitting things off but not properly updating
-# these to match the current nodes and sides
-# TODO modify method to actually properly update
-# nodes and dofs
-
-# TODO below method also currently likely doesn't
-# handle blocks correclty 
-function NeumannBCs(mesh, dof::DofManager, neumann_bcs::Vector{NeumannBC})
-  if length(neumann_bcs) == 0
-    ND = size(dof, 1)
-    bc_caches = NeumannBCContainer{Int, Vector{Int}, Matrix{SVector{ND, Float64}}}[]
-    return NeumannBCs(bc_caches, NeumannBCFunction[], Int[], String[])
+  function NeumannBCs(mesh, dof::DofManager, neumann_bcs)
+    temp = NeumannBCs{Function}(mesh, dof, neumann_bcs)
+    funcs = map(x -> NeumannBCFunction(x.func), neumann_bcs)
+    return NeumannBCs(
+      temp.block_id_to_bc,
+      temp.bc_caches,
+      funcs,
+      temp.block_ids,
+      temp.block_names
+    )
   end
 
-  new_bcs, new_funcs, block_ids, block_names = _setup_weakly_enforced_bc_container(mesh, dof, neumann_bcs, NeumannBCContainer)
+  function NeumannBCs{F}(mesh, dof::DofManager, neumann_bcs) where F
+    ND = size(dof, 1)
+    bc_caches = NeumannBCContainer{Int, Vector{Int}, Matrix{SVector{ND, Float64}}}[]
+    if length(neumann_bcs) == 0
+      block_id_to_bc = ntuple(i -> -1, Val(MAX_BLOCKS))
+      return NeumannBCs(block_id_to_bc, bc_caches, NeumannBCFunction{F}[], Int[], String[])
+    end
 
-  # TODO fix this up eventually
-  new_bcs = convert(Vector{typeof(new_bcs[1])}, new_bcs)
-  new_funcs = NeumannBCFunction.(new_funcs)
-  return NeumannBCs(new_bcs, new_funcs, block_ids, block_names)
+    bc_funcs = map(bc -> NeumannBCFunction{F}(bc.func), neumann_bcs)
+    block_ids = Int[]
+    block_names = String[]
+    for bc in neumann_bcs
+      block_id, block_name, conns, elements, sides, vals = _setup_sideset(mesh, dof, bc)
+      push!(bc_caches, NeumannBCContainer(conns, elements, sides, vals))
+      push!(block_ids, block_id)
+      push!(block_names, block_name)
+    end
+    block_id_to_bc = ntuple(
+      i -> i <= length(block_ids) ? 
+      block_ids[i] : 
+      -1,
+      Val(MAX_BLOCKS)
+    )
+    return NeumannBCs(block_id_to_bc, bc_caches, bc_funcs, block_ids, block_names)
+  end
+
+  function NeumannBCs(block_id_to_bc, bc_caches, bc_funcs, block_ids, block_names)
+    new{typeof(bc_funcs), eltype(block_ids), _indices_type(bc_caches), _vals_type(bc_caches)}(
+      block_id_to_bc, bc_caches, bc_funcs, block_ids, block_names
+    )
+  end
 end
 
 function Adapt.adapt_structure(to, bcs::NeumannBCs)
@@ -124,6 +147,7 @@ function Adapt.adapt_structure(to, bcs::NeumannBCs)
     bc_caches = NeumannBCContainer{Int, typeof(temp_int), typeof(temp_vals)}[]
   end
   return NeumannBCs(
+    bcs.block_id_to_bc,
     bc_caches,
     bcs.bc_funcs,
     bcs.block_ids,
@@ -133,12 +157,15 @@ end
 
 function update_bc_values!(bcs::NeumannBCs, assembler, X, t)
   fspace = function_space(assembler.dof)
-  for n in axes(bcs.block_ids, 1)
-    bc = bcs.bc_caches[n]
-    block_id = bcs.block_ids[n]
-    func = bcs.bc_funcs[n]
-    ref_fe = block_reference_element(fspace, block_id)
-    _update_bc_values!(bc.vals, func, ref_fe, bc.element_conns.data, bc.sides, X, t)
+  foreach_block(fspace) do ref_fe, b
+    block_id = bcs.block_id_to_bc[b]
+    if block_id == -1
+      # do nothing
+    else
+      cache = bcs.bc_caches[block_id]
+      func = bcs.bc_funcs[block_id]
+      _update_bc_values!(cache.vals, func, ref_fe, cache.element_conns.data, cache.sides, X, t)
+    end
   end
   return nothing
 end

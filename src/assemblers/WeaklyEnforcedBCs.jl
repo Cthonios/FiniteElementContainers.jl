@@ -38,15 +38,19 @@ $(TYPEDSIGNATURES)
 function assemble_vector_weakly_enforced_bc!(
   storage, dof, U, X, bcs
 )
-  # do not zero!
-  for (n, bc) in enumerate(bcs.bc_caches)
-    block_id = bcs.block_ids[n]
-    ref_fe = block_reference_element(function_space(dof), block_id)
-    _assemble_block_vector_weakly_enforced_bc!(
-      storage,
-      U, X,
-      bc.element_conns.data, ref_fe, bc.sides, bc.vals
-    )
+  fspace = function_space(dof)
+  foreach_block(fspace) do ref_fe, b
+    block_id = bcs.block_id_to_bc[b]
+    if block_id == -1
+      # do nothing
+    else
+      cache = bcs.bc_caches[block_id]
+      _assemble_block_vector_weakly_enforced_bc!(
+        storage,
+        U, X,
+        cache.element_conns.data, ref_fe, cache.sides, cache.vals
+      )
+    end
   end
 end
 

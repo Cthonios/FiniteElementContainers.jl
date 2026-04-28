@@ -88,18 +88,15 @@ end
 
 # Lagrange elements
 # defaulting to fully integrated elements for now
-function _setup_juliac_safe_ref_fes(::Type{Lagrange}, q_type::Type{QT}) where {QT <: AbstractQuadratureType}
-  ref_fes = (
-    ReferenceFE(Hex{Lagrange, 1}(), QT(2, 2)),  # HEX8 for Lagrange
-    ReferenceFE(Quad{Lagrange, 1}(), QT(2, 2)), # QUAD4 for Lagrange
-    ReferenceFE(Quad{Lagrange, 2}(), QT(2, 2)), # QUAD9 for Lagrange
-    ReferenceFE(Tri{Lagrange, 1}(), QT(2, 2)),  # Tri3 for Lagrange
-    ReferenceFE(Tri{Lagrange, 2}(), QT(2, 2)),  # Tri3 for Lagrange
-    ReferenceFE(Tet{Lagrange, 1}(), QT(2, 2)),  # Tri3 for Lagrange
-    ReferenceFE(Tet{Lagrange, 2}(), QT(2, 2))   # Tri3 for Lagrange
-  )
-  return ref_fes
-end
+const _juliac_safe_ref_fes = (
+  ReferenceFE(Hex{Lagrange, 1}(), GaussLobattoLegendre(2, 2)),  # HEX8 for Lagrange
+  ReferenceFE(Quad{Lagrange, 1}(), GaussLobattoLegendre(2, 2)), # QUAD4 for Lagrange
+  ReferenceFE(Quad{Lagrange, 2}(), GaussLobattoLegendre(2, 2)), # QUAD9 for Lagrange
+  ReferenceFE(Tri{Lagrange, 1}(), GaussLobattoLegendre(2, 2)),  # Tri3 for Lagrange
+  ReferenceFE(Tri{Lagrange, 2}(), GaussLobattoLegendre(2, 2)),  # Tri3 for Lagrange
+  ReferenceFE(Tet{Lagrange, 1}(), GaussLobattoLegendre(2, 2)),  # Tri3 for Lagrange
+  ReferenceFE(Tet{Lagrange, 2}(), GaussLobattoLegendre(2, 2))   # Tri3 for Lagrange
+)
 
 """
 default code path that sets up ref fes as a namedtuple
@@ -167,10 +164,10 @@ struct FunctionSpace{
   RefFEs
 } <: AbstractFunctionSpace
   block_names::Vector{String}
-  # block_to_ref_fe_id::Vector{IT} # only used in juliac builds
   block_to_ref_fe_id::BTRE
   coords::Coords
   elem_conns::Connectivity{IT, IV}
+  # need to remove this mabye?
   elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
   ref_fes::RefFEs
 
@@ -209,13 +206,15 @@ function FunctionSpace{is_juliac_safe}(
     elseif p_degree == 0
       @assert false "TODO 0 order elements"
     else
+      # TODO all of this needs TLC
       ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_type, q_degree)
       coords, conns = create_higher_order_mesh(mesh, H1Field, interp_type, p_degree)
       conns = Connectivity([val for val in values(conns)])
     end
   else
     if is_juliac_safe
-      ref_fes = _setup_juliac_safe_ref_fes(interp_type, q_type)
+      # ref_fes = _setup_juliac_safe_ref_fes(interp_type, q_type)
+      ref_fes = _juliac_safe_ref_fes
     else
       ref_fes = _setup_ref_fes(mesh, interp_type, nothing, q_type, q_degree)
     end
@@ -268,7 +267,8 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
     fspace.block_names, fspace.block_to_ref_fe_id,
     adapt(to, fspace.coords),
     adapt(to, fspace.elem_conns), 
-    fspace.elem_id_maps,
+    # fspace.elem_id_maps,
+    map(x -> adapt(to, x), fspace.elem_id_maps),
     map(x -> adapt(to, x), fspace.ref_fes)
   )
 end
@@ -282,7 +282,7 @@ function Base.show(io::IO, fspace::FunctionSpace)
   end
 end
 
-function _is_juliac_safe(::FunctionSpace{B, I, V, C, R}) where {B, I, V, C, R}
+function _is_juliac_safe(::FunctionSpace{B, I, V, BTRE, C, R}) where {B, I, V, BTRE, C, R}
   return B
 end
 
@@ -290,14 +290,45 @@ function block_entity_size(fspace::FunctionSpace, b::Int)
   return (num_entities_per_element(fspace, b), num_elements(fspace, b))
 end
 
-function block_reference_element(fspace::FunctionSpace{false, I, V, C, R}, block_id::Int) where {I, V, C, R}
+function block_reference_element(fspace::FunctionSpace{false, I, V, BTRE, C, R}, block_id::Int) where {I, V, BTRE, C, R}
   return fspace.ref_fes[block_id]
 end
 
-function block_reference_element(fspace::FunctionSpace{true, I, V, C, R}, block_id::Int) where {I, V, C, R}
-  ref_fe_id = fspace.block_to_ref_fe_id[block_id]
-  return fspace.ref_fes[ref_fe_id]
+@generated function block_reference_element(
+  fspace::FunctionSpace{true, IT, IV, BTRE, C, R},
+  block_id::Int
+) where {IT, IV, BTRE, C, R}
+
+  n_refs = length(BTRE.parameters)
+
+  cases = map(1:n_refs) do j
+      quote
+          if block_id == $j
+              return fspace.ref_fes[$j]
+          end
+      end
+  end
+
+  quote
+      id = fspace.block_to_ref_fe_id[block_id]  # runtime value (OK)
+
+      if id == -1
+          error("Inactive block ", block_id)
+      end
+
+      $(cases...)  # ONLY depends on compile-time j
+
+      error("Invalid ref_fe id ", id)
+  end
 end
+
+# function block_reference_element(
+#   fspace::FunctionSpace{true, IT, IV, BTRE, C, R},
+#   block_id::Int
+# ) where {IT, IV, BTRE, C, R}
+#   index = fspace.block_to_ref_fe_id[block_id]
+#   return _block_reference_element(fspace, Val{index}())
+# end
 
 # this does not work behind juliac
 function block_quadrature_size(fspace::FunctionSpace{false}, b::Int)

@@ -111,26 +111,6 @@ function Parameters(
   end
 
   # setup state variables
-  # state_old = Array{Float64, 3}[]
-  # state_new = Array{Float64, 3}[]
-  # for (b, val) in enumerate(values(physics))
-  #   # create state variables for this block physics
-  #   NS = num_states(val)
-  #   NQ, NE = block_quadrature_size(fspace, b)
-
-  #   state_old_temp = zeros(NS, NQ, NE)
-  #   state_new_temp = zeros(NS, NQ, NE)
-  #   for e in 1:NE
-  #     for q in 1:NQ
-  #       state_old_temp[:, q, e] = create_initial_state(val)
-  #       state_new_temp[:, q, e] = create_initial_state(val)
-  #     end
-  #   end
-  #   push!(state_old, state_old_temp)
-  #   push!(state_new, state_new_temp)
-  # end
-  # state_old = L2Field(state_old)
-  # state_new = L2Field(state_new)
   state_old, state_new = _setup_state_variables(fspace, physics)
 
   # scratch
@@ -214,10 +194,7 @@ struct TypeStableParameters{
   RT     <: Number,
   IV     <: AbstractVector{IT},
   RV     <: AbstractVector{RT},
-  # RM1    <: AbstractMatrix,
-  # RM2    <: AbstractMatrix,
-  # RM3    <: AbstractMatrix,
-  # RM4    <: AbstractMatrix,
+  RM     <: AbstractMatrix{<:SVector},
   Phys,
   Props,
   Coords <: AbstractField,
@@ -225,9 +202,9 @@ struct TypeStableParameters{
 } <: AbstractParameters
   ics::InitialConditions{Vector{InitialConditionFunction{FuncT}}, IV, RV}
   dirichlet_bcs::DirichletBCs{Vector{DirichletBCFunction{FuncT, FuncT, FuncT}}, IV, RV}
-  # neumann_bcs::NeumannBCs{NBCFuncs, IT, IV, RM1}
+  neumann_bcs::NeumannBCs{Vector{NeumannBCFunction{FuncT}}, IT, IV, RM}
   # robin_bcs::RobinBCs{RBCFuncs, IT, IV, RM2, RM3}
-  # sources::Sources{SRCFuncs, RM4}
+  sources::Sources{Vector{SourceFunction{FuncT}}, RM}
   times::TimeStepper{RT}
   physics::Phys
   properties::Props
@@ -239,11 +216,14 @@ struct TypeStableParameters{
   # scratch fields
   hvp_scratch_field::Field
 
-  function TypeStableParameters{F}(mesh, assembler, physics, props, ics, dbcs, times) where F
+  function TypeStableParameters{F}(mesh, assembler, physics, props, ics, dbcs, nbcs, srcs, times) where F
     dof = assembler.dof
+    ND = size(dof, 1)
     fspace = function_space(dof)
     ics = InitialConditions{F}(mesh, dof, ics)
     dbcs = DirichletBCs{F}(mesh, dof, dbcs)
+    nbcs = NeumannBCs{F}(mesh, dof, nbcs)
+    srcs = Sources{F}(mesh, dof, srcs)
 
     state_old, state_new = _setup_state_variables(fspace, physics)
 
@@ -256,27 +236,13 @@ struct TypeStableParameters{
     update_dofs!(assembler, dbcs)
 
     new{
-      F, Int, Float64, Vector{Int}, Vector{Float64},
+      F, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
       typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
     }(
-      ics, dbcs, times, 
+      ics, dbcs, nbcs, srcs,
+      times, 
       physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
     )
-
-    # TODO need to settle on expected format for nbcs, rbcs, and sources...
-    # should we always expect a staticarrays even for a 1 dof problem?
-    # RM1 = Matrix{Float64}
-    # RM2 = Matrix{Float64}
-    # RM3 = Matrix{Float64}
-    # RM4 = Matrix{Float64}
-
-    # new{
-    #   F, Int, Float64, Vector{Int}, Vector{Float64}, RM1, RM2, RM3, RM4,
-    #   typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
-    # }(
-    #   ics, dbcs, times, 
-    #   physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
-    # )
   end
 end
 
@@ -360,8 +326,8 @@ function update_bc_values!(p::TypeStableParameters, assembler)
   X = coordinates(p)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
-  # update_bc_values!(p.neumann_bcs, assembler, X, t)
-  # update_source_values!(p.sources, assembler, X, t)
+  update_bc_values!(p.neumann_bcs, assembler, X, t)
+  update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?
   # currently assembly methods handle updating the field

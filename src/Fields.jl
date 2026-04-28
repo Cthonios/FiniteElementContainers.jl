@@ -102,7 +102,7 @@ struct Connectivity{
     nelems::Vector{T}
     offsets::Vector{T}
 
-    function Connectivity(mats::Vector{<:AbstractArray{<:Integer, 2}})
+    function Connectivity(mats::Vector{<:AbstractMatrix{<:Integer}})
         nblocks = length(mats)
         nepes = map(x -> size(x, 1), mats)
         nelems = map(x -> size(x, 2), mats)
@@ -134,6 +134,8 @@ function Adapt.adapt_structure(to, conn::Connectivity{T, D}) where {T, D}
         conn.offsets
     )
 end
+
+Base.eltype(::Connectivity{T, D}) where {T, D} = T
 
 # NOT GPU safe
 function connectivity(conn::Connectivity, b::Int)
