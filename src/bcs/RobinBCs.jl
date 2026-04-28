@@ -86,30 +86,38 @@ function _update_bc_values!(vals, dvalsdu, func, ref_fe, conns, sides, X, t, U)
 end
 
 struct RobinBCs{
-    BCFuncs,
-    IT       <: Integer,
-    IV       <: AbstractVector{IT},
-    RM       <: AbstractMatrix{<:SVector},
-    dRM      <: AbstractMatrix{<:SMatrix}  
+  BCFuncs,
+  IT       <: Integer,
+  IV       <: AbstractVector{IT},
+  RM       <: AbstractMatrix{<:SVector},
+  dRM      <: AbstractMatrix{<:SMatrix}  
 } <: AbstractBCs{BCFuncs}
-    bc_caches::Vector{RobinBCContainer{IT, IV, RM, dRM}}
-    bc_funcs::BCFuncs
-    block_ids::Vector{Int}
-    block_names::Vector{String}
+  block_id_to_bc::NTuple{MAX_BLOCKS, IT}
+  bc_caches::Vector{RobinBCContainer{IT, IV, RM, dRM}}
+  bc_funcs::BCFuncs
+  block_ids::Vector{Int}
+  block_names::Vector{String}
 end
 
 function RobinBCs(mesh, dof::DofManager, robin_bcs::Vector{RobinBC})
-    if length(robin_bcs) == 0
-      ND = size(dof, 1)
-      bc_caches = RobinBCContainer{Int, Vector{Int}, Matrix{SVector{ND, Float64}}, Matrix{SMatrix{ND, ND, Float64, ND * ND}}}[]
-      return RobinBCs(bc_caches, RobinBCFunction[], Int[], String[])
-    end
+  if length(robin_bcs) == 0
+    ND = size(dof, 1)
+    bc_caches = RobinBCContainer{Int, Vector{Int}, Matrix{SVector{ND, Float64}}, Matrix{SMatrix{ND, ND, Float64, ND * ND}}}[]
+    block_id_to_bc = ntuple(i -> -1, Val(MAX_BLOCKS))
+    return RobinBCs(block_id_to_bc, bc_caches, RobinBCFunction[], Int[], String[])
+  end
 
-    new_bcs, new_funcs, block_ids, block_names = _setup_weakly_enforced_bc_container(mesh, dof, robin_bcs, RobinBCContainer)
-    # TODO fix this up eventually
-    new_bcs = convert(Vector{typeof(new_bcs[1])}, new_bcs)
-    new_funcs = RobinBCFunction.(new_funcs)
-    return RobinBCs(new_bcs, new_funcs, block_ids, block_names)
+  new_bcs, new_funcs, block_ids, block_names = _setup_weakly_enforced_bc_container(mesh, dof, robin_bcs, RobinBCContainer)
+  # TODO fix this up eventually
+  new_bcs = convert(Vector{typeof(new_bcs[1])}, new_bcs)
+  new_funcs = RobinBCFunction.(new_funcs)
+  block_id_to_bc = ntuple(
+      i -> i <= length(block_ids) ? 
+      block_ids[i] : 
+      -1,
+      Val(MAX_BLOCKS)
+    )
+  return RobinBCs(block_id_to_bc, new_bcs, new_funcs, block_ids, block_names)
 end
 
 function Adapt.adapt_structure(to, bcs::RobinBCs)
@@ -126,6 +134,7 @@ function Adapt.adapt_structure(to, bcs::RobinBCs)
     bc_caches = RobinBCContainer{Int, typeof(temp_int), typeof(temp_vals), typeof(temp_dvals)}[]
   end
   return RobinBCs(
+    bcs.block_id_to_bc,
     bc_caches,
     bcs.bc_funcs,
     bcs.block_ids,
@@ -135,12 +144,15 @@ end
 
 function update_bc_values!(bcs::RobinBCs, assembler, X, t, U)
   fspace = function_space(assembler.dof)
-  for n in axes(bcs.block_ids, 1)
-    bc = values(bcs.bc_caches)[n]
-    block_id = bcs.block_ids[n]
-    func = values(bcs.bc_funcs)[n]
-    ref_fe = block_reference_element(fspace, block_id)
-    _update_bc_values!(bc.vals, bc.dvalsdu, func, ref_fe, bc.element_conns.data, bc.sides, X, t, U)
+  foreach_block(fspace) do ref_fe, b
+    block_id = bcs.block_id_to_bc[b]
+    if block_id == -1
+      # do nothing
+    else
+      cache = bcs.bc_caches[block_id]
+      func = bcs.bc_funcs[block_id]
+      _update_bc_values!(cache.vals, cache.dvalsdu, func, ref_fe, cache.element_conns.data, cache.sides, X, t, U)
+    end
   end
   return nothing
 end

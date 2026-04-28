@@ -32,9 +32,7 @@ volume quadrature points for one block.
   TODO remove element_conns and ref_fes
   and have assemblers just ping the correct block
 """
-struct SourceContainer{
-  RM <: AbstractMatrix{<:SVector}
-}
+struct SourceContainer{RM <: AbstractMatrix{<:SVector}}
   vals::RM                    # size (NQ_cell, nelem) of SVector{ND}
   is_constant::Bool           # skip re-evaluation after first call
   initialized::Base.RefValue{Bool}
@@ -85,54 +83,79 @@ struct Sources{
   SourceFuncs,
   RM           <: AbstractMatrix{<:SVector},
 } <: AbstractBCs{SourceFuncs}
+  block_id_to_source::NTuple{MAX_BLOCKS, Int}
   source_block_ids::Vector{Int} # note this is the id order in FEC not the id in exodus
   source_block_names::Vector{String}
   source_caches::Vector{SourceContainer{RM}}
   source_funcs::SourceFuncs
 
   function Sources{SourceFuncs, RM}(
-    source_block_ids, source_block_names, source_caches, source_funcs
+    block_id_to_source, source_block_ids, source_block_names, source_caches, source_funcs
   ) where {SourceFuncs, RM}
-    new{SourceFuncs, RM}(source_block_ids, source_block_names, source_caches, source_funcs)
+    new{SourceFuncs, RM}(block_id_to_source, source_block_ids, source_block_names, source_caches, source_funcs)
   end
 
-  # TODO should we really allow for scalar funcs for this in the case of scalar variables?
+  # # TODO should we really allow for scalar funcs for this in the case of scalar variables?
+  # function Sources(mesh, dof::DofManager, sources::Vector{Source}, ::Type{RT} = Float64) where RT <: Number
+  #   ND = size(dof, 1)
+  #   caches = SourceContainer{Matrix{SVector{ND, RT}}}[]
+  #   funcs = SourceFunction[]
+  #   if length(sources) == 0
+  #     block_id_to_source = ntuple(i -> -1, Val(MAX_BLOCKS))
+  #     return Sources{typeof(funcs), Matrix{SVector{ND, RT}}}(
+  #       block_id_to_source, Int[], String[], SourceContainer{Matrix{SVector{ND, RT}}}[], funcs
+  #     )
+  #   end
+
+  #   fspace = function_space(dof)
+  #   ND = length(dof.var)
+  #   source_block_ids = Int[]
+  #   source_block_names = String[]
+  #   for source in sources
+  #     block_name = source.block_name
+  #     block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+  #     push!(source_block_ids, block_id)
+  #     push!(source_block_names, block_name)
+  #     NQ, NE = block_quadrature_size(fspace, block_id)
+  #     # conns = Connectivity([conns_full])
+  #     # if ND == 1
+  #     #   vals = zeros(Float64, NQ, nelem)
+  #     # else
+  #     elements = fspace.elem_id_maps[block_id]
+  #     vals  = zeros(SVector{ND, Float64}, NQ, NE)
+  #     # REMOVE me
+  #     @assert length(elements) == size(vals, 2)
+  #     # end
+
+  #     # Detect constant: the is_constant flag is set by the caller (Carina)
+  #     # via the Source struct. For now, default to false (re-evaluate every step).
+  #     is_constant = false
+
+  #     push!(caches, SourceContainer(vals, is_constant, Ref(false)))
+  #     push!(funcs, SourceFunction(source.func))
+  #   end
+
+  #   block_id_to_source = ntuple(
+  #     i -> i <= length(source_block_ids) ? 
+  #     source_block_ids[i] : 
+  #     -1,
+  #     Val(MAX_BLOCKS)
+  #   )
+  #   # return Sources(source_block_ids, source_block_names, caches, funcs)
+  #   return Sources{typeof(funcs), Matrix{SVector{ND, RT}}}(
+  #     block_id_to_source, source_block_ids, source_block_names, caches, funcs
+  #   )
+  # end
   function Sources(mesh, dof::DofManager, sources::Vector{Source}, ::Type{RT} = Float64) where RT <: Number
-    ND = size(dof, 1)
-    caches = SourceContainer{Matrix{SVector{ND, RT}}}[]
-    funcs = SourceFunction[]
-    if length(sources) == 0
-      return Sources{typeof(funcs), Matrix{SVector{ND, RT}}}(Int[], String[], SourceContainer{Matrix{SVector{ND, RT}}}[], funcs)
-    end
-
-    fspace = function_space(dof)
-    ND = length(dof.var)
-    source_block_ids = Int[]
-    source_block_names = String[]
-    for source in sources
-      block_name = source.block_name
-      block_id = findfirst(x -> x == block_name, mesh.element_block_names)
-      push!(source_block_ids, block_id)
-      push!(source_block_names, block_name)
-      NQ, NE = block_quadrature_size(fspace, block_id)
-      # conns = Connectivity([conns_full])
-      # if ND == 1
-      #   vals = zeros(Float64, NQ, nelem)
-      # else
-      vals  = zeros(SVector{ND, Float64}, NQ, NE)
-      # end
-
-      # Detect constant: the is_constant flag is set by the caller (Carina)
-      # via the Source struct. For now, default to false (re-evaluate every step).
-      is_constant = false
-
-      push!(caches, SourceContainer(vals, is_constant, Ref(false)))
-      push!(funcs, SourceFunction(source.func))
-    end
-
-    # return Sources(source_block_ids, source_block_names, caches, funcs)
-    return Sources{typeof(funcs), Matrix{SVector{ND, RT}}}(
-      source_block_ids, source_block_names, caches, funcs
+    temp = Sources{Function}(mesh, dof, sources)
+    # need to do below for typesafe funcs on GPU
+    funcs = map(x -> SourceFunction(x.func), sources)
+    return Sources{typeof(funcs), _vals_type(temp.source_caches)}(
+      temp.block_id_to_source,
+      temp.source_block_ids,
+      temp.source_block_names,
+      temp.source_caches,
+      funcs
     )
   end
 
@@ -142,7 +165,8 @@ struct Sources{
     caches = SourceContainer{RM}[]
     funcs = SourceFunction{F}[]
     if length(sources) == 0
-      return Sources{typeof(funcs), RM}(Int[], String[], SourceContainer{RM}[], funcs)
+      block_id_to_source = ntuple(i -> -1, Val(MAX_BLOCKS))
+      return Sources{typeof(funcs), RM}(block_id_to_source, Int[], String[], SourceContainer{RM}[], funcs)
     end
 
     fspace = function_space(dof)
@@ -170,9 +194,15 @@ struct Sources{
       push!(funcs, SourceFunction{F}(source.func))
     end
 
+    block_id_to_source = ntuple(
+      i -> i <= length(source_block_ids) ? 
+      source_block_ids[i] : 
+      -1,
+      Val(MAX_BLOCKS)
+    )
     # return Sources(source_block_ids, source_block_names, caches, funcs)
     return Sources{typeof(funcs), RM}(
-      source_block_ids, source_block_names, caches, funcs
+      block_id_to_source, source_block_ids, source_block_names, caches, funcs
     )
   end
 end
@@ -181,11 +211,12 @@ function Adapt.adapt(to, sources::Sources{SourceFuncs, RM}) where {SourceFuncs, 
   if length(sources.source_caches) > 0
     caches = map(x -> adapt(to, x), sources.source_caches)
   else
-    temp = adapt(to, _vals_type(sources.source_caches)(undef, 0, 0))
-    caches = SourceContainer{typeof(temp)}[]
+    temp_floats = adapt(to, _vals_type(sources.source_caches)(undef, 0, 0))
+    caches = SourceContainer{typeof(temp_floats)}[]
   end
 
   return Sources{SourceFuncs, _vals_type(caches)}(
+    sources.block_id_to_source,
     sources.source_block_ids,
     sources.source_block_names,
     caches,
@@ -205,19 +236,22 @@ end
 
 function update_source_values!(sources::Sources, assembler, X, t)
   fspace = function_space(assembler)
-  for n in axes(sources.source_block_ids, 1)
-    block_id = sources.source_block_ids[n]
-    cache = sources.source_caches[n]
-    if cache.is_constant && cache.initialized[]
-      continue
+  foreach_block(fspace) do ref_fe, b
+    block_id = sources.block_id_to_source[b]
+    if block_id == -1
+      # do nothing, can't use continue since we're in foreach_block
+    else
+      cache = sources.source_caches[block_id]
+      if cache.is_constant && cache.initialized[]
+        # do nothing
+      else
+        func = sources.source_funcs[block_id]
+        conns_data = fspace.elem_conns.data
+        coffset = fspace.elem_conns.offsets[block_id]
+        _update_source_values!(cache.vals, func, ref_fe, conns_data, coffset, X, t)
+        cache.initialized[] = true
+      end
     end
-
-    func = sources.source_funcs[n]
-    ref_fe = block_reference_element(fspace, block_id)
-    conns_data = fspace.elem_conns.data
-    coffset = fspace.elem_conns.offsets[block_id]
-    _update_source_values!(cache.vals, func, ref_fe, conns_data, coffset, X, t)
-    cache.initialized[] = true
   end
   return nothing
 end
