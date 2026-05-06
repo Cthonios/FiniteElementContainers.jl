@@ -206,7 +206,8 @@ end
 function PostProcessor{O}(::Type{<:ExodusMesh}, mesh, output_file) where O <: ExodusDatabase
   copy_mesh(mesh, output_file, ExodusMesh, O)
   exo = O(output_file, "rw")
-  return PostProcessor{O}(output_file, exo, String[], String[], String[])
+  # return PostProcessor{O}(output_file, exo, String[], String[], String[])
+  return PostProcessor(output_file, exo, String[], String[], String[])
 end
 
 function write_field(

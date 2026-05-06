@@ -1,6 +1,10 @@
 import FiniteElementContainers: Expressions as Exp
 import FiniteElementContainers.Expressions: Parser
+using DynamicExpressions
 using StaticArrays
+
+const operators = OperatorEnum(1 => (sin, cos, exp), 2 => (+, -, *, /))
+
 
 function test_method()
     # constant
@@ -54,6 +58,14 @@ function test_method()
     func = Exp.ExpressionFunction{Float64}(string, ["x", "y"])
     val = func([1.0, 2.0])
     println(Core.stdout, "func = $val")
+
+    # operators = OperatorEnum(1 => (sin, cos, exp), 2 => (+, -, *, /))
+    variable_names = ["x", "y"]
+    parsed_expr = parse_expression(
+        :(sin(2.0 * x + exp(y + 5.0))); 
+        operators = operators,
+        variable_names = variable_names
+    )
 end
 
 function @main(ARGS)
