@@ -1,6 +1,7 @@
 function assemble_mass!(
   assembler, func::F, Uu, p
 ) where F <: Function
+  _check_matrix_assembly_supported(assembler, "assemble_mass!")
   assemble_matrix!(
     assembler.mass_storage, assembler.matrix_pattern, assembler.dof,
     func, Uu, p;
@@ -11,11 +12,19 @@ end
 function assemble_stiffness!(
   assembler, func::F, Uu, p
 ) where F <: Function
+  _check_matrix_assembly_supported(assembler, "assemble_stiffness!")
   assemble_matrix!(
     assembler.stiffness_storage, assembler.matrix_pattern, assembler.dof,
     func, Uu, p;
     use_inplace_methods = _use_inplace_methods(assembler)
   )
+end
+
+@inline function _check_matrix_assembly_supported(asm, fname::AbstractString)
+  if asm isa SparseMatrixAssembler && _is_matrix_free(asm)
+    error("$fname called on a matrix-free SparseMatrixAssembler.  " *
+          "Re-create the assembler with matrix_free=false to enable matrix assembly.")
+  end
 end
 
 """
