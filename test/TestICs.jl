@@ -27,9 +27,9 @@ end
 end
 
 @testitem "ICs - ic_container_init_and_update_juliac_safe" setup=[ICHelper] begin
-    import FiniteElementContainers.Expressions: ExpressionFunction
-    expr_func = ExpressionFunction{Float64}("3.0", ["x", "y"])
-    ic_in = InitialCondition{ExpressionFunction{Float64}}("displ_x", expr_func, "block_1")
+    import FiniteElementContainers.Expressions: ScalarExpressionFunction
+    expr_func = ScalarExpressionFunction{Float64}("3.0", ["x", "y"])
+    ic_in = InitialCondition{ScalarExpressionFunction{Float64}}("displ_x", expr_func, "block_1")
     ics = InitialConditions(mesh, dof, [ic_in])
     @show ics
     U = create_field(dof)

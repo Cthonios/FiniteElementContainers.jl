@@ -1,13 +1,15 @@
 module Expressions
 
+import DynamicExpressions.NodeModule: DEFAULT_MAX_DEGREE
+using DynamicExpressions
 using StaticArrays
 
 ########################################################
 # Helper types
 ########################################################
-const Name = Union{Nothing, Symbol}
-const NameID = Union{Nothing, Int}
-const Operator = Union{Nothing, Symbol}
+const Name     = Union{Nothing, Symbol}
+const NameID   = Union{Nothing, Int}
+const Operator = Union{Nothing, Int}
 const Value{T} = Union{Nothing, T}
 
 ########################################################
@@ -30,15 +32,36 @@ const UNARY       = 13
 const VARIABLE    = 14
 
 # internally supported analytic functions
-const FUNC_COS  = 1
-const FUNC_COSH = 2
-const FUNC_EXP  = 3
-const FUNC_LOG  = 4
-const FUNC_SIN  = 5
-const FUNC_SINH = 6
-const FUNC_SQRT = 7
-const FUNC_TAN  = 8
-const FUNC_TANH = 9
+const FUNC_COS   = 1
+const FUNC_COSH  = 2
+const FUNC_EXP   = 3
+const FUNC_LOG   = 4
+const FUNC_MINUS = 5
+const FUNC_SIN   = 6
+const FUNC_SINH  = 7
+const FUNC_SQRT  = 8
+const FUNC_TAN   = 9
+const FUNC_TANH  = 10
+
+_minus(x) = -x
+
+# all supported operators
+const operators = OperatorEnum(
+    1 => (cos, cosh, exp, log, _minus, sin, sinh, sqrt, tan, tanh),
+    2 => (+, -, *, /, ^)
+)
+const operators_type = typeof(operators)
+const ntuple_type = NamedTuple{(:operators, :var_names), Tuple{operators_type, Vector{String}}}
+
+const NULL_OPERATOR = 1
+
+const UNARY_MINUS = FUNC_MINUS
+
+const BINARY_PLUS     = 1
+const BINARY_MINUS    = 2
+const BINARY_MULTIPLY = 3
+const BINARY_DIVIDE   = 4
+const BINARY_POWER    = 5
 
 ########################################################
 # Tokens
@@ -57,7 +80,7 @@ struct Token{T <: Number}
         new{T}(NUMBER, nothing, nothing, value)
     end
 
-    function Token{T}(id::Int, name::Symbol, op::Symbol) where T <: Number
+    function Token{T}(id::Int, name::Symbol, op::Int) where T <: Number
         new{T}(id, name, op, nothing)
     end
 end
@@ -103,19 +126,17 @@ function _next_token(l::Lexer, ::Type{T} = Float64) where T <: Number
     if isdigit(c)
         return Token{T}(_read_number(l))
     elseif isletter(c)
-        return Token{T}(IDENTIFIER, _read_identifier(l), :null)
+        return Token{T}(IDENTIFIER, _read_identifier(l), NULL_OPERATOR)
     elseif c == '+'
-        _advance!(l); return Token{T}(OPERATOR, :null, :+)
+        _advance!(l); return Token{T}(OPERATOR, :null, BINARY_PLUS)
     elseif c == '-'
-        _advance!(l); return Token{T}(OPERATOR, :null, :-)
+        _advance!(l); return Token{T}(OPERATOR, :null, BINARY_MINUS)
     elseif c == '*'
-        _advance!(l); return Token{T}(OPERATOR, :null, :*)
+        _advance!(l); return Token{T}(OPERATOR, :null, BINARY_MULTIPLY)
     elseif c == '/'
-        _advance!(l); return Token{T}(OPERATOR, :null, :/)
+        _advance!(l); return Token{T}(OPERATOR, :null, BINARY_DIVIDE)
     elseif c == '^'
-        _advance!(l); return Token{T}(OPERATOR, :null, :^)
-    elseif c == '='
-        _advance!(l); return Token{T}(OPERATOR, :null, :(=))
+        _advance!(l); return Token{T}(OPERATOR, :null, BINARY_POWER)
     elseif c == '('
         _advance!(l); return Token{T}(LEFT_PAREN)
     elseif c == ')'
@@ -153,7 +174,6 @@ function _read_number(l::Lexer, ::Type{T} = Float64) where T
 
         # must have at least one digit
         if !isdigit(_peek(l))
-            # error("Invalid scientific notation")
             invalid_scientific_notation_error(_peek(l))
         end
 
@@ -176,94 +196,6 @@ end
 function _skip_ws!(l)
     while isspace(_peek(l))
         _advance!(l)
-    end
-end
-
-########################################################
-# AST
-########################################################
-
-struct ASTNode{T <: Number}
-    # args::Union{Nothing, Vector{ASTNode{T}}}
-    arg::Union{Nothing, ASTNode{T}}
-    id::Int
-    left::Union{Nothing, ASTNode{T}}
-    name_id::NameID
-    operator::Operator
-    right::Union{Nothing, ASTNode{T}}
-    value::Value{T}
-
-    function ASTNode{T}(arg, id, left, name_id, operator, right, value) where T <: Number
-        new{T}(arg, id, left, name_id, operator, right, value)
-    end
-end
-
-function __eval_ast_call(ast::ASTNode{T}, vars) where T <: Number
-    input = _eval_ast(ast.arg, vars)
-    if ast.name_id == FUNC_COS
-        return cos(input)
-    elseif ast.name_id == FUNC_COSH
-        return cosh(input)
-    elseif ast.name_id == FUNC_EXP
-        return exp(input)
-    elseif ast.name_id == FUNC_LOG
-        return log(input)
-    elseif ast.name_id == FUNC_SIN
-        return sin(input)
-    elseif ast.name_id == FUNC_SINH
-        return sinh(input)
-    elseif ast.name_id == FUNC_SQRT
-        return sqrt(input)
-    elseif ast.name_id == FUNC_TAN
-        return tan(input)
-    elseif ast.name_id == FUNC_TANH
-        return tanh(input)
-    else
-        @assert false "Unsupported function with id $(ast.name_id)"
-    end
-end
-
-function __eval_ast_var(::ASTNode{T}, var::T)::T where T <: Number
-    return var
-end
-
-function __eval_ast_var(ast::ASTNode{T}, vars::AbstractVector{T})::T where T <: Number
-    return vars[ast.name_id]
-end
-
-function _eval_ast(ast::ASTNode{T}, vars)::T where T <: Number
-    if ast.id == BINARY
-        left = _eval_ast(ast.left, vars)
-        right = _eval_ast(ast.right, vars)
-
-        if ast.operator == :+
-            return left + right
-        elseif ast.operator == :-
-            return left - right
-        elseif ast.operator == :*
-            return left * right
-        elseif ast.operator == :/
-            return left / right
-        elseif ast.operator == :^
-            return left ^ right
-        else
-            @assert false "Unsupport operator $(ast.operator)"
-        end
-    elseif ast.id == CALL
-        return __eval_ast_call(ast, vars)
-    elseif ast.id == NUMBER
-        return ast.value::T
-    elseif ast.id == UNARY
-        if ast.operator == :-
-            val = _eval_ast(ast.arg, vars)
-            return -val
-        else
-            @assert false "Unsupport operator $(ast.operator)"
-        end
-    elseif ast.id == VARIABLE
-        return __eval_ast_var(ast, vars)
-    else
-        @assert false "Unsupported type id $(ast.id)"
     end
 end
 
@@ -332,11 +264,11 @@ function _lbp(token::Token)
     elseif token.id == RIGHT_PAREN
         return 0
     elseif token.id == OPERATOR
-        if token.op == :+ || token.op == :-
+        if token.op == BINARY_PLUS || token.op == BINARY_MINUS
             return 10
-        elseif token.op == :* || token.op == :/
+        elseif token.op == BINARY_MULTIPLY || token.op == BINARY_DIVIDE
             return 20
-        elseif token.op == :^
+        elseif token.op == BINARY_POWER
             return 30
         else    
             error("Unknown op")
@@ -346,14 +278,14 @@ end
 
 function _led(p::Parser, token::Token, left, ::Type{T}) where T <: Number
     right = _parse_statement(p, _lbp(token))
-    return ASTNode{T}(nothing, BINARY, left, nothing, token.op, right, nothing)
+    return Node{T}(; op = token.op, l = left, r = right)
 end
 
 function _nud(p::Parser, t::Token, ::Type{T}) where T <: Number
     if t.id == IDENTIFIER
         if p.current.id == LEFT_PAREN
             _advance!(p) # consume '('
-            args = ASTNode{T}[]
+            args = Node{T, DEFAULT_MAX_DEGREE}[]
             if !(p.current.id == RIGHT_PAREN)
                 while true
                     push!(args, _parse_statement(p, 0))
@@ -370,11 +302,11 @@ function _nud(p::Parser, t::Token, ::Type{T}) where T <: Number
             # TODO if we support multi args later drop the [1]
             func_name = string(t.name)
             func_id = _func_id(func_name)
-            return ASTNode{T}(args[1], CALL, nothing, func_id, nothing, nothing, nothing)
+            return Node{T}(; op = func_id, l = args[1])
         else
             if string(t.name) in p.var_names
                 name_id = findfirst(x -> x == string(t.name), p.var_names)
-                return ASTNode{T}(nothing, VARIABLE, nothing, name_id, nothing, nothing, nothing)
+                return Node{T}(; feature = name_id)
             # elseif string(t.name) in p.parameter_names
             #     name_id = findfirst(x -> x == string(t.name), p.parameter_names)
             #     return ASTNode{T}(nothing, PARAMETER, nothing, name_id, nothing, nothing, )
@@ -390,13 +322,13 @@ function _nud(p::Parser, t::Token, ::Type{T}) where T <: Number
         _advance!(p)
         return expr
     elseif t.id == NUMBER
-        return ASTNode{T}(nothing, NUMBER, nothing, nothing, nothing, nothing, t.value)
+        return Node{T}(; val = t.value)
     elseif t.id == OPERATOR
-        if t.op == :-
+        if t.op == BINARY_MINUS
             val = _parse_statement(p, 100)
-            return ASTNode{T}(val, UNARY, nothing, nothing, :-, nothing, nothing)
+            return Node{T}(; op = UNARY_MINUS, l = val)
         else
-            error("Unexpected operator in _nud")
+            error("Unexpected operator in _nud. Found operator $(t.op)")
         end
     else
         error("Should this happen?")
@@ -425,43 +357,59 @@ function _reset!(p::Parser{T}) where T <: Number
 end
 
 ########################################################
-# Front facing API
+# Front facing APIinc
 ########################################################
-struct ExpressionFunction{T <: Number} <: Function
-    ast::ASTNode{T}
+abstract type AbstractExpressionFunction{T, N, D} <: Function end
+
+struct ScalarExpressionFunction{T <: Number} <: AbstractExpressionFunction{T, Node{T, DEFAULT_MAX_DEGREE}, ntuple_type}
+    expr::Expression{T, Node{T, DEFAULT_MAX_DEGREE}, ntuple_type}
     num_vars::Int
 
-    function ExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
+    function ScalarExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
         p = Parser{T}(string, var_names)
         # params = _find_parameters(p)
         _reset!(p)
         ast = _parse_statement(p, 0)
-        new{T}(ast, length(var_names))
+        expr = Expression(ast; operators, var_names)
+        # return ScalarExpressionFunction(expr, length(var_names))
+        new{T}(expr, length(var_names))
     end
 end
 
-Base.eltype(::ExpressionFunction{T}) where T <: Number = T
+# function ScalarExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
+#     p = Parser{T}(string, var_names)
+#     # params = _find_parameters(p)
+#     _reset!(p)
+#     ast = _parse_statement(p, 0)
+#     expr = Expression(ast; operators, var_names)
+#     return ScalarExpressionFunction(expr, length(var_names))
+# end
 
-function (f::ExpressionFunction)(var::T) where T <: Number
+Base.eltype(::ScalarExpressionFunction{T}) where T <: Number = T
+
+function (f::ScalarExpressionFunction)(var::T) where T <: Number
     @assert f.num_vars == 1
-    return _eval_ast(f.ast, var)
+    return f.expr(SMatrix{1, 1, T, 1}(var))[1]
 end
 
-function (f::ExpressionFunction)(vars::AbstractVector{T}) where T <: Number
-    return _eval_ast(f.ast, vars)
+# fall back function, not that efficient though
+function (f::ScalarExpressionFunction)(vars::AbstractVector{T}) where T <: Number
+    vars = reshape(vars, length(vars), 1)
+    return f.expr(vars)[1]
 end
 
 # for ic type funcs
-function (f::ExpressionFunction)(X::SVector{ND, T}) where {ND, T <: Number}
+function (f::ScalarExpressionFunction)(X::SVector{ND, T}) where {ND, T <: Number}
     @assert f.num_vars == ND "You need $ND variables for this function"
-    return _eval_ast(f.ast, X)
+    X = SMatrix{ND, 1, T, ND}(X.data)
+    return f.expr(X)[1]
 end
 
 # for bc type funcs
-function (f::ExpressionFunction)(X::SVector{ND, T}, t::T) where {ND, T <: Number}
+function (f::ScalarExpressionFunction)(X::SVector{ND, T}, t::T) where {ND, T <: Number}
     @assert f.num_vars == ND + 1 "You need $(ND + 1) variables for this function"
-    vars = SVector{ND + 1, T}(X..., t)
-    return _eval_ast(f.ast, vars)
+    vars = SMatrix{ND + 1, 1, T, ND + 1}(X..., t)
+    return f.expr(vars)[1]
 end
 
 end # module

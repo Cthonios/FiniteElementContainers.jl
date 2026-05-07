@@ -20,7 +20,7 @@ function app_main(ARGS::Vector{String})
     # need to define some types
     #####################################
     ET = ExodusDatabase{Int32, Int32, Int32, Float64}
-    FT = AT.ExpressionFunction{Float64}
+    FT = AT.ScalarExpressionFunction{Float64}
     SPT = FEC.CSCMatrix()
 
     #####################################
@@ -63,7 +63,7 @@ function app_main(ARGS::Vector{String})
     println(Core.stdout, maximum(p.field.data))
     println(Core.stdout, minimum(p.field.data))
 
-    pp = PostProcessor{ET}(FEC.ExodusMesh, sim.mesh, "juliac_output.e")
+    pp = PostProcessor{ET}(FEC.ExodusMesh, sim.mesh, "juliac_output_2.e")
     FEC.add_function!(pp, u)
     FEC.finalize_setup!(pp)
     write_times(pp, 1, 0.0)

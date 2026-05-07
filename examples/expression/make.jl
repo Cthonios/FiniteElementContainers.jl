@@ -10,7 +10,7 @@ img = ImageRecipe(
     file           = "$src_path/src/MyApp.jl",
     trim_mode      = "safe",
     add_ccallables = false,
-    verbose        = true,
+    verbose        = false,
 )
 
 link = LinkRecipe(
