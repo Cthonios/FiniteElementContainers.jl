@@ -8,7 +8,7 @@ module AppTools
 export App
 
 import ..DirichletBC
-import ..Expressions.ExpressionFunction
+import ..Expressions.ScalarExpressionFunction
 import ..ExodusMesh
 import ..FileMesh
 import ..FunctionSpace
@@ -286,14 +286,14 @@ print_dict(l::LogFile, d::Dict{String, String}) = print_dict(l, d)
 # Input file
 #######################################################
 struct BCSettings{T <: Number}
-    dirichlet::Vector{DirichletBC{ExpressionFunction{T}}}
-    neumann::Vector{NeumannBC{ExpressionFunction{T}}}
-    robin::Vector{RobinBC{ExpressionFunction{T}}}
-    source::Vector{Source{ExpressionFunction{T}}}
+    dirichlet::Vector{DirichletBC{ScalarExpressionFunction{T}}}
+    neumann::Vector{NeumannBC{ScalarExpressionFunction{T}}}
+    robin::Vector{RobinBC{ScalarExpressionFunction{T}}}
+    source::Vector{Source{ScalarExpressionFunction{T}}}
 end
 
 struct FunctionSettings{T <: Number}
-    expr_funcs::Dict{String, ExpressionFunction{T}}
+    expr_funcs::Dict{String, ScalarExpressionFunction{T}}
 end
 
 struct FunctionSpaceSettings
@@ -317,7 +317,7 @@ struct InputSettings{T <: Number}
     bcs::BCSettings{T}
     functions::FunctionSettings{T}
     # ics::Vector{InitialConditionSettings}
-    ics::Vector{InitialCondition{ExpressionFunction{T}}}
+    ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
     mesh::MeshSettings
     # variables::Dict{String, VariableSettings}
 end
@@ -329,10 +329,10 @@ function _parse_boundary_condition_settings(log_file, data, functions::FunctionS
     else
         bc_settings = Dict{String, Any}()
     end
-    dbcs = DirichletBC{ExpressionFunction{T}}[]
-    nbcs = NeumannBC{ExpressionFunction{T}}[]
-    rbcs = RobinBC{ExpressionFunction{T}}[]
-    srcs = Source{ExpressionFunction{T}}[]
+    dbcs = DirichletBC{ScalarExpressionFunction{T}}[]
+    nbcs = NeumannBC{ScalarExpressionFunction{T}}[]
+    rbcs = RobinBC{ScalarExpressionFunction{T}}[]
+    srcs = Source{ScalarExpressionFunction{T}}[]
     if haskey(bc_settings, "dirichlet")
         dbc_settings = bc_settings["dirichlet"]::Vector{Any}
         for bc in dbc_settings
@@ -437,7 +437,7 @@ end
 
 function _parse_function_settings(log_file, data, ::Type{T}) where T <: Number
     print_banner(log_file, "Functions")
-    functions = Dict{String, ExpressionFunction{T}}()
+    functions = Dict{String, ScalarExpressionFunction{T}}()
     func_settings = data["functions"]::Dict{String, Any}
     for (k, v) in pairs(func_settings)
         name = k::String
@@ -449,12 +449,12 @@ function _parse_function_settings(log_file, data, ::Type{T}) where T <: Number
             expr = temp["expression"]::String
             vars = temp["variables"]::Vector{String}
             println(log_file.io, "Parsing analytic function with expression = $expr")
-            functions[name] = ExpressionFunction{T}(expr, vars)
+            functions[name] = ScalarExpressionFunction{T}(expr, vars)
         elseif type == "constant"
             expr = temp["expression"]::String
             vars = temp["variables"]::Vector{String}
             println(log_file.io, "Parsing constant function with expression = $expr")
-            functions[name] = ExpressionFunction{T}(expr, vars)
+            functions[name] = ScalarExpressionFunction{T}(expr, vars)
         else
             @assert false "Unsupported function type $type"
         end
@@ -465,7 +465,7 @@ end
 function _parse_initial_condition_settings(log_file, data, functions)
     print_banner(log_file, "Initial conditions")
     ic_settings = data["initial_conditions"]::Vector{Any}
-    ics = InitialCondition{ExpressionFunction{Float64}}[]
+    ics = InitialCondition{ScalarExpressionFunction{Float64}}[]
     for ic in ic_settings
         temp = ic::Dict{String, Any}
         blocks = temp["blocks"]::Vector{String}
@@ -658,13 +658,13 @@ function get_cli_arg(app::App, name::String)
 end
 
 struct Simulation{T <: Number, IO, Mesh}
-    dbcs::Vector{DirichletBC{ExpressionFunction{T}}}
-    ics::Vector{InitialCondition{ExpressionFunction{T}}}
+    dbcs::Vector{DirichletBC{ScalarExpressionFunction{T}}}
+    ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
     log_file::LogFile{IO}
     mesh::Mesh
-    nbcs::Vector{NeumannBC{ExpressionFunction{T}}}
-    rbcs::Vector{RobinBC{ExpressionFunction{T}}}
-    srcs::Vector{Source{ExpressionFunction{T}}}
+    nbcs::Vector{NeumannBC{ScalarExpressionFunction{T}}}
+    rbcs::Vector{RobinBC{ScalarExpressionFunction{T}}}
+    srcs::Vector{Source{ScalarExpressionFunction{T}}}
 
     function Simulation(settings::InputSettings, log_file::LogFile{IO}) where IO
         print_banner(log_file, "Mesh")
