@@ -1,31 +1,34 @@
 [device]
 backend = "cpu"
 
-[functions.zero_ic]
-type = "scalar expression"
-expression = "0.0"
-variables = ["x", "y"]
-
 [functions.zero_bc]
 type = "scalar expression"
 expression = "0.0"
 variables = ["x", "y", "t"]
 
-[functions.zero_neumann]
+[functions.source_func]
 type = "vector expression"
-expressions = ["1.0"]
+expressions = ["2 * pi^2 * sin(2 * pi * x) * sin(2 * pi * y)"]
 variables = ["x", "y", "t"]
 
 [mesh]
 file_path = "poisson.g"
 file_type = "exodus"
 
-[[initial_conditions]]
-function = "zero_ic"
-blocks = ["block_1"]
+[[boundary_conditions.dirichlet]]
+function = "zero_bc"
+side_sets = ["sset_1", "sset_2"]
 variables = ["u"]
 
 [[boundary_conditions.dirichlet]]
 function = "zero_bc"
-side_sets = ["sset_1", "sset_2", "sset_3", "sset_4"]
+side_sets = ["sset_3", "sset_4"]
 variables = ["u"]
+
+[[boundary_conditions.source]]
+function = "source_func"
+blocks = ["block_1"]
+variables = ["u"]
+
+# [linear_solver.krylov]
+

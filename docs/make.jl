@@ -35,9 +35,11 @@ makedocs(;
             "4 Transient Problem"            => "tutorials/4_transient_problem.md",
             "5 Solid Mechanics"              => "tutorials/5_solid_mechanics.md"
         ],
+        "AppTools"            => "app_tools.md",
         "Assemblers"          => "assemblers.md",
         "Boundary Conditions" => "boundary_conditions.md",
         "DofManager"          => "dof_manager.md",
+        "Expressions"         => "expressions.md",
         "Fields"              => "fields.md",
         "Formulations"        => "formulations.md",
         "Function spaces"     => "function_spaces.md",

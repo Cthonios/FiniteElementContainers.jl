@@ -30,57 +30,10 @@ field[1, :]
 ```
 etc.
 
-## Abstract type
+## Fields
 The base type for fields is the ```AbstractField``` abstract type. 
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["fields/Fields.jl"]
-Order = [:type]
-```
-Any new field added to ```FiniteElementContainers``` should be a subtype of this type.
-
-## Methods for ```AbstractField```
-```@autodocs
-Modules = [FiniteElementContainers]
-Pages = ["fields/Fields.jl"]
-Order = [:function]
-```
-
-## Implementations
-The existing direct subtypes of ```AbstractField``` are the following
-
-### Connectivity
-The connectivity type is a simple alias for ```L2ElementField``` defined below
-```@autodocs
-Modules = [FiniteElementContainers]
-Pages = ["fields/Connectivity.jl"]
-Order = [:type, :function]
-```
-
-### H1 field
-```@autodocs
-Modules = [FiniteElementContainers]
-Pages = ["fields/H1Field.jl"]
-Order = [:type, :function]
-```
-
-### Hcurl field
-```@autodocs
-Modules = [FiniteElementContainers]
-Pages = ["fields/HcurlField.jl"]
-Order = [:type, :function]
-```
-
-### Hdiv field
-```@autodocs
-Modules = [FiniteElementContainers]
-Pages = ["fields/HdivField.jl"]
-Order = [:type, :function]
-```
-
-### L2 field
-```@autodocs
-Modules = [FiniteElementContainers]
-Pages = ["fields/L2Field.jl"]
+Pages = ["Fields.jl"]
 Order = [:type, :function]
 ```
