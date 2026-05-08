@@ -2,13 +2,18 @@
 backend = "cpu"
 
 [functions.zero_ic]
-type = "constant"
+type = "scalar expression"
 expression = "0.0"
 variables = ["x", "y"]
 
 [functions.zero_bc]
-type = "constant"
+type = "scalar expression"
 expression = "0.0"
+variables = ["x", "y", "t"]
+
+[functions.zero_neumann]
+type = "vector expression"
+expressions = ["1.0"]
 variables = ["x", "y", "t"]
 
 [mesh]

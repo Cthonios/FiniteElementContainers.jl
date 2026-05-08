@@ -1,7 +1,7 @@
 using TestItemRunner
 using TestItems
 
-@testitem "Expression - constants" begin
+@testitem "ScalarExpressionFunction - constants" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction
 
     string = "5.0"
@@ -45,7 +45,7 @@ using TestItems
     @test val ≈ 25.0
 end
 
-@testitem "Expression - test_different_floats" begin
+@testitem "ScalarExpressionFunction - test_different_floats" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction
     import FiniteElementContainers.Expressions: InvalidScientificNotationError
     string = "5.64e-12"
@@ -63,7 +63,7 @@ end
     # @test val ≈ -4.68e-68
 end
 
-@testitem "Expression - test_simple_variable_expressions" begin
+@testitem "ScalarExpressionFunction - test_simple_variable_expressions" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction
 
     string = "x"
@@ -82,7 +82,7 @@ end
     @test val ≈ 40.0
 end
 
-@testitem "Expression - test_variable_arithmetic" begin
+@testitem "ScalarExpressionFunction - test_variable_arithmetic" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction
 
     string = "-x"
@@ -126,7 +126,7 @@ end
     @test val ≈ 1.0 * 2.0 * exp(1.0 + 2.0)
 end
 
-@testitem "Expression - builtin functions" begin
+@testitem "ScalarExpressionFunction - builtin functions" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction
 
     funcs = [cos, cosh, exp, log, sin, sinh, sqrt, tan, tanh]
@@ -139,7 +139,7 @@ end
     end
 end
 
-@testitem "Expression - special method calls" begin
+@testitem "ScalarExpressionFunction - special method calls" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction
     import StaticArrays: SVector
 
@@ -148,4 +148,39 @@ end
     X = SVector{3, Float64}(1.0, 2.0, 3.0)
     t = 15.0
     val = func(X, t)
+    @test val ≈ 48.0
+end
+
+@testitem "VectorExpressionFunction - constants" begin
+    import FiniteElementContainers.Expressions: VectorExpressionFunction
+    strings = ["0.0", "-5.0", "0.0"]
+    func = VectorExpressionFunction{3, Float64}(strings, String[])
+    val = func(Float64[])
+    @test val ≈ [0.0, -5.0, 0.0]
+
+    strings = ["10.0e-7", "-5.0e-3", "50.0e3"]
+    func = VectorExpressionFunction{3, Float64}(strings, String[])
+    val = func(Float64[])
+    @test val ≈ [10.0e-7, -5.0e-3, 50e3]
+end
+
+@testitem "VectorExpressionFunction - time only" begin
+    import FiniteElementContainers.Expressions: VectorExpressionFunction
+    strings = ["1.0 * t", "-2.0 * t", "3.0 * t^2"]
+    func = VectorExpressionFunction{3, Float64}(strings, ["t"])
+    val = func(5.0)
+    @test val ≈ [5.0, -10.0, 75.0]
+end
+
+@testitem "VectorExpressionFunction - all" begin
+    import FiniteElementContainers.Expressions: VectorExpressionFunction
+    import StaticArrays: SVector
+    strings = ["x * t", "-2.0 * x * y * t^2", "5.0 * x^2 * z * exp(t)"]
+    func = VectorExpressionFunction{3, Float64}(strings, ["x", "y", "z", "t"])
+    X = SVector{3, Float64}(1.0, 2.0, 3.0)
+    t = 5.0
+    val = func(X, t)
+    @test val[1] ≈ 5.0
+    @test val[2] ≈ -100.0
+    @test val[3] ≈ 15.0 * exp(5.0)
 end

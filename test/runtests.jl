@@ -1,4 +1,4 @@
-import FiniteElementContainers.Expressions: ExpressionFunction
+# import FiniteElementContainers.Expressions: ScalarExpressionFunction
 if "--test-amdgpu" in ARGS @eval using AMDGPU end
 if "--test-cuda" in ARGS @eval using CUDA end
 using TestItemRunner

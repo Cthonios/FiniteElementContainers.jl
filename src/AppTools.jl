@@ -9,6 +9,7 @@ export App
 
 import ..DirichletBC
 import ..Expressions.ScalarExpressionFunction
+import ..Expressions.VectorExpressionFunction
 import ..ExodusMesh
 import ..FileMesh
 import ..FunctionSpace
@@ -37,7 +38,6 @@ end
 
 # this one isn't quite working yet for some reason
 function has_key_check(io::IO, d::Dict{String, Any}, k::String, msg::String)
-    # !haskey(d, k)::Bool && error_message(io, msg)
     if !haskey(d, k)
         error_message(io, msg)
     end
@@ -188,7 +188,8 @@ function parse!(p::CLIArgParser, args::Vector{String})
 
     # if we see help just abort early
     if haskey(p.parsed_args, "--help")
-        @assert false help_message(p, "")
+        help_message(p, "")
+        exit()
     end
 
     # check for required args
@@ -285,223 +286,208 @@ print_dict(l::LogFile, d::Dict{String, String}) = print_dict(l, d)
 #######################################################
 # Input file
 #######################################################
-struct BCSettings{T <: Number}
+struct FunctionSettings{N, T <: Number}
+    scalar_expr_funcs::Dict{String, ScalarExpressionFunction{T}}
+    vector_expr_funcs::Dict{String, VectorExpressionFunction{N, T}}
+
+    function FunctionSettings{N, T}(log_file, data) where {N, T <: Number}
+        print_banner(log_file, "Functions")
+        scalar_functions = Dict{String, ScalarExpressionFunction{T}}()
+        vector_functions = Dict{String, VectorExpressionFunction{N, T}}()
+        func_settings = data["functions"]::Dict{String, Any}
+        for (k, v) in pairs(func_settings)
+            name = k::String
+            temp = v::Dict{String, Any}
+            type = temp["type"]::String
+            # TODO constant and anaytic are really the same
+            # should we fuse these into "expression" or something like that?
+            if type == "scalar expression"
+                expr = temp["expression"]::String
+                vars = temp["variables"]::Vector{String}
+                println(log_file.io, "Parsing analytic function with expression = $expr")
+                scalar_functions[name] = ScalarExpressionFunction{T}(expr, vars)
+            elseif type == "vector expression"
+                exprs = temp["expressions"]::Vector{String}
+                vars = temp["variables"]::Vector{String}
+                println(log_file.io, "Parsing expression function expressions")
+                for expr in exprs
+                    println(log_file.io, expr)
+                end
+                vector_functions[name] = VectorExpressionFunction{N, T}(exprs, vars)
+            # elseif type == "constant"
+            #     expr = temp["expression"]::String
+            #     vars = temp["variables"]::Vector{String}
+            #     println(log_file.io, "Parsing constant function with expression = $expr")
+            #     functions[name] = ScalarExpressionFunction{T}(expr, vars)
+            else
+                @assert false "Unsupported function type $type"
+            end
+        end
+        return new{N, T}(scalar_functions, vector_functions)
+    end
+end
+
+struct BCSettings{N, T <: Number}
     dirichlet::Vector{DirichletBC{ScalarExpressionFunction{T}}}
-    neumann::Vector{NeumannBC{ScalarExpressionFunction{T}}}
-    robin::Vector{RobinBC{ScalarExpressionFunction{T}}}
-    source::Vector{Source{ScalarExpressionFunction{T}}}
+    neumann::Vector{NeumannBC{VectorExpressionFunction{N, T}}}
+    robin::Vector{RobinBC{VectorExpressionFunction{N, T}}}
+    source::Vector{Source{VectorExpressionFunction{N, T}}}
+
+    function BCSettings{N, T}(log_file, data, functions::FunctionSettings{N, T}) where {N, T <: Number}
+        print_banner(log_file, "Boundary conditions")
+        if haskey(data, "boundary_conditions")
+            bc_settings = data["boundary_conditions"]::Dict{String, Any}
+        else
+            bc_settings = Dict{String, Any}()
+        end
+        dbcs = DirichletBC{ScalarExpressionFunction{T}}[]
+        nbcs = NeumannBC{VectorExpressionFunction{N, T}}[]
+        rbcs = RobinBC{VectorExpressionFunction{N, T}}[]
+        srcs = Source{VectorExpressionFunction{N, T}}[]
+        if haskey(bc_settings, "dirichlet")
+            dbc_settings = bc_settings["dirichlet"]::Vector{Any}
+            for bc in dbc_settings
+                # has_key_check(log_file, bc, "function", "key \"function\" not found for DirichletBC")
+                # has_key_check(log_file, bc, "variable", "key \"variable\" not found for DirichletBC")
+                temp = bc::Dict{String, Any}
+                func = temp["function"]::String
+                func = functions.scalar_expr_funcs[func]
+                vars = temp["variables"]::Vector{String}
+                if haskey(temp, "blocks")
+                    blocks = temp["blocks"]::Vector{String}
+                    for block in blocks
+                        for var in vars
+                            push!(dbcs, DirichletBC(var, func; block_name = block))
+                        end
+                    end
+                elseif haskey(temp, "node_sets")
+                    node_sets = temp["node_sets"]::Vector{String}
+                    for node_set in node_sets
+                        for var in vars
+                            push!(dbcs, DirichletBC(var, func; nodeset_name = node_set))
+                        end
+                    end
+                elseif haskey(temp, "side_sets")
+                    side_sets = temp["side_sets"]::Vector{String}
+                    for side_set in side_sets
+                        for var in vars
+                            push!(dbcs, DirichletBC(var, func; sideset_name = side_set))
+                        end
+                    end
+                else
+                    error_message(log_file, "Requires block, node_set, or side_set")
+                end
+            end
+        end
+    
+        if haskey(bc_settings, "neumann")
+            nbc_settings = bc_settings["neumann"]::Vector{Any}
+            for bc in nbc_settings
+                temp = bc::Dict{String, Any}
+                func = temp["function"]::String
+                func = functions.vector_expr_funcs[func]
+                sidesets = temp["side_sets"]::Vector{String}
+                vars = temp["variables"]::Vector{String}
+                for side_set in sidesets
+                    for var in vars
+                        push!(nbcs, NeumannBC(var, func, side_set))
+                    end
+                end
+            end
+        end
+    
+        if haskey(bc_settings, "robin")
+            rbc_settings = bc_settings["robin"]::Vector{Any}
+            for bc in rbc_settings
+                temp = bc::Dict{String, Any}
+                func = temp["function"]::String
+                func = functions.vector_expr_funcs[func]
+                sidesets = temp["side_sets"]::Vector{String}
+                vars = temp["variables"]::Vector{String}
+                for side_set in sidesets
+                    for var in vars
+                        push!(nbcs, RobinBC(var, func, side_set))
+                    end
+                end
+            end
+        end
+    
+        if haskey(bc_settings, "source")
+            src_settings = bc_settings["source"]::Vector{Any}
+            for src in src_settings
+                temp = src::Dict{String, Any}
+                blocks = temp["blocks"]::Vector{String}
+                func = temp["function"]::String
+                func = functions.vector_expr_funcs[func]
+                sidesets = temp["side_sets"]::Vector{String}
+                vars = temp["variables"]::Vector{String}
+                for block in blocks
+                    for var in vars
+                        push!(nbcs, Source(var, func, block))
+                    end
+                end
+            end
+        end
+    
+        new{N, T}(dbcs, nbcs, rbcs, srcs)
+    end
 end
 
-struct FunctionSettings{T <: Number}
-    expr_funcs::Dict{String, ScalarExpressionFunction{T}}
-end
 
-struct FunctionSpaceSettings
-    field_type::String
-    polynomial_type::String
+# struct FunctionSpaceSettings
+#     field_type::String
+#     polynomial_type::String
+# end
+
+struct ICSettings{T <: Number}
+    ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
+
+    function ICSettings{T}(log_file, data, functions::FunctionSettings{N, T}) where {N, T}
+        print_banner(log_file, "Initial conditions")
+        ic_settings = data["initial_conditions"]::Vector{Any}
+        ics = InitialCondition{ScalarExpressionFunction{Float64}}[]
+        for ic in ic_settings
+            temp = ic::Dict{String, Any}
+            blocks = temp["blocks"]::Vector{String}
+            func = temp["function"]::String
+            func = functions.scalar_expr_funcs[func]
+            vars = temp["variables"]::Vector{String}
+            for block in blocks
+                for var in vars
+                    push!(ics, InitialCondition(var, func, block))
+                end
+            end
+        end
+        new{T}(ics)
+    end
 end
 
 struct MeshSettings
     file_path::String
     file_type::String
+
+    function MeshSettings(log_file, data)
+        mesh_settings = data["mesh"]::Dict{String, Any}
+        file_path = mesh_settings["file_path"]::String
+        file_type = lowercase(mesh_settings["file_type"]::String)
+        new(file_path, file_type)
+    end
 end
 
-struct VariableSettings
-    function_space::String
-    name::String
-    variable_type::String
-end
+# struct VariableSettings
+#     function_space::String
+#     name::String
+#     variable_type::String
+# end
 
-struct InputSettings{T <: Number}
-    # function_spaces::Dict{String, FunctionSpaceSettings}
-    bcs::BCSettings{T}
-    functions::FunctionSettings{T}
-    # ics::Vector{InitialConditionSettings}
-    ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
+struct InputSettings{N, T <: Number}
+    bcs::BCSettings{N, T}
+    functions::FunctionSettings{N, T}
+    ics::ICSettings{T}
     mesh::MeshSettings
-    # variables::Dict{String, VariableSettings}
 end
 
-function _parse_boundary_condition_settings(log_file, data, functions::FunctionSettings{T}) where T <: Number
-    print_banner(log_file, "Boundary conditions")
-    if haskey(data, "boundary_conditions")
-        bc_settings = data["boundary_conditions"]::Dict{String, Any}
-    else
-        bc_settings = Dict{String, Any}()
-    end
-    dbcs = DirichletBC{ScalarExpressionFunction{T}}[]
-    nbcs = NeumannBC{ScalarExpressionFunction{T}}[]
-    rbcs = RobinBC{ScalarExpressionFunction{T}}[]
-    srcs = Source{ScalarExpressionFunction{T}}[]
-    if haskey(bc_settings, "dirichlet")
-        dbc_settings = bc_settings["dirichlet"]::Vector{Any}
-        for bc in dbc_settings
-            # has_key_check(log_file, bc, "function", "key \"function\" not found for DirichletBC")
-            # has_key_check(log_file, bc, "variable", "key \"variable\" not found for DirichletBC")
-            temp = bc::Dict{String, Any}
-            func = temp["function"]::String
-            func = functions.expr_funcs[func]
-            vars = temp["variables"]::Vector{String}
-            if haskey(temp, "blocks")
-                blocks = temp["blocks"]::Vector{String}
-                for block in blocks
-                    for var in vars
-                        push!(dbcs, DirichletBC(var, func; block_name = block))
-                    end
-                end
-            elseif haskey(temp, "node_sets")
-                node_sets = temp["node_sets"]::Vector{String}
-                for node_set in node_sets
-                    for var in vars
-                        push!(dbcs, DirichletBC(var, func; nodeset_name = node_set))
-                    end
-                end
-            elseif haskey(temp, "side_sets")
-                side_sets = temp["side_sets"]::Vector{String}
-                for side_set in side_sets
-                    for var in vars
-                        push!(dbcs, DirichletBC(var, func; sideset_name = side_set))
-                    end
-                end
-            else
-                error_message(log_file, "Requires block, node_set, or side_set")
-            end
-        end
-    end
-
-    if haskey(bc_settings, "neumann")
-        nbc_settings = bc_settings["neumann"]::Vector{Any}
-        for bc in nbc_settings
-            temp = bc::Dict{String, Any}
-            func = temp["function"]::String
-            func = functions.expr_funcs[func]
-            sidesets = temp["side_sets"]::Vector{String}
-            vars = temp["variables"]::Vector{String}
-            for side_set in sidesets
-                for var in vars
-                    push!(nbcs, NeumannBC(var, func, side_set))
-                end
-            end
-        end
-    end
-
-    if haskey(bc_settings, "robin")
-        rbc_settings = bc_settings["robin"]::Vector{Any}
-        for bc in rbc_settings
-            temp = bc::Dict{String, Any}
-            func = temp["function"]::String
-            func = functions.expr_funcs[func]
-            sidesets = temp["side_sets"]::Vector{String}
-            vars = temp["variables"]::Vector{String}
-            for side_set in sidesets
-                for var in vars
-                    push!(nbcs, RobinBC(var, func, side_set))
-                end
-            end
-        end
-    end
-
-    if haskey(bc_settings, "source")
-        src_settings = bc_settings["source"]::Vector{Any}
-        for src in src_settings
-            temp = src::Dict{String, Any}
-            blocks = temp["blocks"]::Vector{String}
-            func = temp["function"]::String
-            func = functions.expr_funcs[func]
-            sidesets = temp["side_sets"]::Vector{String}
-            vars = temp["variables"]::Vector{String}
-            for block in blocks
-                for var in vars
-                    push!(nbcs, Source(var, func, block))
-                end
-            end
-        end
-    end
-
-    # nbc_settings = 
-    return BCSettings(dbcs, nbcs, rbcs, srcs)
-end
-
-function _parse_function_space_settings(log_file, data)
-    settings = data["function_spaces"]::Dict{String, Any}
-    fspaces = Dict{String, FunctionSpaceSettings}()
-    for (k, v) in settings
-        name = k::String
-        temp = v::Dict{String, Any}
-        field_type = temp["field_type"]::String
-        polynomial_type = temp["polynomial_type"]::String
-        fspaces[name] = FunctionSpaceSettings(field_type, polynomial_type)
-    end
-    return fspaces
-end
-
-function _parse_function_settings(log_file, data, ::Type{T}) where T <: Number
-    print_banner(log_file, "Functions")
-    functions = Dict{String, ScalarExpressionFunction{T}}()
-    func_settings = data["functions"]::Dict{String, Any}
-    for (k, v) in pairs(func_settings)
-        name = k::String
-        temp = v::Dict{String, Any}
-        type = temp["type"]::String
-        # TODO constant and anaytic are really the same
-        # should we fuse these into "expression" or something like that?
-        if type == "analytic"
-            expr = temp["expression"]::String
-            vars = temp["variables"]::Vector{String}
-            println(log_file.io, "Parsing analytic function with expression = $expr")
-            functions[name] = ScalarExpressionFunction{T}(expr, vars)
-        elseif type == "constant"
-            expr = temp["expression"]::String
-            vars = temp["variables"]::Vector{String}
-            println(log_file.io, "Parsing constant function with expression = $expr")
-            functions[name] = ScalarExpressionFunction{T}(expr, vars)
-        else
-            @assert false "Unsupported function type $type"
-        end
-    end
-    return FunctionSettings{T}(functions)
-end
-
-function _parse_initial_condition_settings(log_file, data, functions)
-    print_banner(log_file, "Initial conditions")
-    ic_settings = data["initial_conditions"]::Vector{Any}
-    ics = InitialCondition{ScalarExpressionFunction{Float64}}[]
-    for ic in ic_settings
-        temp = ic::Dict{String, Any}
-        blocks = temp["blocks"]::Vector{String}
-        func = temp["function"]::String
-        func = functions.expr_funcs[func]
-        vars = temp["variables"]::Vector{String}
-        for block in blocks
-            for var in vars
-                push!(ics, InitialCondition(var, func, block))
-            end
-        end
-    end
-    return ics
-end
-
-function _parse_mesh_settings(log_file, data)
-    mesh_settings = data["mesh"]::Dict{String, Any}
-    file_path = mesh_settings["file_path"]::String
-    file_type = lowercase(mesh_settings["file_type"]::String)
-    return MeshSettings(file_path, file_type)
-end
-
-function _parse_variable_settings(log_file, data)
-    var_settings = data["variables"]::Dict{String, Any}
-    vars = Dict{String, VariableSettings}()
-    for (k, v) in var_settings
-        name = k::String
-        temp = v::Dict{String, Any}
-        fspace = temp["function_space"]::String
-        type = temp["type"]::String
-        vars[name] = VariableSettings(fspace, name, type)
-    end
-    return vars
-end
-
-function parse_input_file(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} = Float64) where T <: Number
+function InputSettings{N}(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} = Float64) where {N, T <: Number}
     input_file = cli_args.parsed_args["--input-file"]
     println(log_file.io, "Parsing input file from $(input_file)")
     println(log_file.io, "Input file contents...")
@@ -512,15 +498,39 @@ function parse_input_file(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} =
     end
     close(io)
     data = TOML.parsefile(input_file)
-    functions = _parse_function_settings(log_file, data, T)
-    bcs = _parse_boundary_condition_settings(log_file, data, functions)
-    ics = _parse_initial_condition_settings(log_file, data, functions)
-    mesh = _parse_mesh_settings(log_file, data)
-    # fspaces = _parse_function_space_settings(log_file, data)
-    # vars = _parse_variable_settings(log_file, data)
-    # return InputSettings{T}(fspaces, functions, mesh, vars)
-    return InputSettings{T}(bcs, functions, ics, mesh)
+
+    functions = FunctionSettings{N, T}(log_file, data)
+    bcs = BCSettings{N, T}(log_file, data, functions)
+    ics = ICSettings{T}(log_file, data, functions)
+    mesh = MeshSettings(log_file, data)
+    return InputSettings{N, T}(bcs, functions, ics, mesh)
 end
+
+# function _parse_function_space_settings(log_file, data)
+#     settings = data["function_spaces"]::Dict{String, Any}
+#     fspaces = Dict{String, FunctionSpaceSettings}()
+#     for (k, v) in settings
+#         name = k::String
+#         temp = v::Dict{String, Any}
+#         field_type = temp["field_type"]::String
+#         polynomial_type = temp["polynomial_type"]::String
+#         fspaces[name] = FunctionSpaceSettings(field_type, polynomial_type)
+#     end
+#     return fspaces
+# end
+
+# function _parse_variable_settings(log_file, data)
+#     var_settings = data["variables"]::Dict{String, Any}
+#     vars = Dict{String, VariableSettings}()
+#     for (k, v) in var_settings
+#         name = k::String
+#         temp = v::Dict{String, Any}
+#         fspace = temp["function_space"]::String
+#         type = temp["type"]::String
+#         vars[name] = VariableSettings(fspace, name, type)
+#     end
+#     return vars
+# end
 
 #######################################################
 # MeshIO strongly typed helpers
@@ -565,33 +575,6 @@ function read_exodus_mesh(mesh_settings::MeshSettings)
     return mesh
 end
 
-function _setup_function_space(log_file::LogFile, settings::InputSettings, mesh, name)
-    # fspaces = Dict{String, FunctionSpace}()
-    # println("Num fspaces = $(length(settings.function_spaces))")
-    # for (k, v) in settings.function_spaces
-    #     name = k::String
-    #     temp = v
-    # println(log_file.io, "Fspace name = $name")
-    temp = settings.function_spaces[name]
-    if lowercase(temp.field_type) == "h1"
-        if lowercase(temp.polynomial_type) == "lagrange"
-            return FunctionSpace{true}(mesh, H1Field, Lagrange)
-        else
-            error_message(log_file.io, "Unsupported polynomial_type $(temp.polynomial_type)")
-        end
-    else
-        error_message(log_file.io, "Unsupported field_type $(temp.field_type)")
-    end
-    # end
-    # return fspaces
-end
-
-function _setup_initial_conditions(log_file::LogFile, settings::InputSettings)
-    for ic in settings.ics
-
-    end
-end
-
 function _setup_mesh(log_file::LogFile, settings::InputSettings)
     if lowercase(settings.mesh.file_type) == "exodus"
         return read_exodus_mesh(settings.mesh)
@@ -600,51 +583,16 @@ function _setup_mesh(log_file::LogFile, settings::InputSettings)
     end
 end
 
-function _setup_variables(log_file::LogFile, settings::InputSettings, mesh)
-    vars = Dict{String, Any}()
-    for (k, v) in settings.variables
-        var_name = k::String
-        fspace_name = v.function_space
-        println(log_file.io, "Setting up variable $(var_name) as function from space $(fspace_name)")
-        fspace_settings = settings.function_spaces[fspace_name]
-        # fspace = _setup_function_space(log_file, settings, mesh, fspace_name)
-        # println(log_file.io, fspace)
-
-        
-        # if v.variable_type == "scalar"
-        #     var = ScalarFunction(fspace, var_name)
-        #     # println(log_file.io, var)
-        # else
-        #     error_message(log_file, "Unsupported variable type $(v.variable_type)")
-        # end
-
-        if lowercase(fspace_settings.field_type) == "h1"
-            if lowercase(fspace_settings.polynomial_type) == "lagrange"
-                if lowercase(v.variable_type) == "scalar"
-                    fspace = FunctionSpace{true}(mesh, H1Field, Lagrange)
-                    var = ScalarFunction{typeof(fspace)}(fspace, var_name)
-                else
-                    error_message(log_file, "Unsupported variable type $(v.variable_type)")
-                end
-            else
-                error_message(log_file, "Unsupported polynomial type $(v.polynomial_type)")
-            end
-        else
-            error_message(log_file, "Unsupported field type $(v.field_type)")
-        end
-    end
-end
-
 #########################################################################
 # main app type
 #########################################################################
-struct App
+struct App{N}
     cli_arg_parser::CLIArgParser
     name::String
 
-    function App(name::String)
+    function App{N}(name::String) where N
         cli_arg_parser = CLIArgParser()
-        new(cli_arg_parser, name)
+        new{N}(cli_arg_parser, name)
     end
 end
 
@@ -657,16 +605,30 @@ function get_cli_arg(app::App, name::String)
     return get_cli_arg(app.cli_arg_parser, name)
 end
 
-struct Simulation{T <: Number, IO, Mesh}
+function setup(app::App{N}, args::Vector{String}) where N
+    parse!(app.cli_arg_parser, args)
+    log_file = LogFile(get_cli_arg(app, "--log-file"))
+    try
+        print_banner(log_file, "CLI Arguments")
+        print_dict(log_file.io, app.cli_arg_parser.parsed_args)
+        input_settings = InputSettings{N}(app.cli_arg_parser, log_file)
+        return Simulation{N}(input_settings, log_file)
+    catch e
+        close(log_file)
+        throw(e)
+    end
+end
+
+struct Simulation{N, T <: Number, IO, Mesh}
     dbcs::Vector{DirichletBC{ScalarExpressionFunction{T}}}
     ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
     log_file::LogFile{IO}
     mesh::Mesh
-    nbcs::Vector{NeumannBC{ScalarExpressionFunction{T}}}
-    rbcs::Vector{RobinBC{ScalarExpressionFunction{T}}}
-    srcs::Vector{Source{ScalarExpressionFunction{T}}}
+    nbcs::Vector{NeumannBC{VectorExpressionFunction{N, T}}}
+    rbcs::Vector{RobinBC{VectorExpressionFunction{N, T}}}
+    srcs::Vector{Source{VectorExpressionFunction{N, T}}}
 
-    function Simulation(settings::InputSettings, log_file::LogFile{IO}) where IO
+    function Simulation{N}(settings::InputSettings, log_file::LogFile{IO}) where {N, IO}
         print_banner(log_file, "Mesh")
         mesh = _setup_mesh(log_file, settings)
         println(log_file.io, mesh)
@@ -678,29 +640,15 @@ struct Simulation{T <: Number, IO, Mesh}
         #     # println(log_file.io, "$k:")
         #     println(log_file.io, fspace::FunctionSpace)
         # end
-        if length(settings.ics) > 1
+        if length(settings.ics.ics) > 1
             T = eltype(settings.ics[1])
         else
             T = Float64
         end
-        new{T, IO, typeof(mesh)}(
-            settings.bcs.dirichlet, settings.ics, log_file, mesh,
+        new{N, T, IO, typeof(mesh)}(
+            settings.bcs.dirichlet, settings.ics.ics, log_file, mesh,
             settings.bcs.neumann, settings.bcs.robin, settings.bcs.source
         )
-    end
-end
-
-function setup(app::App, args::Vector{String})
-    parse!(app.cli_arg_parser, args)
-    log_file = LogFile(get_cli_arg(app, "--log-file"))
-    try
-        print_banner(log_file, "CLI Arguments")
-        print_dict(log_file.io, app.cli_arg_parser.parsed_args)
-        input_settings = parse_input_file(app.cli_arg_parser, log_file)
-        return Simulation(input_settings, log_file)
-    catch e
-        close(log_file)
-        throw(e)
     end
 end
 

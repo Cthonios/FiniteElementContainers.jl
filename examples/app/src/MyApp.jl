@@ -11,17 +11,23 @@ include("Physics.jl")
 
 f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 
-function app_main(ARGS::Vector{String})
-    app = AT.App("MyApp")
-    AT.add_cli_arg!(app, "--backend"; default = "cpu")
-    sim = AT.setup(app, ARGS)
+const N = 1
 
+function app_main(ARGS::Vector{String})
     #####################################
     # need to define some types
     #####################################
+    # N = 1 # number of fields to solve for in app
     ET = ExodusDatabase{Int32, Int32, Int32, Float64}
-    FT = AT.ScalarExpressionFunction{Float64}
+    SFT = AT.ScalarExpressionFunction{Float64}
+    VFT = AT.VectorExpressionFunction{N, Float64}
     SPT = FEC.CSCMatrix()
+
+    ##################################################
+    # Setup app
+    ##################################################
+    app = AT.App{N}("MyApp")
+    sim = AT.setup(app, ARGS)
 
     #####################################
     # setup function space
@@ -41,7 +47,7 @@ function app_main(ARGS::Vector{String})
     end
 
     times = TimeStepper(0.0, 0.0, 1)
-    p = FEC.TypeStableParameters{FT}(
+    p = FEC.TypeStableParameters{SFT, VFT}(
         sim.mesh, asm,
         physics, props,
         sim.ics, sim.dbcs, sim.nbcs, sim.srcs, times
