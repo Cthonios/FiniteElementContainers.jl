@@ -189,7 +189,8 @@ end
 
 struct TypeStableParameters{
   # Funcs  <: AbstractVector,
-  FuncT,
+  SFuncT,
+  VFuncT,
   IT     <: Integer,
   RT     <: Number,
   IV     <: AbstractVector{IT},
@@ -200,11 +201,11 @@ struct TypeStableParameters{
   Coords <: AbstractField,
   Field  <: AbstractField 
 } <: AbstractParameters
-  ics::InitialConditions{Vector{InitialConditionFunction{FuncT}}, IV, RV}
-  dirichlet_bcs::DirichletBCs{Vector{DirichletBCFunction{FuncT, FuncT, FuncT}}, IV, RV}
-  neumann_bcs::NeumannBCs{Vector{NeumannBCFunction{FuncT}}, IT, IV, RM}
+  ics::InitialConditions{Vector{InitialConditionFunction{SFuncT}}, IV, RV}
+  dirichlet_bcs::DirichletBCs{Vector{DirichletBCFunction{SFuncT, SFuncT, SFuncT}}, IV, RV}
+  neumann_bcs::NeumannBCs{Vector{NeumannBCFunction{VFuncT}}, IT, IV, RM}
   # robin_bcs::RobinBCs{RBCFuncs, IT, IV, RM2, RM3}
-  sources::Sources{Vector{SourceFunction{FuncT}}, RM}
+  sources::Sources{Vector{SourceFunction{VFuncT}}, RM}
   times::TimeStepper{RT}
   physics::Phys
   properties::Props
@@ -216,14 +217,14 @@ struct TypeStableParameters{
   # scratch fields
   hvp_scratch_field::Field
 
-  function TypeStableParameters{F}(mesh, assembler, physics, props, ics, dbcs, nbcs, srcs, times) where F
+  function TypeStableParameters{SF, VF}(mesh, assembler, physics, props, ics, dbcs, nbcs, srcs, times) where {SF, VF}
     dof = assembler.dof
     ND = size(dof, 1)
     fspace = function_space(dof)
-    ics = InitialConditions{F}(mesh, dof, ics)
-    dbcs = DirichletBCs{F}(mesh, dof, dbcs)
-    nbcs = NeumannBCs{F}(mesh, dof, nbcs)
-    srcs = Sources{F}(mesh, dof, srcs)
+    ics = InitialConditions{SF}(mesh, dof, ics)
+    dbcs = DirichletBCs{SF}(mesh, dof, dbcs)
+    nbcs = NeumannBCs{VF}(mesh, dof, nbcs)
+    srcs = Sources{VF}(mesh, dof, srcs)
 
     state_old, state_new = _setup_state_variables(fspace, physics)
 
@@ -236,7 +237,7 @@ struct TypeStableParameters{
     update_dofs!(assembler, dbcs)
 
     new{
-      F, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
+      SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
       typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
     }(
       ics, dbcs, nbcs, srcs,

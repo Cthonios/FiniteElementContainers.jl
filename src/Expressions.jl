@@ -371,19 +371,9 @@ struct ScalarExpressionFunction{T <: Number} <: AbstractExpressionFunction{T, No
         _reset!(p)
         ast = _parse_statement(p, 0)
         expr = Expression(ast; operators, var_names)
-        # return ScalarExpressionFunction(expr, length(var_names))
         new{T}(expr, length(var_names))
     end
 end
-
-# function ScalarExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
-#     p = Parser{T}(string, var_names)
-#     # params = _find_parameters(p)
-#     _reset!(p)
-#     ast = _parse_statement(p, 0)
-#     expr = Expression(ast; operators, var_names)
-#     return ScalarExpressionFunction(expr, length(var_names))
-# end
 
 Base.eltype(::ScalarExpressionFunction{T}) where T <: Number = T
 
@@ -410,6 +400,39 @@ function (f::ScalarExpressionFunction)(X::SVector{ND, T}, t::T) where {ND, T <: 
     @assert f.num_vars == ND + 1 "You need $(ND + 1) variables for this function"
     vars = SMatrix{ND + 1, 1, T, ND + 1}(X..., t)
     return f.expr(vars)[1]
+end
+
+struct VectorExpressionFunction{N, T <: Number} <: AbstractExpressionFunction{T, Node{T, DEFAULT_MAX_DEGREE}, ntuple_type}
+    exprs::SVector{N, ScalarExpressionFunction{T}}
+    num_vars::Int
+
+    function VectorExpressionFunction{N, T}(
+        strings::Vector{String},
+        var_names::Vector{String},
+    ) where {N, T<:Number}
+        @assert length(strings) == N
+        funcs = ntuple(
+            i -> ScalarExpressionFunction{T}(strings[i], var_names),
+            Val(N),
+        )
+        return new{N, T}(SVector{N}(funcs), length(var_names))
+    end
+end
+
+function (f::VectorExpressionFunction)(var::T) where T <: Number
+    return map(func -> func(var), f.exprs)
+end
+
+function (f::VectorExpressionFunction)(vars::AbstractVector{T}) where T <: Number
+    return map(func -> func(vars), f.exprs)
+end
+
+function (f::VectorExpressionFunction)(X::SVector{ND, T}) where {ND, T <: Number}
+    return map(func -> func(X), f.exprs)
+end
+
+function (f::VectorExpressionFunction)(X::SVector{ND, T}, t::T) where {ND, T <: Number}
+    return map(func -> func(X, t), f.exprs)
 end
 
 end # module
