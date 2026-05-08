@@ -13,11 +13,11 @@ The ```DofManager``` is a struct that keeps track of which dofs are unknown or c
 A ```DofManager``` can be created as follows. First we must create functions for our variables of interest from their associated function spaces.
 
 ```@repl dof
-using Exodus, FiniteElementContainers
+using FiniteElementContainers
 mesh = UnstructuredMesh("../../test/poisson/poisson.g")
 V = FunctionSpace(mesh, H1Field, Lagrange)
-u = VectorFunction(V, :u)
-t = ScalarFunction(V, :t)
+u = VectorFunction(V, "u")
+t = ScalarFunction(V, "t")
 f = FiniteElementContainers.GeneralFunction(u, t)
 ```
 Now we can supply these variables to the ```DofManager``` which takes varargs as inputs

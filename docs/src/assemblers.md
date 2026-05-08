@@ -14,6 +14,13 @@ sort the COO ```(row, col, val)``` triplets so they are ordered by row and then 
 
 NOTE: This is one of the most actively developed areas of the package. Please use caution with any method beginning with a "_" as these are internal methods that will change without notice.
 
+## Matrix Diagonal
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["Diagonal.jl"]
+Order = [:function]
+```
+
 ## Matrices
 ```@autodocs
 Modules = [FiniteElementContainers]
@@ -42,6 +49,13 @@ Pages = ["QuadratureQuantity.jl"]
 Order = [:function]
 ```
 
+## Sources
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["Source.jl"]
+Order = [:function]
+```
+
 ## Vector
 ```@autodocs
 Modules = [FiniteElementContainers]
@@ -49,10 +63,24 @@ Pages = ["Vector.jl"]
 Order = [:function]
 ```
 
+## Weakly enforced BCs
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["WeaklyEnforcedBCs.jl"]
+Order = [:function]
+```
+
 ## Abstract Interface
 ```@autodocs
 Modules = [FiniteElementContainers]
 Pages = ["Assemblers.jl"]
+Order = [:type, :function]
+```
+
+## Assembly methods that are safe with Enzyme.jl
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["Enzyme.jl"]
 Order = [:type, :function]
 ```
 

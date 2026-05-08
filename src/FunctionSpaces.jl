@@ -104,7 +104,7 @@ default code path that sets up ref fes as a namedtuple
 function _setup_ref_fes(
   mesh::AbstractMesh, 
   interp_type, p_degree,
-  q_type::Type{<:AbstractQuadratureType}, q_degree
+  q_type::Type{<:ReferenceFiniteElements.AbstractQuadratureType}, q_degree
 )
   block_names = mesh.element_block_names
   ref_fes = ReferenceFE[]
@@ -187,7 +187,7 @@ function FunctionSpace(
   is_juliac_safe::Bool = false,
   p_degree::Union{Int, Nothing} = nothing,
   q_degree::Union{Int, Nothing} = nothing,
-) where {IT, QT <: AbstractQuadratureType}
+) where {IT, QT <: ReferenceFiniteElements.AbstractQuadratureType}
   return FunctionSpace{is_juliac_safe}(mesh, field_type, interp_type, QT; p_degree = p_degree, q_degree = q_degree)
 end
 
@@ -196,7 +196,7 @@ function FunctionSpace{is_juliac_safe}(
   q_type::Type{QT} = GaussLobattoLegendre;
   p_degree::Union{Int, Nothing} = nothing,
   q_degree::Union{Int, Nothing} = nothing,
-) where {is_juliac_safe, QT <: AbstractQuadratureType}
+) where {is_juliac_safe, QT <: ReferenceFiniteElements.AbstractQuadratureType}
   # TODO move to some common function so we can use it across
   # all constructors
   if p_degree !== nothing
@@ -238,7 +238,7 @@ function FunctionSpace{is_juliac_safe}(
   q_type::Type{QT} = GaussLobattoLegendre;
   p_degree = nothing,
   q_degree = nothing
-) where {is_juliac_safe, QT <: AbstractQuadratureType}
+) where {is_juliac_safe, QT <: ReferenceFiniteElements.AbstractQuadratureType}
   if is_juliac_safe
     ref_fes = _setup_juliac_safe_ref_fes(interp_type, q_type)
   else

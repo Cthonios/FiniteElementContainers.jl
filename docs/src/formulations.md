@@ -4,16 +4,12 @@ CurrentModule = FiniteElementContainers
 
 # Formulations
 ```@docs
-AbstractMechanicsFormulation
+AbstractElementFormulation
 ```
 
 # Implementations
 ```@docs
 PlaneStrain
-```
-
-```@docs
-ScalarFormulation
 ```
 
 ```@docs
@@ -29,4 +25,8 @@ extract_stiffness
 extract_stress
 modify_field_gradients
 num_dimensions
+scatter_with_gradients!
+scatter_with_gradients_and_gradients!
+scatter_with_values!
+scatter_with_values_and_values!
 ```

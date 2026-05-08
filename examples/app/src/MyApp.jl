@@ -9,7 +9,7 @@ using TimerOutputs
 # include files
 include("Physics.jl")
 
-f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
+# f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 
 const N = 1
 
@@ -38,10 +38,12 @@ function app_main(ARGS::Vector{String})
     asm = SparseMatrixAssembler{SPT, false, false}(dof)
 
     # setup physics and properties
-    physics = Poisson{typeof(f)}[]
+    # physics = Poisson{typeof(f)}[]
+    physics = Laplace[]
     props = Vector{Float64}[]
     for _ in 1:length(sim.mesh.element_conns)
-        temp_physics = Poisson(f)
+        # temp_physics = Poisson(f)
+        temp_physics = Laplace()
         push!(physics, temp_physics)
         push!(props, create_properties(temp_physics))
     end

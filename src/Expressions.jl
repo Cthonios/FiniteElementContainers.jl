@@ -1,6 +1,7 @@
 module Expressions
 
 import DynamicExpressions.NodeModule: DEFAULT_MAX_DEGREE
+using DocStringExtensions
 using DynamicExpressions
 using StaticArrays
 
@@ -307,6 +308,8 @@ function _nud(p::Parser, t::Token, ::Type{T}) where T <: Number
             if string(t.name) in p.var_names
                 name_id = findfirst(x -> x == string(t.name), p.var_names)
                 return Node{T}(; feature = name_id)
+            elseif string(t.name) == "pi"
+                return Node{T}(; val = π)
             # elseif string(t.name) in p.parameter_names
             #     name_id = findfirst(x -> x == string(t.name), p.parameter_names)
             #     return ASTNode{T}(nothing, PARAMETER, nothing, name_id, nothing, nothing, )
@@ -359,12 +362,22 @@ end
 ########################################################
 # Front facing APIinc
 ########################################################
+"""
+$(TYPEDEF)
+"""
 abstract type AbstractExpressionFunction{T, N, D} <: Function end
 
+"""
+$(TYPEDFIELDS)
+$(TYPEDEF)
+"""
 struct ScalarExpressionFunction{T <: Number} <: AbstractExpressionFunction{T, Node{T, DEFAULT_MAX_DEGREE}, ntuple_type}
     expr::Expression{T, Node{T, DEFAULT_MAX_DEGREE}, ntuple_type}
     num_vars::Int
 
+    """
+    $(TYPEDSIGNATURES)
+    """
     function ScalarExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
         p = Parser{T}(string, var_names)
         # params = _find_parameters(p)
@@ -402,6 +415,11 @@ function (f::ScalarExpressionFunction)(X::SVector{ND, T}, t::T) where {ND, T <: 
     return f.expr(vars)[1]
 end
 
+"""
+$(METHODLIST)
+$(TYPEDFIELDS)
+$(TYPEDEF)
+"""
 struct VectorExpressionFunction{N, T <: Number} <: AbstractExpressionFunction{T, Node{T, DEFAULT_MAX_DEGREE}, ntuple_type}
     exprs::SVector{N, ScalarExpressionFunction{T}}
     num_vars::Int

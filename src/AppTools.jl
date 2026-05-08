@@ -1,8 +1,3 @@
-"""
-All of these tools are meant to be type safe
-from the perspective of working with JuliaC
-trim mode for small binaries
-"""
 module AppTools
 
 export App
@@ -406,7 +401,7 @@ struct BCSettings{N, T <: Number}
                 vars = temp["variables"]::Vector{String}
                 for side_set in sidesets
                     for var in vars
-                        push!(nbcs, RobinBC(var, func, side_set))
+                        push!(rbcs, RobinBC(var, func, side_set))
                     end
                 end
             end
@@ -419,11 +414,11 @@ struct BCSettings{N, T <: Number}
                 blocks = temp["blocks"]::Vector{String}
                 func = temp["function"]::String
                 func = functions.vector_expr_funcs[func]
-                sidesets = temp["side_sets"]::Vector{String}
+                sidesets = temp["blocks"]::Vector{String}
                 vars = temp["variables"]::Vector{String}
                 for block in blocks
                     for var in vars
-                        push!(nbcs, Source(var, func, block))
+                        push!(srcs, Source(var, func, block))
                     end
                 end
             end
@@ -444,17 +439,19 @@ struct ICSettings{T <: Number}
 
     function ICSettings{T}(log_file, data, functions::FunctionSettings{N, T}) where {N, T}
         print_banner(log_file, "Initial conditions")
-        ic_settings = data["initial_conditions"]::Vector{Any}
         ics = InitialCondition{ScalarExpressionFunction{Float64}}[]
-        for ic in ic_settings
-            temp = ic::Dict{String, Any}
-            blocks = temp["blocks"]::Vector{String}
-            func = temp["function"]::String
-            func = functions.scalar_expr_funcs[func]
-            vars = temp["variables"]::Vector{String}
-            for block in blocks
-                for var in vars
-                    push!(ics, InitialCondition(var, func, block))
+        if haskey(data, "initial_conditions")
+            ic_settings = data["initial_conditions"]::Vector{Any}
+            for ic in ic_settings
+                temp = ic::Dict{String, Any}
+                blocks = temp["blocks"]::Vector{String}
+                func = temp["function"]::String
+                func = functions.scalar_expr_funcs[func]
+                vars = temp["variables"]::Vector{String}
+                for block in blocks
+                    for var in vars
+                        push!(ics, InitialCondition(var, func, block))
+                    end
                 end
             end
         end
@@ -485,6 +482,7 @@ struct InputSettings{N, T <: Number}
     functions::FunctionSettings{N, T}
     ics::ICSettings{T}
     mesh::MeshSettings
+    raw_input::Dict{String, Any}
 end
 
 function InputSettings{N}(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} = Float64) where {N, T <: Number}
@@ -503,7 +501,7 @@ function InputSettings{N}(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} =
     bcs = BCSettings{N, T}(log_file, data, functions)
     ics = ICSettings{T}(log_file, data, functions)
     mesh = MeshSettings(log_file, data)
-    return InputSettings{N, T}(bcs, functions, ics, mesh)
+    return InputSettings{N, T}(bcs, functions, ics, mesh, data)
 end
 
 # function _parse_function_space_settings(log_file, data)

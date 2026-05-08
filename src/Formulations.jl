@@ -7,6 +7,9 @@ abstract type AbstractElementFormulation{ND, NF} end
 $(TYPEDSIGNATURES)
 """
 num_fields(::AbstractElementFormulation{ND, NF}) where {ND, NF} = NF
+"""
+$(TYPEDSIGNATURES)
+"""
 num_dimensions(::AbstractElementFormulation{ND, NF}) where {ND, NF} = ND
 
 function discrete_gradient end # eventually to be deprecated
