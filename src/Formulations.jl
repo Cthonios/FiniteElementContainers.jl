@@ -169,27 +169,25 @@ function scatter_with_gradients_and_gradients!(
   @assert ND == size(∇N_X, 2)
   K_voigt = extract_stiffness(form, A)
   N       = size(∇N_X, 1)
-
   for n1 in 1:N
     for d1 in 1:NF
       global_id = NF * (conns[n1] - 1) + d1
       contrib   = zero(T)
-
       for n2 in 1:N
-        local_id = NF * (n2 - 1) + d1
-        for j1 in 1:ND
-          a = (j1 - 1) * ND + d1
-          for j2 in 1:ND
-            b = (j2 - 1) * ND + d1  
-            contrib += ∇N_X[n1, j1] * K_voigt[a, b] * ∇N_X[n2, j2] * v_el[local_id]
+        for d2 in 1:NF                          # FIX 1: loop over d2, not just d1
+          local_id = NF * (n2 - 1) + d2         # FIX 1: index v_el with d2
+          for j1 in 1:ND
+            a = (j1 - 1) * ND + d1
+            for j2 in 1:ND
+              b = (j2 - 1) * ND + d2            # FIX 2: use d2, not d1
+              contrib += ∇N_X[n1, j1] * K_voigt[a, b] * ∇N_X[n2, j2] * v_el[local_id]
+            end
           end
         end
       end
-
       fec_atomic_add!(storage, global_id, contrib)
     end
   end
-
   return nothing
 end
 
