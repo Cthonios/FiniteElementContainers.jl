@@ -93,8 +93,11 @@ function SparseMatrixPattern(dof::DofManager)
   cscrowval = Vector{Int64}(undef, 0)
   cscnzval  = Vector{Float64}(undef, 0)
 
-  # set permutation
-  ks = map((i, j) -> (i, j), Is, Js)
+  # set permutation — pack (row, col) into one Int64 key so sortperm takes the
+  # integer radix-sort path instead of an O(N log N) tuple comparison sort.
+  # DOF indices are << 2^32, so the packed key preserves (i, j) lexicographic
+  # order and (sortperm being stable) yields an identical permutation.
+  ks = map((i, j) -> (Int64(i) << 32) | Int64(j), Is, Js)
   permutation = sortperm(ks)
 
   pattern = SparseMatrixPattern(
@@ -246,9 +249,11 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
   resize!(pattern.csrcolval, length(pattern.Is))
   resize!(pattern.csrnzval, length(pattern.Is))
 
-  # TODO below is half of the runtime in this method
-  # it can likely be sped up
-  ks = map((i, j) -> (i, j), pattern.Is, pattern.Js)
+  # Pack (row, col) into one Int64 key so sortperm takes the integer radix-sort
+  # path instead of an O(N log N) tuple comparison sort.  DOF indices are
+  # << 2^32, so the packed key preserves (i, j) lexicographic order and
+  # (sortperm being stable) yields an identical permutation.
+  ks = map((i, j) -> (Int64(i) << 32) | Int64(j), pattern.Is, pattern.Js)
   permutation = sortperm(ks)
   resize!(pattern.permutation, length(permutation))
   pattern.permutation .= permutation
