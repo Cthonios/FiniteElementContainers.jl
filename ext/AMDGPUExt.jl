@@ -5,9 +5,13 @@ import AMDGPU
 import FiniteElementContainers
 
 # public API
-function FiniteElementContainers.rocm(x)
+function FiniteElementContainers.to_backend(::AMDGPU.ROCBackend, x)
   return Adapt.adapt_structure(AMDGPU.ROCArray, x)
 end
+
+# back-compat alias
+FiniteElementContainers.rocm(x) =
+  FiniteElementContainers.to_backend(AMDGPU.ROCBackend(), x)
 
 # private API
 function FiniteElementContainers._coo_matrix_constructor(::AMDGPU.ROCBackend)

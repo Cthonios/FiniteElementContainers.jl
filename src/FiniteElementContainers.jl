@@ -4,6 +4,7 @@ module FiniteElementContainers
 export cpu
 export cuda
 export rocm
+export to_backend
 
 # Assemblers
 export SparseMatrixAssembler
@@ -206,6 +207,14 @@ function cpu end
 cpu(x) = adapt(Array, x)
 function cuda end
 function rocm end
+
+# Move `x` onto the given KernelAbstractions backend.  CPU is identity —
+# CPU-built data already lives on the CPU backend.  GPU backends (CUDABackend,
+# ROCBackend) are provided by the CUDA / AMDGPU package extensions.
+to_backend(::KA.CPU, x) = x
+to_backend(b::KA.Backend, x) = error(
+  "to_backend is not implemented for backend $(typeof(b)); load the " *
+  "corresponding GPU package (CUDA.jl or AMDGPU.jl) so its extension activates.")
 
 # function communication_graph end
 function create_partition end
