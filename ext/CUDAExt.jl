@@ -5,9 +5,13 @@ import CUDA
 import FiniteElementContainers
 
 # public API
-function FiniteElementContainers.cuda(x)
+function FiniteElementContainers.to_backend(::CUDA.CUDABackend, x)
   return Adapt.adapt_structure(CUDA.CuArray, x)
 end
+
+# back-compat alias
+FiniteElementContainers.cuda(x) =
+  FiniteElementContainers.to_backend(CUDA.CUDABackend(), x)
 
 # private API
 function FiniteElementContainers._coo_matrix_constructor(::CUDA.CUDABackend)
