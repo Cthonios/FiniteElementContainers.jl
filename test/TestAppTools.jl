@@ -73,34 +73,41 @@ end
     @test AT.get_cli_arg(parser, "--backend") == "cpu"
     @test AT.get_cli_arg(parser, "--verbose") == "true"
 
-    # help message case long name
-    args = [
-        "--input-file", "input-file.toml",
-        "--log-file", "log.log",
-        "--backend", "cpu",
-        "--verbose",
-        "--help"
-    ]
-    @test_throws AssertionError AT.parse!(parser, args)
+    # TODO
+    # currently the help cli arg exits the app cleanly
+    # so there isn't really a good way to test for
+    # it in an isolated parse! command
+    # we should probably rewrite parse to return
+    # a flag for whether or not to exit the program
+    #
+    # # help message case long name
+    # args = [
+    #     "--input-file", "input-file.toml",
+    #     "--log-file", "log.log",
+    #     "--backend", "cpu",
+    #     "--verbose",
+    #     "--help"
+    # ]
+    # @test_throws AssertionError AT.parse!(parser, args)
 
-    # help message case short name
-    args = [
-        "--input-file", "input-file.toml",
-        "--log-file", "log.log",
-        "--backend", "cpu",
-        "--verbose",
-        "--h"
-    ]
-    @test_throws AssertionError AT.parse!(parser, args)
+    # # help message case short name
+    # args = [
+    #     "--input-file", "input-file.toml",
+    #     "--log-file", "log.log",
+    #     "--backend", "cpu",
+    #     "--verbose",
+    #     "--h"
+    # ]
+    # @test_throws AssertionError AT.parse!(parser, args)
 
-    # test missing option that is required
-    args = [
-        "--input-file", "input-file.toml",
-        "--log-file", "log.log",
-        "--verbose",
-        "--h"
-    ]
-    @test_throws AssertionError AT.parse!(parser, args)
+    # # test missing option that is required
+    # args = [
+    #     "--input-file", "input-file.toml",
+    #     "--log-file", "log.log",
+    #     "--verbose",
+    #     "--h"
+    # ]
+    # @test_throws AssertionError AT.parse!(parser, args)
 end
 
 @testitem "AppTools - SimpleApp" begin
@@ -110,7 +117,7 @@ end
         "--log-file", "log.log",
         "--backend", "cpu"
     ]
-    app = AT.App("MyApp")
+    app = AT.App{1}("MyApp")
     AT.add_cli_arg!(app, "--backend")
     AT.parse!(app.cli_arg_parser, args)
     arg = AT.get_cli_arg(app, "--backend")

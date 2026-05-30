@@ -2,12 +2,12 @@
 backend = "cpu"
 
 [functions.zero]
-type = "constant"
+type = "scalar expression"
 expression = "0.0"
 variables = ["x", "y"]
 
 [functions.one]
-type = "constant"
+type = "scalar expression"
 expression = "1.0"
 variables = ["x", "y"]
 

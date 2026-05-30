@@ -434,6 +434,7 @@ end
 #     polynomial_type::String
 # end
 
+# TODO currently only supports blocks
 struct ICSettings{T <: Number}
     ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
 
@@ -444,14 +445,32 @@ struct ICSettings{T <: Number}
             ic_settings = data["initial_conditions"]::Vector{Any}
             for ic in ic_settings
                 temp = ic::Dict{String, Any}
-                blocks = temp["blocks"]::Vector{String}
                 func = temp["function"]::String
                 func = functions.scalar_expr_funcs[func]
                 vars = temp["variables"]::Vector{String}
-                for block in blocks
-                    for var in vars
-                        push!(ics, InitialCondition(var, func, block))
+                if haskey(temp, "blocks")
+                    blocks = temp["blocks"]::Vector{String}
+                    for block in blocks
+                        for var in vars
+                            push!(ics, InitialCondition(var, func; block_name = block))
+                        end
                     end
+                elseif haskey(temp, "nodesets")
+                    nodesets = temp["nodesets"]::Vector{String}
+                    for nodeset in nodesets
+                        for var in vars
+                            push!(ics, InitialCondition(var, func; nodeset_name = nodeset))
+                        end
+                    end
+                elseif haskey(temp, "sidesets")
+                    sidesets = temp["sidesets"]::Vector{String}
+                    for sideset in sidesets
+                        for var in vars
+                            push!(ics, InitialCondition(var, func; sideset_name = sideset))
+                        end
+                    end
+                else
+                    @assert false "Couldn't find blocks, nodesets, or sidesets."
                 end
             end
         end
