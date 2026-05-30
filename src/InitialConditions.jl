@@ -1,10 +1,49 @@
 abstract type AbstractInitialCondition{F} end
 abstract type AbstractInitialConditionContainer end
 
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+User facing API to define a ```InitialCondition```.
+"""
 struct InitialCondition{F} <: AbstractInitialCondition{F}
-    var_name::String
     func::F
-    block_name::String
+    block_name::EntityName
+    nset_name::EntityName
+    sset_name::EntityName
+    var_name::String
+
+    """
+    $(TYPEDEF)
+    $(TYPEDSIGNATURES)
+    $(TYPEDFIELDS)
+    """
+    function InitialCondition(
+        var_name::String, func::Function;
+        block_name::EntityName = nothing,
+        nodeset_name::EntityName = nothing,
+        sideset_name::EntityName = nothing
+    )
+        if block_name === nothing && nodeset_name === nothing && sideset_name === nothing
+            _entity_not_provided_error(
+            "block_name, nodeset_name, or sideset_name required" *
+            " as input arguments in DirichletBC"
+            )
+        end
+        count = (block_name !== nothing) +
+                (nodeset_name !== nothing) +
+                (sideset_name !== nothing)
+        if count != 1
+            _unsure_entity_type_error("More than one entity type specificed in DirichletBC")
+        end
+        # new{typeof(func)}(func, block_name, nodeset_name, sideset_name, var_name)
+        return InitialCondition{typeof(func)}(var_name, func, block_name, nodeset_name, sideset_name)
+    end
+
+    function InitialCondition{F}(var_name::String, func::F, block_name, nodeset_name, sideset_name) where F
+        new{typeof(func)}(func, block_name, nodeset_name, sideset_name, var_name)
+    end
 end
 
 struct InitialConditionContainer{
@@ -21,9 +60,28 @@ struct InitialConditionContainer{
     # to "do the right thing" depending upon the field type
     # this is set up
     function InitialConditionContainer(mesh, dof, ic::InitialCondition)
-        bk = BCBookKeeping(mesh, dof, ic.var_name; block_name = ic.block_name)
-        vals = zeros(length(bk.dofs))
-        new{typeof(bk.dofs), typeof(vals)}(bk.dofs, bk.nodes, vals)
+        # bk = BCBookKeeping(mesh, dof, ic.var_name; block_name = ic.block_name)
+        dof_index = _dof_index_from_var_name(dof, ic.var_name)
+        all_dofs = reshape(1:length(dof), size(dof))
+        if ic.block_name !== nothing
+            conns = mesh.element_conns[ic.block_name]
+            nodes = sort(unique(conns))
+        elseif ic.nset_name !== nothing
+            nodes = mesh.nodeset_nodes[ic.nset_name]
+        elseif ic.sset_name !== nothing
+            nodes = mesh.sideset_nodes[ic.sset_name]
+        end
+
+        # gather dofs associated with nodes
+        dofs = all_dofs[dof_index, nodes]
+
+        # sort nodes and dofs for dirichlet bc
+        dof_perm = _unique_sort_perm(dofs)
+        dofs = dofs[dof_perm]
+        nodes = nodes[dof_perm]
+
+        vals = zeros(length(dofs))
+        new{typeof(dofs), typeof(vals)}(dofs, nodes, vals)
     end
 end
 

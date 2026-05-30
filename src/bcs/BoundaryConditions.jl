@@ -1,3 +1,5 @@
+const EntityName = Union{Nothing, String}
+
 struct EntityNameNotProvidedError <: AbstractFECError
   msg::String
 end

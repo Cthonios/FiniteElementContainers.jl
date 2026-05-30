@@ -1,12 +1,10 @@
 abstract type AbstractDirichletBC{F} <: AbstractBC{F} end
 
-const EntityName = Union{Nothing, String}
-
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
-User facing API to define a ```DirichletBC````.
+User facing API to define a ```DirichletBC```.
 """
 struct DirichletBC{F} <: AbstractDirichletBC{F}
   func::F
@@ -22,9 +20,9 @@ struct DirichletBC{F} <: AbstractDirichletBC{F}
   """
   function DirichletBC(
     var_name::String, func::Function;
-    block_name::Union{Nothing, String} = nothing,
-    nodeset_name::Union{Nothing, String} = nothing,
-    sideset_name::Union{Nothing, String} = nothing
+    block_name::EntityName = nothing,
+    nodeset_name::EntityName = nothing,
+    sideset_name::EntityName = nothing
   )
     if block_name === nothing && nodeset_name === nothing && sideset_name === nothing
       _entity_not_provided_error(
