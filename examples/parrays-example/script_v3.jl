@@ -7,13 +7,7 @@ include("../../test/poisson/TestPoissonCommon.jl")
 f(X, _) = 2. * π^2 * cos(π * X[1]) * cos(π * X[2])
 u(x) = 0.5 * (x[1] + x[2])
 h = 0.1
-# Ae = (h^2 / 6) * [
-#      4.0  -1.0  -1.0  -2.0
-#     -1.0   4.0  -2.0  -1.0
-#     -1.0  -2.0   4.0  -1.0
-#     -2.0  -1.0  -1.0   4.0
-# ]
-Ae = (1 / 6) * [
+Ae = (h^2 / 6) * [
      4.0  -1.0  -1.0  -2.0
     -1.0   4.0  -2.0  -1.0
     -1.0  -2.0   4.0  -1.0
@@ -32,10 +26,10 @@ ranks = distribute(LinearIndices((num_ranks,)))
 # serial problem setup (TODO remove this requirement and make it hidden to user)
 smesh = UnstructuredMesh(mesh_file)
 V = FunctionSpace(smesh, H1Field, Lagrange)
-uvar = ScalarFunction(V, :u)
+uvar = ScalarFunction(V, "u")
 sdof = DofManager(uvar)
 dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; nodeset_name = :boundary),
+    DirichletBC("u", bc_func; nodeset_name = "boundary"),
 ]
 dbcs = DirichletBCs(smesh, sdof, dbcs)
 boundary_dofs = dirichlet_dofs(dbcs)
@@ -109,26 +103,51 @@ Uus = create_unknowns(parts)
 # Xs = PVector(X_vals, field_parts)
 
 # let's just try setting up stiffness first...
-V2s, VV2s = tuple_of_arrays(map(meshes, partition(Uus), mat_pattern.unknown_dofs) do mesh, Uu, indices
-    V = FunctionSpace(mesh, H1Field, Lagrange)
-    uvar = ScalarFunction(V, :u)
-    asm = SparseMatrixAssembler(uvar)
-    physics = Poisson(f)
-    props = create_properties(physics)
-    dbcs = DirichletBC[
-        DirichletBC(:u, bc_func; nodeset_name = :boundary)
-    ]
-    p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
-    U = create_field(asm)
-    Uu = create_unknowns(asm)
-    assemble_vector!(asm, residual, Uu, p)
-    assemble_stiffness!(asm, stiffness, Uu, p)
-    asm.residual_storage.data, asm.stiffness_storage
-end)
+# V2s, VV2s = tuple_of_arrays(map(meshes, partition(Uus), mat_pattern.unknown_dofs) do mesh, Uu, indices
+#     V = FunctionSpace(mesh, H1Field, Lagrange)
+#     uvar = ScalarFunction(V, "u")
+#     asm = SparseMatrixAssembler(uvar)
+#     physics = Poisson(f)
+#     props = create_properties(physics)
+#     dbcs = DirichletBC[
+#         DirichletBC("u", bc_func; nodeset_name = "boundary")
+#     ]
+#     p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
+#     U = create_field(asm)
+#     Uu = create_unknowns(asm)
+#     assemble_vector!(asm, residual, Uu, p)
+#     assemble_stiffness!(asm, stiffness, Uu, p)
+#     asm.residual_storage.data, asm.stiffness_storage
+# end)
 
 A = psparse(mat_pattern, VVs) |> fetch
-# b = pzeros(vec_pattern) |> fetch
 b = pvector(vec_pattern, Vs) |> fetch
-# A = psparse(mat_pattern, VV2s) |> fetch
-# b = pvector(vec_pattern, V2s) |> fetch
 x = IterativeSolvers.cg(A, b, verbose = i_am_main(rank))
+
+x_field = pzeros(field_parts)
+
+# out = map(
+#     partition(x_field), field_parts,
+#     partition(x), ranks
+# ) do U_local, field_part, Uu_local, my_rank
+#     gids = local_to_global(field_part)
+#     owners = local_to_owner(field_part)
+
+#     own_counter = 1
+#     for i in eachindex(gids)
+
+#         if owners[i] == my_rank
+
+#             field_id = gids[i]
+#             unknown_id = parts.field_to_unknown[field_id]
+
+#             if unknown_id > 0
+#                 U_local[i] = Uu_local[own_counter]
+#                 own_counter += 1
+#             end
+#         end
+#     end
+
+#     # U_local
+# end
+update_field_unknowns!(x_field, parts, x, ranks)
