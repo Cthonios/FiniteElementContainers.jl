@@ -125,29 +125,4 @@ b = pvector(vec_pattern, Vs) |> fetch
 x = IterativeSolvers.cg(A, b, verbose = i_am_main(rank))
 
 x_field = pzeros(field_parts)
-
-# out = map(
-#     partition(x_field), field_parts,
-#     partition(x), ranks
-# ) do U_local, field_part, Uu_local, my_rank
-#     gids = local_to_global(field_part)
-#     owners = local_to_owner(field_part)
-
-#     own_counter = 1
-#     for i in eachindex(gids)
-
-#         if owners[i] == my_rank
-
-#             field_id = gids[i]
-#             unknown_id = parts.field_to_unknown[field_id]
-
-#             if unknown_id > 0
-#                 U_local[i] = Uu_local[own_counter]
-#                 own_counter += 1
-#             end
-#         end
-#     end
-
-#     # U_local
-# end
 update_field_unknowns!(x_field, parts, x, ranks)
