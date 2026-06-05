@@ -362,25 +362,54 @@ function FiniteElementContainers.nodal_coordinates(meshes, parts)
 	return PVector(X_vals, parts.field_parts)
 end
 
-function FiniteElementContainers.update_field_unknowns!(U::PVector, parts, Uu::PVector, ranks)
-	map(partition(U), U.index_partition, partition(Uu), ranks) do U_local, field_part, Uu_local, my_rank
-		gids = local_to_global(field_part)
-		owners = local_to_owner(field_part)
-		own_counter = 1
+# function FiniteElementContainers.update_field_unknowns!(U::PVector, parts, Uu::PVector, ranks)
+# 	map(partition(U), U.index_partition, partition(Uu), ranks) do U_local, field_part, Uu_local, my_rank
+# 		gtl = global_to_local(field_part)
+# 		gids = local_to_global(field_part)
+# 		owners = local_to_owner(field_part)
+# 		own_counter = 1
 
-		for i in eachindex(gids)
-			if owners[i] == my_rank
-				field_id = gids[i]
-				unknown_id = parts.field_to_unknown[field_id]
+# 		for i in eachindex(gids)
+# 			if owners[i] == my_rank
+# 				field_id = gids[i]
+# 				unknown_id = parts.field_to_unknown[field_id]
 	
+# 				if unknown_id > 0
+# 					U_local[i] = Uu_local[own_counter]
+# 					# U_local[i] = Uu_local[gtl[parts.unknown_to_field[i]]]
+# 					own_counter += 1
+# 				end
+# 			end
+# 		end
+# 	end
+# 	return nothing
+# end
+
+function FiniteElementContainers.update_field_unknowns!(U::PVector, parts, Uu::PVector, ranks)
+    map(
+        partition(U),
+        U.index_partition,
+        partition(Uu),
+        Uu.index_partition,
+        ranks
+    ) do U_local, field_part, Uu_local, unknown_part, my_rank
+
+        field_gids = local_to_global(field_part)
+        owners = local_to_owner(field_part)
+        unknown_gtl = global_to_local(unknown_part)
+
+		FiniteElementContainers.fec_foreach(field_gids) do i
+            if owners[i] == my_rank
+				field_id = field_gids[i]
+				unknown_id = parts.field_to_unknown[field_id]
 				if unknown_id > 0
-					U_local[i] = Uu_local[own_counter]
-					own_counter += 1
+					U_local[i] = Uu_local[unknown_gtl[unknown_id]]
 				end
 			end
-		end
-	end
-	return nothing
+        end
+    end
+
+    return nothing
 end
 
 end # module
