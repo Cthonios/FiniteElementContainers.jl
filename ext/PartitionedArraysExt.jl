@@ -96,19 +96,9 @@ function FiniteElementContainers.create_partition(
 	)
 end
 
-function FiniteElementContainers.distribute_mesh(file_name::String, n_ranks::Int, ranks::LinearIndices)
-	return _distribute_mesh(file_name, n_ranks, ranks)
-end
-
-function FiniteElementContainers.distribute_mesh(file_name::String, n_ranks::Int, ranks::MPIArray)
-	_distribute_mesh(file_name, n_ranks, ranks)
-	# currently need a barrier or else we have a race condition
-	# MPI.Barrier(MPI.COMM_WORLD)
-	return nothing
-end
-
-function _distribute_mesh(file_name::String, n_ranks::Int, ranks::AbstractArray{<:Integer, 1})
+function FiniteElementContainers.distribute_mesh(file_name::String, n_ranks::Int, ranks)
 	map_main(ranks) do rank
+		# TODO add a check to see if we need to actually decomp
 		@info "Running decomp on $file_name with $n_ranks processors"
 		decomp(file_name, n_ranks)
 	end
@@ -370,6 +360,27 @@ function FiniteElementContainers.nodal_coordinates(meshes, parts)
 		mesh.nodal_coords
 	end
 	return PVector(X_vals, parts.field_parts)
+end
+
+function FiniteElementContainers.update_field_unknowns!(U::PVector, parts, Uu::PVector, ranks)
+	map(partition(U), U.index_partition, partition(Uu), ranks) do U_local, field_part, Uu_local, my_rank
+		gids = local_to_global(field_part)
+		owners = local_to_owner(field_part)
+		own_counter = 1
+
+		for i in eachindex(gids)
+			if owners[i] == my_rank
+				field_id = gids[i]
+				unknown_id = parts.field_to_unknown[field_id]
+	
+				if unknown_id > 0
+					U_local[i] = Uu_local[own_counter]
+					own_counter += 1
+				end
+			end
+		end
+	end
+	return nothing
 end
 
 end # module
