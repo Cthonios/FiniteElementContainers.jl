@@ -3,6 +3,7 @@ using FiniteElementContainers
 using IterativeSolvers
 using LinearAlgebra
 using PartitionedArrays
+using StaticArrays
 
 include("../../test/poisson/TestPoissonCommon.jl")
 f(X, _) = 2. * π^2 * cos(π * X[1]) * cos(π * X[2])
@@ -16,14 +17,17 @@ distribute = identity
 # distribute = distribute_with_mpi
 ranks = distribute(LinearIndices((num_ranks,)))
 
-mesh = UnstructuredMesh(mesh_file, num_ranks, ranks)
-V    = FunctionSpace(mesh, H1Field, Lagrange)
-u    = ScalarFunction(V, "u")
-dbcs = DirichletBC[
+mesh    = UnstructuredMesh(mesh_file, num_ranks, ranks)
+V       = FunctionSpace(mesh, H1Field, Lagrange)
+physics = Poisson(f)
+props   = create_properties(physics)
+u       = ScalarFunction(V, "u")
+dbcs    = DirichletBC[
     DirichletBC("u", bc_func; nodeset_name = "boundary")
 ]
-dof  = DofManager(u, dbcs, num_ranks, ranks, mesh_file, mesh)
-asm  = SparseMatrixAssembler(dof)
+dof     = DofManager(u, dbcs, num_ranks, ranks, mesh_file, mesh)
+asm     = SparseMatrixAssembler(dof)
+p       = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
 
 # stuff to still work out below
 mat_pattern_new = FiniteElementContainers.create_matrix_sparsity_pattern(dof)
@@ -32,27 +36,33 @@ X = nodal_coordinates(dof)
 
 u_analytic(x) = 0.5 * (x[1] + x[2])
 h = 0.1
-Ae = (h^2 / 6) * [
-     4.0  -1.0  -1.0  -2.0
-    -1.0   4.0  -2.0  -1.0
-    -1.0  -2.0   4.0  -1.0
-    -2.0  -1.0  -1.0   4.0
-]
-VVs_new = map(dof.var.fspace) do fspace
-    VVs = Float64[]
-    Ae_vec = vec(Ae)
-    for b in 1:FiniteElementContainers.num_blocks(fspace)
-        conn = connectivity(fspace, b)
-        for e in axes(conn, 2)
-            for j in axes(conn, 1)
-                for i in axes(conn, 1)
-                    push!(VVs, Ae[i, j])
-                end
-            end
-        end
-    end
-    VVs
-end
+# Ae = (h^2 / 6) * [
+#      4.0  -1.0  -1.0  -2.0
+#     -1.0   4.0  -2.0  -1.0
+#     -1.0  -2.0   4.0  -1.0
+#     -2.0  -1.0  -1.0   4.0
+# ]
+# Ae = SMatrix{4, 4, Float64, 16}([
+#     0.666667  -0.166667  -0.333333  -0.166667
+#     -0.166667   0.666667  -0.166667  -0.333333
+#     -0.333333  -0.166667   0.666667  -0.166667
+#     -0.166667  -0.333333  -0.166667   0.666667
+# ])
+# VVs_new = map(dof.var.fspace) do fspace
+#     VVs = Float64[]
+#     Ae_vec = vec(Ae)
+#     for b in 1:FiniteElementContainers.num_blocks(fspace)
+#         conn = connectivity(fspace, b)
+#         for e in axes(conn, 2)
+#             for i in axes(conn, 1)
+#                 for j in axes(conn, 1)
+#                     push!(VVs, Ae[i, j])
+#                 end
+#             end
+#         end
+#     end
+#     VVs
+# end
 
 Xs = nodal_coordinates(dof)
 Vs_new = map(dof.var.fspace, dof.local_dof_managers, dof.field_partition.parts, partition(Xs)) do fspace, local_dof, field_part, X
@@ -83,9 +93,15 @@ Vs_new = map(dof.var.fspace, dof.local_dof_managers, dof.field_partition.parts, 
     Vs
 end
 
-A_new = psparse(mat_pattern_new, VVs_new) |> fetch
+Uu = create_unknowns(asm)
+U = create_field(asm)
+update_field_unknowns!(U, dof, Uu)
+assemble_stiffness!(asm, stiffness, U, p)
+K = stiffness(asm)
+
+# A_new = psparse(mat_pattern_new, VVs_new) |> fetch
 b_new = pvector(vec_pattern_new, Vs_new) |> fetch
-x_new = IterativeSolvers.cg(A_new, b_new, verbose = i_am_main(rank))
+x_new = IterativeSolvers.cg(K, b_new, verbose = i_am_main(rank))
 
 U = create_field(dof)
 # update_field_dirichlet_bcs!(U, dof)

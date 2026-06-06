@@ -10,7 +10,7 @@ function assemble_mass!(
 end
 
 function assemble_stiffness!(
-  assembler, func::F, Uu, p
+  assembler::SparseMatrixAssembler, func::F, Uu, p
 ) where F <: Function
   _check_matrix_assembly_supported(assembler, "assemble_stiffness!")
   assemble_matrix!(

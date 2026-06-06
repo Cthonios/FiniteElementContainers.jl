@@ -9,29 +9,6 @@ using PartitionedArrays
 #######################################################################
 # Helper methods for setup
 #######################################################################
-# want to create LocalIndices here
-# TODO this only works for H1 right now
-
-# we can deprecate this one once PDofManager is up to snuff
-function _create_field_partition(
-	file_name::String, n_dofs::Int, n_ranks::Int, ranks,
-	field_to_colors
-)
-	n_nodes_global = length(field_to_colors) ÷ n_dofs
-	ids = reshape(1:length(field_to_colors), n_dofs, n_nodes_global)
-
-	node_id_maps = map(ranks) do rank
-		mesh = UnstructuredMesh(file_name, n_ranks, rank)
-		mesh.node_id_map
-	end
-
-	map(node_id_maps, ranks) do node_id_map, rank
-		field_id_map = ids[:, node_id_map] |> vec
-		field_to_owner = map(x -> field_to_colors[x], field_id_map)
-		LocalIndices(length(field_to_colors), rank, field_id_map, field_to_owner)
-	end
-end
-
 # NOTE dof_to_unknown returns -1 when the dof 
 function _create_field_to_unknown(n_total_fields, dirichlet_dofs)
 	unknown_to_field = Vector{eltype(dirichlet_dofs)}(undef, n_total_fields - length(dirichlet_dofs))
@@ -204,7 +181,7 @@ function FiniteElementContainers.DofManager(
 	# dirichlet bcs
 	local_dof_managers = map(u.fspace, mesh) do fspace, mesh_local
 		u_local = eval(typeof(u).name.name){typeof(fspace)}(fspace, var_names)
-		dof_local = DofManager(u_local)
+		dof_local = DofManager(u_local; use_condensed = true)
 		dbcs_local = DirichletBCs(mesh_local, dof_local, dbcs)
 		dirichlet_dofs_local = FiniteElementContainers.dirichlet_dofs(dbcs_local)
 		update_dofs!(dof_local, dirichlet_dofs_local)
@@ -322,54 +299,6 @@ function FiniteElementContainers.FunctionSpace(meshes::AbstractVector, field_typ
 	end
 end
 
-# # remove me once PDofManager is up to snuff
-# struct FEMPartition{
-# 	I <: Integer,
-# 	V <: AbstractVector{I},
-# 	E <: AbstractVector{OwnAndGhostIndices{V}},
-# 	F <: AbstractVector{LocalIndices},
-# 	U <: AbstractVector{OwnAndGhostIndices{V}}
-# }
-# 	dirichlet_dofs::V
-# 	elem_colors::V
-# 	elem_parts::E
-# 	field_colors::V
-# 	field_parts::F
-# 	unknown_colors::V
-# 	unknown_parts::U
-# 	field_to_unknown::V
-# 	unknown_to_field::V
-# end
-
-
-# # TODO currently this only supports H1 spaces
-# function FiniteElementContainers.create_partition(
-# 	file_name::String, 
-# 	n_dofs::Int, n_ranks::Int, ranks,
-# 	dirichlet_dofs::AbstractVector{<:Integer}
-# )
-# 	# get colorings
-# 	fields_to_colors, elems_to_colors = global_colorings(file_name, n_dofs, n_ranks)
-# 	unknowns_to_colors = copy(fields_to_colors)
-# 	deleteat!(unknowns_to_colors, dirichlet_dofs)
-
-# 	# create element and field partition
-# 	elem_parts = partition_from_color(ranks, elems_to_colors)
-# 	field_parts = _create_field_partition(file_name, n_dofs, n_ranks, ranks, fields_to_colors)
-
-# 	unknown_parts = partition_from_color(ranks, unknowns_to_colors)
-
-# 	field_to_unknown, unknown_to_field = _create_field_to_unknown(length(fields_to_colors), dirichlet_dofs)
-
-# 	return FEMPartition(
-# 		dirichlet_dofs,
-# 		elems_to_colors, elem_parts, 
-# 		fields_to_colors, field_parts, 
-# 		unknowns_to_colors, unknown_parts,
-# 		field_to_unknown, unknown_to_field
-# 	)
-# end
-
 #######################################################################
 # Mesh stuff
 #######################################################################
@@ -389,13 +318,6 @@ function FiniteElementContainers.UnstructuredMesh(
 	end
 end
 
-# function FiniteElementContainers.nodal_coordinates(meshes, parts)
-# 	X_vals = map(meshes) do mesh
-# 		mesh.nodal_coords
-# 	end
-# 	return PVector(X_vals, parts.field_parts)
-# end
-
 function FiniteElementContainers.nodal_coordinates(dof::PDofManager)
 	X_vals = map(dof.var.fspace) do fspace
 		fspace.coords
@@ -406,139 +328,6 @@ end
 #######################################################################
 # Assembler stuff
 #######################################################################
-# struct PSparseMatrixPattern{
-# 	T,
-# 	I1 <: AbstractVector{T},
-# 	I2 <: AbstractVector,
-# 	P
-# }
-# 	Is::I1
-# 	Js::I1
-# 	block_start_indices::I2
-# 	block_el_level_sizes::I2
-# 	unknown_dofs::I1
-# 	parts::P
-# end
-
-# function PSparseMatrixPattern(meshes, parts::FEMPartition)
-
-#     (; dirichlet_dofs, elem_parts, field_to_unknown) = parts
-
-#     IIs, JJs, block_start_indices, block_el_level_sizes, unknown_dofs =
-#         tuple_of_arrays(map(meshes, elem_parts) do mesh, part
-
-#             IIs  = Int[]
-#             JJs  = Int[]
-#             unknown_dofs = Int[]
-
-#             block_start_indices = Vector{Int}(undef, length(mesh.element_conns))
-#             block_el_level_sizes = Vector{Int}(undef, length(mesh.element_conns))
-
-#             n = 0
-#             for (key, conn) in mesh.element_conns
-#                 for e in axes(conn, 2)
-
-#                     glob_conn = @views mesh.node_id_map[conn[:, e]]
-
-#                     for i in axes(glob_conn, 1)
-#                         for j in axes(glob_conn, 1)
-#                             n += 1
-
-#                             gi = glob_conn[i]
-#                             gj = glob_conn[j]
-
-#                             # only record if both are unknown
-#                             if !insorted(gi, dirichlet_dofs) &&
-#                                !insorted(gj, dirichlet_dofs)
-
-#                                 push!(IIs, field_to_unknown[gi])
-#                                 push!(JJs, field_to_unknown[gj])
-#                                 push!(unknown_dofs, n)
-#                             end
-#                         end
-#                     end
-#                 end
-#             end
-
-#             IIs, JJs, block_start_indices, block_el_level_sizes, unknown_dofs
-#         end)
-
-#     return PSparseMatrixPattern{
-#         eltype(IIs),
-#         typeof(IIs),
-#         typeof(block_start_indices),
-#         typeof(parts)
-#     }(
-#         IIs, JJs, block_start_indices,
-#         block_el_level_sizes, unknown_dofs, parts
-#     )
-# end
-
-# function FiniteElementContainers.create_matrix_sparsity_pattern(meshes, parts::FEMPartition)
-# 	return PSparseMatrixPattern(meshes, parts)
-# end
-
-# function PartitionedArrays.psparse(pattern::PSparseMatrixPattern, vals)
-# 	parts = pattern.parts.unknown_parts
-# 	vals = map(pattern.unknown_dofs, vals) do dofs, val
-# 		val[dofs]
-# 	end
-# 	return psparse(pattern.Is, pattern.Js, vals, parts, parts)
-# end
-
-# struct PSparseVectorPattern{
-# 	T,
-# 	I1 <: AbstractVector{T},
-# 	I2 <: AbstractVector,
-# 	P
-# }
-# 	Is::I1
-# 	block_start_indices::I2
-# 	block_el_level_sizes::I2
-# 	unknown_dofs::I1
-# 	parts::P
-# end
-
-# function PSparseVectorPattern(meshes, parts::FEMPartition)
-#     (; dirichlet_dofs, elem_parts, field_to_unknown) = parts
-# 	Is, block_start_indices, block_el_level_sizes, unknown_dofs = 
-# 		tuple_of_arrays(map(meshes, elem_parts) do mesh, part
-# 			Is = Int[]
-# 			unknown_dofs = Int[]
-# 			block_start_indices = Vector{Int}(undef, length(mesh.element_conns))
-#             block_el_level_sizes = Vector{Int}(undef, length(mesh.element_conns))
-
-# 			n = 0   # IMPORTANT: start at 0
-
-# 			for (key, conn) in mesh.element_conns
-# 				for e in axes(conn, 2)
-# 					glob_conn = @views mesh.node_id_map[conn[:, e]]
-# 					for i in axes(glob_conn, 1)
-# 						n += 1
-# 						gi = glob_conn[i]
-# 						if !insorted(gi, dirichlet_dofs)
-# 							push!(Is, field_to_unknown[gi])
-# 							push!(unknown_dofs, n)
-# 						end
-# 					end
-# 				end
-# 			end
-# 			return Is, block_start_indices, block_el_level_sizes, unknown_dofs
-# 		end)
-# 	return PSparseVectorPattern{
-# 		eltype(Is),
-# 		typeof(Is),
-# 		typeof(block_start_indices),
-# 		typeof(parts)
-# 	}(
-# 		Is, block_start_indices,
-# 		block_el_level_sizes, unknown_dofs, parts
-# 	)
-# end
-
-#################################################
-# new
-#################################################
 struct PSparseMatrixPattern{
 	D,
 	T,
@@ -673,22 +462,6 @@ function FiniteElementContainers.create_vector_sparsity_pattern(dof::PDofManager
 	return PSparseVectorPattern(dof)
 end
 
-# function FiniteElementContainers.create_vector_sparsity_pattern(meshes, parts::FEMPartition)
-# 	return PSparseVectorPattern(meshes, parts)
-# end
-
-# function PartitionedArrays.pvector(pattern::PSparseVectorPattern, vals)
-# 	parts = pattern.parts.unknown_parts
-# 	vals = map(pattern.unknown_dofs, vals) do dofs, val
-# 		val[dofs]
-# 	end
-# 	return pvector(pattern.Is, vals, parts)
-# end
-
-# function PartitionedArrays.pzeros(pattern::PSparseVectorPattern)
-# 	return pzeros(pattern.parts.unknown_parts)
-# end
-
 function FiniteElementContainers.create_unknowns(pattern::PSparseVectorPattern)
 	return create_unknowns(pattern.dof)
 end
@@ -703,7 +476,6 @@ function PartitionedArrays.pvector(pattern::PSparseVectorPattern, vals)
 end
 
 function PartitionedArrays.pzeros(pattern::PSparseVectorPattern)
-	# return pzeros(pattern.parts.unknown_parts)
 	return pzeros(pattern.dof.solution_partition.parts)
 end
 
@@ -729,9 +501,26 @@ function FiniteElementContainers.SparseMatrixAssembler(dof::PDofManager)
 	)
 end
 
-# function FiniteElementContainers.assemble_stiffness!(asm, func, u, p)
+function FiniteElementContainers.assemble_stiffness!(asm::PSparseMatrixAssembler, func, u, p)
+	map(asm.local_assemblers, partition(u), p.local_parameters) do local_asm, local_u, local_p
+		assemble_stiffness!(local_asm, func, local_u, local_p)
+	end
+end
 
-# end
+function FiniteElementContainers.create_field(asm::PSparseMatrixAssembler)
+	return create_field(asm.vector_pattern.dof)
+end
+
+function FiniteElementContainers.create_unknowns(asm::PSparseMatrixAssembler)
+	return create_unknowns(asm.vector_pattern.dof)
+end
+
+function FiniteElementContainers.stiffness(asm::PSparseMatrixAssembler)
+	vals = map(asm.local_assemblers) do local_asm
+		local_asm.stiffness_storage
+	end
+	return psparse(asm.matrix_pattern, vals) |> fetch
+end
 
 #######################################################################
 # Parameters
@@ -740,48 +529,18 @@ struct PParameters{P}
 	local_parameters::P
 end
 
-# function FiniteElementContainers.Parameters(args...; kwargs...)
-
-# end
-
-# function FiniteElementContainers.create_unknowns(parts::FEMPartition)
-# 	return pzeros(parts.unknown_parts)
-# end
-
-# dof manager like stuff
-# function FiniteElementContainers.extract_field_unknowns!(
-# 	UU,
-# 	parts::FEMPartition,
-# 	U
-# )
-
-# end
-
-# some mesh helpers
-
-
-# function FiniteElementContainers.update_field_unknowns!(U::PVector, parts, Uu::PVector, ranks)
-# 	map(partition(U), U.index_partition, partition(Uu), ranks) do U_local, field_part, Uu_local, my_rank
-# 		gtl = global_to_local(field_part)
-# 		gids = local_to_global(field_part)
-# 		owners = local_to_owner(field_part)
-# 		own_counter = 1
-
-# 		for i in eachindex(gids)
-# 			if owners[i] == my_rank
-# 				field_id = gids[i]
-# 				unknown_id = parts.field_to_unknown[field_id]
-	
-# 				if unknown_id > 0
-# 					U_local[i] = Uu_local[own_counter]
-# 					# U_local[i] = Uu_local[gtl[parts.unknown_to_field[i]]]
-# 					own_counter += 1
-# 				end
-# 			end
-# 		end
-# 	end
-# 	return nothing
-# end
-
+function FiniteElementContainers.create_parameters(
+	mesh::AbstractVector{<:FiniteElementContainers.AbstractMesh},
+	asm::PSparseMatrixAssembler,
+	physics,
+	props;
+	kwargs...
+)
+	# map over assemblers and what not 
+	local_parameters = map(mesh, asm.local_assemblers) do local_mesh, local_asm
+		create_parameters(local_mesh, local_asm, physics, props; kwargs...)
+	end
+	return PParameters(local_parameters)
+end
 
 end # module
