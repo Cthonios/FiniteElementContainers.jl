@@ -1,8 +1,10 @@
+const FSpaceType = Union{<:FunctionSpace, <:AbstractVector{<:FunctionSpace}}
+
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-abstract type AbstractFunction{F <: FunctionSpace, NF} end
+abstract type AbstractFunction{F <: FSpaceType, NF} end
 function_space(func::AbstractFunction) = func.fspace
 num_fields(::AbstractFunction{F, NF}) where {F, NF} = NF
 
@@ -29,25 +31,18 @@ struct ScalarFunction{F} <: AbstractFunction{F, 1}
   fspace::F
   names::NTuple{1, String}
 
-  function ScalarFunction(fspace::F, sym::String) where F <: FunctionSpace
+  function ScalarFunction(fspace::F, sym::String) where F <: FSpaceType
     new{F}(fspace, (sym,))
   end
 
-  function ScalarFunction{F}(fspace::F, sym::String) where F <: FunctionSpace
+  function ScalarFunction{F}(fspace::F, sym::String) where F <: FSpaceType
     new{F}(fspace, (sym,))
   end
 
-  function ScalarFunction{F}(fspace::F, syms::NTuple{1, String}) where F <: FunctionSpace
+  function ScalarFunction{F}(fspace::F, syms::NTuple{1, String}) where F <: FSpaceType
     new{F}(fspace, syms)
   end
 end
-
-# """
-# $(TYPEDSIGNATURES)
-# """
-# function ScalarFunction(fspace::FunctionSpace, sym::String)
-#   return ScalarFunction(fspace, (sym,))
-# end
 
 function Adapt.adapt_structure(to, f::ScalarFunction)
   fspace = adapt(to, f.fspace)
@@ -61,19 +56,32 @@ $(TYPEDFIELDS)
 struct VectorFunction{F, NF} <: AbstractFunction{F, NF}
   fspace::F
   names::NTuple{NF, String}
+
+  """
+  $(TYPEDSIGNATURES)
+  """
+  function VectorFunction(fspace::F, sym::String) where F <: FSpaceType
+    components = ("_x", "_y", "_z")
+    if isa(fspace, AbstractVector)
+      @assert false "Need to fix the case for MPI vector function"
+      # ndims = map(fspace) do local_fspace
+      # syms = map(x -> "$sym$x", components[1:])
+    else
+      syms = map(x -> "$sym$x", components[1:size(fspace.coords, 1)])
+    end
+    new{F, length(syms)}(fspace, syms)
+  end
+
+  """
+  $(TYPEDSIGNATURES)
+  """
+  function VectorFunction(fspace::F, syms::NTuple{NF, String}) where {F <: FSpaceType, NF}
+    new{F, NF}(fspace, syms)
+  end
 end
 
 function Adapt.adapt_structure(to, f::VectorFunction)
   return VectorFunction(adapt(to, f.fspace), f.names)
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-function VectorFunction(fspace::FunctionSpace, sym::String)
-  components = ("_x", "_y", "_z")
-  syms = map(x -> "$sym$x", components[1:size(fspace.coords, 1)])
-  return VectorFunction(fspace, syms)
 end
 
 """

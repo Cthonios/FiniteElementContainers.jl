@@ -5,7 +5,7 @@ using PartitionedArrays
 
 include("../../test/poisson/TestPoissonCommon.jl")
 f(X, _) = 2. * π^2 * cos(π * X[1]) * cos(π * X[2])
-u(x) = 0.5 * (x[1] + x[2])
+u_analytic(x) = 0.5 * (x[1] + x[2])
 h = 0.1
 Ae = (h^2 / 6) * [
      4.0  -1.0  -1.0  -2.0
@@ -75,7 +75,7 @@ Vs = map(meshes, partition(Xs)) do mesh, X
             for i in axes(glob_conn, 1)
                 # this is for bcs here
                 if insorted(glob_conn[i], boundary_dofs)
-                    ue[i] = u(X[:, conn[i, e]])
+                    ue[i] = u_analytic(X[:, conn[i, e]])
                 end
             end
 
