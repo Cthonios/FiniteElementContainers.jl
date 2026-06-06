@@ -97,7 +97,7 @@ function _assemble_element!(
   end_id = start_id + NDOF - 1
   ids = start_id:end_id
   for (i, id) in enumerate(ids)
-    storage[id] += R_el.data[i]
+    storage[id] = R_el.data[i]
   end
   return nothing
 end
@@ -326,10 +326,10 @@ end
 $(TYPEDSIGNATURES)
 assumes assemble_vector! has already been called
 """
-function residual(asm::AbstractAssembler; use_sparse_vector = false)
-  # if use_sparse_vector
-    # return sparsevec(asm.vector_pattern, asm.residual_unknowns)
-  # else
+function residual(asm::AbstractAssembler)
+  if _use_sparse_vector(asm)
+    return sparsevec(asm.vector_pattern, asm.residual_unknowns)
+  else
     if _is_condensed(asm.dof)
       _adjust_vector_entries_for_constraints!(
         asm.residual_storage, asm.constraint_storage
@@ -343,7 +343,7 @@ function residual(asm::AbstractAssembler; use_sparse_vector = false)
       )
       return asm.residual_unknowns
     end
-  # end
+  end
 end
 
 """

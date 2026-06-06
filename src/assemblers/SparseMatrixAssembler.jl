@@ -256,5 +256,11 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
     end
     _update_dofs!(assembler.vector_pattern, assembler.dof, ddofs)
   end
+
+  # problaby a better way to order all this logic for different things
+  if _use_sparse_vector(assembler)
+    _, n_entries = _setup_block_sizes(assembler.dof, 1)
+    resize!(assembler.residual_unknowns, n_entries)
+  end
   return nothing
 end

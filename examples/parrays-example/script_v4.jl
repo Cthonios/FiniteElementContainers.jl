@@ -6,7 +6,7 @@ using PartitionedArrays
 using StaticArrays
 
 include("../../test/poisson/TestPoissonCommon.jl")
-f(X, _) = 2. * π^2 * cos(π * X[1]) * cos(π * X[2])
+f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 bc_func(_, _) = 0.
 mesh_file = Base.source_dir() * "/square.g"
 output_file = Base.source_dir() * "/output.e"
@@ -29,97 +29,39 @@ dof     = DofManager(u, dbcs, num_ranks, ranks, mesh_file, mesh)
 asm     = SparseMatrixAssembler(dof)
 p       = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
 
-# stuff to still work out below
-mat_pattern_new = FiniteElementContainers.create_matrix_sparsity_pattern(dof)
-vec_pattern_new = FiniteElementContainers.create_vector_sparsity_pattern(dof)
-X = nodal_coordinates(dof)
+# TODO
+# first setup a solution vector by doing IterativeSolvers.cg(K, -0)
+# so that we get a solution vector with the right sizes
+# then we can copy that and cache them as a 
+# current solution and increment
 
-u_analytic(x) = 0.5 * (x[1] + x[2])
-h = 0.1
-# Ae = (h^2 / 6) * [
-#      4.0  -1.0  -1.0  -2.0
-#     -1.0   4.0  -2.0  -1.0
-#     -1.0  -2.0   4.0  -1.0
-#     -2.0  -1.0  -1.0   4.0
-# ]
-# Ae = SMatrix{4, 4, Float64, 16}([
-#     0.666667  -0.166667  -0.333333  -0.166667
-#     -0.166667   0.666667  -0.166667  -0.333333
-#     -0.333333  -0.166667   0.666667  -0.166667
-#     -0.166667  -0.333333  -0.166667   0.666667
-# ])
-# VVs_new = map(dof.var.fspace) do fspace
-#     VVs = Float64[]
-#     Ae_vec = vec(Ae)
-#     for b in 1:FiniteElementContainers.num_blocks(fspace)
-#         conn = connectivity(fspace, b)
-#         for e in axes(conn, 2)
-#             for i in axes(conn, 1)
-#                 for j in axes(conn, 1)
-#                     push!(VVs, Ae[i, j])
-#                 end
-#             end
-#         end
-#     end
-#     VVs
-# end
-
-Xs = nodal_coordinates(dof)
-Vs_new = map(dof.var.fspace, dof.local_dof_managers, dof.field_partition.parts, partition(Xs)) do fspace, local_dof, field_part, X
-    Vs = Float64[]
-    ue = zeros(size(Ae, 2))
-    ge = similar(ue)
-    field_ltg = local_to_global(field_part)
-    for b in 1:FiniteElementContainers.num_blocks(fspace)
-        block_local_conns = connectivity(fspace, b)
-        block_global_conns = field_ltg[block_local_conns]
-        for e in axes(block_global_conns, 2)
-            fill!(ue, 0.0)
-            for i in axes(block_global_conns, 1)
-                # this is for bcs here
-                # if insorted(block_global_conns[i, e], dof.dirichlet_dofs)
-                if insorted(block_local_conns[i, e], local_dof.dirichlet_dofs)
-                    ue[i] = u_analytic(fspace.coords[:, block_local_conns[i, e]])
-                end
-            end
-
-            mul!(ge, Ae, ue)
-
-            for i in axes(block_global_conns, 1)
-                push!(Vs, -ge[i])
-            end
-        end
-    end
-    Vs
-end
-
+# clean up below
 Uu = create_unknowns(asm)
+
 U = create_field(asm)
 update_field_unknowns!(U, dof, Uu)
+
 assemble_stiffness!(asm, stiffness, U, p)
 K = stiffness(asm)
 
-# A_new = psparse(mat_pattern_new, VVs_new) |> fetch
-b_new = pvector(vec_pattern_new, Vs_new) |> fetch
-x_new = IterativeSolvers.cg(K, b_new, verbose = i_am_main(rank))
+assemble_vector!(asm, residual, U, p)
+R = residual(asm)
+
+x_new = IterativeSolvers.cg(K, -R, verbose = i_am_main(rank))
 
 U = create_field(dof)
 # update_field_dirichlet_bcs!(U, dof)
 update_field_unknowns!(U, dof, x_new)
 
-map(partition(U), partition(Xs), dof.var.fspace, mesh, ranks) do U_local, X, fspace, mesh_local, rank
+map(partition(U), dof.var.fspace, mesh, ranks) do U_local, fspace, mesh_local, rank
     u_temp = ScalarFunction(fspace, "u")
-    x_temp = VectorFunction(fspace, "x")
-    mesh_file = mesh_local.mesh_obj.file_name
     output_file_temp = output_file * ".$(num_ranks).$(rank - 1)"
-    pp = PostProcessor(mesh_local, output_file_temp, u_temp, x_temp)
+    pp = PostProcessor(mesh_local, output_file_temp, u_temp)
     write_times(pp, 1, 0.0)
     write_field(pp, 1, ["u"], U_local)
-    write_field(pp, 1, ["x_x", "x_y"], X)
     close(pp)
 end
 
 map_main(ranks) do rank
-    # output_file = splitext(mesh_file)[1] * ".e.$(num_ranks)."
     epu(output_file * ".$(num_ranks).$(rank - 1)")
 end

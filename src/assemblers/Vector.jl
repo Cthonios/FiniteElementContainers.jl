@@ -2,10 +2,16 @@
 $(TYPEDSIGNATURES)
 """
 function assemble_vector!(
-  assembler, func::F, Uu, p
+  assembler::AbstractAssembler, func::F, Uu, p
 ) where F <: Function
+  if _use_sparse_vector(assembler)
+    storage = assembler.residual_unknowns
+  else
+    storage = assembler.residual_storage
+  end
   assemble_vector!(
-    assembler.residual_storage, 
+    # assembler.residual_storage, 
+    storage,
     assembler.vector_pattern, assembler.dof,
     func, Uu, p;
     use_inplace_methods = _use_inplace_methods(assembler),
@@ -34,11 +40,12 @@ function assemble_vector!(
   conns = fspace.elem_conns
   # foreach_block(conns, p.physics, p.properties, fspace.ref_fes) do physics, props, ref_fe, b
   foreach_block(fspace, p) do physics, props, ref_fe, b
-    if use_sparse_vector
-      field = block_view(storage, pattern, b)
-    else
-      field = storage
-    end
+    # if use_sparse_vector
+    #   field = block_view(storage, pattern, b)
+    # else
+    #   field = storage
+    # end
+    field = storage
 
     if use_inplace_methods
       _assemble_block!(
