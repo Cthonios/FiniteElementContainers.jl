@@ -473,6 +473,7 @@ include("SparseMatrixAssembler.jl")
 
 # methods
 include("Diagonal.jl")
+include("LumpedMass.jl")
 include("Matrix.jl")
 include("MatrixAction.jl")
 include("QuadratureQuantity.jl")
