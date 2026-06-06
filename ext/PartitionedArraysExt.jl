@@ -507,12 +507,25 @@ function FiniteElementContainers.assemble_stiffness!(asm::PSparseMatrixAssembler
 	end
 end
 
+function FiniteElementContainers.assemble_vector!(asm::PSparseMatrixAssembler, func, u, p)
+	map(asm.local_assemblers, partition(u), p.local_parameters) do local_asm, local_u, local_p
+		assemble_vector!(local_asm, func, local_u, local_p)
+	end
+end
+
 function FiniteElementContainers.create_field(asm::PSparseMatrixAssembler)
 	return create_field(asm.vector_pattern.dof)
 end
 
 function FiniteElementContainers.create_unknowns(asm::PSparseMatrixAssembler)
 	return create_unknowns(asm.vector_pattern.dof)
+end
+
+function FiniteElementContainers.residual(asm::PSparseMatrixAssembler)
+	vals = map(asm.local_assemblers) do local_asm
+		local_asm.residual_unknowns
+	end
+	return pvector(asm.vector_pattern, vals) |> fetch
 end
 
 function FiniteElementContainers.stiffness(asm::PSparseMatrixAssembler)
