@@ -9,6 +9,7 @@ export to_backend
 # Assemblers
 export SparseMatrixAssembler
 export create_assembler_cache
+export assemble_lumped_mass!
 export assemble_mass!
 export assemble_matrix!
 export assemble_matrix_action!
@@ -138,6 +139,7 @@ export assemble_diagonal!
 export diagonal
 export energy
 export hvp
+export lumped_mass
 export mass
 export mass!
 export mass_action

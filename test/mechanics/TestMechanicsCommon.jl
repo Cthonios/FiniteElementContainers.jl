@@ -86,13 +86,43 @@ end
 
 @inline function FiniteElementContainers.mass!(
   storage, e,
-  physics::Mechanics, t, dt, props_el, 
+  physics::Mechanics, t, dt, props_el,
   state_old_q, state_new_q,
   conn, interps, x_el, u_el, u_el_old
 )
   interps = map_interpolants(interps, x_el)
   (; X_q, N, ∇N_X, JxW) = interps
   scatter_with_values_and_values!(storage, physics.formulation, e, conn, N, JxW * props_el[1])
+end
+
+@inline function FiniteElementContainers.lumped_mass(
+  physics::Mechanics,
+  interps, x_el,
+  t, dt,
+  u_el, u_el_old,
+  state_old_q, state_new_q,
+  props_el,
+)
+  cell = map_interpolants(interps, x_el)
+  (; N, JxW) = cell
+
+  # Row sum of the element consistent mass at node a, direction d:
+  #   m_el[NDIM*(a-1)+d] = ρ * JxW * Σ_b N[a] * N[b]
+  #                     = ρ * JxW * N[a]      (partition of unity: Σ_b N[b] = 1)
+  # Identical in every spatial direction.  Interleaved DOF ordering to match
+  # the rest of the assembly pipeline.
+  N_nodes = size(N, 1)
+  NDIM    = num_fields(physics.formulation)
+  NDOF    = NDIM * N_nodes
+  ρJxW    = JxW * props_el[1]
+  tup = zeros(SVector{NDOF, eltype(N)})
+  for a in 1:N_nodes
+    m_a = ρJxW * N[a]
+    for d in 1:NDIM
+      tup = setindex(tup, m_a, NDIM * (a - 1) + d)
+    end
+  end
+  return tup
 end
 
 @inline function FiniteElementContainers.mass_action!(

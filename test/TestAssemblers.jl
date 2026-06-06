@@ -336,6 +336,97 @@ end
   end
 end
 
+@testitem "Assemblers - test_lumped_mass_mechanics" setup=[AssemblerHelperMechanics] begin
+  # The contract on assemble_lumped_mass!:
+  #   (a) On a fully-free DOF space, it equals the row sums of the
+  #       full consistent mass matrix (partition of unity).
+  #   (b) On a BC-restricted DOF space, it equals (a) restricted to
+  #       the free DOFs — i.e., the per-element scatter is independent
+  #       of which DOFs are subsequently extracted.
+  #   (c) It differs from the legacy "M_red * 1_free" approach at
+  #       free DOFs adjacent to constrained ones, because the latter
+  #       drops contributions from the columns corresponding to
+  #       constrained DOFs (this is the bug being fixed).
+  include("TestUtils.jl")
+  backends = _get_backends()
+  for dev in backends
+    # ---- (a) Partition-of-unity on a fully-free DOF space ----
+    asm_full = SparseMatrixAssembler(
+      u;
+      sparse_matrix_type = :csc,
+      use_condensed = false,
+      use_inplace_methods = false,
+    )
+    p_full = create_parameters(mesh, asm_full, physics, props;
+                                dirichlet_bcs = DirichletBC[], times = times)
+    FiniteElementContainers.initialize!(p_full)
+    if dev != cpu
+      asm_full = asm_full |> dev
+      p_full   = p_full |> dev
+    end
+    Uu_full = create_unknowns(asm_full)
+
+    assemble_mass!(asm_full, mass, Uu_full, p_full)
+    M_full_host = mass(asm_full) |> copy
+    if dev != cpu
+      M_full_host = M_full_host |> cpu
+    end
+    m_ref_full = vec(sum(M_full_host; dims = 2))
+
+    assemble_lumped_mass!(asm_full, lumped_mass, Uu_full, p_full)
+    m_lumped_full = lumped_mass(asm_full) |> copy
+    if dev != cpu
+      m_lumped_full = m_lumped_full |> cpu
+    end
+
+    @test length(m_lumped_full) == length(m_ref_full)
+    @test all(isapprox.(m_lumped_full, m_ref_full, rtol = 1e-12, atol = 1e-14))
+
+    # ---- (b) BC-restricted lumped mass equals (a) at free DOFs ----
+    asm_bc = SparseMatrixAssembler(
+      u;
+      sparse_matrix_type = :csc,
+      use_condensed = false,
+      use_inplace_methods = false,
+    )
+    p_bc = create_parameters(mesh, asm_bc, physics, props;
+                              dirichlet_bcs = dbcs, times = times)
+    FiniteElementContainers.initialize!(p_bc)
+    if dev != cpu
+      asm_bc = asm_bc |> dev
+      p_bc   = p_bc |> dev
+    end
+    Uu_bc = create_unknowns(asm_bc)
+
+    assemble_lumped_mass!(asm_bc, lumped_mass, Uu_bc, p_bc)
+    m_lumped_bc = lumped_mass(asm_bc) |> copy
+    if dev != cpu
+      m_lumped_bc = m_lumped_bc |> cpu
+    end
+
+    unk_host = asm_bc.dof.unknown_dofs |> copy
+    if dev != cpu
+      unk_host = unk_host |> cpu
+    end
+
+    @test length(m_lumped_bc) == length(unk_host)
+    @test all(isapprox.(m_lumped_bc, m_ref_full[unk_host], rtol = 1e-12, atol = 1e-14))
+
+    # ---- (c) Regression: differs from M_red * 1_free at the boundary ----
+    assemble_mass!(asm_bc, mass, Uu_bc, p_bc)
+    M_red_host = mass(asm_bc) |> copy
+    if dev != cpu
+      M_red_host = M_red_host |> cpu
+    end
+    m_buggy = vec(sum(M_red_host; dims = 2))
+    # They must agree at interior DOFs (not adjacent to any boundary node)
+    # and disagree at boundary-adjacent free DOFs.  The strong test is
+    # simply that some entries disagree — for the standard test mesh,
+    # several entries do.
+    @test !all(isapprox.(m_lumped_bc, m_buggy, rtol = 1e-10, atol = 1e-14))
+  end
+end
+
 @testitem "Assemblers - test_enzyme_safe_consistency" setup=[AssemblerHelperPoisson] begin
   asm = SparseMatrixAssembler(u)
   p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
