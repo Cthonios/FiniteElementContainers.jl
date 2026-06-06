@@ -169,15 +169,16 @@ struct FunctionSpace{
   elem_conns::Connectivity{IT, IV}
   # need to remove this mabye?
   elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
+  node_id_map::IV
   ref_fes::RefFEs
 
   function FunctionSpace{is_juliac_safe}(
-    block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes
+    block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, node_id_map, ref_fes
   ) where is_juliac_safe
     new{
       is_juliac_safe, eltype(conns.data), typeof(conns.data), 
       typeof(block_to_ref_fe_id), typeof(coords), typeof(ref_fes)
-    }(block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes)
+    }(block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, node_id_map, ref_fes)
   end
 end
 
@@ -229,7 +230,10 @@ function FunctionSpace{is_juliac_safe}(
     block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh)
   end
 
-  return FunctionSpace{is_juliac_safe}(mesh.element_block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes)
+  return FunctionSpace{is_juliac_safe}(
+    mesh.element_block_names, block_to_ref_fe_id, coords, 
+    conns, elem_id_maps, mesh.node_id_map, ref_fes
+  )
 end
 
 # TODO gonna have to fix this based on updates
@@ -259,7 +263,10 @@ function FunctionSpace{is_juliac_safe}(
   elem_id_maps = [val for val in values(mesh.element_id_maps)]
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, is_juliac_safe)
 
-  return FunctionSpace{is_juliac_safe}(mesh.element_block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, ref_fes)
+  return FunctionSpace{is_juliac_safe}(
+    mesh.element_block_names, block_to_ref_fe_id, coords,
+    conns, elem_id_maps, mesh.node_id_map, ref_fes
+  )
 end
 
 function Adapt.adapt_structure(to, fspace::FunctionSpace)
@@ -269,6 +276,7 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
     adapt(to, fspace.elem_conns), 
     # fspace.elem_id_maps,
     map(x -> adapt(to, x), fspace.elem_id_maps),
+    adapt(to, fspace.node_id_map),
     map(x -> adapt(to, x), fspace.ref_fes)
   )
 end

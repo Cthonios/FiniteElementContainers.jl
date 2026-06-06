@@ -226,17 +226,31 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
   for b in 1:num_blocks(fspace)
     for e in 1:num_elements(fspace, b)
       conns = unsafe_connectivity(fspace, e, b)
-      conn = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
-      for temp in Iterators.product(conn, conn)
-        if insorted(temp[1], dirichlet_dofs) || insorted(temp[2], dirichlet_dofs)
-          # really do nothing here
-        else
-          pattern.Is[n] = dof_to_unknown[temp[1]]
-          pattern.Js[n] = dof_to_unknown[temp[2]]
-          pattern.unknown_dofs[n] = dof_num
-          n += 1
+      # conn = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
+      # for temp in Iterators.product(conn, conn)
+      #   if insorted(temp[1], dirichlet_dofs) || insorted(temp[2], dirichlet_dofs)
+      #     # really do nothing here
+      #   else
+      #     pattern.Is[n] = dof_to_unknown[temp[1]]
+      #     pattern.Js[n] = dof_to_unknown[temp[2]]
+      #     pattern.unknown_dofs[n] = dof_num
+      #     n += 1
+      #   end
+      #   dof_num += 1
+      # end
+      dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
+      for i in axes(dof_conns, 1)
+        for j in axes(dof_conns, 1)
+          if insorted(dof_conns[i], dirichlet_dofs) || insorted(dof_conns[j], dirichlet_dofs)
+            # really do nothing here
+          else
+            pattern.Is[n] = dof_to_unknown[dof_conns[i]]
+            pattern.Js[n] = dof_to_unknown[dof_conns[j]]
+            pattern.unknown_dofs[n] = dof_num
+            n += 1
+          end
+          dof_num += 1
         end
-        dof_num += 1
       end
     end
   end

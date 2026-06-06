@@ -1,6 +1,6 @@
 name = "FiniteElementContainers"
 uuid = "d08262e4-672f-4e7f-a976-f2cea5767631"
-version = "0.14.0"
+version = "0.14.1"
 authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
 
 [deps]
@@ -55,6 +55,7 @@ Exodus = "0.14"
 ForwardDiff = "1"
 GPUArrays = "11"
 Gmsh = "0.3"
+IterativeSolvers = "0.9"
 JuliaC = "0.3"
 KernelAbstractions = "0.9"
 Krylov = "0.10"
@@ -75,10 +76,12 @@ julia = "1"
 
 [extras]
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
+IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 JuliaC = "acedd4c2-ced6-4a15-accc-2607eb759ba2"
+PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
 
 [targets]
-test = ["Gmsh", "JuliaC", "Test", "TestItemRunner", "TestItems"]
+test = ["Gmsh", "IterativeSolvers", "JuliaC", "PartitionedArrays", "Test", "TestItemRunner", "TestItems"]

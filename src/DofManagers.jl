@@ -4,7 +4,7 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 abstract type AbstractDofManager{
-    IT <: Integer,
+    IT  <: Integer,
     IDs <: AbstractArray{IT, 1}
 } end
 
@@ -43,38 +43,15 @@ end
 function DofManager{Condensed}(var::AbstractFunction) where Condensed
     dirichlet_dofs = zeros(Int, 0)
     unknown_dofs = 1:size(var.fspace.coords, 2) * length(names(var)) |> collect
-    # return DofManager{
-    #     use_condensed,
-    #     eltype(dirichlet_dofs),
-    #     typeof(dirichlet_dofs),
-    #     typeof(var)
-    # }(dirichlet_dofs, unknown_dofs, var)
     return DofManager{Condensed}(dirichlet_dofs, unknown_dofs, var)
 end
 
-# function Adapt.adapt_structure(to, dof::DofManager{C, IT, IDs, Var}) where {C, IT, IDs, Var}
-    # dirichlet_dofs = adapt(to, dof.dirichlet_dofs)
-    # unknowns = adapt(to, dof.unknown_dofs)
-    # var = adapt(to, dof.var)
-    # return DofManager{
-    #   C, IT, typeof(dirichlet_dofs), typeof(var) 
-    # }(dirichlet_dofs, unknowns, var)
 function Adapt.adapt_structure(to, dof::DofManager)
     return DofManager{_is_condensed(dof)}(
         adapt(to, dof.dirichlet_dofs),
         adapt(to, dof.unknown_dofs),
         adapt(to, dof.var)
     )
-  end
-
-# _field_type(dof::DofManager) = eval(typeof(dof.var.fspace.coords).name.name)
-function _field_type(dof::DofManager)
-    coords = dof.var.fspace.coords
-    if isa(coords, H1Field)
-        return H1Field
-    else
-        @assert false "Finish me"
-    end
 end
 
 _is_condensed(::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = C
@@ -131,72 +108,33 @@ $(TYPEDSIGNATURES)
 Creates a field where ```typeof(field) <: AbstractField```
 based on the variable ```dof``` was created with
 """
-function create_field(dof::DofManager, el_type::Type{RT} = Float64) where RT <: Number
-    return _create_field(KA.get_backend(dof), el_type, dof)
-end
-
-function _create_field(backend::KA.CPU, ::Type{RT}, dof::DofManager) where RT <: Number
+function create_field(dof::DofManager, float_type::Type{RT} = Float64) where RT <: Number
+    backend = KA.get_backend(dof)
+    data = fec_dense_array(backend, float_type, length(dof))
     coords = dof.var.fspace.coords
-    data = _dense_array(backend, RT, length(dof))
     if isa(coords, H1Field)
-        field = H1Field{RT, Vector{RT}, num_fields(dof.var)}(data)
+        field = H1Field{RT, typeof(data), num_fields(dof.var)}(data)
     else
         @assert false "Finish me"
     end
     return field
 end
 
-function _create_field(backend::KA.Backend, ::Type{RT}, dof::DofManager) where RT <: Number
-    data = KA.zeros(backend, RT, size(dof))
-    return _field_type(dof)(data)
-end
-
 """
 $(TYPEDSIGNATURES)
 Creates a vector of unknown dofs.
 
-This specific method returns a vector equal in length to the
-length of the internally stored list of unknown dofs in ```dof```.
+The backend of ``dof`` will be used as the backend for the generated array.
 
-This is used for solution techniques when vector/matrix rows are
-removed where dofs are fixed.
+There is an optional argument ``float_type`` that defaults to ``Float64``.
 """
-function create_unknowns(dof::DofManager{false, IT, IDs, Var}) where {IT, IDs, Var}
-    return _create_unknowns(KA.get_backend(dof), dof)
-end
-
-function _create_unknowns(::KA.CPU, dof::DofManager{false, IT, IDs, Var}) where {IT, IDs, Var}
-    return zeros(Float64, length(dof.unknown_dofs))
-end
-
-function _create_unknowns(backend::KA.Backend, dof::DofManager{false, IT, IDs, Var}) where {IT, IDs, Var}
-    return KA.zeros(backend, Float64, length(dof.unknown_dofs))
-end
-
-"""
-$(TYPEDSIGNATURES)
-Creates a vector of unknown dofs.
-
-This specific method returns a vector equal in length to the
-length of a field created by ```dof```. E.g. all dofs are unknown.
-
-This is used for solution techniques when vector/matrix rows are not 
-removed where dofs are fixed.
-"""
-function create_unknowns(dof::DofManager{true, IT, IDs, Var}) where {IT, IDs, Var}
+function create_unknowns(dof::DofManager{Flag, IT, IDs, Var}, float_type = Float64) where {Flag, IT, IDs, Var}
     backend = KA.get_backend(dof)
-    return KA.zeros(backend, Float64, length(dof))
-end
-
-function extract_field_unknowns!(
-    Uu::V,
-    unknown_dofs::I,
-    U::AbstractField
-) where {V <: AbstractVector{<:Number}, I <: AbstractVector{<:Integer}}
-    fec_foreach(Uu) do n
-        Uu[n] = U[unknown_dofs[n]]
+    if Flag
+        return fec_dense_array(backend, float_type, length(dof))
+    else
+        return fec_dense_array(backend, float_type, length(dof.unknown_dofs))
     end
-    return nothing
 end
 
 function extract_field_unknowns!(
@@ -204,7 +142,10 @@ function extract_field_unknowns!(
     dof::DofManager,
     U::AbstractField
 ) where V <: AbstractVector{<:Number}
-    extract_field_unknowns!(Uu, dof.unknown_dofs, U)
+    unknown_dofs = dof.unknown_dofs
+    fec_foreach(Uu) do n
+        Uu[n] = U[unknown_dofs[n]]
+    end
     return nothing
 end
 

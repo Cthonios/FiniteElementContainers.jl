@@ -117,7 +117,7 @@ function _assemble_element!(
 
   # get appropriate storage and update values
   for (i, id) in enumerate(ids)
-    storage[id] += K_el.data[i]
+    storage[id] = K_el.data[i]
   end
   return nothing
 end
@@ -403,7 +403,6 @@ function _assemble_block!(
       val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
     end
-  
     _assemble_element!(field, val_el, conn, e)
   end
 end

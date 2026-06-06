@@ -220,23 +220,16 @@ to_backend(b::KA.Backend, x) = error(
 function create_partition end
 function create_matrix_sparsity_pattern end
 function create_vector_sparsity_pattern end
-function distribute_mesh end
-function global_colorings end
-# function _dofs_exo_to_par_dicts end
-# function _elems_exo_to_par_dicts end
-# function _exo_to_par_dicts end
-# function _global_elem_to_global_node end
-# function _global_node_to_global_elem end
-# function _renumber_mesh end
+
 # general array stuff
 function _coo_matrix end
 function _csc_matrix end
 function _csr_matrix end
 function _dense_vector end
-function _dense_array(::KA.CPU, size...)
+function fec_dense_array(::KA.CPU, size...)
     return zeros(size...)
 end
-function _dense_array(::KA.CPU, ::Type{RT}, size...) where RT <: Number
+function fec_dense_array(::KA.CPU, ::Type{RT}, size...) where RT <: Number
     return zeros(RT, size...)
 end
 
