@@ -367,6 +367,23 @@ function _update_for_assembly!(p::AbstractParameters, dof::DofManager, Uu, Vu)
   return nothing
 end
 
+# Full-DOF flavor: caller is responsible for assembling the merged
+# vectors U_full = [Uu; U_BC] and v_full = [v_free; v_BC] themselves.
+# Unlike the free-DOF flavors above, we do NOT call
+# update_field_dirichlet_bcs! — overwriting BC slots would silently
+# erase the BC contribution the caller intentionally placed in U_full.
+function _update_for_assembly_full!(
+  p::AbstractParameters,
+  U_full::AbstractVector{<:Number},
+  v_full::AbstractVector{<:Number}
+)
+  @assert length(U_full) == length(p.field.data)
+  @assert length(v_full) == length(p.hvp_scratch_field.data)
+  copyto!(p.field.data, U_full)
+  copyto!(p.hvp_scratch_field.data, v_full)
+  return nothing
+end
+
 """
 $(TYPEDSIGNATURES)
 """
