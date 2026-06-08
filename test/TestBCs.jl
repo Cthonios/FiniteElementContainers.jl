@@ -104,6 +104,67 @@ end
   @test all(A[dof.dirichlet_dofs] .≈ 4.0)
 end
 
+@testitem "BCs - juliac-safe dynamic DirichletBCs (symbolic derivatives)" setup=[BCHelper] begin
+  # Mirrors `test_dirichlet_update_bc_values!` but goes through the
+  # `DirichletBCs{F}` juliac-safe constructor, which computes the BC's first
+  # and second time derivatives symbolically via Expressions.differentiate.
+  # No ForwardDiff, no user-supplied derivatives, no Symbolics.
+  import FiniteElementContainers: update_bc_values!
+  import FiniteElementContainers.Expressions: ScalarExpressionFunction
+
+  u   = VectorFunction(fspace, "displ")
+  dof = DofManager(u)
+
+  # g(t) = 2 t^2 → g'(t) = 4 t → g''(t) = 4
+  F   = ScalarExpressionFunction{Float64}
+  bc_func = F("2 * t^2", ["x", "y", "t"])
+  bc_in   = DirichletBC("displ_x", bc_func; sideset_name = "sset_1")
+  bcs     = DirichletBCs{F}(mesh, dof, DirichletBC[bc_in])
+
+  X = mesh.nodal_coords
+  t = 3.0
+  update_bc_values!(bcs, X, t)
+  @test all(bcs.bc_cache.vals         .≈ 18.0)
+  @test all(bcs.bc_cache.vals_dot     .≈ 12.0)
+  @test all(bcs.bc_cache.vals_dot_dot .≈  4.0)
+
+  U = create_field(dof); V = create_field(dof); A = create_field(dof)
+  update_field_dirichlet_bcs!(U, V, A, bcs)
+  @test all(U[dof.dirichlet_dofs] .≈ 18.0)
+  @test all(V[dof.dirichlet_dofs] .≈ 12.0)
+  @test all(A[dof.dirichlet_dofs] .≈  4.0)
+end
+
+@testitem "BCs - juliac-safe DirichletBCs Gaussian pulse" setup=[BCHelper] begin
+  # Exercises a realistic Gaussian-pulse BC of the form used in the
+  # Norma-ported clamped-bar test: g(t) = a · exp(-(t-tc)^2 / (2 τ^2)).
+  # All three of g, g', g'' are produced by symbolic differentiation alone.
+  import FiniteElementContainers: update_bc_values!
+  import FiniteElementContainers.Expressions: ScalarExpressionFunction
+
+  u   = VectorFunction(fspace, "displ")
+  dof = DofManager(u)
+
+  a, tc, τ = 1.0e-3, 2.5e-4, 5.0e-5
+  F = ScalarExpressionFunction{Float64}
+  bc_func = F("1.0e-3 * exp(-(t - 2.5e-4)^2 / (2 * (5.0e-5)^2))",
+              ["x", "y", "t"])
+  bc_in   = DirichletBC("displ_x", bc_func; sideset_name = "sset_1")
+  bcs     = DirichletBCs{F}(mesh, dof, DirichletBC[bc_in])
+
+  X = mesh.nodal_coords
+  for t in (1.5e-4, 2.5e-4, 3.5e-4)
+    update_bc_values!(bcs, X, t)
+    η   = t - tc
+    g_  = a * exp(-η^2 / (2 * τ^2))
+    gp_ = -(η / τ^2) * g_
+    gpp_= (η^2 / τ^4 - 1 / τ^2) * g_
+    @test all(bcs.bc_cache.vals         .≈ g_  )
+    @test all(bcs.bc_cache.vals_dot     .≈ gp_ )
+    @test all(bcs.bc_cache.vals_dot_dot .≈ gpp_)
+  end
+end
+
 @testitem "BCs - test_neumann_bc_input" setup=[BCHelper] begin
   bc = NeumannBC("my_var", dummy_func_1, "my_sset")
   @test bc.var_name == "my_var"

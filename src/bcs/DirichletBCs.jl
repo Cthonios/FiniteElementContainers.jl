@@ -263,9 +263,11 @@ struct DirichletBCs{
     )
   end
 
-  # juliac safe, for now will only work for static
-  # need to change bc input to have bindings
-  # for user provided first and/or second derivatives
+  # juliac-safe path: derives `func_dot` and `func_dot_dot` symbolically via
+  # [`differentiate`](@ref) on the user's expression tree, so dynamic
+  # Dirichlet BCs work under `juliac --trim` without requiring ForwardDiff,
+  # Zygote, Symbolics, or user-supplied derivatives.  F is expected to be
+  # `Expressions.ScalarExpressionFunction{T}`.
   function DirichletBCs{F}(mesh::AbstractMesh, dof, bcs_input) where {F <: Function}
     bc_funcs = DirichletBCFunction{F, F, F}[]
     if length(bcs_input) == 0
@@ -275,11 +277,11 @@ struct DirichletBCs{
       return new{typeof(bc_funcs), IV, RV}(bc_cache, bc_funcs)
     end
 
-    # TODO change me, will fail if F is not an ExpressionFunction
-    # and not a 2d func time-dependent
-    zero_func = F("0.0", ["x", "y", "t"])
     for bc in bcs_input
-      push!(bc_funcs, DirichletBCFunction{F, F, F}(bc.func, zero_func, zero_func))
+      func_dot     = Expressions.differentiate(bc.func, "t")
+      func_dot_dot = Expressions.differentiate(func_dot, "t")
+      push!(bc_funcs,
+            DirichletBCFunction{F, F, F}(bc.func, func_dot, func_dot_dot))
     end
 
     bc_caches = DirichletBCContainer.((mesh,), (dof,), bcs_input)
