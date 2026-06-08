@@ -199,42 +199,6 @@ function Base.showerror(io::IO, e::AbstractFECError)
     println(io, e.msg)
 end
 
-
-#########################################
-# hooks for extensions
-#########################################
-# device stuff
-function cpu end
-# TODO need to further specialize for staticarrays, etc.
-cpu(x) = adapt(Array, x)
-function cuda end
-function rocm end
-
-# Move `x` onto the given KernelAbstractions backend.  CPU is identity —
-# CPU-built data already lives on the CPU backend.  GPU backends (CUDABackend,
-# ROCBackend) are provided by the CUDA / AMDGPU package extensions.
-to_backend(::KA.CPU, x) = x
-to_backend(b::KA.Backend, x) = error(
-  "to_backend is not implemented for backend $(typeof(b)); load the " *
-  "corresponding GPU package (CUDA.jl or AMDGPU.jl) so its extension activates.")
-
-# function communication_graph end
-function create_partition end
-function create_matrix_sparsity_pattern end
-function create_vector_sparsity_pattern end
-
-# general array stuff
-function _coo_matrix end
-function _csc_matrix end
-function _csr_matrix end
-function _dense_vector end
-function fec_dense_array(::KA.CPU, size...)
-    return zeros(size...)
-end
-function fec_dense_array(::KA.CPU, ::Type{RT}, size...) where RT <: Number
-    return zeros(RT, size...)
-end
-
 # TODO clean this up, make it make sense in an ordered way
 # include("parallel/Parallel.jl")
 include("Expressions.jl")

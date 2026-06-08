@@ -1,10 +1,11 @@
 module PartitionedArraysExt
 
 # TODO make Exodus an unnecessary import
+import FiniteElementContainers as FEC
 using Exodus
 using FiniteElementContainers
+using Krylov
 using PartitionedArrays
-
 
 #######################################################################
 # Helper methods for setup
@@ -33,7 +34,6 @@ function _create_field_to_unknown(n_total_fields, dirichlet_dofs)
 	return new_field_to_unknown, unknown_to_field
 end
 
-
 function distribute_mesh(file_name::String, n_ranks::Int, ranks)
 	map_main(ranks) do rank
 		# TODO add a check to see if we need to actually decomp
@@ -47,7 +47,7 @@ end
 # TODO need to adjust for problems with more than one dof
 # TODO should this only run on rank 1 and then distribute?
 function global_colorings(file_name, n_dofs, n_ranks)
-	global_elems_to_colors, global_nodes_to_colors = Exodus.collect_global_element_and_node_numberings(file_name, n_ranks)
+	_, global_nodes_to_colors = Exodus.collect_global_element_and_node_numberings(file_name, n_ranks)
 	global_dofs = reshape(1:n_dofs * length(global_nodes_to_colors), n_dofs, length(global_nodes_to_colors))
 	global_dofs_to_colors = similar(global_dofs)
 	for dof in 1:n_dofs
@@ -55,7 +55,48 @@ function global_colorings(file_name, n_dofs, n_ranks)
 	end
 	global_dofs_to_colors = global_dofs_to_colors |> vec
 
-	return global_dofs_to_colors, convert.(Int, global_elems_to_colors)
+	return global_dofs_to_colors
+end
+
+#######################################################################
+# Mesh stuff
+#######################################################################
+struct PUnstructuredMesh{M, R}
+	mesh::M
+	num_ranks::Int
+	ranks::R
+end
+
+function FEC.UnstructuredMesh(file_name::String, num_ranks, rank::I) where I <: Integer
+	file_name = file_name * ".$num_ranks" * ".$(lpad(rank - 1, Exodus.exodus_pad(num_ranks |> Int32), '0'))"
+	return UnstructuredMesh(file_name)
+end
+
+function FEC.UnstructuredMesh(mesh_file::String, num_ranks::Int, ranks::AbstractArray{<:Integer, 1})
+	distribute_mesh(mesh_file, num_ranks, ranks)
+	mesh = map(ranks) do rank
+		UnstructuredMesh(mesh_file, num_ranks, rank)
+	end
+	return PUnstructuredMesh(mesh, num_ranks, ranks)
+end
+
+#######################################################################
+# FunctionSpace stuff
+#######################################################################
+struct PFunctionSpace{F, M}
+	fspace::F
+	mesh::M
+
+	function PFunctionSpace(mesh::PUnstructuredMesh, field_type, interp_type; kwargs...)
+		fspace = map(mesh.mesh) do local_mesh
+			return FunctionSpace(local_mesh, field_type, interp_type; kwargs...)
+		end
+		return new{typeof(fspace), typeof(mesh)}(fspace, mesh)
+	end
+end
+
+function FEC.FunctionSpace(mesh::PUnstructuredMesh, field_type, interp_type; kwargs...)
+	return PFunctionSpace(mesh, field_type, interp_type; kwargs...)
 end
 
 #######################################################################
@@ -66,21 +107,6 @@ abstract type AbstractPartition{
 	V <: AbstractVector{I},
 	P <: AbstractVector{<:AbstractLocalIndices}
 } end
-
-struct ElementPartition{
-	I, 
-	V,
-	P <: AbstractVector{OwnAndGhostIndices{V}}
-} <: AbstractPartition{I, V, P}
-	colors::V
-	parts::P
-
-	function ElementPartition(
-		colors::V, parts::P
-	) where {V <: AbstractVector{<:Integer}, P <: AbstractVector{OwnAndGhostIndices{V}}}
-		new{eltype(colors), V, P}(colors, parts)
-	end
-end
 
 struct FieldPartition{
 	I,
@@ -119,10 +145,8 @@ struct PDofManager{
 	O <: AbstractVector{OwnAndGhostIndices{V}},
 	D,
 	R,
-	Var,
-	DDofs
+	Var
 }
-	elem_partition::ElementPartition{I, V, O}
 	field_partition::FieldPartition{I, V, L}
 	solution_partition::SolutionPartition{I, V, O}
 	field_to_solution::V
@@ -130,32 +154,69 @@ struct PDofManager{
 	local_dof_managers::D
 	ranks::R
 	var::Var
-	dirichlet_dofs::DDofs
 end
 
+
+function FEC.create_field(dof::PDofManager)
+	local_fields = map(dof.local_dof_managers) do dof_local
+		return create_field(dof_local)
+	end
+	return PVector(local_fields, dof.field_partition.parts)
+end
+
+function FEC.create_unknowns(dof::PDofManager)
+	return pzeros(dof.solution_partition.parts)
+end
+
+function FEC.function_space(dof::PDofManager)
+	return dof.var.fspace
+end
+
+function FEC.update_field_unknowns!(U::PVector, dof::PDofManager, Uu::PVector)
+	map(
+		partition(U), dof.field_partition.parts,
+		partition(Uu), dof.solution_partition.parts,
+		dof.ranks
+	) do U_local, field_part, Uu_local, solution_part, rank
+		field_gids   = local_to_global(field_part)
+		owners       = local_to_owner(field_part)
+		solution_gtl = global_to_local(solution_part)
+
+		# putting dof in fec_foreach might not be gpu safe...
+		FiniteElementContainers.fec_foreach(field_gids) do i
+			if owners[i] == rank
+				field_id = field_gids[i]
+				solution_id = dof.field_to_solution[field_id]
+				if solution_id > 0
+					U_local[i] = Uu_local[solution_gtl[solution_id]]
+				end
+			end
+		end
+	end
+
+    return nothing
+end
+
+# public API
 # bad piracy at the moment...
 # eventually we should have DofManager capture all
 # this behavior
-function FiniteElementContainers.DofManager(
-	u::FiniteElementContainers.AbstractFunction,
-	dbcs::Vector{DirichletBC},
-	num_ranks, ranks, mesh_file, mesh
-)
+function FEC.DofManager(u::FEC.AbstractFunction, dbcs::Vector{DirichletBC}, mesh_file)
 	num_dofs = num_fields(u)
+	num_ranks = u.fspace.mesh.num_ranks
+	ranks = u.fspace.mesh.ranks
 	var_names = names(u)
 
 	# get colorings
-	fields_to_colors, elems_to_colors = global_colorings(mesh_file, num_dofs, num_ranks)
-
-	# create element partition (easy)
-	elem_parts = partition_from_color(ranks, elems_to_colors)
-	elem_parts = ElementPartition(elems_to_colors, elem_parts)
+	fields_to_colors = global_colorings(mesh_file, num_dofs, num_ranks)
 
 	# create field partition (slightly more difficult)
 	num_nodes_global = length(fields_to_colors) ÷ num_dofs
 	ids = reshape(1:length(fields_to_colors), num_dofs, num_nodes_global)
 
-	field_parts = map(mesh, ranks) do mesh_local, rank
+	# field_parts = map(mesh, ranks) do mesh_local, rank
+	mesh = u.fspace.mesh
+	field_parts = map(mesh.mesh, ranks) do mesh_local, rank
 		field_id_map = ids[:, mesh_local.node_id_map] |> vec
 		field_to_owner = map(x -> fields_to_colors[x], field_id_map)
 		LocalIndices(length(fields_to_colors), rank, field_id_map, field_to_owner)
@@ -179,7 +240,7 @@ function FiniteElementContainers.DofManager(
 
 	# collect local dof managers and set them up with appropriate local
 	# dirichlet bcs
-	local_dof_managers = map(u.fspace, mesh) do fspace, mesh_local
+	local_dof_managers = map(u.fspace.fspace, mesh.mesh) do fspace, mesh_local
 		u_local = eval(typeof(u).name.name){typeof(fspace)}(fspace, var_names)
 		dof_local = DofManager(u_local; use_condensed = true)
 		dbcs_local = DirichletBCs(mesh_local, dof_local, dbcs)
@@ -215,114 +276,10 @@ function FiniteElementContainers.DofManager(
 	# finally create the maps from field to solution and back
 	field_to_unknown, unknown_to_field = _create_field_to_unknown(length(fields_to_colors), dirichlet_dofs)
 	return PDofManager(
-		elem_parts, field_parts, solution_parts,
+		field_parts, solution_parts,
 		field_to_unknown, unknown_to_field,
-		local_dof_managers, ranks, u,
-		dirichlet_dofs
+		local_dof_managers, ranks, u
 	)
-end
-
-function FiniteElementContainers.create_field(dof::PDofManager)
-	local_fields = map(dof.local_dof_managers) do dof_local
-		return create_field(dof_local)
-	end
-	return PVector(local_fields, dof.field_partition.parts)
-end
-
-function FiniteElementContainers.create_unknowns(dof::PDofManager)
-	return pzeros(dof.solution_partition.parts)
-end
-
-function FiniteElementContainers.function_space(dof::PDofManager)
-	return dof.var.fspace
-end
-
-function FiniteElementContainers.update_field_unknowns!(U::PVector, dof::PDofManager, Uu::PVector)
-	map(
-		partition(U), dof.field_partition.parts,
-		partition(Uu), dof.solution_partition.parts,
-		dof.ranks
-	) do U_local, field_part, Uu_local, solution_part, rank
-		field_gids   = local_to_global(field_part)
-		owners       = local_to_owner(field_part)
-		solution_gtl = global_to_local(solution_part)
-
-		# putting dof in fec_foreach might not be gpu safe...
-		FiniteElementContainers.fec_foreach(field_gids) do i
-			if owners[i] == rank
-				field_id = field_gids[i]
-				solution_id = dof.field_to_solution[field_id]
-				if solution_id > 0
-					U_local[i] = Uu_local[solution_gtl[solution_id]]
-				end
-			end
-		end
-	end
-
-    return nothing
-end
-
-# remove me once PDofManager is up to snuff
-function FiniteElementContainers.update_field_unknowns!(U::PVector, parts, Uu::PVector, ranks)
-    map(
-        partition(U),
-        U.index_partition,
-        partition(Uu),
-        Uu.index_partition,
-        ranks
-    ) do U_local, field_part, Uu_local, unknown_part, my_rank
-
-        field_gids = local_to_global(field_part)
-        owners = local_to_owner(field_part)
-        unknown_gtl = global_to_local(unknown_part)
-
-		FiniteElementContainers.fec_foreach(field_gids) do i
-            if owners[i] == my_rank
-				field_id = field_gids[i]
-				unknown_id = parts.field_to_unknown[field_id]
-				if unknown_id > 0
-					U_local[i] = Uu_local[unknown_gtl[unknown_id]]
-				end
-			end
-        end
-    end
-
-    return nothing
-end
-
-#######################################################################
-# FunctionSpace stuff
-#######################################################################
-function FiniteElementContainers.FunctionSpace(meshes::AbstractVector, field_type, interp_type; kwargs...)
-	map(meshes) do mesh
-		return FunctionSpace(mesh, field_type, interp_type; kwargs...)
-	end
-end
-
-#######################################################################
-# Mesh stuff
-#######################################################################
-function FiniteElementContainers.UnstructuredMesh(
-	file_name::String, num_ranks, rank::I
-) where I <: Integer
-	file_name = file_name * ".$num_ranks" * ".$(lpad(rank - 1, Exodus.exodus_pad(num_ranks |> Int32), '0'))"
-	return UnstructuredMesh(file_name)
-end
-
-function FiniteElementContainers.UnstructuredMesh(
-    mesh_file::String, num_ranks::Int, ranks::AbstractArray{<:Integer, 1}
-)
-	distribute_mesh(mesh_file, num_ranks, ranks)
-	return map(ranks) do rank
-		UnstructuredMesh(mesh_file, num_ranks, rank)
-	end
-end
-
-function FiniteElementContainers.nodal_coordinates(dof::PDofManager)
-	X_vals = map(dof.var.fspace) do fspace
-		fspace.coords
-	end
-	return PVector(X_vals, dof.field_partition.parts)
 end
 
 #######################################################################
@@ -346,7 +303,7 @@ function PSparseMatrixPattern(dof::PDofManager)
 	(; field_partition, field_to_solution) = dof
 
 	Is, Js, block_start_indices, block_el_level_sizes, unknown_dofs =
-		tuple_of_arrays(map(field_partition.parts, dof.var.fspace, dof.local_dof_managers) do field_part, fspace, local_dof
+		tuple_of_arrays(map(field_partition.parts, dof.var.fspace.fspace, dof.local_dof_managers) do field_part, fspace, local_dof
 		# setup
 		num_blocks = FiniteElementContainers.num_blocks(fspace)
 		Is = Int[]
@@ -388,10 +345,6 @@ function PSparseMatrixPattern(dof::PDofManager)
 	return PSparseMatrixPattern(dof, Is, Js, block_start_indices, block_el_level_sizes, unknown_dofs)
 end
 
-function FiniteElementContainers.create_matrix_sparsity_pattern(dof::PDofManager)
-	return PSparseMatrixPattern(dof)
-end
-
 function PartitionedArrays.psparse(pattern::PSparseMatrixPattern, vals)
 	# parts = pattern.parts.unknown_parts
 	parts = pattern.dof.solution_partition.parts
@@ -418,7 +371,7 @@ function PSparseVectorPattern(dof::PDofManager)
 	(; field_partition, field_to_solution) = dof
 
 	Is, block_start_indices, block_el_level_sizes, unknown_dofs = 
-		tuple_of_arrays(map(field_partition.parts, dof.var.fspace, dof.local_dof_managers) do field_part, fspace, local_dof
+		tuple_of_arrays(map(field_partition.parts, dof.var.fspace.fspace, dof.local_dof_managers) do field_part, fspace, local_dof
 		# setup
 		num_blocks = FiniteElementContainers.num_blocks(fspace)
 		Is = Int[]
@@ -457,18 +410,11 @@ function PSparseVectorPattern(dof::PDofManager)
 	)
 end
 
-
-function FiniteElementContainers.create_vector_sparsity_pattern(dof::PDofManager)
-	return PSparseVectorPattern(dof)
-end
-
-function FiniteElementContainers.create_unknowns(pattern::PSparseVectorPattern)
+function FEC.create_unknowns(pattern::PSparseVectorPattern)
 	return create_unknowns(pattern.dof)
 end
 
 function PartitionedArrays.pvector(pattern::PSparseVectorPattern, vals)
-	# parts = pattern.parts.unknown_parts
-	# solution_parts = pattern.dof.solution_partition.parts
 	vals = map(pattern.unknown_dofs, vals) do dofs, val
 		val[dofs]
 	end
@@ -489,7 +435,42 @@ struct PSparseMatrixAssembler{
 	vector_pattern::VecPattern
 end
 
-function FiniteElementContainers.SparseMatrixAssembler(dof::PDofManager)
+function FEC.assemble_stiffness!(asm::PSparseMatrixAssembler, func, u, p)
+	map(asm.local_assemblers, partition(u), p.local_parameters) do local_asm, local_u, local_p
+		assemble_stiffness!(local_asm, func, local_u, local_p)
+	end
+end
+
+function FEC.assemble_vector!(asm::PSparseMatrixAssembler, func, u, p)
+	map(asm.local_assemblers, partition(u), p.local_parameters) do local_asm, local_u, local_p
+		assemble_vector!(local_asm, func, local_u, local_p)
+	end
+end
+
+function FEC.create_field(asm::PSparseMatrixAssembler)
+	return create_field(asm.vector_pattern.dof)
+end
+
+function FEC.create_unknowns(asm::PSparseMatrixAssembler)
+	return create_unknowns(asm.vector_pattern.dof)
+end
+
+function FEC.residual(asm::PSparseMatrixAssembler)
+	vals = map(asm.local_assemblers) do local_asm
+		local_asm.residual_unknowns
+	end
+	return pvector(asm.vector_pattern, vals) |> fetch
+end
+
+function FEC.stiffness(asm::PSparseMatrixAssembler)
+	vals = map(asm.local_assemblers) do local_asm
+		local_asm.stiffness_storage
+	end
+	return psparse(asm.matrix_pattern, vals) |> fetch
+end
+
+# public constructor (type piracy)
+function FEC.SparseMatrixAssembler(dof::PDofManager)
 	local_assemblers = map(dof.local_dof_managers) do local_dof
 		SparseMatrixAssembler(local_dof; use_sparse_vector = true)
 	end
@@ -501,40 +482,6 @@ function FiniteElementContainers.SparseMatrixAssembler(dof::PDofManager)
 	)
 end
 
-function FiniteElementContainers.assemble_stiffness!(asm::PSparseMatrixAssembler, func, u, p)
-	map(asm.local_assemblers, partition(u), p.local_parameters) do local_asm, local_u, local_p
-		assemble_stiffness!(local_asm, func, local_u, local_p)
-	end
-end
-
-function FiniteElementContainers.assemble_vector!(asm::PSparseMatrixAssembler, func, u, p)
-	map(asm.local_assemblers, partition(u), p.local_parameters) do local_asm, local_u, local_p
-		assemble_vector!(local_asm, func, local_u, local_p)
-	end
-end
-
-function FiniteElementContainers.create_field(asm::PSparseMatrixAssembler)
-	return create_field(asm.vector_pattern.dof)
-end
-
-function FiniteElementContainers.create_unknowns(asm::PSparseMatrixAssembler)
-	return create_unknowns(asm.vector_pattern.dof)
-end
-
-function FiniteElementContainers.residual(asm::PSparseMatrixAssembler)
-	vals = map(asm.local_assemblers) do local_asm
-		local_asm.residual_unknowns
-	end
-	return pvector(asm.vector_pattern, vals) |> fetch
-end
-
-function FiniteElementContainers.stiffness(asm::PSparseMatrixAssembler)
-	vals = map(asm.local_assemblers) do local_asm
-		local_asm.stiffness_storage
-	end
-	return psparse(asm.matrix_pattern, vals) |> fetch
-end
-
 #######################################################################
 # Parameters
 #######################################################################
@@ -542,18 +489,94 @@ struct PParameters{P}
 	local_parameters::P
 end
 
-function FiniteElementContainers.create_parameters(
-	mesh::AbstractVector{<:FiniteElementContainers.AbstractMesh},
+function FEC.create_parameters(
+	mesh::PUnstructuredMesh,
 	asm::PSparseMatrixAssembler,
 	physics,
 	props;
 	kwargs...
 )
 	# map over assemblers and what not 
-	local_parameters = map(mesh, asm.local_assemblers) do local_mesh, local_asm
+	local_parameters = map(mesh.mesh, asm.local_assemblers) do local_mesh, local_asm
 		create_parameters(local_mesh, local_asm, physics, props; kwargs...)
 	end
 	return PParameters(local_parameters)
+end
+
+#######################################################################
+# Stuff for Krylov.jl
+# let's eventually open up a PR to either Krylov.jl
+# or PartitionedArrays.jl
+#######################################################################
+function Krylov.CgWorkspace(A::PSparseMatrix, b::PVector)
+    start_allocation_time = time_ns()
+    S  = typeof(b)
+    FC = eltype(S)
+    T  = real(FC)
+    m  = size(A, 1)
+    n  = size(A, 2)
+    Δx = similar(b, axes(A, 2))
+    x  = similar(b, axes(A, 1))
+    r  = similar(b, axes(A, 1))
+    npc_dir = similar(b, axes(A, 1))
+    p  = similar(b, axes(A, 2))
+    Ap = similar(b, axes(A, 1))
+    z  = similar(b, axes(A, 1))
+    stats = SimpleStats(0, false, false, false, 0, T[], T[], T[], 0.0, 0.0, "unknown")
+    workspace = CgWorkspace{T, FC, S}(m, n, Δx, x, r, npc_dir, p, Ap, z, false, stats)
+    workspace.stats.allocation_timer = start_allocation_time |> Krylov.ktimer
+    return workspace
+end
+
+#######################################################################
+# PostProcessor
+#######################################################################
+struct PPostProcessor{P, R}
+	epu_on_close::Bool
+	num_ransk::Int
+	output_file::String
+	pp::P
+	ranks::R
+end
+
+function FEC.close(pp::PPostProcessor)
+	map(pp.pp) do local_pp
+		close(local_pp)
+	end
+	if pp.epu_on_close
+		map_main(pp.ranks) do rank
+			num_ranks = pp.num_ransk
+			epu(pp.output_file * ".$(num_ranks).$(rank - 1)")
+		end
+	end
+	return nothing
+end
+
+function FEC.write_field(pp::PPostProcessor, n::Int, names, u::PVector)
+	map(pp.pp, partition(u)) do pp_local, u_local
+		write_field(pp_local, n, names, u_local)
+	end
+end
+
+function FEC.write_times(pp::PPostProcessor, n::Int, time::T) where T <: Number
+	map(pp.pp) do pp_local
+		write_times(pp_local, n, time)
+	end
+end
+
+# public API (type piracy here)
+function FEC.PostProcessor(
+	output_file::String,
+	mesh::PUnstructuredMesh,
+	epu_on_close::Bool = false,
+	args...; kwargs...
+)
+	num_ranks = mesh.num_ranks
+	pp = map(mesh.mesh, mesh.ranks) do local_mesh, rank
+		output_file_temp = output_file * ".$(num_ranks).$(rank - 1)"
+		return PostProcessor(local_mesh, output_file_temp, args...; kwargs...)
+	end
+	return PPostProcessor(epu_on_close, num_ranks, output_file, pp, mesh.ranks)
 end
 
 end # module

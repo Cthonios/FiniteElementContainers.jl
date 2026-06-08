@@ -20,6 +20,22 @@ function fec_atomic_add!(
     return nothing
 end
 
+"""
+$(TYPEDSIGNATURES)
+Create a dense array on ``backend`` of default type.
+"""
+function fec_dense_array(backend::KA.Backend, size...)
+    return fec_dense_array(backend, Float64, size...)
+end
+
+"""
+$(TYPEDSIGNATURES)
+Create a dense array on the host of arbitrary type ``RT``.
+"""
+function fec_dense_array(::KA.CPU, ::Type{RT}, size...) where RT <: Number
+    return zeros(RT, size...)
+end
+
 function _forindices_serial(f, indices)
     for i in indices
         @inline f(i)
@@ -250,3 +266,37 @@ end
     end
     quote $(exprs...) end
 end
+
+#########################################
+# hooks for extensions
+#########################################
+# device stuff
+function cpu end
+# TODO need to further specialize for staticarrays, etc.
+cpu(x) = adapt(Array, x)
+function cuda end
+function rocm end
+
+"""
+$(TYPEDSIGNATURES)
+Move `x` onto the given KernelAbstractions backend.  CPU is identity —
+CPU-built data already lives on the CPU backend.  GPU backends (CUDABackend,
+ROCBackend) are provided by the CUDA / AMDGPU package extensions.
+"""
+to_backend(b::KA.Backend, x) = error(
+  "to_backend is not implemented for backend $(typeof(b)); load the " *
+  "corresponding GPU package (CUDA.jl or AMDGPU.jl) so its extension activates."
+)
+
+to_backend(::KA.CPU, x) = x
+
+"""
+$(TYPEDSIGNATURES)
+Move `x` onto the host.
+"""
+to_host(x) = to_backend(KA.CPU(), x)
+
+# general array stuff
+function _coo_matrix end
+function _csc_matrix end
+function _csr_matrix end

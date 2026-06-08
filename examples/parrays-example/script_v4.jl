@@ -1,6 +1,7 @@
 using Exodus
 using FiniteElementContainers
 using IterativeSolvers
+using Krylov
 using LinearAlgebra
 using PartitionedArrays
 using StaticArrays
@@ -25,7 +26,7 @@ u       = ScalarFunction(V, "u")
 dbcs    = DirichletBC[
     DirichletBC("u", bc_func; nodeset_name = "boundary")
 ]
-dof     = DofManager(u, dbcs, num_ranks, ranks, mesh_file, mesh)
+dof     = DofManager(u, dbcs, mesh_file)
 asm     = SparseMatrixAssembler(dof)
 p       = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
 
@@ -47,21 +48,15 @@ K = stiffness(asm)
 assemble_vector!(asm, residual, U, p)
 R = residual(asm)
 
-x_new = IterativeSolvers.cg(K, -R, verbose = i_am_main(rank))
+cg_workspace = CgWorkspace(K, -R)
+Krylov.cg!(cg_workspace, K, -R)
+x_new, stats = Krylov.results(cg_workspace)
 
 U = create_field(dof)
 # update_field_dirichlet_bcs!(U, dof)
 update_field_unknowns!(U, dof, x_new)
 
-map(partition(U), dof.var.fspace, mesh, ranks) do U_local, fspace, mesh_local, rank
-    u_temp = ScalarFunction(fspace, "u")
-    output_file_temp = output_file * ".$(num_ranks).$(rank - 1)"
-    pp = PostProcessor(mesh_local, output_file_temp, u_temp)
-    write_times(pp, 1, 0.0)
-    write_field(pp, 1, ["u"], U_local)
-    close(pp)
-end
-
-map_main(ranks) do rank
-    epu(output_file * ".$(num_ranks).$(rank - 1)")
-end
+pp = PostProcessor(output_file, mesh, true; extra_nodal_names = [names(u)...])
+write_times(pp, 1, 0.0)
+write_field(pp, 1, ["u"], U)
+close(pp)

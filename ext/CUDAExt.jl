@@ -26,10 +26,6 @@ function FiniteElementContainers._csr_matrix_constructor(::CUDA.CUDABackend)
   return CUDA.CUSPARSE.CuSparseMatrixCSR
 end
 
-function FiniteElementContainers.fec_dense_array(::CUDA.CUDABackend, size...)
-  return CUDA.zeros(size...)
-end
-
 function FiniteElementContainers.fec_dense_array(::CUDA.CUDABackend, ::Type{RT}, size...) where RT <: Number
   return CUDA.zeros(RT, size...)
 end
