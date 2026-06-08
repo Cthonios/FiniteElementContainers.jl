@@ -4,12 +4,10 @@ abstract type AbstractSolver end
 abstract type AbstractLinearSolver{
   A <: AbstractAssembler, 
   P, 
-  T <: TimerOutput,
   U <: AbstractArray{<:Number, 1}
 } <: AbstractSolver end
 abstract type AbstractNonLinearSolver{
-  L <: AbstractLinearSolver,
-  T <: TimerOutput
+  L <: AbstractLinearSolver
 } <: AbstractSolver end
 
 # traditional solver interface

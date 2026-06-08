@@ -1,10 +1,10 @@
-struct NewtonSolver{F, L, T, CB} <: AbstractNonLinearSolver{L, T}
+struct NewtonSolver{F, L, CB} <: AbstractNonLinearSolver{L}
   max_iters::Int
   abs_increment_tol::F
   abs_residual_tol::F
   rel_residual_tol::F
   linear_solver::L
-  timer::T
+  timer::TimerOutput
   # Optional callback: (iter, norm_ΔUu, norm_R, rel_R, converged) -> nothing
   # Called after each Newton iteration. Set to `nothing` to disable.
   log_callback::CB

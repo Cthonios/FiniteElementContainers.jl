@@ -60,7 +60,7 @@ function app_main(ARGS::Vector{String})
     timer = TimerOutput()
     workspace = CgWorkspace(stiffness(asm), residual(asm))
     ΔUu = create_unknowns(asm)
-    lsolver = IterativeLinearSolver(asm, preconditioner, workspace, timer, ΔUu)
+    lsolver = IterativeLinearSolver(asm, preconditioner, timer, ΔUu, workspace)
     nlsolver = NewtonSolver(lsolver)
     integrator = QuasiStaticIntegrator(nlsolver)
 

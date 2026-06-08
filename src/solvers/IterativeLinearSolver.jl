@@ -1,29 +1,31 @@
 struct IterativeLinearSolver{
   A <: AbstractAssembler,
   P,
-  S,
-  T <: TimerOutput,
-  U <: AbstractArray{<:Number, 1}
-} <: AbstractLinearSolver{A, P, T, U}
+  U <: AbstractArray{<:Number, 1},
+  W
+} <: AbstractLinearSolver{A, P, U}
   assembler::A
   preconditioner::P
-  solver::S
-  timer::T
+  timer::TimerOutput
   ΔUu::U
+  workspace::W
 end
 
 function IterativeLinearSolver(assembler::SparseMatrixAssembler, solver_sym)
   # TODO
   preconditioner = I
-  ΔUu = similar(assembler.residual_unknowns)
+  K = stiffness(assembler)
+  R = residual(assembler)
+  ΔUu = similar(R, axes(K, 1))
   fill!(ΔUu, zero(eltype(ΔUu)))
-  solver = krylov_workspace(Val(solver_sym), stiffness(assembler), residual(assembler))
-  return IterativeLinearSolver(assembler, preconditioner, solver, TimerOutput(), ΔUu)
+  workspace = krylov_workspace(Val(solver_sym), K, R)
+  return IterativeLinearSolver(assembler, preconditioner, TimerOutput(), ΔUu, workspace)
 end
 
 # TODO specialize for operator like assemblers
 function solve!(solver::IterativeLinearSolver, Uu, p)
-  if _use_inplace_methods(solver.assembler)
+  asm = solver.assembler
+  if _use_inplace_methods(asm)
     residual_method = residual!
     stiffness_method = stiffness!
   else
@@ -32,20 +34,20 @@ function solve!(solver::IterativeLinearSolver, Uu, p)
   end
   # assemble relevant fields
   @timeit solver.timer "residual assembly" begin
-    assemble_vector!(solver.assembler, residual_method, Uu, p)
-    assemble_vector_source!(solver.assembler, Uu, p)
-    assemble_vector_neumann_bc!(solver.assembler, Uu, p)
-    # assemble_vector_robin_bc!(solver.assembler, Uu, p)
+    assemble_vector!(asm, residual_method, Uu, p)
+    assemble_vector_source!(asm, Uu, p)
+    assemble_vector_neumann_bc!(asm, Uu, p)
+    # assemble_vector_robin_bc!(asm, Uu, p)
   end
   @timeit solver.timer "stiffness assembly" begin
-    assemble_stiffness!(solver.assembler, stiffness_method, Uu, p)
+    assemble_stiffness!(asm, stiffness_method, Uu, p)
   end
   # solve and fetch solution
   @timeit solver.timer "solve" begin
-    krylov_solve!(solver.solver, stiffness(solver.assembler), residual(solver.assembler))
+    krylov_solve!(solver.workspace, stiffness(asm), residual(asm))
   end
   @timeit solver.timer "update solution" begin
-    ΔUu = -Krylov.solution(solver.solver)
+    ΔUu = -Krylov.solution(solver.workspace)
     # make necessary copies and updates
     copyto!(solver.ΔUu, ΔUu)
     map!((x, y) -> x + y, Uu, Uu, ΔUu)

@@ -1,12 +1,11 @@
 struct DirectLinearSolver{
   A <: SparseMatrixAssembler, 
   P, 
-  T <: TimerOutput,
   Inc <: AbstractArray{<:Number, 1}
-} <: AbstractLinearSolver{A, P, T, Inc}
+} <: AbstractLinearSolver{A, P, Inc}
   assembler::A
   preconditioner::P
-  timer::T
+  timer::TimerOutput
   # TODO add some tolerances
   # what's the best way to do this with general solvers?
   ΔUu::Inc
