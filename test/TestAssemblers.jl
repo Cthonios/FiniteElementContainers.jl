@@ -336,6 +336,97 @@ end
   end
 end
 
+@testitem "Assemblers - test_matrix_free_action_full_mechanics" setup=[AssemblerHelperMechanics] begin
+  # The contract on assemble_matrix_free_action_full!:
+  #   (a) Equivalence to the assembled gold reference: on free rows the
+  #       result equals (K_full · v_full)[free] for any v_full, including
+  #       nonzero BC slots — this is the K_{f,BC}·v_BC cross-term that
+  #       the free-DOF entry point silently drops.  (Tested with stiffness
+  #       rather than mass only because the test Mechanics physics defines
+  #       stiffness_action but not mass_action; the structural argument is
+  #       identical for either operator.)
+  #   (b) Reduction: when v_full has its BC slots zeroed, the full-DOF
+  #       entry point reproduces the free-DOF entry point bit-for-bit.
+  #
+  # Reference path uses a sibling SparseMatrixAssembler constructed with
+  # NO Dirichlet BCs.  In FEC, even the condensed sparsity pattern omits
+  # entries that touch a Dirichlet DOF, so an assembled K from a
+  # BC-equipped assembler has K_{f,BC} columns zeroed and matches the
+  # buggy free-DOF action.  Removing the BCs forces the full element
+  # scatter into the sparse matrix, giving the true K_full whose matvec
+  # against v_full carries the cross-term we want to validate.  This is
+  # the same trick used by test_lumped_mass_mechanics.
+  include("TestUtils.jl")
+  backends = _get_backends()
+  for dev in backends
+    # Reference assembler: no BCs → all DOFs are unknowns → full K
+    asm_ref = SparseMatrixAssembler(u)
+    p_ref = create_parameters(mesh, asm_ref, physics, props;
+                              dirichlet_bcs = DirichletBC[], times = times)
+    FiniteElementContainers.initialize!(p_ref)
+    Uu_ref = create_unknowns(asm_ref)    # length = n_dofs
+
+    # Path under test: BC-equipped non-condensed assembler.
+    asm = SparseMatrixAssembler(u)
+    p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs, times = times)
+    FiniteElementContainers.initialize!(p)
+    Uu = create_unknowns(asm)            # length = n_unknown
+
+    if dev != cpu
+      p_ref   = p_ref   |> dev
+      asm_ref = asm_ref |> dev
+      Uu_ref  = Uu_ref  |> dev
+      p   = p   |> dev
+      asm = asm |> dev
+      Uu  = Uu  |> dev
+    end
+
+    # Deterministic v_full with NON-ZERO entries everywhere (in
+    # particular at BC slots).
+    n_dofs = length(p.field.data)
+    v_full_h = collect(eltype(p.field.data), (1:n_dofs) ./ n_dofs)
+    v_full   = v_full_h |> dev
+
+    # Reference: no-BC assembly of K, then plain matvec against v_full.
+    assemble_stiffness!(asm_ref, stiffness, Uu_ref, p_ref)
+    K_full = stiffness(asm_ref)
+    Kv_full_ref_h = Array(K_full * v_full)
+    free_dofs = Array(asm.dof.unknown_dofs)
+    Kv_free_ref = Kv_full_ref_h[free_dofs]
+
+    # U_full is the current merged field state (BC slots populated by
+    # initialize!).  Callers compute it as part of their integrator state.
+    U_full = copy(p.field.data)
+
+    # (a) Cross-term-aware action matches the assembled reference.
+    assemble_matrix_free_action_full!(asm, stiffness_action, U_full, v_full, p)
+    Kv_free_mf = Array(hvp(asm, Uu))
+    # rtol = 1e-6 accommodates floating-point reordering between sparse
+    # SpMV (reference) and per-element scatter (matrix-free).
+    @test isapprox(Kv_free_mf, Kv_free_ref; rtol = 1e-6)
+
+    # (b) Zeroing v_full's BC slots collapses the full-DOF path onto
+    #     the free-DOF path.
+    bc_dofs = Array(p.dirichlet_bcs.bc_cache.dofs)
+    v_full_zeroBC_h = copy(v_full_h)
+    v_full_zeroBC_h[bc_dofs] .= 0
+    v_full_zeroBC = v_full_zeroBC_h |> dev
+    Vu = v_full_h[free_dofs] |> dev    # same free-DOF entries as v_full
+
+    assemble_matrix_free_action!(asm, stiffness_action, Uu, Vu, p)
+    Kv_free_legacy = copy(Array(hvp(asm, Uu)))
+
+    assemble_matrix_free_action_full!(asm, stiffness_action, U_full, v_full_zeroBC, p)
+    Kv_free_full_zeroBC = Array(hvp(asm, Uu))
+    @test Kv_free_full_zeroBC ≈ Kv_free_legacy
+
+    # The difference between (a) and (b) is K_{f,BC}·v_BC: the
+    # cross-term the free-DOF path drops.  Sanity-check it is nonzero
+    # (this mesh has a Dirichlet boundary, so K_{f,BC} is supported).
+    @test !isapprox(Kv_free_mf, Kv_free_full_zeroBC; atol=0)
+  end
+end
+
 @testitem "Assemblers - test_lumped_mass_mechanics" setup=[AssemblerHelperMechanics] begin
   # The contract on assemble_lumped_mass!:
   #   (a) On a fully-free DOF space, it equals the row sums of the

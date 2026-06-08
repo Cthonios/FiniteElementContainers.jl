@@ -14,6 +14,7 @@ export assemble_mass!
 export assemble_matrix!
 export assemble_matrix_action!
 export assemble_matrix_free_action!
+export assemble_matrix_free_action_full!
 export assemble_scalar!
 export assemble_stiffness!
 export assemble_vector!

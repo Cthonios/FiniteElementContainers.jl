@@ -78,6 +78,78 @@ end
 
 """
 $(TYPEDSIGNATURES)
+Full-DOF variant of `assemble_matrix_free_action!`.  Distinct from the
+free-DOF variant in that the BC slots of `v_full` are honored as part
+of the action — used for residual-style evaluations where `v_full`
+carries a real BC contribution (e.g., the Newmark inertial residual
+`c_M * M * dU` with `dU_BC ≠ 0` when the Dirichlet BC is time-varying).
+
+In the free-DOF variant `assemble_matrix_free_action!(..., Uu, Vu, p)`,
+`Vu` is interpreted as a perturbation of the unknowns and the BC slots
+of `p.hvp_scratch_field` are implicitly zero — correct for Krylov-style
+Jacobian-action calls, where `v` ranges over unknowns only.
+
+For this full-DOF variant the caller is responsible for assembling
+`U_full = [Uu; U_BC]` and `v_full = [v_free; v_BC]` themselves; both
+vectors must have length equal to the underlying field data, and the
+field's Dirichlet slots are NOT overwritten from `bc_cache.vals` (doing
+so would clobber the BC contribution the caller deliberately placed
+in `U_full`).
+"""
+function assemble_matrix_free_action_full!(
+  assembler, func_action::F, U_full, v_full, p
+) where F <: Function
+  assemble_matrix_free_action_full!(
+    assembler.stiffness_action_storage,
+    assembler.vector_pattern, assembler.dof,
+    func_action, U_full, v_full, p
+  )
+  return nothing
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function assemble_matrix_free_action_full!(
+  storage, pattern, dof, func_action, U_full, v_full, p
+)
+  fill!(storage, zero(eltype(storage)))
+  fspace = function_space(dof)
+  X = coordinates(p)
+  t = current_time(p)
+  Δt = time_step(p)
+  U = p.field
+  U_old = p.field_old
+  V = p.hvp_scratch_field
+  _update_for_assembly_full!(p, U_full, v_full)
+  conns = fspace.elem_conns
+  foreach_block(fspace, p) do physics, props, ref_fe, b
+    _assemble_block_matrix_free_action!(
+      storage,
+      conns.data, conns.offsets[b],
+      func_action,
+      physics, ref_fe,
+      X, t, Δt,
+      U, U_old, V,
+      block_view(p.state_old, b), block_view(p.state_new, b), props
+    )
+  end
+  # The free-DOF entry point above relies on `p.hvp_scratch_field`'s BC
+  # slots being zero (it never writes them, and the kernel reads them as
+  # part of v_el).  Restore that invariant after we deliberately put
+  # v_BC into the scratch — otherwise a subsequent Krylov J·v call that
+  # comes through the free-DOF entry point silently gets contaminated
+  # by leftover v_BC values.
+  cache = p.dirichlet_bcs.bc_cache
+  data = p.hvp_scratch_field.data
+  Z = zero(eltype(data))
+  fec_foreach(cache.dofs) do I
+    data[cache.dofs[I]] = Z
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
 """
 function assemble_matrix_action!(
   assembler, func::F, Uu, Vu, p
