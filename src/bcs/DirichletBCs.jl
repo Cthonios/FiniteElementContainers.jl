@@ -162,6 +162,22 @@ struct DirichletBCFunction{F1, F2, F3} <: AbstractBCFunction{F1}
     new{F, typeof(func_dot), typeof(func_dot_dot)}(func, func_dot, func_dot_dot)
   end
 
+  # Specialization for the flat, juliac-safe scalar expression: take time
+  # derivatives symbolically via [`Expressions.differentiate`](@ref) instead
+  # of ForwardDiff, so the resulting `DirichletBCFunction` is wholly isbits
+  # (no captured closures) and stays `juliac --trim` compatible.  Convention
+  # is that the last variable is time, so the derivative index is
+  # `func.num_vars`.  This is what `DirichletBCs(mesh, dof, bcs)` (the
+  # untyped, non-juliac container constructor) ends up calling when bcs
+  # carry `ScalarExpressionFunction` funcs, giving callers symbolic
+  # derivatives "for free" without needing to thread an `F` type parameter.
+  function DirichletBCFunction(func::F) where F <: Expressions.ScalarExpressionFunction
+    t_idx        = Int(func.num_vars)
+    func_dot     = Expressions.differentiate(func, t_idx)
+    func_dot_dot = Expressions.differentiate(func_dot, t_idx)
+    new{F, F, F}(func, func_dot, func_dot_dot)
+  end
+
   function DirichletBCFunction{F1, F2, F3}(
     f::F1, f_dot::F2, f_dot_dot::F3
   ) where {
