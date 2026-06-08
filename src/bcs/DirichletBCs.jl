@@ -264,10 +264,14 @@ struct DirichletBCs{
   end
 
   # juliac-safe path: derives `func_dot` and `func_dot_dot` symbolically via
-  # [`differentiate`](@ref) on the user's expression tree, so dynamic
-  # Dirichlet BCs work under `juliac --trim` without requiring ForwardDiff,
-  # Zygote, Symbolics, or user-supplied derivatives.  F is expected to be
-  # `Expressions.ScalarExpressionFunction{T}`.
+  # [`Expressions.differentiate`](@ref) on the user's expression tree, so
+  # dynamic Dirichlet BCs work under `juliac --trim` without requiring
+  # ForwardDiff, Zygote, Symbolics, or user-supplied derivatives.
+  #
+  # F is expected to be `Expressions.ScalarExpressionFunction{T}`.  The
+  # convention is that the last variable in the user's expression is time,
+  # so the time-derivative index is `bc.func.num_vars` (e.g. 4 for the
+  # standard `["x", "y", "z", "t"]` namespace).
   function DirichletBCs{F}(mesh::AbstractMesh, dof, bcs_input) where {F <: Function}
     bc_funcs = DirichletBCFunction{F, F, F}[]
     if length(bcs_input) == 0
@@ -278,8 +282,9 @@ struct DirichletBCs{
     end
 
     for bc in bcs_input
-      func_dot     = Expressions.differentiate(bc.func, "t")
-      func_dot_dot = Expressions.differentiate(func_dot, "t")
+      t_idx        = Int(bc.func.num_vars)        # convention: t is last
+      func_dot     = Expressions.differentiate(bc.func, t_idx)
+      func_dot_dot = Expressions.differentiate(func_dot, t_idx)
       push!(bc_funcs,
             DirichletBCFunction{F, F, F}(bc.func, func_dot, func_dot_dot))
     end

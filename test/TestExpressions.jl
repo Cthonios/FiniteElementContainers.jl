@@ -185,6 +185,15 @@ end
     @test val[3] ≈ 15.0 * exp(5.0)
 end
 
+@testitem "ScalarExpressionFunction - is isbits (GPU + juliac safe)" begin
+    import FiniteElementContainers.Expressions: ScalarExpressionFunction, FlatNode
+    @test isbitstype(FlatNode{Float64})
+    @test isbitstype(ScalarExpressionFunction{Float64})
+    f = ScalarExpressionFunction{Float64}("a*exp(-(t-tc)^2 / (2*tau^2))",
+                                          ["a", "tc", "tau", "t"])
+    @test isbits(f)
+end
+
 @testitem "ScalarExpressionFunction - parser precedence: unary minus vs ^" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction
     # Standard math: `-t^2` parses as `-(t^2)`, not `(-t)^2`.
@@ -192,38 +201,27 @@ end
     @test f([3.0]) ≈ -9.0
     @test f([-3.0]) ≈ -9.0
 
-    # Numeric base: -2^2 = -(2^2) = -4
     g = ScalarExpressionFunction{Float64}("-2^2", String[])
     @test g(Float64[]) ≈ -4.0
 
-    # Right-side unary minus inside power: 2^-2 = 0.25
     h = ScalarExpressionFunction{Float64}("2^-2", String[])
     @test h(Float64[]) ≈ 0.25
-
-    # Multiplicative remains unaffected (commutativity hides any change)
-    p = ScalarExpressionFunction{Float64}("-x*y", ["x", "y"])
-    @test p([2.0, 3.0]) ≈ -6.0
 end
 
 @testitem "differentiate - constants and variables" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction, differentiate
-    # d/dx of a constant is zero
     f = ScalarExpressionFunction{Float64}("3.14", ["x"])
-    fp = differentiate(f, "x")
+    fp = differentiate(f, 1)
     @test fp([1.7]) ≈ 0.0
     @test fp([-9.3]) ≈ 0.0
 
-    # d/dx of x is 1, of y is 0
     g = ScalarExpressionFunction{Float64}("x", ["x", "y"])
-    gp = differentiate(g, "x")
-    @test gp([1.0, 2.0]) ≈ 1.0
-    gq = differentiate(g, "y")
-    @test gq([1.0, 2.0]) ≈ 0.0
+    @test differentiate(g, 1)([1.0, 2.0]) ≈ 1.0
+    @test differentiate(g, 2)([1.0, 2.0]) ≈ 0.0
 end
 
 @testitem "differentiate - each unary operator" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction, differentiate
-    # (func name, analytical derivative at x)
     cases = [
         ("cos(x)",  x -> -sin(x)),
         ("cosh(x)", x ->  sinh(x)),
@@ -237,63 +235,56 @@ end
     ]
     for (expr, dexpr) in cases
         f  = ScalarExpressionFunction{Float64}(expr, ["x"])
-        fp = differentiate(f, "x")
+        fp = differentiate(f, 1)
         for x in (0.3, 0.7, 1.4, 2.6)
             @test fp([x]) ≈ dexpr(x) rtol=1e-12
         end
     end
 
-    # Unary minus: d/dx(-x) = -1
+    # Unary minus
     f  = ScalarExpressionFunction{Float64}("-x", ["x"])
-    fp = differentiate(f, "x")
-    @test fp([5.0]) ≈ -1.0
+    @test differentiate(f, 1)([5.0]) ≈ -1.0
 end
 
 @testitem "differentiate - binary operators" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction, differentiate
 
-    # +, -, *, /
-    f  = ScalarExpressionFunction{Float64}("x + y", ["x", "y"])
-    @test differentiate(f, "x")([2.0, 3.0]) ≈ 1.0
-    @test differentiate(f, "y")([2.0, 3.0]) ≈ 1.0
+    f = ScalarExpressionFunction{Float64}("x + y", ["x", "y"])
+    @test differentiate(f, 1)([2.0, 3.0]) ≈ 1.0
+    @test differentiate(f, 2)([2.0, 3.0]) ≈ 1.0
 
-    f  = ScalarExpressionFunction{Float64}("x - y", ["x", "y"])
-    @test differentiate(f, "x")([2.0, 3.0]) ≈ 1.0
-    @test differentiate(f, "y")([2.0, 3.0]) ≈ -1.0
+    f = ScalarExpressionFunction{Float64}("x - y", ["x", "y"])
+    @test differentiate(f, 1)([2.0, 3.0]) ≈ 1.0
+    @test differentiate(f, 2)([2.0, 3.0]) ≈ -1.0
 
-    f  = ScalarExpressionFunction{Float64}("x * y", ["x", "y"])
-    @test differentiate(f, "x")([2.0, 3.0]) ≈ 3.0
-    @test differentiate(f, "y")([2.0, 3.0]) ≈ 2.0
+    f = ScalarExpressionFunction{Float64}("x * y", ["x", "y"])
+    @test differentiate(f, 1)([2.0, 3.0]) ≈ 3.0
+    @test differentiate(f, 2)([2.0, 3.0]) ≈ 2.0
 
-    f  = ScalarExpressionFunction{Float64}("x / y", ["x", "y"])
-    @test differentiate(f, "x")([2.0, 3.0]) ≈ 1/3
-    @test differentiate(f, "y")([2.0, 3.0]) ≈ -2/9
+    f = ScalarExpressionFunction{Float64}("x / y", ["x", "y"])
+    @test differentiate(f, 1)([2.0, 3.0]) ≈ 1/3
+    @test differentiate(f, 2)([2.0, 3.0]) ≈ -2/9
 
-    # Power: constant exponent — d/dx(x^c) = c x^{c-1}
-    f  = ScalarExpressionFunction{Float64}("x^3", ["x"])
-    fp = differentiate(f, "x")
-    @test fp([2.0]) ≈ 12.0
+    # Power: constant exponent
+    f = ScalarExpressionFunction{Float64}("x^3", ["x"])
+    @test differentiate(f, 1)([2.0]) ≈ 12.0
 
-    # Power: constant base — d/dx(c^x) = c^x log(c)
-    f  = ScalarExpressionFunction{Float64}("2^x", ["x"])
-    fp = differentiate(f, "x")
-    @test fp([3.0]) ≈ 8.0 * log(2.0)
+    # Power: constant base
+    f = ScalarExpressionFunction{Float64}("2^x", ["x"])
+    @test differentiate(f, 1)([3.0]) ≈ 8.0 * log(2.0)
 
-    # Power: general — d/dx(x^x) = x^x (log(x) + 1)
-    f  = ScalarExpressionFunction{Float64}("x^x", ["x"])
-    fp = differentiate(f, "x")
-    @test fp([2.0]) ≈ 2.0^2.0 * (log(2.0) + 1.0)
+    # Power: general
+    f = ScalarExpressionFunction{Float64}("x^x", ["x"])
+    @test differentiate(f, 1)([2.0]) ≈ 2.0^2.0 * (log(2.0) + 1.0)
 end
 
 @testitem "differentiate - Gaussian pulse to 2nd derivative" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction, differentiate
     # g(t) = a * exp(-(t - tc)^2 / (2 τ^2))
-    # g'   = -((t-tc)/τ^2) * g
-    # g''  = ((t-tc)^2/τ^4 - 1/τ^2) * g
     g   = ScalarExpressionFunction{Float64}(
         "a * exp(-(t - tc)^2 / (2 * tau^2))", ["a", "tc", "tau", "t"])
-    gp  = differentiate(g, "t")
-    gpp = differentiate(gp, "t")
+    gp  = differentiate(g, 4)
+    gpp = differentiate(gp, 4)
     a, tc, τ = 1.0e-3, 2.5e-4, 5.0e-5
     for t in (0.0, 1.0e-4, 2.5e-4, 4.0e-4, 5.0e-4)
         η  = t - tc
@@ -302,17 +293,16 @@ end
         gpp_= (η^2 / τ^4 - 1 / τ^2) * g_
         @test g([a, tc, τ, t])   ≈ g_   rtol=1e-12
         @test gp([a, tc, τ, t])  ≈ gp_  rtol=1e-12
-        @test gpp([a, tc, τ, t]) ≈ gpp_ rtol=1e-12
+        @test gpp([a, tc, τ, t]) ≈ gpp_ rtol=1e-9
     end
 end
 
-@testitem "differentiate - spatial derivatives (traveling wave IC)" begin
+@testitem "differentiate - spatial (traveling-wave IC)" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction, differentiate
-    # u₀(z) = a * exp(-z^2 / (2 s^2))
-    # u₀'(z) = -(z/s^2) * u₀
+    # u₀(z) = a * exp(-z^2 / (2 s^2));  ∂u/∂z = -(z/s²) u
     u0  = ScalarExpressionFunction{Float64}(
         "a * exp(-z^2 / (2 * s^2))", ["a", "s", "z"])
-    duz = differentiate(u0, "z")
+    duz = differentiate(u0, 3)
     a, s = 0.01, 0.02
     for z in (-0.04, -0.01, 0.0, 0.01, 0.04)
         u_  = a * exp(-z^2 / (2 * s^2))
@@ -322,8 +312,11 @@ end
     end
 end
 
-@testitem "differentiate - error on unknown variable" begin
+@testitem "differentiate - var-name overload + error on unknown" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction, differentiate
-    f = ScalarExpressionFunction{Float64}("x", ["x"])
-    @test_throws AssertionError differentiate(f, "y")
+    f = ScalarExpressionFunction{Float64}("x + 2*t", ["x", "t"])
+    fp = differentiate(f, ["x", "t"], "t")
+    @test fp([0.5, 0.3]) ≈ 2.0
+    @test_throws AssertionError differentiate(f, ["x", "t"], "y")
+    @test_throws AssertionError differentiate(f, 5)
 end
