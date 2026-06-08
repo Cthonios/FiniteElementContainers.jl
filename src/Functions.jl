@@ -1,10 +1,10 @@
-const FSpaceType = Union{<:FunctionSpace, <:AbstractVector{<:FunctionSpace}}
+# const FSpaceType = Union{<:FunctionSpace, <:AbstractVector{<:FunctionSpace}}
 
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-abstract type AbstractFunction{F <: FSpaceType, NF} end
+abstract type AbstractFunction{F, NF} end
 function_space(func::AbstractFunction) = func.fspace
 num_fields(::AbstractFunction{F, NF}) where {F, NF} = NF
 
@@ -27,19 +27,25 @@ end
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct ScalarFunction{F} <: AbstractFunction{F, 1}
+abstract type AbstractScalarFunction{F} <: AbstractFunction{F, 1} end
+
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
+struct ScalarFunction{F} <: AbstractScalarFunction{F}
   fspace::F
   names::NTuple{1, String}
 
-  function ScalarFunction(fspace::F, sym::String) where F <: FSpaceType
+  function ScalarFunction(fspace::F, sym::String) where F
     new{F}(fspace, (sym,))
   end
 
-  function ScalarFunction{F}(fspace::F, sym::String) where F <: FSpaceType
+  function ScalarFunction{F}(fspace::F, sym::String) where F
     new{F}(fspace, (sym,))
   end
 
-  function ScalarFunction{F}(fspace::F, syms::NTuple{1, String}) where F <: FSpaceType
+  function ScalarFunction{F}(fspace::F, syms::NTuple{1, String}) where F
     new{F}(fspace, syms)
   end
 end
@@ -60,7 +66,7 @@ struct VectorFunction{F, NF} <: AbstractFunction{F, NF}
   """
   $(TYPEDSIGNATURES)
   """
-  function VectorFunction(fspace::F, sym::String) where F <: FSpaceType
+  function VectorFunction(fspace::F, sym::String) where F
     components = ("_x", "_y", "_z")
     if isa(fspace, AbstractVector)
       @assert false "Need to fix the case for MPI vector function"
@@ -75,7 +81,7 @@ struct VectorFunction{F, NF} <: AbstractFunction{F, NF}
   """
   $(TYPEDSIGNATURES)
   """
-  function VectorFunction(fspace::F, syms::NTuple{NF, String}) where {F <: FSpaceType, NF}
+  function VectorFunction(fspace::F, syms::NTuple{NF, String}) where {F, NF}
     new{F, NF}(fspace, syms)
   end
 end

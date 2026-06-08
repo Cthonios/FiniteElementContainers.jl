@@ -30,9 +30,9 @@ function PostProcessor(
 )
   copy_mesh(mesh, output_file)
 
-  if length(vars) < 1
-    @warn "no variables provided to post-processor"
-  end
+  # if length(vars) < 1
+  #   @warn "no variables provided to post-processor"
+  # end
 
   ext = splitext(output_file)
   if occursin(".e", output_file) || occursin(".exo", output_file)
