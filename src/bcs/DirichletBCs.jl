@@ -162,6 +162,22 @@ struct DirichletBCFunction{F1, F2, F3} <: AbstractBCFunction{F1}
     new{F, typeof(func_dot), typeof(func_dot_dot)}(func, func_dot, func_dot_dot)
   end
 
+  # Specialization for the flat, juliac-safe scalar expression: take time
+  # derivatives symbolically via [`Expressions.differentiate`](@ref) instead
+  # of ForwardDiff, so the resulting `DirichletBCFunction` is wholly isbits
+  # (no captured closures) and stays `juliac --trim` compatible.  Convention
+  # is that the last variable is time, so the derivative index is
+  # `func.num_vars`.  This is what `DirichletBCs(mesh, dof, bcs)` (the
+  # untyped, non-juliac container constructor) ends up calling when bcs
+  # carry `ScalarExpressionFunction` funcs, giving callers symbolic
+  # derivatives "for free" without needing to thread an `F` type parameter.
+  function DirichletBCFunction(func::F) where F <: Expressions.ScalarExpressionFunction
+    t_idx        = Int(func.num_vars)
+    func_dot     = Expressions.differentiate(func, t_idx)
+    func_dot_dot = Expressions.differentiate(func_dot, t_idx)
+    new{F, F, F}(func, func_dot, func_dot_dot)
+  end
+
   function DirichletBCFunction{F1, F2, F3}(
     f::F1, f_dot::F2, f_dot_dot::F3
   ) where {
@@ -264,10 +280,14 @@ struct DirichletBCs{
   end
 
   # juliac-safe path: derives `func_dot` and `func_dot_dot` symbolically via
-  # [`differentiate`](@ref) on the user's expression tree, so dynamic
-  # Dirichlet BCs work under `juliac --trim` without requiring ForwardDiff,
-  # Zygote, Symbolics, or user-supplied derivatives.  F is expected to be
-  # `Expressions.ScalarExpressionFunction{T}`.
+  # [`Expressions.differentiate`](@ref) on the user's expression tree, so
+  # dynamic Dirichlet BCs work under `juliac --trim` without requiring
+  # ForwardDiff, Zygote, Symbolics, or user-supplied derivatives.
+  #
+  # F is expected to be `Expressions.ScalarExpressionFunction{T}`.  The
+  # convention is that the last variable in the user's expression is time,
+  # so the time-derivative index is `bc.func.num_vars` (e.g. 4 for the
+  # standard `["x", "y", "z", "t"]` namespace).
   function DirichletBCs{F}(mesh::AbstractMesh, dof, bcs_input) where {F <: Function}
     bc_funcs = DirichletBCFunction{F, F, F}[]
     if length(bcs_input) == 0
@@ -278,8 +298,9 @@ struct DirichletBCs{
     end
 
     for bc in bcs_input
-      func_dot     = Expressions.differentiate(bc.func, "t")
-      func_dot_dot = Expressions.differentiate(func_dot, "t")
+      t_idx        = Int(bc.func.num_vars)        # convention: t is last
+      func_dot     = Expressions.differentiate(bc.func, t_idx)
+      func_dot_dot = Expressions.differentiate(func_dot, t_idx)
       push!(bc_funcs,
             DirichletBCFunction{F, F, F}(bc.func, func_dot, func_dot_dot))
     end
