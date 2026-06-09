@@ -2,6 +2,7 @@ module PartitionedArraysExt
 
 # TODO make Exodus an unnecessary import
 import FiniteElementContainers as FEC
+using DocStringExtensions
 using Exodus
 using FiniteElementContainers
 using Krylov
@@ -34,6 +35,9 @@ function _create_field_to_unknown(n_total_fields, dirichlet_dofs)
 	return new_field_to_unknown, unknown_to_field
 end
 
+"""
+$(TYPEDEF)
+"""
 function distribute_mesh(file_name::String, n_ranks::Int, ranks)
 	map_main(ranks) do rank
 		# TODO add a check to see if we need to actually decomp

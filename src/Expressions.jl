@@ -823,7 +823,8 @@ function differentiate(f::ScalarExpressionFunction{T},
                        var_names::AbstractVector{<:AbstractString},
                        var_name::AbstractString) where T
     idx = findfirst(==(var_name), var_names)
-    @assert idx !== nothing "variable \"$var_name\" not in $(var_names)"
+    # TODO add error message
+    @assert idx !== nothing
     return differentiate(f, idx)
 end
 

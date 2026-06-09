@@ -1,23 +1,16 @@
-# push!(LOAD_PATH, "../src/")
-# using Adapt
-using FiniteElementContainers
 using Documenter
+using FiniteElementContainers
+using Gmsh
+using PartitionedArrays
 
 # DocMeta.setdocmeta!(Adapt, :DocTestSetup, :(using Adapt); recursive=true)
 DocMeta.setdocmeta!(FiniteElementContainers, :DocTestSetup, :(using FiniteElementContainers); recursive=true)
-
+gmsh_ext = Base.get_extension(FiniteElementContainers, :GmshExt)
+parrays_ext = Base.get_extension(FiniteElementContainers, :PartitionedArraysExt)
 makedocs(;
-    # modules=[Adapt, FiniteElementContainers],
-    # modules=[
-    #     # Adapt,
-    #     FiniteElementContainers,
-    #     isdefined(Base, :get_extension) ? Base.get_extension(FiniteElementContainers, :FiniteElementContainersAdaptExt) :
-    #     FiniteElementContainers.FiniteElementContainersAdaptExt
-    # ],
-    modules=[FiniteElementContainers],
+    modules=[FiniteElementContainers, gmsh_ext, parrays_ext],
     authors="Craig M. Hamel <cmhamel32@gmail.com> and contributors",
     repo="https://github.com/Cthonios/FiniteElementContainers.jl/blob/{commit}{path}#{line}",
-    source="src",
     sitename="FiniteElementContainers.jl",
     format=Documenter.HTML(;
         repolink="https://github.com/Cthonios/FiniteElementContainers.jl",
@@ -44,9 +37,12 @@ makedocs(;
         "Formulations"        => "formulations.md",
         "Function spaces"     => "function_spaces.md",
         "Functions"           => "functions.md",
+        "Initial Conditions"  => "initial_conditions.md",
         "Meshes"              => "meshes.md",
+        "MPI Parallelism"     => "mpi_parallelism.md",
         "Parameters"          => "parameters.md",
-        "Physics"             => "physics.md"
+        "Physics"             => "physics.md",
+        "Utilities"           => "utils.md"
     ],
 )
 

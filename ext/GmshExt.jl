@@ -1,9 +1,14 @@
 module GmshExt
 
 import FiniteElementContainers.GmshMesh
+using DocStringExtensions
 using FiniteElementContainers
 using Gmsh: Gmsh, gmsh
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 const GmshFile = FileMesh{Nothing, GmshMesh}
 
 # TODO flesh this out more
@@ -12,6 +17,10 @@ const gmsh_to_exo = Dict{String, String}(
     "Triangle 3" => "Tri3"
 )
 
+"""
+$(TYPEDEF)
+$(TYPEDFIELDS)
+"""
 function FiniteElementContainers.FileMesh(::GmshMesh, file_name::String)
     Gmsh.initialize()
     gmsh.open(file_name)
@@ -32,6 +41,9 @@ function FiniteElementContainers.copy_mesh(mesh, file_2::String, ::Type{GmshMesh
     return nothing
 end
 
+"""
+$(TYPEDEF)
+"""
 function FiniteElementContainers.element_blocks(mesh::GmshFile)
     dim = num_dimensions(mesh)
     phys_groups = gmsh.model.getPhysicalGroups()
@@ -66,6 +78,9 @@ function FiniteElementContainers.element_blocks(mesh::GmshFile)
     return conns, el_id_maps, names, names_map, el_types
 end
 
+"""
+$(TYPEDEF)
+"""
 function FiniteElementContainers.element_ids(mesh::GmshFile)
     dim = num_dimensions(mesh)
     _, elem_tags, _ = gmsh.model.mesh.getElements(dim, -1)
@@ -76,6 +91,9 @@ function FiniteElementContainers.finalize(::GmshFile)
     Gmsh.finalize()
 end
 
+"""
+$(TYPEDEF)
+"""
 function FiniteElementContainers.nodal_coordinates_and_ids(mesh::GmshFile)
     ids, coords = gmsh.model.mesh.getNodes()
     dim = num_dimensions(mesh)
@@ -85,6 +103,9 @@ function FiniteElementContainers.nodal_coordinates_and_ids(mesh::GmshFile)
     return coords, ids
 end
 
+"""
+$(TYPEDEF)
+"""
 function FiniteElementContainers.nodesets(mesh::GmshFile)
     dim = num_dimensions(mesh) - 1
     phys_groups = gmsh.model.getPhysicalGroups()
@@ -117,6 +138,9 @@ function FiniteElementContainers.num_dimensions(::GmshFile)
     return Int64(gmsh.model.getDimension())
 end
 
+"""
+$(TYPEDEF)
+"""
 function FiniteElementContainers.sidesets(mesh::GmshFile)
     @warn "Sidesets are currently not supported with Gmsh meshes"
     dim = num_dimensions(mesh) - 1

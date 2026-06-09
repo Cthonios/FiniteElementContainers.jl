@@ -1,6 +1,6 @@
 using Exodus
 using FiniteElementContainers
-using Gmsh
+# using Gmsh
 using LinearAlgebra
 using SparseArrays
 
@@ -25,21 +25,17 @@ mesh = UnstructuredMesh(mesh_file)
 #     DirichletBC(:u, bc_func; nodeset_name = :boundary)
 # ]
 dbcs = DirichletBC[
-    DirichletBC(:u, bc_func; sideset_name = :sset_1),
-    DirichletBC(:u, bc_func; sideset_name = :sset_2),
-    DirichletBC(:u, bc_func; sideset_name = :sset_3),
-    DirichletBC(:u, bc_func; sideset_name = :sset_4),
+    DirichletBC("u", bc_func; sideset_name = "sset_1"),
+    DirichletBC("u", bc_func; sideset_name = "sset_2"),
+    DirichletBC("u", bc_func; sideset_name = "sset_3"),
+    DirichletBC("u", bc_func; sideset_name = "sset_4"),
 ]
 V = FunctionSpace(mesh, H1Field, Lagrange) 
 physics = Poisson(f)
 props = create_properties(physics)
-u = ScalarFunction(V, :u)
+u = ScalarFunction(V, "u")
 # asm = SparseMatrixAssembler(u; use_condensed = true)
-asm = SparseMatrixAssembler(
-    u;
-    use_condensed = true,
-    use_static_arrays = false
-)
+asm = SparseMatrixAssembler(u)
 
 
 # dbcs = nothing
