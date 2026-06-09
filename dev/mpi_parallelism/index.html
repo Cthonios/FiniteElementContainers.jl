@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>MPI Parallelism · FiniteElementContainers.jl</title><meta name="title" content="MPI Parallelism · FiniteElementContainers.jl"/><meta property="og:title" content="MPI Parallelism · FiniteElementContainers.jl"/><meta property="twitter:title" content="MPI Parallelism · FiniteElementContainers.jl"/><meta name="description" content="Documentation for FiniteElementContainers.jl."/><meta property="og:description" content="Documentation for FiniteElementContainers.jl."/><meta property="twitter:description" content="Documentation for FiniteElementContainers.jl."/><meta property="og:url" content="https://cthonios.github.io/FiniteElementContainers.jl/mpi_parallelism/"/><meta property="twitter:url" content="https://cthonios.github.io/FiniteElementContainers.jl/mpi_parallelism/"/><link rel="canonical" href="https://cthonios.github.io/FiniteElementContainers.jl/mpi_parallelism/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">FiniteElementContainers.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Tutorial</span><ul><li><a class="tocitem" href="../tutorials/1_poisson_equation/">1 Poisson Equation</a></li><li><a class="tocitem" href="../tutorials/2_advection_diffusion_equation/">2 Advection-Diffusion Equation</a></li><li><a class="tocitem" href="../tutorials/3_coupled_problem/">3 Coupled Problem</a></li><li><a class="tocitem" href="../tutorials/4_transient_problem/">4 Transient Problem</a></li><li><a class="tocitem" href="../tutorials/5_solid_mechanics/">5 Solid Mechanics</a></li></ul></li><li><a class="tocitem" href="../app_tools/">AppTools</a></li><li><a class="tocitem" href="../assemblers/">Assemblers</a></li><li><a class="tocitem" href="../boundary_conditions/">Boundary Conditions</a></li><li><a class="tocitem" href="../dof_manager/">DofManager</a></li><li><a class="tocitem" href="../expressions/">Expressions</a></li><li><a class="tocitem" href="../fields/">Fields</a></li><li><a class="tocitem" href="../formulations/">Formulations</a></li><li><a class="tocitem" href="../function_spaces/">Function spaces</a></li><li><a class="tocitem" href="../functions/">Functions</a></li><li><a class="tocitem" href="../initial_conditions/">Initial Conditions</a></li><li><a class="tocitem" href="../meshes/">Meshes</a></li><li class="is-active"><a class="tocitem" href>MPI Parallelism</a><ul class="internal"><li><a class="tocitem" href="#Overview"><span>Overview</span></a></li><li class="toplevel"><a class="tocitem" href="#Mesh-Distribution"><span>Mesh Distribution</span></a></li><li><a class="tocitem" href="#distribute_mesh"><span><code>distribute_mesh</code></span></a></li><li class="toplevel"><a class="tocitem" href="#Parallel-Mesh"><span>Parallel Mesh</span></a></li><li><a class="tocitem" href="#PUnstructuredMesh"><span><code>PUnstructuredMesh</code></span></a></li><li class="toplevel"><a class="tocitem" href="#Parallel-Function-Spaces"><span>Parallel Function Spaces</span></a></li><li><a class="tocitem" href="#PFunctionSpace"><span><code>PFunctionSpace</code></span></a></li><li class="toplevel"><a class="tocitem" href="#Global-Numberings"><span>Global Numberings</span></a></li><li class="toplevel"><a class="tocitem" href="#Field-Partition"><span>Field Partition</span></a></li><li><a class="tocitem" href="#FieldPartition"><span><code>FieldPartition</code></span></a></li><li class="toplevel"><a class="tocitem" href="#Solution-Partition"><span>Solution Partition</span></a></li><li><a class="tocitem" href="#SolutionPartition"><span><code>SolutionPartition</code></span></a></li><li class="toplevel"><a class="tocitem" href="#PDofManager"><span><code>PDofManager</code></span></a></li><li class="toplevel"><a class="tocitem" href="#Updating-Unknowns"><span>Updating Unknowns</span></a></li><li class="toplevel"><a class="tocitem" href="#Parallel-Sparse-Patterns"><span>Parallel Sparse Patterns</span></a></li><li><a class="tocitem" href="#PSparseMatrixPattern"><span><code>PSparseMatrixPattern</code></span></a></li><li><a class="tocitem" href="#PSparseVectorPattern"><span><code>PSparseVectorPattern</code></span></a></li><li class="toplevel"><a class="tocitem" href="#Parallel-Assembly"><span>Parallel Assembly</span></a></li><li class="toplevel"><a class="tocitem" href="#Distributed-Sparse-Matrix-Construction"><span>Distributed Sparse Matrix Construction</span></a></li><li class="toplevel"><a class="tocitem" href="#Distributed-Parameters"><span>Distributed Parameters</span></a></li><li><a class="tocitem" href="#PParameters"><span><code>PParameters</code></span></a></li><li class="toplevel"><a class="tocitem" href="#Krylov-Integration"><span>Krylov Integration</span></a></li><li class="toplevel"><a class="tocitem" href="#Parallel-Postprocessing"><span>Parallel Postprocessing</span></a></li><li class="toplevel"><a class="tocitem" href="#Design-Philosophy"><span>Design Philosophy</span></a></li><li class="toplevel"><a class="tocitem" href="#API"><span>API</span></a></li></ul></li><li><a class="tocitem" href="../parameters/">Parameters</a></li><li><a class="tocitem" href="../physics/">Physics</a></li><li><a class="tocitem" href="../utils/">Utilities</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>MPI Parallelism</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>MPI Parallelism</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Cthonios/FiniteElementContainers.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/main/docs/src/mpi_parallelism.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="MPI-Parallelism-(PartitionedArraysExt)"><a class="docs-heading-anchor" href="#MPI-Parallelism-(PartitionedArraysExt)">MPI Parallelism (<code>PartitionedArraysExt</code>)</a><a id="MPI-Parallelism-(PartitionedArraysExt)-1"></a><a class="docs-heading-anchor-permalink" href="#MPI-Parallelism-(PartitionedArraysExt)" title="Permalink"></a></h1><h2 id="Overview"><a class="docs-heading-anchor" href="#Overview">Overview</a><a id="Overview-1"></a><a class="docs-heading-anchor-permalink" href="#Overview" title="Permalink"></a></h2><p><code>PartitionedArraysExt</code> provides distributed-memory parallelism for <strong>FiniteElementContainers.jl</strong> using <strong>MPI</strong> through the <code>PartitionedArrays.jl</code> ecosystem.</p><p>Unlike traditional FEM frameworks that require separate serial and parallel implementations of assembly and data structures, <code>PartitionedArraysExt</code> reuses the existing serial implementation by:</p><ul><li>partitioning the mesh,</li><li>constructing local serial finite element objects on each MPI rank,</li><li>assembling local element contributions independently,</li><li>and using <code>PartitionedArrays.jl</code> to automatically communicate ghost values and assemble global distributed vectors and matrices.</li></ul><p>The overall workflow is</p><pre><code class="language-text hljs">                Global Mesh
+                     │
+             Exodus decomposition
+                     │
+         ┌───────────┴────────────┐
+         │                        │
+      Rank 0                  Rank 1
+         │                        │
+ Local UnstructuredMesh    Local UnstructuredMesh
+         │                        │
+   Local FunctionSpace      Local FunctionSpace
+         │                        │
+     Local DofManager        Local DofManager
+         │                        │
+  Local Element Assembly  Local Element Assembly
+         └───────────┬────────────┘
+                     │
+      PartitionedArrays communication
+                     │
+        Distributed Matrix / Vector
+                     │
+              Krylov Linear Solver</code></pre><p>The key design principle is that <strong>element integration remains completely serial</strong> while only the global algebraic objects are distributed.</p><hr/><h1 id="Mesh-Distribution"><a class="docs-heading-anchor" href="#Mesh-Distribution">Mesh Distribution</a><a id="Mesh-Distribution-1"></a><a class="docs-heading-anchor-permalink" href="#Mesh-Distribution" title="Permalink"></a></h1><h2 id="distribute_mesh"><a class="docs-heading-anchor" href="#distribute_mesh"><code>distribute_mesh</code></a><a id="distribute_mesh-1"></a><a class="docs-heading-anchor-permalink" href="#distribute_mesh" title="Permalink"></a></h2><pre><code class="language-julia hljs">distribute_mesh(file_name, n_ranks, ranks)</code></pre><p>Partitions an Exodus mesh into <code>n_ranks</code> subdomains using the Exodus <code>decomp</code> utility.</p><pre><code class="language-julia hljs">distribute_mesh(&quot;mesh.g&quot;, 8, ranks)</code></pre><p>produces</p><pre><code class="language-text hljs">mesh.g.8.000
+mesh.g.8.001
+...
+mesh.g.8.007</code></pre><p>Each MPI process subsequently reads only its local mesh file.</p><p>Internally</p><pre><code class="language-julia hljs">map_main(ranks) do rank
+    decomp(file_name, n_ranks)
+end</code></pre><p>ensures that decomposition occurs only once before all ranks synchronize via</p><pre><code class="language-julia hljs">PartitionedArrays.barrier(ranks)</code></pre><hr/><h1 id="Parallel-Mesh"><a class="docs-heading-anchor" href="#Parallel-Mesh">Parallel Mesh</a><a id="Parallel-Mesh-1"></a><a class="docs-heading-anchor-permalink" href="#Parallel-Mesh" title="Permalink"></a></h1><h2 id="PUnstructuredMesh"><a class="docs-heading-anchor" href="#PUnstructuredMesh"><code>PUnstructuredMesh</code></a><a id="PUnstructuredMesh-1"></a><a class="docs-heading-anchor-permalink" href="#PUnstructuredMesh" title="Permalink"></a></h2><pre><code class="language-julia hljs">struct PUnstructuredMesh
+    mesh
+    num_ranks
+    ranks
+end</code></pre><p>A <code>PUnstructuredMesh</code> is simply a distributed collection of ordinary serial <code>UnstructuredMesh</code> objects.</p><p>Each MPI rank owns one local mesh.</p><pre><code class="language-text hljs">Global mesh
+
+      +----------------------+
+      |                      |
+      |                      |
+      |                      |
+      +----------------------+
+
+            decomposed
+
+      +----------+----------+
+      | Rank 0   | Rank 1   |
+      |          |          |
+      +----------+----------+</code></pre><p>Construction is simply</p><pre><code class="language-julia hljs">mesh = UnstructuredMesh(&quot;mesh.g&quot;, 4, ranks)</code></pre><p>which internally loads</p><pre><code class="language-text hljs">mesh.g.4.000
+mesh.g.4.001
+mesh.g.4.002
+mesh.g.4.003</code></pre><p>on the respective MPI processes.</p><hr/><h1 id="Parallel-Function-Spaces"><a class="docs-heading-anchor" href="#Parallel-Function-Spaces">Parallel Function Spaces</a><a id="Parallel-Function-Spaces-1"></a><a class="docs-heading-anchor-permalink" href="#Parallel-Function-Spaces" title="Permalink"></a></h1><h2 id="PFunctionSpace"><a class="docs-heading-anchor" href="#PFunctionSpace"><code>PFunctionSpace</code></a><a id="PFunctionSpace-1"></a><a class="docs-heading-anchor-permalink" href="#PFunctionSpace" title="Permalink"></a></h2><pre><code class="language-julia hljs">PFunctionSpace(mesh, field_type, interp_type)</code></pre><p>constructs a serial <code>FunctionSpace</code> independently on every MPI process.</p><p>Internally</p><pre><code class="language-julia hljs">map(mesh.mesh) do local_mesh
+    FunctionSpace(local_mesh, field_type, interp_type)
+end</code></pre><p>creates</p><pre><code class="language-text hljs">Rank 0
+--------
+
+serial FunctionSpace
+
+Rank 1
+--------
+
+serial FunctionSpace
+
+...</code></pre><p>No parallel logic is needed during finite element interpolation.</p><hr/><h1 id="Global-Numberings"><a class="docs-heading-anchor" href="#Global-Numberings">Global Numberings</a><a id="Global-Numberings-1"></a><a class="docs-heading-anchor-permalink" href="#Global-Numberings" title="Permalink"></a></h1><p>One of the major responsibilities of the extension is maintaining the relationship between</p><ul><li>global field DOFs,</li><li>global unknowns,</li><li>local owned values,</li><li>ghost values.</li></ul><p>This is accomplished through several partition structures.</p><hr/><h1 id="Field-Partition"><a class="docs-heading-anchor" href="#Field-Partition">Field Partition</a><a id="Field-Partition-1"></a><a class="docs-heading-anchor-permalink" href="#Field-Partition" title="Permalink"></a></h1><h2 id="FieldPartition"><a class="docs-heading-anchor" href="#FieldPartition"><code>FieldPartition</code></a><a id="FieldPartition-1"></a><a class="docs-heading-anchor-permalink" href="#FieldPartition" title="Permalink"></a></h2><p><code>FieldPartition</code> represents the distribution of the <strong>complete finite element field</strong>, including ghost values.</p><pre><code class="language-text hljs">Global DOFs
+
+1 2 3 4 5 6 7 8
+
+Rank 0
+
+1 2 3 4 5
+
+Rank 1
+
+4 5 6 7 8
+
+      ghosts</code></pre><p>Each partition stores</p><pre><code class="language-text hljs">global numbering
+owner rank
+local numbering</code></pre><p>using <code>LocalIndices</code> from <code>PartitionedArrays.jl</code>.</p><hr/><h1 id="Solution-Partition"><a class="docs-heading-anchor" href="#Solution-Partition">Solution Partition</a><a id="Solution-Partition-1"></a><a class="docs-heading-anchor-permalink" href="#Solution-Partition" title="Permalink"></a></h1><h2 id="SolutionPartition"><a class="docs-heading-anchor" href="#SolutionPartition"><code>SolutionPartition</code></a><a id="SolutionPartition-1"></a><a class="docs-heading-anchor-permalink" href="#SolutionPartition" title="Permalink"></a></h2><p><code>SolutionPartition</code> stores only <strong>active unknowns</strong>.</p><p>Dirichlet DOFs are removed before partitioning.</p><p>For example</p><pre><code class="language-text hljs">Field DOFs
+
+1 2 3 4 5 6 7
+
+Dirichlet
+
+2 6
+
+Unknowns
+
+1 3 4 5 7</code></pre><p>becomes</p><pre><code class="language-text hljs">field id → unknown id
+
+1 → 1
+2 → -1
+3 → 2
+4 → 3
+5 → 4
+6 → -1
+7 → 5</code></pre><p>where <code>-1</code> indicates an eliminated Dirichlet degree of freedom.</p><p>This mapping is created by</p><pre><code class="language-julia hljs">_create_field_to_unknown(...)</code></pre><p>and is central to condensation of boundary conditions.</p><hr/><h1 id="PDofManager"><a class="docs-heading-anchor" href="#PDofManager"><code>PDofManager</code></a><a id="PDofManager-1"></a><a class="docs-heading-anchor-permalink" href="#PDofManager" title="Permalink"></a></h1><p>The distributed degree-of-freedom manager stores</p><ul><li><code>field_partition</code></li><li><code>solution_partition</code></li><li><code>field_to_solution</code></li><li><code>solution_to_field</code></li><li><code>local_dof_managers</code></li></ul><p>Its purpose is to bridge</p><pre><code class="language-text hljs">serial FEM numbering</code></pre><p>and</p><pre><code class="language-text hljs">distributed Krylov numbering</code></pre><p>Each MPI process still owns a completely ordinary serial <code>DofManager</code>.</p><p>The distributed wrapper only manages communication and indexing.</p><hr/><h1 id="Updating-Unknowns"><a class="docs-heading-anchor" href="#Updating-Unknowns">Updating Unknowns</a><a id="Updating-Unknowns-1"></a><a class="docs-heading-anchor-permalink" href="#Updating-Unknowns" title="Permalink"></a></h1><p>After solving the linear system, unknown vectors must be copied back into the full finite element field.</p><p>This is accomplished by</p><pre><code class="language-julia hljs">update_field_unknowns!(U, dof, Uu)</code></pre><p>The algorithm is</p><pre><code class="language-text hljs">for each owned field DOF
+
+        global field id
+
+              │
+
+              ▼
+
+field_to_solution lookup
+
+              │
+
+              ▼
+
+global unknown id
+
+              │
+
+              ▼
+
+local unknown id
+
+              │
+
+              ▼
+
+copy value into field</code></pre><p>Internally</p><pre><code class="language-julia hljs">solution_id = dof.field_to_solution[field_id]
+
+if solution_id &gt; 0
+    U_local[i] = Uu_local[
+        solution_gtl[solution_id]
+    ]
+end</code></pre><p>which skips Dirichlet nodes automatically.</p><hr/><h1 id="Parallel-Sparse-Patterns"><a class="docs-heading-anchor" href="#Parallel-Sparse-Patterns">Parallel Sparse Patterns</a><a id="Parallel-Sparse-Patterns-1"></a><a class="docs-heading-anchor-permalink" href="#Parallel-Sparse-Patterns" title="Permalink"></a></h1><p>Finite element assembly first produces element-level arrays.</p><p>These must be scattered into distributed sparse matrices.</p><p>The module constructs explicit insertion patterns.</p><h2 id="PSparseMatrixPattern"><a class="docs-heading-anchor" href="#PSparseMatrixPattern"><code>PSparseMatrixPattern</code></a><a id="PSparseMatrixPattern-1"></a><a class="docs-heading-anchor-permalink" href="#PSparseMatrixPattern" title="Permalink"></a></h2><p>stores <code>(Is, Js)</code> corresponding to global matrix row and column indices.</p><p>For every element</p><pre><code class="language-text hljs">      local stiffness
+
+      x x x
+      x x x
+      x x x
+
+            ↓
+
+global sparse entries
+
+(I1,J1)
+(I1,J2)
+(I1,J3)
+
+...</code></pre><p>Dirichlet rows and columns are removed during construction.</p><hr/><h2 id="PSparseVectorPattern"><a class="docs-heading-anchor" href="#PSparseVectorPattern"><code>PSparseVectorPattern</code></a><a id="PSparseVectorPattern-1"></a><a class="docs-heading-anchor-permalink" href="#PSparseVectorPattern" title="Permalink"></a></h2><p>Similarly,</p><p><code>PSparseVectorPattern</code></p><p>stores insertion locations for residual vectors.</p><pre><code class="language-text hljs">element residual
+
+r1
+r2
+r3
+
+      ↓
+
+global vector
+
+I1
+I2
+I3</code></pre><p>again omitting constrained DOFs.</p><hr/><h1 id="Parallel-Assembly"><a class="docs-heading-anchor" href="#Parallel-Assembly">Parallel Assembly</a><a id="Parallel-Assembly-1"></a><a class="docs-heading-anchor-permalink" href="#Parallel-Assembly" title="Permalink"></a></h1><p>The parallel assembler is</p><pre><code class="language-julia hljs">PSparseMatrixAssembler</code></pre><p>which contains</p><ul><li>local assemblers</li><li>matrix pattern</li><li>vector pattern</li></ul><p>The local assemblers are simply ordinary serial <code>SparseMatrixAssembler</code>s.</p><p>Assembly proceeds independently on every MPI process:</p><pre><code class="language-julia hljs">map(
+    asm.local_assemblers,
+    partition(u),
+    p.local_parameters
+) do local_asm, local_u, local_p
+
+    assemble_stiffness!(
+        local_asm,
+        func,
+        local_u,
+        local_p
+    )
+end</code></pre><p>No MPI communication occurs during element integration.</p><p>Communication occurs only when the distributed sparse matrix is constructed.</p><hr/><h1 id="Distributed-Sparse-Matrix-Construction"><a class="docs-heading-anchor" href="#Distributed-Sparse-Matrix-Construction">Distributed Sparse Matrix Construction</a><a id="Distributed-Sparse-Matrix-Construction-1"></a><a class="docs-heading-anchor-permalink" href="#Distributed-Sparse-Matrix-Construction" title="Permalink"></a></h1><p>Once local assembly is complete,</p><pre><code class="language-julia hljs">stiffness(asm)</code></pre><p>collects local storage arrays</p><pre><code class="language-julia hljs">vals = map(asm.local_assemblers) do local_asm
+    local_asm.stiffness_storage
+end</code></pre><p>and constructs a distributed sparse matrix</p><pre><code class="language-julia hljs">psparse(pattern, vals)</code></pre><p>using the insertion patterns previously computed.</p><p>The resulting object is a <code>PartitionedArrays.PSparseMatrix</code>.</p><p>Likewise,</p><pre><code class="language-julia hljs">residual(asm)</code></pre><p>returns a distributed <code>PVector</code>.</p><hr/><h1 id="Distributed-Parameters"><a class="docs-heading-anchor" href="#Distributed-Parameters">Distributed Parameters</a><a id="Distributed-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Distributed-Parameters" title="Permalink"></a></h1><h2 id="PParameters"><a class="docs-heading-anchor" href="#PParameters"><code>PParameters</code></a><a id="PParameters-1"></a><a class="docs-heading-anchor-permalink" href="#PParameters" title="Permalink"></a></h2><p><code>PParameters</code> stores one parameter object per MPI rank.</p><pre><code class="language-text hljs">Rank 0
+
+Material
+Quadrature
+History
+
+Rank 1
+
+Material
+Quadrature
+History</code></pre><p>Each local assembler therefore operates entirely independently.</p><hr/><h1 id="Krylov-Integration"><a class="docs-heading-anchor" href="#Krylov-Integration">Krylov Integration</a><a id="Krylov-Integration-1"></a><a class="docs-heading-anchor-permalink" href="#Krylov-Integration" title="Permalink"></a></h1><p>The extension provides a specialization</p><pre><code class="language-julia hljs">CgWorkspace(
+    A::PSparseMatrix,
+    b::PVector
+)</code></pre><p>allowing <strong>Krylov.jl</strong> iterative solvers to work directly on distributed matrices and vectors.</p><p>This avoids converting to serial matrices and enables scalable MPI linear solves while retaining the standard Krylov API.</p><hr/><h1 id="Parallel-Postprocessing"><a class="docs-heading-anchor" href="#Parallel-Postprocessing">Parallel Postprocessing</a><a id="Parallel-Postprocessing-1"></a><a class="docs-heading-anchor-permalink" href="#Parallel-Postprocessing" title="Permalink"></a></h1><p><code>PPostProcessor</code> wraps multiple serial postprocessors.</p><pre><code class="language-text hljs">Rank 0
+
+output.e.4.000
+
+Rank 1
+
+output.e.4.001
+
+...
+
+Rank N
+
+output.e.4.N</code></pre><p>Writing fields is simply</p><pre><code class="language-julia hljs">write_field(pp, step, names, u)</code></pre><p>which maps over all local postprocessors.</p><p>Optionally,</p><pre><code class="language-julia hljs">close(pp)</code></pre><p>can invoke</p><pre><code class="language-text hljs">epu</code></pre><p>to merge all distributed Exodus files into a single output database:</p><pre><code class="language-text hljs">output.e.4.000
+output.e.4.001
+output.e.4.002
+output.e.4.003
+
+        │
+        ▼
+
+      epu
+
+        │
+        ▼
+
+output.e</code></pre><p>This produces a standard Exodus file that can be visualized directly in ParaView.</p><hr/><h1 id="Design-Philosophy"><a class="docs-heading-anchor" href="#Design-Philosophy">Design Philosophy</a><a id="Design-Philosophy-1"></a><a class="docs-heading-anchor-permalink" href="#Design-Philosophy" title="Permalink"></a></h1><p>The central idea behind <code>PartitionedArraysExt</code> is to <strong>reuse the serial finite element implementation unchanged</strong>. Every MPI process performs ordinary serial finite element assembly on its local mesh partition. <code>PartitionedArrays.jl</code> is responsible for managing ownership, ghost values, communication, and distributed sparse algebra, while <code>FiniteElementContainers.jl</code> continues to operate on familiar serial data structures at the element level. This separation keeps the finite element kernels simple while allowing the package to scale to distributed-memory systems with minimal duplication of code.</p><h1 id="API"><a class="docs-heading-anchor" href="#API">API</a><a id="API-1"></a><a class="docs-heading-anchor-permalink" href="#API" title="Permalink"></a></h1><article><details class="docstring" open="true"><summary id="PartitionedArraysExt.distribute_mesh-Tuple{String, Int64, Any}"><a class="docstring-binding" href="#PartitionedArraysExt.distribute_mesh-Tuple{String, Int64, Any}"><code>PartitionedArraysExt.distribute_mesh</code></a> — <span class="docstring-category">Method</span></summary><section><div></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/e3ae1bfe2e396a5decfe1034f276f1d2d1d16042/ext/PartitionedArraysExt.jl#L38">source</a></section></details></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../meshes/">« Meshes</a><a class="docs-footer-nextpage" href="../parameters/">Parameters »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 9 June 2026 09:28">Tuesday 9 June 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

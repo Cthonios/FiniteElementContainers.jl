@@ -1,23 +1,269 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Physics · FiniteElementContainers.jl</title><meta name="title" content="Physics · FiniteElementContainers.jl"/><meta property="og:title" content="Physics · FiniteElementContainers.jl"/><meta property="twitter:title" content="Physics · FiniteElementContainers.jl"/><meta name="description" content="Documentation for FiniteElementContainers.jl."/><meta property="og:description" content="Documentation for FiniteElementContainers.jl."/><meta property="twitter:description" content="Documentation for FiniteElementContainers.jl."/><meta property="og:url" content="https://cthonios.github.io/FiniteElementContainers.jl/physics/"/><meta property="twitter:url" content="https://cthonios.github.io/FiniteElementContainers.jl/physics/"/><link rel="canonical" href="https://cthonios.github.io/FiniteElementContainers.jl/physics/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">FiniteElementContainers.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Tutorial</span><ul><li><a class="tocitem" href="../tutorials/1_poisson_equation/">1 Poisson Equation</a></li><li><a class="tocitem" href="../tutorials/2_advection_diffusion_equation/">2 Advection-Diffusion Equation</a></li><li><a class="tocitem" href="../tutorials/3_coupled_problem/">3 Coupled Problem</a></li><li><a class="tocitem" href="../tutorials/4_transient_problem/">4 Transient Problem</a></li><li><a class="tocitem" href="../tutorials/5_solid_mechanics/">5 Solid Mechanics</a></li></ul></li><li><a class="tocitem" href="../app_tools/">AppTools</a></li><li><a class="tocitem" href="../assemblers/">Assemblers</a></li><li><a class="tocitem" href="../boundary_conditions/">Boundary Conditions</a></li><li><a class="tocitem" href="../dof_manager/">DofManager</a></li><li><a class="tocitem" href="../expressions/">Expressions</a></li><li><a class="tocitem" href="../fields/">Fields</a></li><li><a class="tocitem" href="../formulations/">Formulations</a></li><li><a class="tocitem" href="../function_spaces/">Function spaces</a></li><li><a class="tocitem" href="../functions/">Functions</a></li><li><a class="tocitem" href="../meshes/">Meshes</a></li><li><a class="tocitem" href="../parameters/">Parameters</a></li><li class="is-active"><a class="tocitem" href>Physics</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Physics</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Physics</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Cthonios/FiniteElementContainers.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/main/docs/src/physics.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Physics"><a class="docs-heading-anchor" href="#Physics">Physics</a><a id="Physics-1"></a><a class="docs-heading-anchor-permalink" href="#Physics" title="Permalink"></a></h1><article><details class="docstring" open="true"><summary id="FiniteElementContainers.create_properties-Union{Tuple{AbstractPhysics{NF, NP, NS}}, Tuple{NS}, Tuple{NP}, Tuple{NF}} where {NF, NP, NS}"><a class="docstring-binding" href="#FiniteElementContainers.create_properties-Union{Tuple{AbstractPhysics{NF, NP, NS}}, Tuple{NS}, Tuple{NP}, Tuple{NF}} where {NF, NP, NS}"><code>FiniteElementContainers.create_properties</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">create_properties(
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Physics · FiniteElementContainers.jl</title><meta name="title" content="Physics · FiniteElementContainers.jl"/><meta property="og:title" content="Physics · FiniteElementContainers.jl"/><meta property="twitter:title" content="Physics · FiniteElementContainers.jl"/><meta name="description" content="Documentation for FiniteElementContainers.jl."/><meta property="og:description" content="Documentation for FiniteElementContainers.jl."/><meta property="twitter:description" content="Documentation for FiniteElementContainers.jl."/><meta property="og:url" content="https://cthonios.github.io/FiniteElementContainers.jl/physics/"/><meta property="twitter:url" content="https://cthonios.github.io/FiniteElementContainers.jl/physics/"/><link rel="canonical" href="https://cthonios.github.io/FiniteElementContainers.jl/physics/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">FiniteElementContainers.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><span class="tocitem">Tutorial</span><ul><li><a class="tocitem" href="../tutorials/1_poisson_equation/">1 Poisson Equation</a></li><li><a class="tocitem" href="../tutorials/2_advection_diffusion_equation/">2 Advection-Diffusion Equation</a></li><li><a class="tocitem" href="../tutorials/3_coupled_problem/">3 Coupled Problem</a></li><li><a class="tocitem" href="../tutorials/4_transient_problem/">4 Transient Problem</a></li><li><a class="tocitem" href="../tutorials/5_solid_mechanics/">5 Solid Mechanics</a></li></ul></li><li><a class="tocitem" href="../app_tools/">AppTools</a></li><li><a class="tocitem" href="../assemblers/">Assemblers</a></li><li><a class="tocitem" href="../boundary_conditions/">Boundary Conditions</a></li><li><a class="tocitem" href="../dof_manager/">DofManager</a></li><li><a class="tocitem" href="../expressions/">Expressions</a></li><li><a class="tocitem" href="../fields/">Fields</a></li><li><a class="tocitem" href="../formulations/">Formulations</a></li><li><a class="tocitem" href="../function_spaces/">Function spaces</a></li><li><a class="tocitem" href="../functions/">Functions</a></li><li><a class="tocitem" href="../initial_conditions/">Initial Conditions</a></li><li><a class="tocitem" href="../meshes/">Meshes</a></li><li><a class="tocitem" href="../mpi_parallelism/">MPI Parallelism</a></li><li><a class="tocitem" href="../parameters/">Parameters</a></li><li class="is-active"><a class="tocitem" href>Physics</a><ul class="internal"><li class="toplevel"><a class="tocitem" href="#Writing-Your-First-Physics-Model"><span>Writing Your First Physics Model</span></a></li><li><a class="tocitem" href="#Defining-a-new-physics-type"><span>Defining a new physics type</span></a></li><li><a class="tocitem" href="#Properties"><span>Properties</span></a></li><li class="toplevel"><a class="tocitem" href="#State-variables"><span>State variables</span></a></li><li class="toplevel"><a class="tocitem" href="#Solution-interpolation"><span>Solution interpolation</span></a></li><li class="toplevel"><a class="tocitem" href="#Energy-example"><span>Energy example</span></a></li><li class="toplevel"><a class="tocitem" href="#Residual-example"><span>Residual example</span></a></li><li class="toplevel"><a class="tocitem" href="#Tangent/Jacobian-example"><span>Tangent/Jacobian example</span></a></li><li class="toplevel"><a class="tocitem" href="#Mass"><span>Mass</span></a></li><li class="toplevel"><a class="tocitem" href="#Matrix-Free-Operators"><span>Matrix-Free Operators</span></a></li><li class="toplevel"><a class="tocitem" href="#In-Place-Assembly"><span>In-Place Assembly</span></a></li><li class="toplevel"><a class="tocitem" href="#Summary"><span>Summary</span></a></li><li><a class="tocitem" href="#API"><span>API</span></a></li></ul></li><li><a class="tocitem" href="../utils/">Utilities</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Physics</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Physics</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/Cthonios/FiniteElementContainers.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/main/docs/src/physics.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Physics"><a class="docs-heading-anchor" href="#Physics">Physics</a><a id="Physics-1"></a><a class="docs-heading-anchor-permalink" href="#Physics" title="Permalink"></a></h1><h1 id="Writing-Your-First-Physics-Model"><a class="docs-heading-anchor" href="#Writing-Your-First-Physics-Model">Writing Your First Physics Model</a><a id="Writing-Your-First-Physics-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Writing-Your-First-Physics-Model" title="Permalink"></a></h1><p>The central abstraction in <strong>FiniteElementContainers</strong> is the <code>AbstractPhysics</code> interface.</p><p>A physics object describes <strong>what equations should be solved</strong>, while the finite element framework handles</p><ul><li>element loops,</li><li>quadrature,</li><li>interpolation,</li><li>sparse assembly,</li><li>MPI parallelism,</li><li>and solver infrastructure.</li></ul><p>As a developer, you only write the <strong>local element operators</strong>.</p><p>The easiest way to understand the interface is by implementing Poisson&#39;s equation and then extending the same ideas to nonlinear solid mechanics.</p><hr/><h2 id="Defining-a-new-physics-type"><a class="docs-heading-anchor" href="#Defining-a-new-physics-type">Defining a new physics type</a><a id="Defining-a-new-physics-type-1"></a><a class="docs-heading-anchor-permalink" href="#Defining-a-new-physics-type" title="Permalink"></a></h2><p>Every physics model inherits from <code>AbstractPhysics</code>.</p><pre><code class="language-julia hljs">struct Poisson{F&lt;:Function} &lt;: AbstractPhysics{1,0,0}
+    func::F
+end</code></pre><p>The type parameters</p><pre><code class="language-julia hljs">AbstractPhysics{NF,NP,NS}</code></pre><p>specify</p><table><tr><th style="text-align: right">Parameter</th><th style="text-align: right">Meaning</th></tr><tr><td style="text-align: right"><code>NF</code></td><td style="text-align: right">Number of unknown fields</td></tr><tr><td style="text-align: right"><code>NP</code></td><td style="text-align: right">Number of material properties</td></tr><tr><td style="text-align: right"><code>NS</code></td><td style="text-align: right">Number of state variables</td></tr></table><p>For Poisson,</p><pre><code class="language-julia hljs">AbstractPhysics{1, 0, 0}</code></pre><p>means</p><ul><li>one scalar unknown</li><li>no material parameters</li><li>no internal state.</li></ul><p>By comparison, a nonlinear solid mechanics implementation would be more complicated and below is an example</p><pre><code class="language-julia hljs">struct SolidMechanics{NF, NP, NS, Form, Model} &lt;: AbstractPhysics{NF,NP,NS}
+    formulation::Form
+    constitutive_model::Model
+end</code></pre><p>which contains both the kinematic formulation and constitutive law for convenience.</p><hr/><h2 id="Properties"><a class="docs-heading-anchor" href="#Properties">Properties</a><a id="Properties-1"></a><a class="docs-heading-anchor-permalink" href="#Properties" title="Permalink"></a></h2><p>Physics with material parameters overload</p><pre><code class="language-julia hljs">create_properties(physics, inputs)</code></pre><p>For solid mechanics,</p><pre><code class="language-julia hljs">function create_properties(physics::SolidMechanics, inputs)
+    density = inputs[&quot;density&quot;]
+    mat_props =
+        ConstitutiveModels.initialize_props(
+            physics.constitutive_model,
+            inputs
+        )
+    return pushfirst!(Array(mat_props), density)
+end</code></pre><p>constructs the material property vector from the application input file.</p><p>The Poisson problem has no material properties, so no implementation is required.</p><hr/><h1 id="State-variables"><a class="docs-heading-anchor" href="#State-variables">State variables</a><a id="State-variables-1"></a><a class="docs-heading-anchor-permalink" href="#State-variables" title="Permalink"></a></h1><p>History-dependent constitutive models must initialize their internal variables.</p><p>In our solid mechanics example, we&#39;ll simply forward this to a constitutive model from the package <a href="https://github.com/cthonios/ConstitutiveModels.jl">ConstitutiveModels.jl</a>,</p><pre><code class="language-julia hljs">function create_initial_state(physics::SolidMechanics)
+    return ConstitutiveModels.initialize_state(physics.constitutive_model)
+end</code></pre><p>while Poisson uses the default empty state,</p><pre><code class="language-julia hljs">SVector{0, Float64}()</code></pre><p>because it has no history variables.</p><hr/><h1 id="Solution-interpolation"><a class="docs-heading-anchor" href="#Solution-interpolation">Solution interpolation</a><a id="Solution-interpolation-1"></a><a class="docs-heading-anchor-permalink" href="#Solution-interpolation" title="Permalink"></a></h1><p>Nearly every element kernel begins the same way.</p><pre><code class="language-julia hljs">interps = map_interpolants(interps, x_el)</code></pre><p>which takes the reference element interpolants stored in <span>$interps$</span> and maps them to the current element coordinates. </p><p>Once interpolants are properly mapped once can interpolate the element level solution field to the current quadrature point with one of the following methods</p><pre><code class="language-julia hljs">u_q = interpolate_field_values(physics, interps, u_el)</code></pre><p>or</p><pre><code class="language-julia hljs">∇u_q = interpolate_field_gradients(physics, interps, u_el)</code></pre><p>or</p><pre><code class="language-julia hljs">u_q, ∇u_q = interpolate_field_values_and_gradients(physics, interps, u_el)</code></pre><p>These helper functions evaluate the finite element solution at the current quadrature point.</p><p>You never need to manually evaluate basis functions.</p><hr/><h1 id="Energy-example"><a class="docs-heading-anchor" href="#Energy-example">Energy example</a><a id="Energy-example-1"></a><a class="docs-heading-anchor-permalink" href="#Energy-example" title="Permalink"></a></h1><p>The Poisson energy is remarkably simple.</p><pre><code class="language-julia hljs">function energy(
+    physics,
+    interps,
+    x_el,
+    t,
+    dt,
+    u_el,
+    u_el_old,
+    state_old_q,
+    state_new_q,
+    props_el
+)
+    interps = map_interpolants(interps,x_el)
+    (; X_q, JxW) = interps
+    u_q, ∇u_q = interpolate_field_values_and_gradients(physics, interps, u_el)
+
+    e_q = 0.5 * dot(∇u_q, ∇u_q) - dot(u_q,physics.func(X_q, 0))
+
+    return JxW * e_q
+end</code></pre><p>The framework automatically integrates these quadrature contributions over the element.</p><p>For nonlinear solid mechanics the implementation looks almost identical, but instead we leverage <span>$ConstitutiveModels.jl$</span></p><pre><code class="language-julia hljs">∇u_q = interpolate_field_gradients(physics, interps, u_el)
+ψ_q =
+    ConstitutiveModels.helmholtz_free_energy(
+        physics.constitutive_model,
+        props,
+        dt,
+        ∇u_q,
+        θ,
+        state_old_q,
+        state_new_q
+    )
+
+return JxW*ψ_q</code></pre><p>The only difference is that the constitutive model supplies the strain energy density.</p><hr/><h1 id="Residual-example"><a class="docs-heading-anchor" href="#Residual-example">Residual example</a><a id="Residual-example-1"></a><a class="docs-heading-anchor-permalink" href="#Residual-example" title="Permalink"></a></h1><p>The residual defines the weak form of the PDE.</p><p>For Poisson,</p><pre><code class="language-julia hljs">∇u_q =
+    interpolate_field_gradients(
+        physics,
+        interps,
+        u_el
+    )
+
+R_q =
+    ∇u_q*∇N_X&#39;
+    -
+    N&#39;*physics.func(X_q,0)
+
+return JxW*R_q[:]</code></pre><p>which corresponds directly to</p><p>[ \int \nabla u\cdot\nabla v ––––––––––-</p><p>fv ,d\Omega. ]</p><p>For solid mechanics the same pattern appears,</p><pre><code class="language-julia hljs">P_q =
+    ConstitutiveModels.pk1_stress(
+        physics.constitutive_model,
+        props,
+        dt,
+        ∇u_q,
+        θ,
+        state_old_q,
+        state_new_q
+    )
+
+G_q =
+    discrete_gradient(
+        physics.formulation,
+        ∇N_X
+    )
+
+return JxW*(G_q*P_q)</code></pre><p>The only difference is replacing the Laplacian operator with a constitutive stress tensor.</p><hr/><h1 id="Tangent/Jacobian-example"><a class="docs-heading-anchor" href="#Tangent/Jacobian-example">Tangent/Jacobian example</a><a id="Tangent/Jacobian-example-1"></a><a class="docs-heading-anchor-permalink" href="#Tangent/Jacobian-example" title="Permalink"></a></h1><p>Newton solvers require the element Jacobian.</p><p>For Poisson,</p><pre><code class="language-julia hljs">K_q =
+    ∇N_X*∇N_X&#39;
+
+return JxW*K_q</code></pre><p>which is simply the Laplace operator.</p><p>Solid mechanics follows exactly the same pattern,</p><pre><code class="language-julia hljs">A_q =
+    ConstitutiveModels.material_tangent(
+        physics.constitutive_model,
+        props,
+        dt,
+        ∇u_q,
+        θ,
+        state_old_q,
+        state_new_q
+    )
+
+G_q =
+    discrete_gradient(
+        physics.formulation,
+        ∇N_X
+    )
+
+return
+    JxW*
+    G_q*
+    extract_stiffness(
+        physics.formulation,
+        A_q
+    )*
+    G_q&#39;</code></pre><p>The finite element framework assembles these local matrices into the global tangent matrix automatically.</p><hr/><h1 id="Mass"><a class="docs-heading-anchor" href="#Mass">Mass</a><a id="Mass-1"></a><a class="docs-heading-anchor-permalink" href="#Mass" title="Permalink"></a></h1><p>Transient problems implement</p><pre><code class="language-julia hljs">mass(...)</code></pre><p>The Poisson implementation constructs</p><pre><code class="language-julia hljs">M_el =
+    N*N&#39;</code></pre><p>while solid mechanics simply multiplies by density,</p><pre><code class="language-julia hljs">ρ = props_el[1]
+
+return
+    JxW*
+    ρ*
+    M_el</code></pre><p>No global assembly logic is required.</p><hr/><h1 id="Matrix-Free-Operators"><a class="docs-heading-anchor" href="#Matrix-Free-Operators">Matrix-Free Operators</a><a id="Matrix-Free-Operators-1"></a><a class="docs-heading-anchor-permalink" href="#Matrix-Free-Operators" title="Permalink"></a></h1><p>For large-scale problems it is often preferable to compute</p><p>[ Kv ]</p><p>instead of assembling</p><p>[ K. ]</p><p>This is accomplished by implementing</p><pre><code class="language-julia hljs">stiffness_action(...)
+mass_action(...)</code></pre><p>The Poisson implementation,</p><pre><code class="language-julia hljs">return
+    JxW*
+    ∇N_X*
+    (∇N_X&#39;*v_el)</code></pre><p>computes the matrix-vector product directly without ever forming the stiffness matrix.</p><p>The solid mechanics implementation follows the same pattern using the constitutive tangent tensor.</p><hr/><h1 id="In-Place-Assembly"><a class="docs-heading-anchor" href="#In-Place-Assembly">In-Place Assembly</a><a id="In-Place-Assembly-1"></a><a class="docs-heading-anchor-permalink" href="#In-Place-Assembly" title="Permalink"></a></h1><p>Every finite element operator in <strong>FiniteElementContainers</strong> has two possible implementations.</p><p>The first returns a local element quantity</p><pre><code class="language-julia hljs">residual(...)
+stiffness(...)
+mass(...)</code></pre><p>while the second scatters contributions <strong>directly into the global assembly storage</strong></p><pre><code class="language-julia hljs">residual!(...)
+stiffness!(...)
+mass!(...)</code></pre><p>The two interfaces compute exactly the same mathematical object, but they differ in how the result is assembled.</p><hr/><h3 id="Returning-an-Element-Residual"><a class="docs-heading-anchor" href="#Returning-an-Element-Residual">Returning an Element Residual</a><a id="Returning-an-Element-Residual-1"></a><a class="docs-heading-anchor-permalink" href="#Returning-an-Element-Residual" title="Permalink"></a></h3><p>The simplest implementation explicitly constructs the element residual vector and returns it.</p><p>For the Poisson equation,</p><pre><code class="language-julia hljs">@inline function FiniteElementContainers.residual(
+    physics,
+    interps,
+    x_el,
+    t,
+    dt,
+    u_el,
+    u_el_old,
+    state_old_q,
+    state_new_q,
+    props_el
+)
+
+    interps = map_interpolants(interps, x_el)
+
+    (; X_q, N, ∇N_X, JxW) = interps
+
+    ∇u_q =
+        interpolate_field_gradients(
+            physics,
+            interps,
+            u_el
+        )
+
+    R_q =
+        ∇u_q * ∇N_X&#39;
+        -
+        N&#39; * physics.func(X_q,0)
+
+    return JxW * R_q[:]
+
+end</code></pre><p>Conceptually, this computes</p><p>[ R_e ===</p><p>\int<em>{\Omega</em>e} \nabla N^T \nabla u –––––––––-</p><p>N^T f ,d\Omega, ]</p><p>and returns the element vector to the assembly routine.</p><p>This approach is easy to read and is often ideal for prototyping new formulations.</p><hr/><h3 id="Direct-Assembly"><a class="docs-heading-anchor" href="#Direct-Assembly">Direct Assembly</a><a id="Direct-Assembly-1"></a><a class="docs-heading-anchor-permalink" href="#Direct-Assembly" title="Permalink"></a></h3><p>For production simulations, however, allocating a temporary element vector for every quadrature point and every element can become expensive.</p><p>Instead, the framework allows the local contributions to be <strong>scattered directly into the global assembly buffer</strong>.</p><p>The Poisson implementation becomes</p><pre><code class="language-julia hljs">@inline function FiniteElementContainers.residual!(
+    storage,
+    e,
+    physics,
+    t,
+    dt,
+    props_el,
+    state_old_q,
+    state_new_q,
+    conn,
+    interps,
+    x_el,
+    u_el,
+    u_el_old
+)
+
+    interps = map_interpolants(interps, x_el)
+
+    (; X_q, N, ∇N_X, JxW) = interps
+
+    ∇u_q =
+        interpolate_field_gradients(
+            physics,
+            interps,
+            u_el
+        )
+
+    form =
+        GeneralFormulation{
+            size(X_q,1),
+            num_fields(physics)
+        }()
+
+    scatter_with_gradients!(
+        storage,
+        form,
+        e,
+        conn,
+        ∇N_X,
+        JxW*∇u_q
+    )
+
+    scatter_with_values!(
+        storage,
+        form,
+        e,
+        conn,
+        N,
+        -JxW*physics.func(X_q,0)
+    )
+
+    return nothing
+
+end</code></pre><p>Notice that <strong>no residual vector is ever explicitly constructed</strong>.</p><p>Instead, each contribution is immediately accumulated into the global assembly storage.</p><hr/><h3 id="Understanding-the-Scatter-Operations"><a class="docs-heading-anchor" href="#Understanding-the-Scatter-Operations">Understanding the Scatter Operations</a><a id="Understanding-the-Scatter-Operations-1"></a><a class="docs-heading-anchor-permalink" href="#Understanding-the-Scatter-Operations" title="Permalink"></a></h3><p>The helper functions encapsulate common finite element assembly patterns.</p><p>For example,</p><pre><code class="language-julia hljs">scatter_with_gradients!(
+    storage,
+    form,
+    e,
+    conn,
+    ∇N_X,
+    JxW*∇u_q
+)</code></pre><p>computes the gradient contribution</p><p>[ \int<em>{\Omega</em>e} \nabla N^T \nabla u ,d\Omega ]</p><p>and scatters the resulting entries directly into the global residual vector.</p><p>Similarly,</p><pre><code class="language-julia hljs">scatter_with_values!(
+    storage,
+    form,
+    e,
+    conn,
+    N,
+    -JxW*physics.func(X_q,0)
+)</code></pre><p>adds the forcing term</p><p>[ -\int<em>{\Omega</em>e} N^T f ,d\Omega. ]</p><p>The framework handles all indexing, degree-of-freedom ordering, and accumulation internally.</p><p>The physics implementation simply specifies the mathematical quantity being integrated.</p><hr/><h3 id="Why-This-Matters"><a class="docs-heading-anchor" href="#Why-This-Matters">Why This Matters</a><a id="Why-This-Matters-1"></a><a class="docs-heading-anchor-permalink" href="#Why-This-Matters" title="Permalink"></a></h3><p>The <code>residual!</code> interface avoids allocating temporary element vectors entirely.</p><p>Instead of</p><pre><code class="nohighlight hljs">quadrature
+      ↓
+construct element vector
+      ↓
+return element vector
+      ↓
+assemble globally</code></pre><p>the computation becomes</p><pre><code class="nohighlight hljs">quadrature
+      ↓
+compute local contribution
+      ↓
+scatter directly into global storage</code></pre><p>This reduces memory traffic and temporary allocations, which can have a significant impact for large nonlinear simulations.</p><hr/><p>Exactly the same idea applies to the other finite element operators.</p><p>For example,</p><pre><code class="language-julia hljs">stiffness!(...)</code></pre><p>uses helper routines such as</p><pre><code class="language-julia hljs">scatter_with_gradients_and_gradients!(
+    storage,
+    form,
+    e,
+    conn,
+    ∇N_X,
+    JxW
+)</code></pre><p>to assemble</p><p>[ \int<em>{\Omega</em>e} \nabla N^T \nabla N ,d\Omega ]</p><p>directly into the global sparse matrix.</p><p>Likewise,</p><pre><code class="language-julia hljs">mass!(...)</code></pre><p>uses</p><pre><code class="language-julia hljs">scatter_with_values_and_values!(...)</code></pre><p>to assemble</p><p>[ \int<em>{\Omega</em>e} N^T N ,d\Omega ]</p><p>without ever explicitly constructing an element mass matrix.</p><hr/><h3 id="Recommendation"><a class="docs-heading-anchor" href="#Recommendation">Recommendation</a><a id="Recommendation-1"></a><a class="docs-heading-anchor-permalink" href="#Recommendation" title="Permalink"></a></h3><p>For most new physics implementations, it is often easiest to begin by implementing the return-value interface</p><pre><code class="language-julia hljs">energy(...)
+residual(...)
+stiffness(...)
+mass(...)</code></pre><p>since these closely resemble the mathematical weak form.</p><p>Once the formulation has been verified, the corresponding in-place versions</p><pre><code class="language-julia hljs">energy!(...)
+residual!(...)
+stiffness!(...)
+mass!(...)</code></pre><p>can be implemented using the <code>scatter_with_*</code> helper routines to eliminate potentially large <code>StaticArrays</code> that may blow out the stack and obtain significantly better performance on large-scale simulations.</p><hr/><h1 id="Summary"><a class="docs-heading-anchor" href="#Summary">Summary</a><a id="Summary-1"></a><a class="docs-heading-anchor-permalink" href="#Summary" title="Permalink"></a></h1><p>Implementing a new finite element formulation typically consists of only a handful of methods:</p><pre><code class="language-text hljs">AbstractPhysics
+residual
+stiffness
+(optional)
+create_properties
+create_initial_state
+energy
+mass
+mass_action
+stiffness_action</code></pre><p>The Poisson implementation demonstrates the simplest possible PDE, while the <code>SolidMechanics</code> implementation shows that the exact same interface naturally extends to nonlinear constitutive models with material parameters and history variables.</p><p>In both cases, the developer writes only the local physics. The finite element machinery—interpolation, quadrature, sparse assembly, and solver infrastructure—is completely managed by <strong>FiniteElementContainers</strong>.</p><h2 id="API"><a class="docs-heading-anchor" href="#API">API</a><a id="API-1"></a><a class="docs-heading-anchor-permalink" href="#API" title="Permalink"></a></h2><article><details class="docstring" open="true"><summary id="FiniteElementContainers.create_properties-Union{Tuple{AbstractPhysics{NF, NP, NS}}, Tuple{NS}, Tuple{NP}, Tuple{NF}} where {NF, NP, NS}"><a class="docstring-binding" href="#FiniteElementContainers.create_properties-Union{Tuple{AbstractPhysics{NF, NP, NS}}, Tuple{NS}, Tuple{NP}, Tuple{NF}} where {NF, NP, NS}"><code>FiniteElementContainers.create_properties</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">create_properties(
     physics::AbstractPhysics{NF, NP, NS}
 ) -&gt; StaticArraysCore.SVector{0, Float64}
-</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/d52c12c937b12a65e715ed532e4e9fb48586c634/src/Physics.jl#L36">source</a></section></details></article><article><details class="docstring" open="true"><summary id="FiniteElementContainers.reshape_element_level_coordinates-Union{Tuple{T}, Tuple{NxD}, Tuple{I}, Tuple{I, StaticArraysCore.SVector{NxD, T}}} where {I&lt;:ReferenceFiniteElements.AbstractInterpolants, NxD, T&lt;:Number}"><a class="docstring-binding" href="#FiniteElementContainers.reshape_element_level_coordinates-Union{Tuple{T}, Tuple{NxD}, Tuple{I}, Tuple{I, StaticArraysCore.SVector{NxD, T}}} where {I&lt;:ReferenceFiniteElements.AbstractInterpolants, NxD, T&lt;:Number}"><code>FiniteElementContainers.reshape_element_level_coordinates</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">reshape_element_level_coordinates(
+</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/e3ae1bfe2e396a5decfe1034f276f1d2d1d16042/src/Physics.jl#L36">source</a></section></details></article><article><details class="docstring" open="true"><summary id="FiniteElementContainers.reshape_element_level_coordinates-Union{Tuple{T}, Tuple{NxD}, Tuple{I}, Tuple{I, StaticArraysCore.SVector{NxD, T}}} where {I&lt;:ReferenceFiniteElements.AbstractInterpolants, NxD, T&lt;:Number}"><a class="docstring-binding" href="#FiniteElementContainers.reshape_element_level_coordinates-Union{Tuple{T}, Tuple{NxD}, Tuple{I}, Tuple{I, StaticArraysCore.SVector{NxD, T}}} where {I&lt;:ReferenceFiniteElements.AbstractInterpolants, NxD, T&lt;:Number}"><code>FiniteElementContainers.reshape_element_level_coordinates</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">reshape_element_level_coordinates(
     interps::ReferenceFiniteElements.AbstractInterpolants,
     x_el::StaticArraysCore.SArray{Tuple{NxD}, T&lt;:Number, 1, NxD}
 ) -&gt; Any
-</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/d52c12c937b12a65e715ed532e4e9fb48586c634/src/Physics.jl#L113">source</a></section></details></article><article><details class="docstring" open="true"><summary id="FiniteElementContainers.reshape_element_level_field-Union{Tuple{T}, Tuple{NxNDof}, Tuple{P}, Tuple{P, StaticArraysCore.SVector{NxNDof, T}}} where {P&lt;:AbstractPhysics, NxNDof, T&lt;:Number}"><a class="docstring-binding" href="#FiniteElementContainers.reshape_element_level_field-Union{Tuple{T}, Tuple{NxNDof}, Tuple{P}, Tuple{P, StaticArraysCore.SVector{NxNDof, T}}} where {P&lt;:AbstractPhysics, NxNDof, T&lt;:Number}"><code>FiniteElementContainers.reshape_element_level_field</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">reshape_element_level_field(
+</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/e3ae1bfe2e396a5decfe1034f276f1d2d1d16042/src/Physics.jl#L113">source</a></section></details></article><article><details class="docstring" open="true"><summary id="FiniteElementContainers.reshape_element_level_field-Union{Tuple{T}, Tuple{NxNDof}, Tuple{P}, Tuple{P, StaticArraysCore.SVector{NxNDof, T}}} where {P&lt;:AbstractPhysics, NxNDof, T&lt;:Number}"><a class="docstring-binding" href="#FiniteElementContainers.reshape_element_level_field-Union{Tuple{T}, Tuple{NxNDof}, Tuple{P}, Tuple{P, StaticArraysCore.SVector{NxNDof, T}}} where {P&lt;:AbstractPhysics, NxNDof, T&lt;:Number}"><code>FiniteElementContainers.reshape_element_level_field</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">reshape_element_level_field(
     physics::AbstractPhysics,
     u_el::StaticArraysCore.SArray{Tuple{NxNDof}, T&lt;:Number, 1, NxNDof}
 ) -&gt; Any
-</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/d52c12c937b12a65e715ed532e4e9fb48586c634/src/Physics.jl#L124">source</a></section></details></article><article><details class="docstring" open="true"><summary id="FiniteElementContainers.unpack_field-Union{Tuple{D}, Tuple{L}, Tuple{T}, Tuple{N}, Tuple{M}, Tuple{StaticArraysCore.SMatrix{M, N, T, L}, Int64, Int64, Val{D}}} where {M, N, T&lt;:Number, L, D}"><a class="docstring-binding" href="#FiniteElementContainers.unpack_field-Union{Tuple{D}, Tuple{L}, Tuple{T}, Tuple{N}, Tuple{M}, Tuple{StaticArraysCore.SMatrix{M, N, T, L}, Int64, Int64, Val{D}}} where {M, N, T&lt;:Number, L, D}"><code>FiniteElementContainers.unpack_field</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">unpack_field(
+</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/e3ae1bfe2e396a5decfe1034f276f1d2d1d16042/src/Physics.jl#L124">source</a></section></details></article><article><details class="docstring" open="true"><summary id="FiniteElementContainers.unpack_field-Union{Tuple{D}, Tuple{L}, Tuple{T}, Tuple{N}, Tuple{M}, Tuple{StaticArraysCore.SMatrix{M, N, T, L}, Int64, Int64, Val{D}}} where {M, N, T&lt;:Number, L, D}"><a class="docstring-binding" href="#FiniteElementContainers.unpack_field-Union{Tuple{D}, Tuple{L}, Tuple{T}, Tuple{N}, Tuple{M}, Tuple{StaticArraysCore.SMatrix{M, N, T, L}, Int64, Int64, Val{D}}} where {M, N, T&lt;:Number, L, D}"><code>FiniteElementContainers.unpack_field</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">unpack_field(
     field::StaticArraysCore.SArray{Tuple{M, N}, T&lt;:Number, 2, L},
     dof_start::Int64,
     dof_end::Int64,
     _::Val{D}
 ) -&gt; Any
-</code></pre><p>Unpacks a range of fields values from a SMatrix. This is useful for extracting specific components from an interpolated field gradient at a quadrature point ∇u_q.</p><p>returns a SMatrix.</p><p>Note the Val{D} that is a necessary input. This is crucial for performance with <code>StaticArrays</code>.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/d52c12c937b12a65e715ed532e4e9fb48586c634/src/Physics.jl#L159">source</a></section></details></article><article><details class="docstring" open="true"><summary id="FiniteElementContainers.unpack_field-Union{Tuple{L}, Tuple{T}, Tuple{N}, Tuple{M}, Tuple{StaticArraysCore.SMatrix{M, N, T, L}, Int64}} where {M, N, T&lt;:Number, L}"><a class="docstring-binding" href="#FiniteElementContainers.unpack_field-Union{Tuple{L}, Tuple{T}, Tuple{N}, Tuple{M}, Tuple{StaticArraysCore.SMatrix{M, N, T, L}, Int64}} where {M, N, T&lt;:Number, L}"><code>FiniteElementContainers.unpack_field</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">unpack_field(
+</code></pre><p>Unpacks a range of fields values from a SMatrix. This is useful for extracting specific components from an interpolated field gradient at a quadrature point ∇u_q.</p><p>returns a SMatrix.</p><p>Note the Val{D} that is a necessary input. This is crucial for performance with <code>StaticArrays</code>.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/e3ae1bfe2e396a5decfe1034f276f1d2d1d16042/src/Physics.jl#L159">source</a></section></details></article><article><details class="docstring" open="true"><summary id="FiniteElementContainers.unpack_field-Union{Tuple{L}, Tuple{T}, Tuple{N}, Tuple{M}, Tuple{StaticArraysCore.SMatrix{M, N, T, L}, Int64}} where {M, N, T&lt;:Number, L}"><a class="docstring-binding" href="#FiniteElementContainers.unpack_field-Union{Tuple{L}, Tuple{T}, Tuple{N}, Tuple{M}, Tuple{StaticArraysCore.SMatrix{M, N, T, L}, Int64}} where {M, N, T&lt;:Number, L}"><code>FiniteElementContainers.unpack_field</code></a> — <span class="docstring-category">Method</span></summary><section><div><pre><code class="language-julia hljs">unpack_field(
     field::StaticArraysCore.SArray{Tuple{M, N}, T&lt;:Number, 2, L},
     dof::Int64
 ) -&gt; Any
-</code></pre><p>Unpacks a single fields values from a SMatrix. This is useful for extracting specific components from an interpolated field gradient at a quadrature point ∇u_q.</p><p>Return a SVector</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/d52c12c937b12a65e715ed532e4e9fb48586c634/src/Physics.jl#L145">source</a></section></details></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../parameters/">« Parameters</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 27 May 2026 21:11">Wednesday 27 May 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+</code></pre><p>Unpacks a single fields values from a SMatrix. This is useful for extracting specific components from an interpolated field gradient at a quadrature point ∇u_q.</p><p>Return a SVector</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/Cthonios/FiniteElementContainers.jl/blob/e3ae1bfe2e396a5decfe1034f276f1d2d1d16042/src/Physics.jl#L145">source</a></section></details></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../parameters/">« Parameters</a><a class="docs-footer-nextpage" href="../utils/">Utilities »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 9 June 2026 09:28">Tuesday 9 June 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
