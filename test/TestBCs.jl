@@ -105,10 +105,11 @@ end
 end
 
 @testitem "BCs - juliac-safe dynamic DirichletBCs (symbolic derivatives)" setup=[BCHelper] begin
-  # Mirrors `test_dirichlet_update_bc_values!` but goes through the
-  # `DirichletBCs{F}` juliac-safe constructor, which computes the BC's first
-  # and second time derivatives symbolically via Expressions.differentiate.
-  # No ForwardDiff, no user-supplied derivatives, no Symbolics.
+  # Walks the `DirichletBCs{F}` juliac-safe constructor, which now computes
+  # the BC's first and second time derivatives symbolically via
+  # Expressions.differentiate on the flat tree.  No ForwardDiff, no user-
+  # supplied derivatives, no Symbolics — and the resulting BC function is
+  # `isbits`, so it passes through KA kernels on any backend.
   import FiniteElementContainers: update_bc_values!
   import FiniteElementContainers.Expressions: ScalarExpressionFunction
 
@@ -136,9 +137,9 @@ end
 end
 
 @testitem "BCs - juliac-safe DirichletBCs Gaussian pulse" setup=[BCHelper] begin
-  # Exercises a realistic Gaussian-pulse BC of the form used in the
-  # Norma-ported clamped-bar test: g(t) = a · exp(-(t-tc)^2 / (2 τ^2)).
-  # All three of g, g', g'' are produced by symbolic differentiation alone.
+  # Realistic Gaussian-pulse BC of the form used in the Norma-ported
+  # clamped-bar test.  All three of g, g', g'' come from symbolic
+  # differentiation on the flat tree alone.
   import FiniteElementContainers: update_bc_values!
   import FiniteElementContainers.Expressions: ScalarExpressionFunction
 
