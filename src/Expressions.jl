@@ -638,7 +638,9 @@ f_dot_dot = differentiate(f_dot, "t")
 function differentiate(f::ScalarExpressionFunction{T}, var_name::String) where T
     var_names = f.expr.metadata.var_names
     idx       = findfirst(==(var_name), var_names)
-    @assert idx !== nothing "variable \"$var_name\" not in $(var_names)"
+    # @assert idx !== nothing "variable \"$var_name\" not in $(var_names)"
+    # TODO add error message
+    @assert idx !== nothing
     deriv_tree = _differentiate(f.expr.tree, idx)
     deriv_expr = Expression(deriv_tree; operators, var_names)
     return ScalarExpressionFunction{T}(deriv_expr, f.num_vars)

@@ -25,9 +25,9 @@ function evolve!(integrator::QuasiStaticIntegrator, p)
 
   # Track convergence: check if the last Newton increment is small.
   norm_ΔUu = sqrt(sum(abs2, integrator.solver.linear_solver.ΔUu))
-  converged = norm_ΔUu < integrator.solver.abs_increment_tol ||
+  converged = norm_ΔUu < integrator.solver.settings.abs_increment_tol ||
               sqrt(sum(abs2, residual(integrator.solver.linear_solver.assembler))) <
-              integrator.solver.abs_residual_tol
+              integrator.solver.settings.abs_residual_tol
   integrator.failed[] = !converged
 
   return nothing

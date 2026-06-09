@@ -14,6 +14,13 @@ sort the COO ```(row, col, val)``` triplets so they are ordered by row and then 
 
 NOTE: This is one of the most actively developed areas of the package. Please use caution with any method beginning with a "_" as these are internal methods that will change without notice.
 
+## Lumped mass
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["LumpedMass.jl"]
+Order = [:function]
+```
+
 ## Matrix Diagonal
 ```@autodocs
 Modules = [FiniteElementContainers]

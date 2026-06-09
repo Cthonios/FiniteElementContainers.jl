@@ -1,16 +1,16 @@
 function _default_residual_method(use_inplace_methods::Bool)
-    if _use_inplace_methods(solver.assembler)
-        return residual
-    else
+    if use_inplace_methods
         return residual!
+    else
+        return residual
     end
 end
 
-function _default_stiffness_method(solver::AbstractLinearSolver)
-    if _use_inplace_methods(solver.assembler)
-        return stiffness
-    else
+function _default_stiffness_method(use_inplace_methods::Bool)
+    if use_inplace_methods
         return stiffness!
+    else
+        return stiffness
     end
 end
 
@@ -47,7 +47,7 @@ struct DirectLinearSolver{
     timer::TimerOutput
     # TODO add some tolerances
     # what's the best way to do this with general solvers?
-    ΔUu::Inc
+    ΔUu::U
 
     function DirectLinearSolver(assembler::SparseMatrixAssembler)
         preconditioner = I
@@ -69,8 +69,8 @@ function solve!(solver::DirectLinearSolver, Uu, p)
     #     residual_method = residual
     #     stiffness_method = stiffness
     # end
-    residual_method = _default_residual_method(solver)
-    stiffness_method = _default_stiffness_method(solver)
+    residual_method = _default_residual_method(_use_inplace_methods(solver.assembler))
+    stiffness_method = _default_stiffness_method(_use_inplace_methods(solver.assembler))
     assemble_vector!(solver.assembler, residual_method, Uu, p)
     assemble_vector_source!(solver.assembler, Uu, p)
     assemble_vector_neumann_bc!(solver.assembler, Uu, p)
@@ -86,7 +86,7 @@ function solve!(solver::DirectLinearSolver, Uu, p)
     return nothing
 end
 
-struct IterativeLinearSolverSettings
+struct IterativeLinearSolverSettings <: AbstractLinearSolverSettings
     # TODO add tolerances and what not.
 end
 
@@ -114,6 +114,15 @@ struct IterativeLinearSolver{
             TimerOutput(), ΔUu, workspace
         )
     end
+
+    function IterativeLinearSolver(
+        assembler::A, preconditioner::P, settings, timer, ΔUu::U, workspace::W
+    ) where {A, P, U, W}
+        new{A, P, U, W}(
+            assembler, preconditioner, settings,
+            timer, ΔUu, workspace
+        )
+    end
 end
   
   # TODO specialize for operator like assemblers
@@ -126,8 +135,8 @@ function solve!(solver::IterativeLinearSolver, Uu, p)
     #   residual_method = residual
     #   stiffness_method = stiffness
     # end
-    residual_method = _default_residual_method(solver)
-    stiffness_method = _default_stiffness_method(solver)
+    residual_method = _default_residual_method(_use_inplace_methods(solver.assembler))
+    stiffness_method = _default_stiffness_method(_use_inplace_methods(solver.assembler))
     # assemble relevant fields
     @timeit solver.timer "residual assembly" begin
         assemble_vector!(asm, residual_method, Uu, p)
@@ -161,7 +170,7 @@ end
 # interface to define
 function solve! end
 
-struct NewtonSolverSettings{T <: Number, CB}
+struct NewtonSolverSettings{T <: Number, CB} <: AbstractNonLinearSolverSettings
     max_iters::Int
     abs_increment_tol::T
     abs_residual_tol::T
@@ -209,7 +218,7 @@ function solve!(solver::NewtonSolver, Uu, p)
                             norm_R   < settings.abs_residual_tol   ||
                             rel_R    < settings.rel_residual_tol
                 @debug "Newton" n norm_ΔUu norm_R rel_R
-                if !isnothing(solver.log_callback)
+                if !isnothing(solver.settings.log_callback)
                     solver.log_callback(n, norm_ΔUu, norm_R, rel_R, converged)
                 end
                 converged && break

@@ -1,4 +1,6 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 FiniteElementContainers = "d08262e4-672f-4e7f-a976-f2cea5767631"
+Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
+PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
