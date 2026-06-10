@@ -11,6 +11,7 @@ import ..FunctionSpace
 import ..H1Field
 import ..InitialCondition
 import ..NeumannBC
+import ..PeriodicBC
 import ..RobinBC
 import ..Source
 import ..UnstructuredMesh
@@ -325,6 +326,7 @@ end
 struct BCSettings{N, T <: Number}
     dirichlet::Vector{DirichletBC{ScalarExpressionFunction{T}}}
     neumann::Vector{NeumannBC{VectorExpressionFunction{N, T}}}
+    periodic::Vector{PeriodicBC{ScalarExpressionFunction{T}}}
     robin::Vector{RobinBC{VectorExpressionFunction{N, T}}}
     source::Vector{Source{VectorExpressionFunction{N, T}}}
 
@@ -337,6 +339,7 @@ struct BCSettings{N, T <: Number}
         end
         dbcs = DirichletBC{ScalarExpressionFunction{T}}[]
         nbcs = NeumannBC{VectorExpressionFunction{N, T}}[]
+        pbcs = PeriodicBC{ScalarExpressionFunction{T}}[]
         rbcs = RobinBC{VectorExpressionFunction{N, T}}[]
         srcs = Source{VectorExpressionFunction{N, T}}[]
         if haskey(bc_settings, "dirichlet")
@@ -391,6 +394,10 @@ struct BCSettings{N, T <: Number}
             end
         end
     
+        if haskey(bc_settings, "periodic")
+            @assert false
+        end
+
         if haskey(bc_settings, "robin")
             rbc_settings = bc_settings["robin"]::Vector{Any}
             for bc in rbc_settings
@@ -424,7 +431,7 @@ struct BCSettings{N, T <: Number}
             end
         end
     
-        new{N, T}(dbcs, nbcs, rbcs, srcs)
+        new{N, T}(dbcs, nbcs, pbcs, rbcs, srcs)
     end
 end
 
@@ -642,6 +649,7 @@ struct Simulation{N, T <: Number, IO, Mesh}
     log_file::LogFile{IO}
     mesh::Mesh
     nbcs::Vector{NeumannBC{VectorExpressionFunction{N, T}}}
+    pbcs::Vector{PeriodicBC{ScalarExpressionFunction{T}}}
     rbcs::Vector{RobinBC{VectorExpressionFunction{N, T}}}
     srcs::Vector{Source{VectorExpressionFunction{N, T}}}
 
@@ -664,7 +672,8 @@ struct Simulation{N, T <: Number, IO, Mesh}
         end
         new{N, T, IO, typeof(mesh)}(
             settings.bcs.dirichlet, settings.ics.ics, log_file, mesh,
-            settings.bcs.neumann, settings.bcs.robin, settings.bcs.source
+            settings.bcs.neumann, settings.bcs.periodic,
+            settings.bcs.robin, settings.bcs.source
         )
     end
 end

@@ -205,7 +205,12 @@ end
 # bad piracy at the moment...
 # eventually we should have DofManager capture all
 # this behavior
-function FEC.DofManager(u::FEC.AbstractFunction, dbcs::Vector{DirichletBC}, mesh_file)
+function FEC.DofManager(
+	u::FEC.AbstractFunction,
+	dbcs::Vector{DirichletBC},
+	pbcs::Vector{PeriodicBC},
+	mesh_file
+)
 	num_dofs = num_fields(u)
 	num_ranks = u.fspace.mesh.num_ranks
 	ranks = u.fspace.mesh.ranks
@@ -248,8 +253,10 @@ function FEC.DofManager(u::FEC.AbstractFunction, dbcs::Vector{DirichletBC}, mesh
 		u_local = eval(typeof(u).name.name){typeof(fspace)}(fspace, var_names)
 		dof_local = DofManager(u_local; use_condensed = true)
 		dbcs_local = DirichletBCs(mesh_local, dof_local, dbcs)
+		pbcs_local = PeriodicBCs(mesh_local, dof_local, pbcs)
 		dirichlet_dofs_local = FiniteElementContainers.dirichlet_dofs(dbcs_local)
-		update_dofs!(dof_local, dirichlet_dofs_local)
+		pbc_side_a_dofs, pbc_side_b_dofs = FiniteElementContainers.periodic_dofs(pbcs_local)
+		update_dofs!(dof_local, dirichlet_dofs_local, pbc_side_a_dofs, pbc_side_b_dofs)
 		return dof_local
 	end
 

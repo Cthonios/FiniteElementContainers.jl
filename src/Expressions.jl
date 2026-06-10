@@ -447,6 +447,10 @@ function _flatten_visit!(buf::Vector{FlatNode{T}}, node::Node{T, D})::UInt16 whe
     end
 end
 
+@generated function _vector_to_ntuple(v::Vector{T}) where {T}
+    Expr(:tuple, [:(@inbounds(v[$i])) for i=1:FEC_EXPR_MAX_NODES]...)
+end
+
 function _flatten(root::Node{T, D}) where {T, D}
     buf = FlatNode{T}[]
     sizehint!(buf, FEC_EXPR_MAX_NODES)
@@ -460,7 +464,8 @@ function _flatten(root::Node{T, D}) where {T, D}
     while length(buf) < FEC_EXPR_MAX_NODES
         push!(buf, FlatNode{T}())
     end
-    nodes = NTuple{FEC_EXPR_MAX_NODES, FlatNode{T}}(buf)
+    # nodes = NTuple{FEC_EXPR_MAX_NODES, FlatNode{T}}(buf)
+    nodes = _vector_to_ntuple(buf)
     return nodes, UInt16(n_active)
 end
 

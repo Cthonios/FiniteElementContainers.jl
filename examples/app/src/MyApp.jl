@@ -52,7 +52,7 @@ function app_main(ARGS::Vector{String})
     p = FEC.TypeStableParameters{SFT, VFT}(
         sim.mesh, asm,
         physics, props,
-        sim.ics, sim.dbcs, sim.nbcs, sim.srcs, times
+        sim.ics, sim.dbcs, sim.nbcs, sim.pbcs, sim.srcs, times
     )
     FEC.initialize!(p)
 

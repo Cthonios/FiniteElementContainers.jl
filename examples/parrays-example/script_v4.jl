@@ -26,7 +26,8 @@ u       = ScalarFunction(V, "u")
 dbcs    = DirichletBC[
     DirichletBC("u", bc_func; nodeset_name = "boundary")
 ]
-dof     = DofManager(u, dbcs, mesh_file)
+pbcs    = PeriodicBC[]
+dof     = DofManager(u, dbcs, pbcs, mesh_file)
 asm     = SparseMatrixAssembler(dof)
 p       = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
 
