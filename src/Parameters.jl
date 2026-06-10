@@ -47,6 +47,7 @@ struct Parameters{
   DBCFuncs <: AbstractVector,
   SRCFuncs <: AbstractVector,
   NBCFuncs <: AbstractVector,
+  PBCFuncs <: AbstractVector,
   RBCFuncs <: AbstractVector,
   Phys,
   Props,
@@ -56,6 +57,7 @@ struct Parameters{
   ics::InitialConditions{ICFuncs, IV, RV}
   dirichlet_bcs::DirichletBCs{DBCFuncs, IV, RV}
   neumann_bcs::NeumannBCs{NBCFuncs, IT, IV, RM1}
+  periodic_bcs::PeriodicBCs{PBCFuncs, IV, RV}
   robin_bcs::RobinBCs{RBCFuncs, IT, IV, RM2, RM3}
   sources::Sources{SRCFuncs, RM4}
   times::TimeStepper{RT}
@@ -74,7 +76,7 @@ function Parameters(
   mesh, assembler,
   physics, properties,
   ics,
-  dbcs, nbcs, rbcs,
+  dbcs, nbcs, pbcs, rbcs,
   sources,
   times
 )
@@ -85,6 +87,7 @@ function Parameters(
   ics = InitialConditions(mesh, dof, ics)
   dbcs = DirichletBCs(mesh, dof, dbcs)
   nbcs = NeumannBCs(mesh, dof, nbcs)
+  pbcs = PeriodicBCs(mesh, dof, pbcs)
   rbcs = RobinBCs(mesh, dof, rbcs)
   sources = Sources(mesh, dof, sources)
 
@@ -119,10 +122,10 @@ function Parameters(
   hvp_scratch_field = create_field(dof)
 
   # update assembler, where should this really live?
-  update_dofs!(assembler, dbcs)
+  update_dofs!(assembler, dbcs, pbcs)
 
   return Parameters(
-    ics, dbcs, nbcs, rbcs, sources, times,
+    ics, dbcs, nbcs, pbcs, rbcs, sources, times,
     physics, properties,
     state_old, state_new,
     coords, field, field_old, hvp_scratch_field
@@ -147,6 +150,7 @@ function Adapt.adapt_structure(to, p::Parameters)
     adapt(to, p.ics),
     adapt(to, p.dirichlet_bcs),
     adapt(to, p.neumann_bcs),
+    adapt(to, p.periodic_bcs),
     adapt(to, p.robin_bcs),
     adapt(to, p.sources),
     adapt(to, p.times),
@@ -170,6 +174,8 @@ function Base.show(io::IO, parameters::Parameters)
   println(io, parameters.dirichlet_bcs)
   println(io, "Neumann Boundary Conditions:")
   println(io, parameters.neumann_bcs)
+  println(io, "Periodic Boundary Conditions:")
+  println(io, parameters.periodic_bcs)
   println(io, "Robin Boundary Conditions:")
   println(io, parameters.robin_bcs)
   println(io, "Sources:")
@@ -204,6 +210,7 @@ struct TypeStableParameters{
   ics::InitialConditions{Vector{InitialConditionFunction{SFuncT}}, IV, RV}
   dirichlet_bcs::DirichletBCs{Vector{DirichletBCFunction{SFuncT, SFuncT, SFuncT}}, IV, RV}
   neumann_bcs::NeumannBCs{Vector{NeumannBCFunction{VFuncT}}, IT, IV, RM}
+  periodic_bcs::PeriodicBCs{Vector{PeriodicBCFunction{SFuncT}}, IV, RV}
   # robin_bcs::RobinBCs{RBCFuncs, IT, IV, RM2, RM3}
   sources::Sources{Vector{SourceFunction{VFuncT}}, RM}
   times::TimeStepper{RT}
@@ -217,13 +224,14 @@ struct TypeStableParameters{
   # scratch fields
   hvp_scratch_field::Field
 
-  function TypeStableParameters{SF, VF}(mesh, assembler, physics, props, ics, dbcs, nbcs, srcs, times) where {SF, VF}
+  function TypeStableParameters{SF, VF}(mesh, assembler, physics, props, ics, dbcs, nbcs, pbcs, srcs, times) where {SF, VF}
     dof = assembler.dof
     ND = size(dof, 1)
     fspace = function_space(dof)
     ics = InitialConditions{SF}(mesh, dof, ics)
     dbcs = DirichletBCs{SF}(mesh, dof, dbcs)
     nbcs = NeumannBCs{VF}(mesh, dof, nbcs)
+    pbcs = PeriodicBCs{SF}(mesh, dof, pbcs)
     srcs = Sources{VF}(mesh, dof, srcs)
 
     state_old, state_new = _setup_state_variables(fspace, physics)
@@ -234,13 +242,13 @@ struct TypeStableParameters{
     hvp_scratch_field = create_field(assembler)
 
     # update assembler, where should this really live?
-    update_dofs!(assembler, dbcs)
+    update_dofs!(assembler, dbcs, pbcs)
 
     new{
       SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
       typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
     }(
-      ics, dbcs, nbcs, srcs,
+      ics, dbcs, nbcs, pbcs, srcs,
       times, 
       physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
     )
@@ -252,11 +260,15 @@ function create_parameters(
   ics                  = InitialCondition[],
   dirichlet_bcs        = DirichletBC[],
   neumann_bcs          = NeumannBC[],
+  periodic_bcs         = PeriodicBC[],
   robin_bcs            = RobinBC[],
   sources              = Source[],
   times                = nothing
 )
-  return Parameters(mesh, assembler, physics, props, ics, dirichlet_bcs, neumann_bcs, robin_bcs, sources, times)
+  return Parameters(
+    mesh, assembler, physics, props, ics, 
+    dirichlet_bcs, neumann_bcs, periodic_bcs, robin_bcs, sources, times
+  )
 end
 
 """
@@ -278,6 +290,13 @@ $(TYPEDSIGNATURES)
 """
 function dirichlet_dofs(p::AbstractParameters)
   return dirichlet_dofs(p.dirichlet_bcs)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function periodic_dofs(p::AbstractParameters)
+  return periodic_dofs(p.periodic_dofs)
 end
 
 """
@@ -311,6 +330,7 @@ function update_bc_values!(p::AbstractParameters, assembler)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, assembler, X, t)
+  update_bc_values!(p.periodic_bcs, X, t)
   update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?
@@ -328,6 +348,7 @@ function update_bc_values!(p::TypeStableParameters, assembler)
   t = current_time(p)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, assembler, X, t)
+  update_bc_values!(p.periodic_bcs, X, t)
   update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?
@@ -344,13 +365,15 @@ end
 $(TYPEDSIGNATURES)
 """
 function update_dofs!(asm::AbstractAssembler, p::Parameters)
-  update_dofs!(asm, p.dirichlet_bcs)
+  update_dofs!(asm, p.dirichlet_bcs, asm.periodic_bcs)
   return nothing
 end
 
 function _update_for_assembly!(p::AbstractParameters, dof::DofManager, Uu)
   update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
   update_field_unknowns!(p.field, dof, Uu)
+  # below needs to occur after update_field_unknowns!
+  update_field_periodic_bcs!(p.field, p.periodic_bcs)
 
   # # Robin BC values need to be updated here to be correct
   # update_bc_values!(p.robin_bcs, p.coords, current_time(p), p.field)
@@ -361,6 +384,8 @@ function _update_for_assembly!(p::AbstractParameters, dof::DofManager, Uu, Vu)
   update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
   update_field_unknowns!(p.field, dof, Uu)
   update_field_unknowns!(p.hvp_scratch_field, dof, Vu)
+  # below needs to occur after update_field_unknowns!
+  update_field_periodic_bcs!(p.field, p.periodic_bcs)
 
   # # Robin BC values need to be updated here to be correct
   # update_bc_values!(p.robin_bcs, p.coords, current_time(p), p.field)

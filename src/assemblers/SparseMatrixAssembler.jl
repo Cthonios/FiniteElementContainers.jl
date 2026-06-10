@@ -223,7 +223,7 @@ end
 # constraint_storage is used to make a diagonal matrix of 1s and 0s to zero out element of
 # the residual and stiffness appropriately without having to reshape, Is, Js, etc.
 # when we want to change BCs which is slow
-function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
+function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs, periodic_bcs::PeriodicBCs)
   use_condensed = _is_condensed(assembler.dof)
 
   if length(dirichlet_bcs) > 0
@@ -232,7 +232,9 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
     ddofs = Vector{Int}(undef, 0)
   end
 
-  update_dofs!(assembler.dof, ddofs)
+  pdofs_side_a, pdofs_side_b = periodic_dofs(periodic_bcs)
+
+  update_dofs!(assembler.dof, ddofs, pdofs_side_a, pdofs_side_b)
 
   # TODO make keyword use_condensed more clear
   # the use case here being to flag how to update the sparsity pattern
@@ -242,6 +244,9 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
   if use_condensed
     assembler.constraint_storage[assembler.dof.unknown_dofs] .= 0.
     assembler.constraint_storage[assembler.dof.dirichlet_dofs] .= 1.
+    if length(periodic_bcs) > 0
+      @assert false "Currently not supported periodic bcs in condensed mode"
+    end
   else
     resize!(assembler.residual_unknowns, length(assembler.dof.unknown_dofs))
     resize!(assembler.stiffness_action_unknowns, length(assembler.dof.unknown_dofs))
@@ -252,9 +257,9 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs)
     if assembler isa SparseMatrixAssembler && _is_matrix_free(assembler)
       # no-op: matrix pattern stays empty
     else
-      _update_dofs!(assembler.matrix_pattern, assembler.dof, ddofs)
+      _update_dofs!(assembler.matrix_pattern, assembler.dof, ddofs, pdofs_side_b)
     end
-    _update_dofs!(assembler.vector_pattern, assembler.dof, ddofs)
+    _update_dofs!(assembler.vector_pattern, assembler.dof, ddofs, pdofs_side_b)
   end
 
   # problaby a better way to order all this logic for different things

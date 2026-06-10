@@ -270,8 +270,8 @@ struct DirichletBCs{
     bc_cache = fuse_bcs(false, bc_cache...)
 
     # finally update dofs in dof based on bcs
-    temp_dofs = unique(sort(bc_cache.dofs))
-    update_dofs!(dof, temp_dofs)
+    # temp_dofs = unique(sort(bc_cache.dofs))
+    # update_dofs!(dof, temp_dofs)
 
     # return DirichletBCs(bc_cache, bc_funcs, bc_lengths)
     new{typeof(bc_funcs), typeof(bc_lengths), typeof(bc_cache.vals)}(
@@ -345,8 +345,8 @@ struct DirichletBCs{
     end
 
     # finally update dofs in dof based on bcs
-    temp_dofs = unique(sort(bc_cache_new.dofs))
-    update_dofs!(dof, temp_dofs)
+    # temp_dofs = unique(sort(bc_cache_new.dofs))
+    # update_dofs!(dof, temp_dofs)
 
     new{typeof(bc_funcs), typeof(bc_lengths), typeof(bc_cache_new.vals)}(
       bc_cache_new, bc_funcs, bc_lengths

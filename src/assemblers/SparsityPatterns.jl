@@ -170,22 +170,9 @@ num_entries(s::SparseMatrixPattern) = length(s.Is)
 # NOTE assumes that dirichlet_dofs comes in sorted and uniqued
 # in the pattern object, that means that things
 # like Is, Js, etc. need to be viewed into or sliced
-function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
-  n_total_dofs = length(dof) - length(dirichlet_dofs)
+function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs, periodic_side_b_dofs)
+  n_total_dofs = length(dof) - length(dirichlet_dofs) - length(periodic_side_b_dofs)
   fspace = function_space(dof)
-
-  # create a map for "dof" (e.g. the dof * node for H1) to unknown
-  unknown_to_dof = Vector{eltype(dirichlet_dofs)}(undef, n_total_dofs)
-  ids = 1:length(dof)
-  n = 1
-  for dof in ids
-    if !insorted(dof, dirichlet_dofs)
-      unknown_to_dof[n] = dof
-      n += 1
-    end
-  end
-  dof_to_unknown = Dict([(x, y) for (x, y) in zip(unknown_to_dof, 1:length(unknown_to_dof))])
-  @assert maximum(values(dof_to_unknown)) == n_total_dofs
 
   # figure out total number of entries
   ND, NN = size(dof)
@@ -196,22 +183,17 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
       conns = unsafe_connectivity(fspace, e, b)
       dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conns, 1)
+        ri = dof_to_unknown_index(dof, dof_conns[i])
         for j in axes(dof_conns, 1)
-          if insorted(dof_conns[i], dirichlet_dofs) || insorted(dof_conns[j], dirichlet_dofs)
-
-          else
+          rj = dof_to_unknown_index(dof, dof_conns[j])
+          if ri > 0 && rj > 0
             n_entries += 1
-          end 
+          end
         end
       end
     end
   end
 
-  # # remove me
-  # resize!(pattern.Is, 0)
-  # resize!(pattern.Js, 0)
-  # # end remove me
-  # resize!(pattern.unknown_dofs, 0)
   resize!(pattern.Is, n_entries)
   resize!(pattern.Js, n_entries)
   resize!(pattern.unknown_dofs, n_entries)
@@ -226,26 +208,14 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs)
   for b in 1:num_blocks(fspace)
     for e in 1:num_elements(fspace, b)
       conns = unsafe_connectivity(fspace, e, b)
-      # conn = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
-      # for temp in Iterators.product(conn, conn)
-      #   if insorted(temp[1], dirichlet_dofs) || insorted(temp[2], dirichlet_dofs)
-      #     # really do nothing here
-      #   else
-      #     pattern.Is[n] = dof_to_unknown[temp[1]]
-      #     pattern.Js[n] = dof_to_unknown[temp[2]]
-      #     pattern.unknown_dofs[n] = dof_num
-      #     n += 1
-      #   end
-      #   dof_num += 1
-      # end
       dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conns, 1)
+        ri = dof_to_unknown_index(dof, dof_conns[i])
         for j in axes(dof_conns, 1)
-          if insorted(dof_conns[i], dirichlet_dofs) || insorted(dof_conns[j], dirichlet_dofs)
-            # really do nothing here
-          else
-            pattern.Is[n] = dof_to_unknown[dof_conns[i]]
-            pattern.Js[n] = dof_to_unknown[dof_conns[j]]
+          rj = dof_to_unknown_index(dof, dof_conns[j])
+          if ri > 0 && rj > 0
+            pattern.Is[n] = ri
+            pattern.Js[n] = rj
             pattern.unknown_dofs[n] = dof_num
             n += 1
           end
@@ -433,22 +403,9 @@ end
 
 num_entries(pattern::SparseVectorPattern) = length(pattern.Is)
 
-function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs)
-  n_total_dofs = length(dof) - length(dirichlet_dofs)
+function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs, periodic_side_b_dofs)
+  n_total_dofs = length(dof) - length(dirichlet_dofs) - length(periodic_side_b_dofs)
   fspace = function_space(dof)
-
-  # create a map for "dof" (e.g. the dof * node for H1) to unknown
-  unknown_to_dof = Vector{eltype(dirichlet_dofs)}(undef, n_total_dofs)
-  ids = 1:length(dof)
-  n = 1
-  for dof in ids
-    if !insorted(dof, dirichlet_dofs)
-      unknown_to_dof[n] = dof
-      n += 1
-    end
-  end
-  dof_to_unknown = Dict([(x, y) for (x, y) in zip(unknown_to_dof, 1:length(unknown_to_dof))])
-  @assert maximum(values(dof_to_unknown)) == n_total_dofs
 
   # figure out total number of entries
   ND, NN = size(dof)
@@ -459,11 +416,10 @@ function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs)
       conns = unsafe_connectivity(fspace, e, b)
       dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conns, 1)
-        if insorted(dof_conns[i], dirichlet_dofs)
-
-        else
+        ri = dof_to_unknown_index(dof, dof_conns[i])
+        if ri > 0
           n_entries += 1
-        end 
+        end
       end
     end
   end
@@ -482,10 +438,9 @@ function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs)
       conns = unsafe_connectivity(fspace, e, b)
       conn = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for temp in conn
-        if insorted(temp[1], dirichlet_dofs)
-          # really do nothing here
-        else
-          pattern.Is[n] = dof_to_unknown[temp]
+        ri = dof_to_unknown_index(dof, temp)
+        if ri > 0
+          pattern.Is[n] = ri
           pattern.unknown_dofs[n] = dof_num
           n += 1
         end
