@@ -198,8 +198,23 @@ struct PeriodicBCs{
 end
 
 function Adapt.adapt_structure(to, pbcs::PeriodicBCs)
+      # NOTE
+  # below logic is needed due to improper
+  # adapt mapping for an empty array in julia 1.10/1.11
+  # where Vector{T}(undef, 0) gets mappend to Vector{Any}
+    if length(pbcs) > 0
+        bc_caches = map(x -> adapt(to, x), pbcs.bc_caches)
+    else
+        temp_int = adapt(to, zeros(Int, 0))
+        temp_floats = adapt(to, zeros(Float64, 0))
+        bc_caches = [PeriodicBCContainer(
+            copy(temp_int), copy(temp_int),
+            copy(temp_int), copy(temp_int),
+            temp_floats
+        )]
+    end
     return PeriodicBCs(
-        map(x -> adapt(to, x), pbcs.bc_caches),
+        bc_caches,
         pbcs.bc_funcs
     )
 end
