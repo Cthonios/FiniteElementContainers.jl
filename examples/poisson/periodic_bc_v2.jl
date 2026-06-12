@@ -4,12 +4,6 @@ using Krylov
 using LinearAlgebra
 using SparseArrays
 
-
-# THINGS TO DO
-# 1. Need to propogate dof_to_unknown map to assemblers
-#    so we can use the new dof_to_unknown_index method
-#    or at least that behavior so that PBC assembly works correctly
-
 include("../../test/poisson/TestPoissonCommon.jl")
 
 # function simulation()
@@ -32,7 +26,7 @@ physics = Poisson(f)
 props = create_properties(physics)
 u = ScalarFunction(V, "u")
 dof = DofManager(u)
-asm = SparseMatrixAssembler(dof)
+asm = SparseMatrixAssembler(dof; use_inplace_methods = false, use_sparse_vector = false)
 
 pbcs = PeriodicBC[
     PeriodicBC("u", "x", zero_func, "sset_1", "sset_3")
@@ -40,7 +34,7 @@ pbcs = PeriodicBC[
 ]
 p = create_parameters(mesh, asm, physics, props; periodic_bcs = pbcs)
 # U = create_unknowns(dof)
-solver = NewtonSolver(DirectLinearSolver(asm))
+solver = NewtonSolver(IterativeLinearSolver(asm, :cg))
 integrator = QuasiStaticIntegrator(solver)
 evolve!(integrator, p)
 
@@ -48,11 +42,11 @@ evolve!(integrator, p)
 U = p.field
 # U_an = similar(U)
 # X = p.coords
-u_an = u_analytic.(eachcol(mesh.nodal_coords))
+u_an = H1Field{Float64, Vector{Float64}, 1}(u_analytic.(eachcol(mesh.nodal_coords)))
 
-# for n in axes(mesh.nodal_coords, 2)
-#     @assert isapprox(U[n], u_an[n], atol=5e-2)
-# end
+for n in axes(mesh.nodal_coords, 2)
+    @assert isapprox(U[n], u_an[n], atol=5e-4)
+end
 
 
 # pp = PostProcessor(mesh, output_file, u; copy_mesh_file = false)

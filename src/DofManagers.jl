@@ -13,6 +13,46 @@ abstract type AbstractDofManager{
     IDs <: AbstractArray{IT, 1}
 } end
 
+# struct DofManagerCache{
+#     IT  <: Integer,
+#     IDs <: AbstractVector{IT}
+# } <: AbstractDofManager{IT, IDs}
+#     dirichlet_dofs::IDs
+#     dof_to_unknown::IDs
+#     periodic_side_a_dofs::IDs
+#     periodic_side_b_dofs::IDs
+#     periodic_side_b_to_side_a_unknown::IDs
+#     unknown_dofs::IDs
+# end
+
+# function Adapt.adapt_structure(to, cache::DofManagerCache)
+#     return DofManagerCache(
+#         adapt(to, cache.dirichlet_dofs),
+#         adapt(to, cache.dof_to_unknown),
+#         adapt(to, cache.periodic_side_a_dofs),
+#         adapt(to, cache.periodic_side_b_dofs),
+#         adapt(to, cache.periodic_side_b_to_side_a_unknown),
+#         adapt(to, cache.unknown_dofs)
+#     )
+# end
+
+# Base.eltype(::DofManagerCache{IT, IDs}) where {IT, IDs} = IT
+# _ids_type(::DofManagerCache{IT, IDs}) where {IT, IDs} = IDs
+
+# @inline function dof_to_unknown_index(dof::DofManagerCache, n::Int)
+#     dtu = dof.dof_to_unknown[n]
+#     if dtu == DIRICHLET_DOF
+#         return DIRICHLET_DOF
+#     elseif dtu == PERIODIC_SIDE_B_DOF
+#         side_a_unknown = dof.periodic_side_b_to_side_a_unknown[n]
+#         # @assert side_a_unknown != PERIODIC_SIDE_B_DOF
+#         # TODO need some kind of check here
+#         return side_a_unknown
+#     else
+#         return dtu
+#     end
+# end
+
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
@@ -52,35 +92,40 @@ struct DofManager{
         return DofManager{Condensed}(
             dirichlet_dofs, dof_to_unknown,
             periodic_side_a_dofs, periodic_side_b_dofs,
-            periodic_side_b_to_side_a_unknown, unknown_dofs, var
+            periodic_side_b_to_side_a_unknown, 
+            unknown_dofs, var
         )
     end
 
     function DofManager{Condensed}(
-        dirichlet_dofs, dof_to_unknown,
+        dirichlet_dofs::IDs, dof_to_unknown,
         periodic_side_a_dofs, periodic_side_b_dofs,
-        periodic_side_b_to_side_a_unknown, unknown_dofs, var
-    ) where Condensed
-        new{Condensed, eltype(dirichlet_dofs), typeof(dirichlet_dofs), typeof(var)}(
+        periodic_side_b_to_side_a_unknown, 
+        unknown_dofs, var::V
+    ) where {Condensed, IDs, V}
+        new{Condensed, eltype(dirichlet_dofs), IDs, V}(
             dirichlet_dofs, dof_to_unknown,
-            periodic_side_a_dofs, periodic_side_b_dofs, 
-            periodic_side_b_to_side_a_unknown, unknown_dofs, var
+            periodic_side_a_dofs, periodic_side_b_dofs,
+            periodic_side_b_to_side_a_unknown, 
+            unknown_dofs, var
         )
     end
 end
 
 function Adapt.adapt_structure(to, dof::DofManager)
     return DofManager{_is_condensed(dof)}(
-        adapt(to, dof.dirichlet_dofs),
-        adapt(to, dof.dof_to_unknown),
-        adapt(to, dof.periodic_side_a_dofs),
-        adapt(to, dof.periodic_side_b_dofs),
-        adapt(to, dof.periodic_side_b_to_side_a_unknown),
-        adapt(to, dof.unknown_dofs),
+        adapt(to, dof),
+        adapt(to, cache.dirichlet_dofs),
+        adapt(to, cache.dof_to_unknown),
+        adapt(to, cache.periodic_side_a_dofs),
+        adapt(to, cache.periodic_side_b_dofs),
+        adapt(to, cache.periodic_side_b_to_side_a_unknown),
+        adapt(to, cache.unknown_dofs),
         adapt(to, dof.var)
     )
 end
 
+_ids_type(::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = IDs
 _is_condensed(::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = C
 
 """
@@ -90,7 +135,10 @@ Return the total lenth of dofs in the problem.
 E.g. for an H1 space this will the number of nodes times
 the number of degrees of freedom per node.
 """
-Base.length(dof::DofManager) = length(dof.dirichlet_dofs) + length(dof.periodic_side_b_dofs) + length(dof.unknown_dofs)
+function Base.length(dof::DofManager) 
+    cache = dof
+    return length(cache.dirichlet_dofs) + length(cache.periodic_side_b_dofs) + length(cache.unknown_dofs)
+end
 
 """
 $(TYPEDSIGNATURES)
@@ -167,6 +215,32 @@ function create_unknowns(dof::DofManager{Flag, IT, IDs, Var}, float_type = Float
     end
 end
 
+"""
+Map a single global DOF index to its reduced unknown index.
+ 
+  - Returns `-1`  for Dirichlet DOFs         (caller should skip these).
+  - Returns the side_a's unknown index       for periodic side_b DOFs.
+  - Returns the DOF's own unknown index      for free/side_a DOFs.
+ 
+Both `dof_to_unknown` and `periodic_side_b_to_side_a_unknown` are flat vectors indexed
+by global DOF, so this is a pure array lookup with no allocation — safe to
+call inside GPU kernels.
+"""
+@inline function dof_to_unknown_index(dof::DofManager, n::Int)
+    # return dof_to_unknown_index(dof, n)
+    dtu = dof.dof_to_unknown[n]
+    if dtu == DIRICHLET_DOF
+        return DIRICHLET_DOF
+    elseif dtu == PERIODIC_SIDE_B_DOF
+        side_a_unknown = dof.periodic_side_b_to_side_a_unknown[n]
+        # @assert side_a_unknown != PERIODIC_SIDE_B_DOF
+        # TODO need some kind of check here
+        return side_a_unknown
+    else
+        return dtu
+    end
+end
+
 function extract_field_unknowns!(
     Uu::V,
     dof::DofManager,
@@ -181,31 +255,6 @@ end
 
 function function_space(dof::DofManager)
     return dof.var.fspace
-end
-
-"""
-Map a single global DOF index to its reduced unknown index.
- 
-  - Returns `-1`  for Dirichlet DOFs         (caller should skip these).
-  - Returns the side_a's unknown index       for periodic side_b DOFs.
-  - Returns the DOF's own unknown index      for free/side_a DOFs.
- 
-Both `dof_to_unknown` and `periodic_side_b_to_side_a_unknown` are flat vectors indexed
-by global DOF, so this is a pure array lookup with no allocation — safe to
-call inside GPU kernels.
-"""
-@inline function dof_to_unknown_index(dof::DofManager, n::Int)
-    dtu = dof.dof_to_unknown[n]
-    if dtu == DIRICHLET_DOF
-        return DIRICHLET_DOF
-    elseif dtu == PERIODIC_SIDE_B_DOF
-        side_a_unknown = dof.periodic_side_b_to_side_a_unknown[n]
-        # @assert side_a_unknown != PERIODIC_SIDE_B_DOF
-        # TODO need some kind of check here
-        return side_a_unknown
-    else
-        return dtu
-    end
 end
 
 """

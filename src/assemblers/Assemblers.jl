@@ -87,6 +87,7 @@ function _assemble_element!(
 end
 
 # sparse vector attempt
+# this one is good for pbcs
 function _assemble_element!(
   storage::AbstractVector, R_el::SVector{NDOF, T},
   conns,
@@ -336,6 +337,12 @@ function residual(asm::AbstractAssembler)
       )
       return asm.residual_storage.data
     else
+      # need to adjust for PBCs
+      dof = asm.dof
+      for (side_a_dof, side_b_dof) in zip(dof.periodic_side_a_dofs, dof.periodic_side_b_dofs)
+        asm.residual_storage[side_a_dof] += asm.residual_storage[side_b_dof]
+      end
+
       extract_field_unknowns!(
         asm.residual_unknowns, 
         asm.dof, 

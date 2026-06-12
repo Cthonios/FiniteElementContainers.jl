@@ -40,7 +40,7 @@ struct SparseMatrixAssembler{
   ) where {Condensed, SparseMatrixType, UseInPlaceMethods, UseSparseVec}
     new{
       Condensed, SparseMatrixType, UseInPlaceMethods, UseSparseVec,
-      typeof(dof.unknown_dofs), typeof(residual_storage.data),
+      _ids_type(dof), typeof(residual_storage.data),
       typeof(dof.var), typeof(stiffness_action_storage)
     }(
       dof, matrix_pattern, vector_pattern,
@@ -267,5 +267,6 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs,
     _, n_entries = _setup_block_sizes(assembler.dof, 1)
     resize!(assembler.residual_unknowns, n_entries)
   end
+
   return nothing
 end
