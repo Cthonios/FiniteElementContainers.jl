@@ -12,20 +12,21 @@ expressions = ["2 * pi^2 * sin(2 * pi * x) * sin(2 * pi * y)"]
 variables = ["x", "y", "t"]
 
 [mesh]
-file_path = "poisson.g"
-file_type = "exodus"
+dimension = 2
+"file path" = "poisson.g"
+"file type" = "exodus"
 
-[[boundary_conditions.dirichlet]]
+[["boundary conditions".dirichlet]]
 function = "zero_bc"
-side_sets = ["sset_1", "sset_2"]
+"side sets" = ["sset_1", "sset_2"]
 variables = ["u"]
 
-[[boundary_conditions.dirichlet]]
+[["boundary conditions".dirichlet]]
 function = "zero_bc"
-side_sets = ["sset_3", "sset_4"]
+"side sets" = ["sset_3", "sset_4"]
 variables = ["u"]
 
-[[boundary_conditions.source]]
+[["boundary conditions".source]]
 function = "source_func"
 blocks = ["block_1"]
 variables = ["u"]

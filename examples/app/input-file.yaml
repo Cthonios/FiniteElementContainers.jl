@@ -1,0 +1,41 @@
+device:
+  backend: cpu
+
+functions:
+  zero_ic:
+    type: scalar expression
+    expression: "0.0"
+    variables: [x, y]
+  zero_bc:
+    type: scalar expression
+    expression: "0.0"
+    variables: [x, y, t]
+  source_func:
+    type: vector expression
+    expressions:
+      - "2 * pi^2 * sin(2 * pi * x) * sin(2 * pi * y)"
+    variables: [x, y, t]
+
+mesh:
+  dimension: 2
+  file path: poisson.g
+  file type: exodus
+
+initial conditions:
+  - blocks: [block_1]
+    function: zero_ic
+    variables: [u]
+
+boundary conditions:
+  dirichlet:
+    - function: zero_bc
+      side sets: [sset_1, sset_2]
+      variables: [u]
+    - function: zero_bc
+      side sets: [sset_3, sset_4]
+      variables: [u]
+  
+  source:
+    - function: source_func
+      blocks: [block_1]
+      variables: [u]

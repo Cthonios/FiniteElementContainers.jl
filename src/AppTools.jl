@@ -10,6 +10,7 @@ import ..FileMesh
 import ..FunctionSpace
 import ..H1Field
 import ..InitialCondition
+import ..InputFileParser
 import ..NeumannBC
 import ..PeriodicBC
 import ..RobinBC
@@ -21,6 +22,7 @@ import ..nodal_coordinates_and_ids
 import ..nodesets
 import ..sidesets
 using Exodus
+using ..InputFileParser
 using ReferenceFiniteElements
 using TOML
 
@@ -286,37 +288,38 @@ struct FunctionSettings{N, T <: Number}
     scalar_expr_funcs::Dict{String, ScalarExpressionFunction{T}}
     vector_expr_funcs::Dict{String, VectorExpressionFunction{N, T}}
 
-    function FunctionSettings{N, T}(log_file, data) where {N, T <: Number}
+    function FunctionSettings{N, T}(log_file, parser) where {N, T <: Number}
         print_banner(log_file, "Functions")
         scalar_functions = Dict{String, ScalarExpressionFunction{T}}()
         vector_functions = Dict{String, VectorExpressionFunction{N, T}}()
-        func_settings = data["functions"]::Dict{String, Any}
-        for (k, v) in pairs(func_settings)
-            name = k::String
-            temp = v::Dict{String, Any}
-            type = temp["type"]::String
-            # TODO constant and anaytic are really the same
-            # should we fuse these into "expression" or something like that?
-            if type == "scalar expression"
-                expr = temp["expression"]::String
-                vars = temp["variables"]::Vector{String}
-                println(log_file.io, "Parsing analytic function with expression = $expr")
-                scalar_functions[name] = ScalarExpressionFunction{T}(expr, vars)
-            elseif type == "vector expression"
-                exprs = temp["expressions"]::Vector{String}
-                vars = temp["variables"]::Vector{String}
-                println(log_file.io, "Parsing expression function expressions")
-                for expr in exprs
-                    println(log_file.io, expr)
+        if haskey(parser, "functions")
+            func_settings = parser["functions"]::Dict{String, Any}
+            for (k, v) in pairs(func_settings)
+                name = k::String
+                temp = v::Dict{String, Any}
+                type = temp["type"]::String
+                vars = InputFileParser.get_string_array(temp, "variables", parser.input_style)
+
+                # TODO constant and anaytic are really the same
+                # should we fuse these into "expression" or something like that?
+                if type == "scalar expression"
+                    expr = temp["expression"]::String
+                    expr = String(strip(expr, '"')) # for yaml
+                    println(log_file.io, "Parsing analytic function with expression = $expr")
+                    scalar_functions[name] = ScalarExpressionFunction{T}(expr, vars)
+                elseif type == "vector expression"
+                    exprs = InputFileParser.get_string_array(temp, "expressions", parser.input_style)
+                    for (n, expr) in enumerate(exprs)
+                        exprs[n] = String(strip(expr, '"'))
+                    end
+                    println(log_file.io, "Parsing expression function expressions")
+                    for expr in exprs
+                        println(log_file.io, expr)
+                    end
+                    vector_functions[name] = VectorExpressionFunction{N, T}(exprs, vars)
+                else
+                    @assert false "Unsupported function type $type"
                 end
-                vector_functions[name] = VectorExpressionFunction{N, T}(exprs, vars)
-            # elseif type == "constant"
-            #     expr = temp["expression"]::String
-            #     vars = temp["variables"]::Vector{String}
-            #     println(log_file.io, "Parsing constant function with expression = $expr")
-            #     functions[name] = ScalarExpressionFunction{T}(expr, vars)
-            else
-                @assert false "Unsupported function type $type"
             end
         end
         return new{N, T}(scalar_functions, vector_functions)
@@ -330,10 +333,10 @@ struct BCSettings{N, T <: Number}
     robin::Vector{RobinBC{VectorExpressionFunction{N, T}}}
     source::Vector{Source{VectorExpressionFunction{N, T}}}
 
-    function BCSettings{N, T}(log_file, data, functions::FunctionSettings{N, T}) where {N, T <: Number}
+    function BCSettings{N, T}(log_file, parser, functions::FunctionSettings{N, T}) where {N, T <: Number}
         print_banner(log_file, "Boundary conditions")
-        if haskey(data, "boundary_conditions")
-            bc_settings = data["boundary_conditions"]::Dict{String, Any}
+        if haskey(parser, "boundary conditions")
+            bc_settings = InputFileParser.get_nested_block(parser, "boundary conditions")
         else
             bc_settings = Dict{String, Any}()
         end
@@ -350,23 +353,23 @@ struct BCSettings{N, T <: Number}
                 temp = bc::Dict{String, Any}
                 func = temp["function"]::String
                 func = functions.scalar_expr_funcs[func]
-                vars = temp["variables"]::Vector{String}
+                vars = InputFileParser.get_string_array(temp, "variables", parser.input_style)
                 if haskey(temp, "blocks")
-                    blocks = temp["blocks"]::Vector{String}
+                    blocks = InputFileParser.get_string_array(temp, "blocks", parser.input_style)
                     for block in blocks
                         for var in vars
                             push!(dbcs, DirichletBC(var, func; block_name = block))
                         end
                     end
-                elseif haskey(temp, "node_sets")
-                    node_sets = temp["node_sets"]::Vector{String}
+                elseif haskey(temp, "node sets")
+                    node_sets = InputFileParser.get_string_array(temp, "node sets", parser.input_style)
                     for node_set in node_sets
                         for var in vars
                             push!(dbcs, DirichletBC(var, func; nodeset_name = node_set))
                         end
                     end
-                elseif haskey(temp, "side_sets")
-                    side_sets = temp["side_sets"]::Vector{String}
+                elseif haskey(temp, "side sets")
+                    side_sets = InputFileParser.get_string_array(temp, "side sets", parser.input_style)
                     for side_set in side_sets
                         for var in vars
                             push!(dbcs, DirichletBC(var, func; sideset_name = side_set))
@@ -384,7 +387,7 @@ struct BCSettings{N, T <: Number}
                 temp = bc::Dict{String, Any}
                 func = temp["function"]::String
                 func = functions.vector_expr_funcs[func]
-                sidesets = temp["side_sets"]::Vector{String}
+                sidesets = temp["side sets"]::Vector{String}
                 vars = temp["variables"]::Vector{String}
                 for side_set in sidesets
                     for var in vars
@@ -395,6 +398,7 @@ struct BCSettings{N, T <: Number}
         end
     
         if haskey(bc_settings, "periodic")
+            # TODO
             @assert false
         end
 
@@ -404,8 +408,8 @@ struct BCSettings{N, T <: Number}
                 temp = bc::Dict{String, Any}
                 func = temp["function"]::String
                 func = functions.vector_expr_funcs[func]
-                sidesets = temp["side_sets"]::Vector{String}
-                vars = temp["variables"]::Vector{String}
+                sidesets = InputFileParser.get_string_array(temp, "side sets", parser.input_style)
+                vars = InputFileParser.get_string_array(temp, "variables", parser.input_style)
                 for side_set in sidesets
                     for var in vars
                         push!(rbcs, RobinBC(var, func, side_set))
@@ -418,11 +422,11 @@ struct BCSettings{N, T <: Number}
             src_settings = bc_settings["source"]::Vector{Any}
             for src in src_settings
                 temp = src::Dict{String, Any}
-                blocks = temp["blocks"]::Vector{String}
+                blocks = InputFileParser.get_string_array(temp, "blocks", parser.input_style)
                 func = temp["function"]::String
                 func = functions.vector_expr_funcs[func]
-                sidesets = temp["blocks"]::Vector{String}
-                vars = temp["variables"]::Vector{String}
+                sidesets = InputFileParser.get_string_array(temp, "blocks", parser.input_style)
+                vars = InputFileParser.get_string_array(temp, "variables", parser.input_style)
                 for block in blocks
                     for var in vars
                         push!(srcs, Source(var, func, block))
@@ -445,32 +449,32 @@ end
 struct ICSettings{T <: Number}
     ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
 
-    function ICSettings{T}(log_file, data, functions::FunctionSettings{N, T}) where {N, T}
+    function ICSettings{T}(log_file, parser, functions::FunctionSettings{N, T}) where {N, T}
         print_banner(log_file, "Initial conditions")
         ics = InitialCondition{ScalarExpressionFunction{Float64}}[]
-        if haskey(data, "initial_conditions")
-            ic_settings = data["initial_conditions"]::Vector{Any}
+        if haskey(parser, "initial conditions")
+            ic_settings = parser["initial conditions"]::Vector{Any}
             for ic in ic_settings
                 temp = ic::Dict{String, Any}
                 func = temp["function"]::String
                 func = functions.scalar_expr_funcs[func]
-                vars = temp["variables"]::Vector{String}
+                vars = InputFileParser.get_string_array(temp, "variables", parser.input_style)
                 if haskey(temp, "blocks")
-                    blocks = temp["blocks"]::Vector{String}
+                    blocks = InputFileParser.get_string_array(temp, "blocks", parser.input_style)
                     for block in blocks
                         for var in vars
                             push!(ics, InitialCondition(var, func; block_name = block))
                         end
                     end
-                elseif haskey(temp, "nodesets")
-                    nodesets = temp["nodesets"]::Vector{String}
+                elseif haskey(temp, "node sets")
+                    nodesets = InputFileParser.get_string_array(temp, "node sets", parser.input_file)
                     for nodeset in nodesets
                         for var in vars
                             push!(ics, InitialCondition(var, func; nodeset_name = nodeset))
                         end
                     end
-                elseif haskey(temp, "sidesets")
-                    sidesets = temp["sidesets"]::Vector{String}
+                elseif haskey(temp, "side sets")
+                    sidesets = InputFileParser.get_string_array(temp, "side sets", parser.input_style)
                     for sideset in sidesets
                         for var in vars
                             push!(ics, InitialCondition(var, func; sideset_name = sideset))
@@ -486,14 +490,16 @@ struct ICSettings{T <: Number}
 end
 
 struct MeshSettings
+    dimension::Int
     file_path::String
     file_type::String
 
     function MeshSettings(log_file, data)
         mesh_settings = data["mesh"]::Dict{String, Any}
-        file_path = mesh_settings["file_path"]::String
-        file_type = lowercase(mesh_settings["file_type"]::String)
-        new(file_path, file_type)
+        dimension = mesh_settings["dimension"]::Int
+        file_path = mesh_settings["file path"]::String
+        file_type = lowercase(mesh_settings["file type"]::String)
+        new(dimension, file_path, file_type)
     end
 end
 
@@ -508,7 +514,7 @@ struct InputSettings{N, T <: Number}
     functions::FunctionSettings{N, T}
     ics::ICSettings{T}
     mesh::MeshSettings
-    raw_input::Dict{String, Any}
+    parser::InputFileParser.Parser
 end
 
 function InputSettings{N}(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} = Float64) where {N, T <: Number}
@@ -521,13 +527,13 @@ function InputSettings{N}(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} =
         println(log_file.io, line)
     end
     close(io)
-    data = TOML.parsefile(input_file)
+    parser = InputFileParser.Parser(input_file)
 
-    functions = FunctionSettings{N, T}(log_file, data)
-    bcs = BCSettings{N, T}(log_file, data, functions)
-    ics = ICSettings{T}(log_file, data, functions)
-    mesh = MeshSettings(log_file, data)
-    return InputSettings{N, T}(bcs, functions, ics, mesh, data)
+    functions = FunctionSettings{N, T}(log_file, parser)
+    bcs = BCSettings{N, T}(log_file, parser, functions)
+    ics = ICSettings{T}(log_file, parser, functions)
+    mesh = MeshSettings(log_file, parser)
+    return InputSettings{N, T}(bcs, functions, ics, mesh, parser)
 end
 
 # function _parse_function_space_settings(log_file, data)
@@ -559,7 +565,8 @@ end
 #######################################################
 # MeshIO strongly typed helpers
 #######################################################
-function read_exodus_mesh(mesh_settings::MeshSettings)
+# TODO this needs to have dimension as compile time constant...
+function read_exodus_mesh(mesh_settings::MeshSettings, ::Val{D}) where D
     mesh_path = joinpath(pwd(), mesh_settings.file_path)
     exo = ExodusDatabase{Int32, Int32, Int32, Float64}(mesh_path, "r")
     fm = FileMesh{
@@ -567,7 +574,9 @@ function read_exodus_mesh(mesh_settings::MeshSettings)
         ExodusMesh
     }(mesh_path, exo)
     # read nodes
-    coords_type = H1Field{Float64, Vector{Float64}, 2}
+    # if mesh_settings.dimension == 1
+    coords_type = H1Field{Float64, Vector{Float64}, D}
+
     nodal_coords, n_id_map = nodal_coordinates_and_ids(coords_type, fm)
     # read element block types, conn, etc.
     el_id_map = element_ids(fm)
@@ -584,7 +593,7 @@ function read_exodus_mesh(mesh_settings::MeshSettings)
             ExodusDatabase{Int32, Int32, Int32, Float64},
             ExodusMesh
         },
-        2, Float64, Int, Nothing, Nothing
+        D, Float64, Int, Nothing, Nothing
     }(
         fm,
         nodal_coords, 
@@ -599,9 +608,10 @@ function read_exodus_mesh(mesh_settings::MeshSettings)
     return mesh
 end
 
-function _setup_mesh(log_file::LogFile, settings::InputSettings)
+function _setup_mesh(log_file::LogFile, settings::InputSettings, ::Val{D}) where D
+    @assert settings.mesh.dimension == D
     if lowercase(settings.mesh.file_type) == "exodus"
-        return read_exodus_mesh(settings.mesh)
+        return read_exodus_mesh(settings.mesh, Val{D}())
     else
         error_message(log_file.io, "Unsupported mesh type $(settings.mesh.file_type)")
     end
@@ -610,13 +620,13 @@ end
 #########################################################################
 # main app type
 #########################################################################
-struct App{N}
+struct App{D, N}
     cli_arg_parser::CLIArgParser
     name::String
 
-    function App{N}(name::String) where N
+    function App{D, N}(name::String) where {D, N}
         cli_arg_parser = CLIArgParser()
-        new{N}(cli_arg_parser, name)
+        new{D, N}(cli_arg_parser, name)
     end
 end
 
@@ -629,21 +639,21 @@ function get_cli_arg(app::App, name::String)
     return get_cli_arg(app.cli_arg_parser, name)
 end
 
-function setup(app::App{N}, args::Vector{String}) where N
+function setup(app::App{D, N}, args::Vector{String}) where {D, N}
     parse!(app.cli_arg_parser, args)
     log_file = LogFile(get_cli_arg(app, "--log-file"))
     try
         print_banner(log_file, "CLI Arguments")
         print_dict(log_file.io, app.cli_arg_parser.parsed_args)
         input_settings = InputSettings{N}(app.cli_arg_parser, log_file)
-        return Simulation{N}(input_settings, log_file)
+        return Simulation{D, N}(input_settings, log_file)
     catch e
         close(log_file)
         throw(e)
     end
 end
 
-struct Simulation{N, T <: Number, IO, Mesh}
+struct Simulation{D, N, T <: Number, IO, Mesh}
     dbcs::Vector{DirichletBC{ScalarExpressionFunction{T}}}
     ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
     log_file::LogFile{IO}
@@ -653,9 +663,9 @@ struct Simulation{N, T <: Number, IO, Mesh}
     rbcs::Vector{RobinBC{VectorExpressionFunction{N, T}}}
     srcs::Vector{Source{VectorExpressionFunction{N, T}}}
 
-    function Simulation{N}(settings::InputSettings, log_file::LogFile{IO}) where {N, IO}
+    function Simulation{D, N}(settings::InputSettings, log_file::LogFile{IO}) where {D, N, IO}
         print_banner(log_file, "Mesh")
-        mesh = _setup_mesh(log_file, settings)
+        mesh = _setup_mesh(log_file, settings, Val{D}())
         println(log_file.io, mesh)
         # print_banner(log_file, "Variables")
         # _setup_variables(log_file, settings, mesh)
@@ -670,7 +680,7 @@ struct Simulation{N, T <: Number, IO, Mesh}
         else
             T = Float64
         end
-        new{N, T, IO, typeof(mesh)}(
+        new{D, N, T, IO, typeof(mesh)}(
             settings.bcs.dirichlet, settings.ics.ics, log_file, mesh,
             settings.bcs.neumann, settings.bcs.periodic,
             settings.bcs.robin, settings.bcs.source

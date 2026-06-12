@@ -235,6 +235,8 @@ include("Enzyme.jl")
 include("Utils.jl")
 
 # extras
+include("parser/InputFileParser.jl")
+
 include("AppTools.jl")
 
 end # module

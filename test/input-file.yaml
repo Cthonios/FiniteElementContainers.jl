@@ -1,0 +1,29 @@
+device:
+  backend: cpu
+
+functions:
+  zero:
+    type: scalar expression
+    expression: "0.0"
+    variables: [x, y, t]
+  one:
+    type: scalar expression
+    expression: "1.0"
+    variables: [x, y]
+
+mesh:
+  dimension: 2
+  file path: poisson/poisson.g
+  file type: exodus
+
+initial conditions:
+  - blocks: [block_1]
+    function: one
+    variables: [u]
+
+boundary conditions:
+  dirichlet:
+    - function: zero
+      side sets: [sset_1]
+      variables: [u]
+    
