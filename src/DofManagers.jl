@@ -13,46 +13,6 @@ abstract type AbstractDofManager{
     IDs <: AbstractArray{IT, 1}
 } end
 
-# struct DofManagerCache{
-#     IT  <: Integer,
-#     IDs <: AbstractVector{IT}
-# } <: AbstractDofManager{IT, IDs}
-#     dirichlet_dofs::IDs
-#     dof_to_unknown::IDs
-#     periodic_side_a_dofs::IDs
-#     periodic_side_b_dofs::IDs
-#     periodic_side_b_to_side_a_unknown::IDs
-#     unknown_dofs::IDs
-# end
-
-# function Adapt.adapt_structure(to, cache::DofManagerCache)
-#     return DofManagerCache(
-#         adapt(to, cache.dirichlet_dofs),
-#         adapt(to, cache.dof_to_unknown),
-#         adapt(to, cache.periodic_side_a_dofs),
-#         adapt(to, cache.periodic_side_b_dofs),
-#         adapt(to, cache.periodic_side_b_to_side_a_unknown),
-#         adapt(to, cache.unknown_dofs)
-#     )
-# end
-
-# Base.eltype(::DofManagerCache{IT, IDs}) where {IT, IDs} = IT
-# _ids_type(::DofManagerCache{IT, IDs}) where {IT, IDs} = IDs
-
-# @inline function dof_to_unknown_index(dof::DofManagerCache, n::Int)
-#     dtu = dof.dof_to_unknown[n]
-#     if dtu == DIRICHLET_DOF
-#         return DIRICHLET_DOF
-#     elseif dtu == PERIODIC_SIDE_B_DOF
-#         side_a_unknown = dof.periodic_side_b_to_side_a_unknown[n]
-#         # @assert side_a_unknown != PERIODIC_SIDE_B_DOF
-#         # TODO need some kind of check here
-#         return side_a_unknown
-#     else
-#         return dtu
-#     end
-# end
-
 """
 $(TYPEDEF)
 $(TYPEDSIGNATURES)
