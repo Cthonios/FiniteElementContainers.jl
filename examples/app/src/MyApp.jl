@@ -11,6 +11,7 @@ include("Physics.jl")
 
 # f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 
+const D = 2
 const N = 1
 
 function app_main(ARGS::Vector{String})
@@ -26,7 +27,7 @@ function app_main(ARGS::Vector{String})
     ##################################################
     # Setup app
     ##################################################
-    app = AT.App{N}("MyApp")
+    app = AT.App{D, N}("MyApp")
     sim = AT.setup(app, ARGS)
 
     #####################################
