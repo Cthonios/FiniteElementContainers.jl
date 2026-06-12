@@ -74,7 +74,6 @@ end
 
 function Adapt.adapt_structure(to, dof::DofManager)
     return DofManager{_is_condensed(dof)}(
-        adapt(to, dof),
         adapt(to, cache.dirichlet_dofs),
         adapt(to, cache.dof_to_unknown),
         adapt(to, cache.periodic_side_a_dofs),
