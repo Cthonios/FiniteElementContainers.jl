@@ -78,3 +78,43 @@ end
 @testitem "Regression test - test_poisson_pbcs" setup=[PoissonPBCHelper] begin
     test_poisson_pbcs()
 end
+
+@testitem "Regression test - test_poisson_periodic" setup=[PoissonRegressionHelper] begin
+    output_file = "poisson_periodic_test.e"
+    f_pbc(X, _) = begin
+        x, y = X
+        (2π)^2 * cos(2π * x) +
+        0.5 * (4π)^2 * cos(4π * y) +
+        0.25 * ((2π)^2 + (4π)^2) * sin(2π * x) * sin(4π * y)
+    end
+    u_analytic(x) = cos(2π*x[1]) + 0.5*cos(4π*x[2]) + 0.25*sin(2π*x[1])*sin(4π*x[2])
+    zero_func(_, _) = 0.0
+
+    physics_pbcs = Poisson(f_pbc)
+    for dev in backends
+        for use_inplace_methods in [false, true]
+            asm = SparseMatrixAssembler(
+                u;
+                sparse_matrix_type = :csc,
+                use_condensed = false,
+                use_inplace_methods = use_inplace_methods
+            )
+
+            # setup bcs
+            pbcs = PeriodicBC[
+                PeriodicBC("u", "x", zero_func, "sset_1", "sset_3")
+                PeriodicBC("u", "y", zero_func, "sset_4", "sset_2")
+            ]
+            p = create_parameters(mesh, asm, physics_pbcs, props; periodic_bcs = pbcs)
+            solver = NewtonSolver(IterativeLinearSolver(asm, :cg))
+            integrator = QuasiStaticIntegrator(solver)
+            evolve!(integrator, p)
+            U = p.field
+            U_an = H1Field{Float64, Vector{Float64}, 1}(u_analytic.(eachcol(mesh.nodal_coords)))
+
+            for n in axes(mesh.nodal_coords, 2)
+                @test isapprox(U[n], U_an[n], atol=5e-4)
+            end
+        end
+    end
+end

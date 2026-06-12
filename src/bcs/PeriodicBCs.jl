@@ -1,9 +1,3 @@
-# For a periodic pair in direction dir_id, match on the OTHER coordinates
-# function _transverse_key(coords, node, dir_id, tolerance)
-#     ndim = size(coords, 1)
-#     return tuple([round(Int, coords[d, node] / tolerance) for d in 1:ndim if d != dir_id]...)
-# end
-
 struct PeriodicBC{F} <: AbstractBC{F}
     direction::String
     func::F
@@ -135,7 +129,7 @@ function _update_bc_values!(bc::PeriodicBCContainer, func, X, t)
         elseif ND == 3
             X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node], X[3, node])
         end
-        bc.vals[n] = func.func(X_temp, t)
+        bc.vals[n] = func(X_temp, t)
     end
     return nothing
 end
@@ -150,6 +144,10 @@ struct PeriodicBCFunction{F} <: AbstractBCFunction{F}
     function PeriodicBCFunction{F}(func::F) where F <: Function
         new{F}(func)
     end
+end
+
+function (func::PeriodicBCFunction)(X, t)
+    return func.func(X, t)
 end
 
 struct PeriodicBCs{
@@ -220,7 +218,53 @@ function Adapt.adapt_structure(to, pbcs::PeriodicBCs)
     )
 end
 
+Base.length(bcs::PeriodicBCs) = length(bcs.bc_funcs)
+
+function Base.show(io::IO, bcs::PeriodicBCs)
+    # for (n, (cache, func)) in enumerate(zip(bcs.bc_cache, bcs.bc_funcs))
+    show(io, "PeriodicBC:")
+    show(io, bcs.bc_cache)
+    # show(io, bcs.bc_lengths)
+    # show(io, func)
+    show(io, "\n")
+    # end
+end
+
+function periodic_dofs(bcs::PeriodicBCs)
+    if length(bcs) > 0
+        side_a_dofs = mapreduce(x -> x.side_a_dofs, vcat, bcs.bc_caches)
+        side_b_dofs = mapreduce(x -> x.side_b_dofs, vcat, bcs.bc_caches)
+        perm = _unique_sort_perm(side_b_dofs) # sort by side b, side a will seem unsorted
+        side_a_dofs = side_a_dofs[perm]
+        side_b_dofs = side_b_dofs[perm]
+    else
+        return Vector{Int}(undef, 0), Vector{Int}(undef, 0)
+    end
+    return side_a_dofs, side_b_dofs
+end
+
+function update_bc_values!(bcs::PeriodicBCs, X, t)
+    for n in axes(bcs.bc_caches, 1)
+        _update_bc_values!(bcs.bc_caches[n], bcs.bc_funcs[n], X, t)
+    end
+    return nothing
+end
+
+function update_field_periodic_bcs!(U, bcs::PeriodicBCs)
+    for n in axes(bcs.bc_caches, 1)
+        cache = bcs.bc_caches[n]
+        fec_foreach(cache.side_b_dofs) do I
+            side_a_dof = cache.side_a_dofs[I]
+            side_b_dof = cache.side_b_dofs[I]
+            U[side_b_dof] = U[side_a_dof] + cache.vals[I]
+        end
+    end
+end
+
+#####################################################
+# old likely unused below
 # below is for lagrange multiplier approach
+#####################################################
 function _constraint_matrix(dof::DofManager, pbcs::PeriodicBCs)
     Is, Js, Vs = Int[], Int[], Float64[]
     n = 1
@@ -272,48 +316,4 @@ end
 function _create_constraint_field(dof::DofManager, pbcs::PeriodicBCs)
     n_constraints = mapreduce(x -> length(x.side_a_dofs), +, pbcs.bc_caches)
     return zeros(n_constraints)
-end
-
-Base.length(bcs::PeriodicBCs) = length(bcs.bc_funcs)
-
-function Base.show(io::IO, bcs::PeriodicBCs)
-    # for (n, (cache, func)) in enumerate(zip(bcs.bc_cache, bcs.bc_funcs))
-    show(io, "PeriodicBC:")
-    show(io, bcs.bc_cache)
-    # show(io, bcs.bc_lengths)
-    # show(io, func)
-    show(io, "\n")
-    # end
-end
-
-function periodic_dofs(bcs::PeriodicBCs)
-    if length(bcs) > 0
-        side_a_dofs = mapreduce(x -> x.side_a_dofs, vcat, bcs.bc_caches)
-        side_b_dofs = mapreduce(x -> x.side_b_dofs, vcat, bcs.bc_caches)
-        perm = _unique_sort_perm(side_b_dofs) # sort by side b, side a will seem unsorted
-        side_a_dofs = side_a_dofs[perm]
-        side_b_dofs = side_b_dofs[perm]
-    else
-        return Vector{Int}(undef, 0), Vector{Int}(undef, 0)
-    end
-    return side_a_dofs, side_b_dofs
-end
-
-function update_bc_values!(bcs::PeriodicBCs, X, t)
-    # for bc_cache, bc_func in zbcs.bc_caches
-    for n in axes(bcs.bc_caches, 1)
-        _update_bc_values!(bcs.bc_caches[n], bcs.bc_funcs[n], X, t)
-    end
-    return nothing
-end
-
-function update_field_periodic_bcs!(U, bcs::PeriodicBCs)
-    for n in axes(bcs.bc_caches, 1)
-        cache = bcs.bc_caches[n]
-        fec_foreach(cache.side_b_dofs) do I
-            side_a_dof = cache.side_a_dofs[I]
-            side_b_dof = cache.side_b_dofs[I]
-            U[side_b_dof] = U[side_a_dof] + cache.vals[I]
-        end
-    end
 end
