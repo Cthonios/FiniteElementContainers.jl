@@ -253,6 +253,36 @@ struct TypeStableParameters{
       physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
     )
   end
+
+  function TypeStableParameters{SF, VF}(
+    mesh, assembler, physics, props, state_old, state_new,
+    ics, dbcs, nbcs, pbcs, srcs, times
+  ) where {SF, VF}
+    dof = assembler.dof
+    ND = size(dof, 1)
+    ics = InitialConditions{SF}(mesh, dof, ics)
+    dbcs = DirichletBCs{SF}(mesh, dof, dbcs)
+    nbcs = NeumannBCs{VF}(mesh, dof, nbcs)
+    pbcs = PeriodicBCs{SF}(mesh, dof, pbcs)
+    srcs = Sources{VF}(mesh, dof, srcs)
+
+    coords = mesh.nodal_coords
+    field = create_field(assembler)
+    field_old = create_field(assembler)
+    hvp_scratch_field = create_field(assembler)
+
+    # update assembler, where should this really live?
+    update_dofs!(assembler, dbcs, pbcs)
+
+    new{
+      SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
+      typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
+    }(
+      ics, dbcs, nbcs, pbcs, srcs,
+      times, 
+      physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
+    )
+  end
 end
 
 function create_parameters(

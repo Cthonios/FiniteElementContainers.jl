@@ -14,11 +14,26 @@ gives the true diagonal, whereas the row-sum approximation `K·1` can
 be zero at interior nodes of uniform meshes.
 """
 function assemble_diagonal!(
-  assembler, func::F, Uu, p
+  assembler::AbstractAssembler, func::F, u, p
 ) where F <: Function
-  storage = assembler.residual_storage
+  assemble_diagonal!(
+    assembler.residual_storage,
+    assembler.vector_pattern, assembler.dof,
+    func, u, p;
+    use_inplace_methods = _use_inplace_methods(assembler)
+  )
+end
+
+# function assemble_diagonal!(
+#   assembler, func::F, Uu, p
+# ) where F <: Function
+  # storage = assembler.residual_storage
+function assemble_diagonal!(
+  storage, pattern, dof, func, Uu, p;
+  use_inplace_methods::Bool = false
+)
   fill!(storage, zero(eltype(storage)))
-  dof = assembler.dof
+  # dof = assembler.dof
   fspace = function_space(dof)
   X = coordinates(p)
   t = current_time(p)
@@ -29,16 +44,28 @@ function assemble_diagonal!(
   return_type = AssembledDiagonal()
   conns = fspace.elem_conns
   foreach_block(fspace, p) do physics, props, ref_fe, b
-    _assemble_block!(
-      storage,
-      conns.data, conns.offsets[b],
-      func,
-      physics, ref_fe,
-      X, t, Δt,
-      U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
-      return_type
-    )
+    if use_inplace_methods
+      _assemble_block!(
+        storage,
+        func,
+        physics,
+        t, Δt,
+        props,
+        block_view(p.state_old, b), block_view(p.state_new, b),
+        conns.data, conns.offsets[b], ref_fe, X, U, U_old
+      )
+    else
+      _assemble_block!(
+        storage,
+        conns.data, conns.offsets[b],
+        func,
+        physics, ref_fe,
+        X, t, Δt,
+        U, U_old,
+        block_view(p.state_old, b), block_view(p.state_new, b), props,
+        return_type
+      )
+    end
   end
   return nothing
 end

@@ -140,15 +140,16 @@ function _empty_matrix_pattern(dof::DofManager)
     similar(dof.unknown_dofs, 0),  # Is
     similar(dof.unknown_dofs, 0),  # Js
     similar(dof.unknown_dofs, 0),  # unknown_dofs
-    Int[],                          # block_start_indices
-    [0],                            # max_entries  (single zero — see create_assembler_cache)
+    Int[],                         # block_start_indices
+    [0],                           # max_entries  (single zero — see create_assembler_cache)
     similar(dof.unknown_dofs, 0),  # klasttouch
     similar(dof.unknown_dofs, 0),  # csrrowptr
     similar(dof.unknown_dofs, 0),  # csrcolval
-    Float64[],                      # csrnzval
+    Float64[],                     # csrnzval
     similar(dof.unknown_dofs, 0),  # csccolptr
     similar(dof.unknown_dofs, 0),  # cscrowval
-    Float64[],                      # cscnzval
+    Float64[],                     # cscnzval_mass
+    Float64[],                     # cscnzval_stiffness
     similar(dof.unknown_dofs, 0)   # permutation
   )
 end

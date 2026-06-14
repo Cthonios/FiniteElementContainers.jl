@@ -16,19 +16,37 @@ struct VariableNameNotFoundError <: Exception
 end
 _var_not_found_err() = throw(VariableNameNotFoundError())
 
-function _dof_index_from_var_name(dof, var_name)
-  # dbc/nbc or robin for scalar case
-  dof_index = findfirst(x -> x == var_name, names(dof.var))
-  if dof_index === nothing
-    # try a vector/tensor neumann/robin bc type
-    dof_index = findfirst(x -> occursin("$(var_name)_", x), names(dof.var))
+# function _dof_index_from_var_name(dof, var_name)
+#   # dbc/nbc or robin for scalar case
+#   dof_index = findfirst(x -> x == var_name, names(dof.var))
+#   if dof_index === nothing
+#     # try a vector/tensor neumann/robin bc type
+#     dof_index = findfirst(x -> occursin("$(var_name)_", x), names(dof.var))
 
-    # if we still haven't found anything, this variable likely doesn't exist
-    if dof_index === nothing
-      _var_not_found_err()
-    end
+#     # if we still haven't found anything, this variable likely doesn't exist
+#     if dof_index === nothing
+#       _var_not_found_err()
+#     end
+#   end
+#   return dof_index
+# end
+function _dof_index_from_var_name(dof, var_name)
+  var_names = names(dof.var)
+
+  for i = 1:length(var_names)
+      if var_names[i] == var_name
+          return i
+      end
   end
-  return dof_index
+
+  prefix = var_name * "_"
+  for i = 1:length(var_names)
+      if startswith(var_names[i], prefix)
+          return i
+      end
+  end
+
+  _var_not_found_err()
 end
 
 function _unique_sort_perm(array::AbstractArray{T, 1}) where T <: Number
