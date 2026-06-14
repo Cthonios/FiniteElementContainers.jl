@@ -137,15 +137,6 @@ function KA.get_backend(pattern::SparseMatrixPattern)
   return KA.get_backend(pattern.Is)
 end
 
-function _sparse_cpu!(pattern::SparseMatrixPattern, coo_storage, csc_storage)
-  return @views SparseArrays.sparse!(
-    pattern.Is, pattern.Js, coo_storage[pattern.unknown_dofs],
-    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
-    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
-    pattern.csccolptr, pattern.cscrowval, csc_storage
-  )
-end
-
 function block_view(storage::AbstractVector, pattern::SparseMatrixPattern, b::Int)
   @assert b > 0 && b <= length(pattern.block_start_indices)
   if b == length(pattern.block_start_indices) || length(pattern.block_start_indices) == 1
