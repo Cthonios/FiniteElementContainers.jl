@@ -250,14 +250,31 @@ function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::I
   return state_q
 end
 
-function _sparse_matrix(asm::AbstractAssembler, storage)
+function _sparse_matrix_mass(asm::AbstractAssembler, coo_storage)
   type = _sparse_matrix_type(asm)
   if isa(type, COOMatrix)
-    return _coo_matrix(asm.matrix_pattern, asm.dof, storage)
+    return _coo_matrix(asm.matrix_pattern, asm.dof, coo_storage)
   elseif isa(type, CSCMatrix)
-    return _csc_matrix(asm.matrix_pattern, asm.dof, storage)
+    csc_storage = asm.matrix_pattern.cscnzval_mass
+    return _csc_matrix(asm.matrix_pattern, asm.dof, coo_storage, csc_storage)
   elseif isa(type, CSRMatrix)
-    return _csr_matrix(asm.matrix_pattern, asm.dof, storage)
+    csc_storage = asm.matrix_pattern.cscnzval_mass
+    return _csr_matrix(asm.matrix_pattern, asm.dof, coo_storage, csc_storage)
+  else
+    @assert false "Should never happen. Handle this case better. Type is $(_sparse_matrix_type(asm))"
+  end
+end
+
+function _sparse_matrix_stiffness(asm::AbstractAssembler, coo_storage)
+  type = _sparse_matrix_type(asm)
+  if isa(type, COOMatrix)
+    return _coo_matrix(asm.matrix_pattern, asm.dof, coo_storage)
+  elseif isa(type, CSCMatrix)
+    csc_storage = asm.matrix_pattern.cscnzval_stiffness
+    return _csc_matrix(asm.matrix_pattern, asm.dof, coo_storage, csc_storage)
+  elseif isa(type, CSRMatrix)
+    csc_storage = asm.matrix_pattern.cscnzval_stiffness
+    return _csr_matrix(asm.matrix_pattern, asm.dof, coo_storage, csc_storage)
   else
     @assert false "Should never happen. Handle this case better. Type is $(_sparse_matrix_type(asm))"
   end
@@ -314,7 +331,7 @@ function mass(asm::AbstractAssembler)
     return _zero_sparse_matrix(asm)
   end
 
-  M = _sparse_matrix(asm, asm.mass_storage)
+  M = _sparse_matrix_mass(asm, asm.mass_storage)
 
   if _is_condensed(asm.dof)
     _adjust_matrix_entries_for_constraints!(M, asm.constraint_storage)
@@ -361,7 +378,7 @@ function stiffness(asm::AbstractAssembler)
     return _zero_sparse_matrix(asm)
   end
 
-  K = _sparse_matrix(asm, asm.stiffness_storage)
+  K = _sparse_matrix_stiffness(asm, asm.stiffness_storage)
 
   if _is_condensed(asm.dof)
     _adjust_matrix_entries_for_constraints!(K, asm.constraint_storage)

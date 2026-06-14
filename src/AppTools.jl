@@ -15,6 +15,7 @@ import ..NeumannBC
 import ..PeriodicBC
 import ..RobinBC
 import ..Source
+import ..TimeStepper
 import ..UnstructuredMesh
 import ..element_blocks
 import ..element_ids
@@ -285,6 +286,7 @@ print_dict(l::LogFile, d::Dict{String, String}) = print_dict(l, d)
 # Input file
 #######################################################
 struct FunctionSettings{N, T <: Number}
+    dict::Dict{String, Any}
     scalar_expr_funcs::Dict{String, ScalarExpressionFunction{T}}
     vector_expr_funcs::Dict{String, VectorExpressionFunction{N, T}}
 
@@ -321,12 +323,15 @@ struct FunctionSettings{N, T <: Number}
                     @assert false "Unsupported function type $type"
                 end
             end
+        else
+            func_settings = Dict{String, Any}()
         end
-        return new{N, T}(scalar_functions, vector_functions)
+        return new{N, T}(func_settings, scalar_functions, vector_functions)
     end
 end
 
 struct BCSettings{N, T <: Number}
+    dict::Dict{String, Any}
     dirichlet::Vector{DirichletBC{ScalarExpressionFunction{T}}}
     neumann::Vector{NeumannBC{VectorExpressionFunction{N, T}}}
     periodic::Vector{PeriodicBC{ScalarExpressionFunction{T}}}
@@ -435,17 +440,10 @@ struct BCSettings{N, T <: Number}
             end
         end
     
-        new{N, T}(dbcs, nbcs, pbcs, rbcs, srcs)
+        new{N, T}(bc_settings, dbcs, nbcs, pbcs, rbcs, srcs)
     end
 end
 
-
-# struct FunctionSpaceSettings
-#     field_type::String
-#     polynomial_type::String
-# end
-
-# TODO currently only supports blocks
 struct ICSettings{T <: Number}
     ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
 
@@ -489,13 +487,26 @@ struct ICSettings{T <: Number}
     end
 end
 
+struct MaterialSettings
+    materials::Dict{String, Any}
+
+    function MaterialSettings(log_file, parser)
+        if haskey(parser, "materials")
+            materials = InputFileParser.get_nested_block(parser, "materials")
+        else
+            materials = Dict{String, Any}()
+        end
+        new(materials)
+    end
+end
+
 struct MeshSettings
     dimension::Int
     file_path::String
     file_type::String
 
-    function MeshSettings(log_file, data)
-        mesh_settings = data["mesh"]::Dict{String, Any}
+    function MeshSettings(log_file, parser)
+        mesh_settings = InputFileParser.get_nested_block(parser, "mesh")
         dimension = mesh_settings["dimension"]::Int
         file_path = mesh_settings["file path"]::String
         file_type = lowercase(mesh_settings["file type"]::String)
@@ -503,18 +514,38 @@ struct MeshSettings
     end
 end
 
-# struct VariableSettings
-#     function_space::String
-#     name::String
-#     variable_type::String
-# end
+struct TimeSettings{T <: Number}
+    dict::Dict{String, Any}
+    time::Union{Nothing, TimeStepper{T}}
+
+    function TimeSettings(log_file, parser)
+        if haskey(parser, "time")
+            time_settings = InputFileParser.get_nested_block(parser, "time")
+            end_time = time_settings["end time"]::Float64
+            start_time = time_settings["start time"]::Float64
+            if haskey(time_settings, "number of time steps")
+                nt = time_settings["number of time steps"]::Int
+                Δt = (end_time - start_time) / nt
+            elseif haskey(time_settings, "time step")
+                Δt = time_settings["time step"]::Float64
+            else
+                @assert false "Requires either one of \"number of time steps\" or \"time step\" commands."
+            end
+            new{Float64}(time_settings, TimeStepper(start_time, end_time, start_time, Δt))
+        else
+            new{Float64}(Dict{String, Any}(), nothing)
+        end
+    end
+end
 
 struct InputSettings{N, T <: Number}
     bcs::BCSettings{N, T}
     functions::FunctionSettings{N, T}
     ics::ICSettings{T}
+    materials::MaterialSettings
     mesh::MeshSettings
     parser::InputFileParser.Parser
+    time::TimeSettings{T}
 end
 
 function InputSettings{N}(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} = Float64) where {N, T <: Number}
@@ -532,35 +563,11 @@ function InputSettings{N}(cli_args::CLIArgParser, log_file::LogFile, ::Type{T} =
     functions = FunctionSettings{N, T}(log_file, parser)
     bcs = BCSettings{N, T}(log_file, parser, functions)
     ics = ICSettings{T}(log_file, parser, functions)
+    materials = MaterialSettings(log_file, parser)
     mesh = MeshSettings(log_file, parser)
-    return InputSettings{N, T}(bcs, functions, ics, mesh, parser)
+    time = TimeSettings(log_file, parser)
+    return InputSettings{N, T}(bcs, functions, ics, materials, mesh, parser, time)
 end
-
-# function _parse_function_space_settings(log_file, data)
-#     settings = data["function_spaces"]::Dict{String, Any}
-#     fspaces = Dict{String, FunctionSpaceSettings}()
-#     for (k, v) in settings
-#         name = k::String
-#         temp = v::Dict{String, Any}
-#         field_type = temp["field_type"]::String
-#         polynomial_type = temp["polynomial_type"]::String
-#         fspaces[name] = FunctionSpaceSettings(field_type, polynomial_type)
-#     end
-#     return fspaces
-# end
-
-# function _parse_variable_settings(log_file, data)
-#     var_settings = data["variables"]::Dict{String, Any}
-#     vars = Dict{String, VariableSettings}()
-#     for (k, v) in var_settings
-#         name = k::String
-#         temp = v::Dict{String, Any}
-#         fspace = temp["function_space"]::String
-#         type = temp["type"]::String
-#         vars[name] = VariableSettings(fspace, name, type)
-#     end
-#     return vars
-# end
 
 #######################################################
 # MeshIO strongly typed helpers
@@ -656,6 +663,7 @@ end
 struct Simulation{D, N, T <: Number, IO, Mesh}
     dbcs::Vector{DirichletBC{ScalarExpressionFunction{T}}}
     ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
+    input_settings::InputSettings{N, T}
     log_file::LogFile{IO}
     mesh::Mesh
     nbcs::Vector{NeumannBC{VectorExpressionFunction{N, T}}}
@@ -676,12 +684,13 @@ struct Simulation{D, N, T <: Number, IO, Mesh}
         #     println(log_file.io, fspace::FunctionSpace)
         # end
         if length(settings.ics.ics) > 1
-            T = eltype(settings.ics[1])
+            T = eltype(settings.ics.ics[1])
         else
             T = Float64
         end
         new{D, N, T, IO, typeof(mesh)}(
-            settings.bcs.dirichlet, settings.ics.ics, log_file, mesh,
+            settings.bcs.dirichlet, settings.ics.ics, 
+            settings, log_file, mesh,
             settings.bcs.neumann, settings.bcs.periodic,
             settings.bcs.robin, settings.bcs.source
         )

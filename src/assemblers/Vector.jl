@@ -10,7 +10,6 @@ function assemble_vector!(
     storage = assembler.residual_storage
   end
   assemble_vector!(
-    # assembler.residual_storage, 
     storage,
     assembler.vector_pattern, assembler.dof,
     func, Uu, p;

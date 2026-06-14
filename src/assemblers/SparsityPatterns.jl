@@ -44,7 +44,8 @@ struct SparseMatrixPattern{
   # additional cache arrays
   csccolptr::I
   cscrowval::I
-  cscnzval::R
+  cscnzval_mass::R
+  cscnzval_stiffness::R
   # trying something new
   permutation::I
 end
@@ -89,9 +90,10 @@ function SparseMatrixPattern(dof::DofManager)
   csrcolval  = zeros(Int64, length(Is))
   csrnzval   = zeros(Float64, length(Is))
 
-  csccolptr = Vector{Int64}(undef, 0)
-  cscrowval = Vector{Int64}(undef, 0)
-  cscnzval  = Vector{Float64}(undef, 0)
+  csccolptr          = Vector{Int64}(undef, 0)
+  cscrowval          = Vector{Int64}(undef, 0)
+  cscnzval_mass      = Vector{Float64}(undef, 0)
+  cscnzval_stiffness = Vector{Float64}(undef, 0)
 
   # set permutation — pack (row, col) into one Int64 key so sortperm takes the
   # integer radix-sort path instead of an O(N log N) tuple comparison sort.
@@ -107,7 +109,7 @@ function SparseMatrixPattern(dof::DofManager)
     # cache arrays
     klasttouch, csrrowptr, csrcolval, csrnzval,
     # additional cache arrays
-    csccolptr, cscrowval, cscnzval,
+    csccolptr, cscrowval, cscnzval_mass, cscnzval_stiffness,
     permutation
   )
 
@@ -115,39 +117,24 @@ function SparseMatrixPattern(dof::DofManager)
 end
 
 function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
-  Is = adapt(to, asm.Is)
-  Js = adapt(to, asm.Js)
-  unknown_dofs = adapt(to, asm.unknown_dofs)
-  #
-  klasttouch = adapt(to, asm.klasttouch)
-  csrrowptr = adapt(to, asm.csrrowptr)
-  csrcolval = adapt(to, asm.csrcolval)
-  csrnzval = adapt(to, asm.csrnzval)
-  #
-  csccolptr = adapt(to, asm.csccolptr)
-  cscrowval = adapt(to, asm.cscrowval)
-  cscnzval = adapt(to, asm.cscnzval)
-  perm = adapt(to, asm.permutation)
   return SparseMatrixPattern(
-    Is, Js,
-    unknown_dofs,
+    adapt(to, asm.Is),
+    adapt(to, asm.Js),
+    adapt(to, asm.unknown_dofs),
     asm.block_start_indices, asm.max_entries,
-    klasttouch, csrrowptr, csrcolval, csrnzval,
-    csccolptr, cscrowval, cscnzval, perm
+    adapt(to, asm.klasttouch),
+    adapt(to, asm.csrrowptr),
+    adapt(to, asm.csrcolval),
+    adapt(to, asm.csrnzval),
+    adapt(to, asm.csccolptr),
+    adapt(to, asm.cscrowval),
+    adapt(to, asm.cscnzval_mass), adapt(to, asm.cscnzval_stiffness),
+    adapt(to, asm.permutation)
   )
 end
 
 function KA.get_backend(pattern::SparseMatrixPattern)
   return KA.get_backend(pattern.Is)
-end
-
-function SparseArrays.sparse!(pattern::SparseMatrixPattern, storage)
-  return @views SparseArrays.sparse!(
-    pattern.Is, pattern.Js, storage[pattern.unknown_dofs],
-    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
-    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
-    pattern.csccolptr, pattern.cscrowval, pattern.cscnzval
-  )
 end
 
 function block_view(storage::AbstractVector, pattern::SparseMatrixPattern, b::Int)
@@ -228,8 +215,6 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs, period
   resize!(pattern.klasttouch, n_total_dofs)
   resize!(pattern.csrrowptr, n_total_dofs + 1)
   # TODO Not sure about below 2 sizes
-  # resize!(assembler.pattern.csrcolval, length(assembler.pattern.Is))
-  # resize!(assembler.pattern.csrnzval, length(assembler.pattern.Is))
   resize!(pattern.csrcolval, length(pattern.Is))
   resize!(pattern.csrnzval, length(pattern.Is))
 
@@ -302,39 +287,44 @@ function _coo_matrix_constructor(backend::KA.Backend)
   @assert false "Need to implement for $backend"
 end
 
-function _csc_matrix(pattern::SparseMatrixPattern, dof, storage)
+function _csc_matrix(pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
   backend = KA.get_backend(pattern)
-  return _csc_matrix(backend, pattern, dof, storage)
+  return _csc_matrix(backend, pattern, dof, coo_storage, csc_storage)
 end
 
-function _csc_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, storage)
-  coo = _coo_matrix(backend, pattern, dof, storage)
+function _csc_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+  coo = _coo_matrix(backend, pattern, dof, coo_storage)
   constructor = _csc_matrix_constructor(backend)
   return constructor(coo)
 end
 
-function _csc_matrix(::KA.CPU, pattern::SparseMatrixPattern, dof, storage)
-  return SparseArrays.sparse!(pattern, storage)
+function _csc_matrix(::KA.CPU, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+  return @views SparseArrays.sparse!(
+    pattern.Is, pattern.Js, coo_storage[pattern.unknown_dofs],
+    length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
+    pattern.csrrowptr, pattern.csrcolval, pattern.csrnzval,
+    pattern.csccolptr, pattern.cscrowval, csc_storage
+  )
 end
 
 function _csc_matrix_constructor(backend::KA.Backend)
   @assert false "Need to implement for $backend"
 end
 
-function _csr_matrix(pattern::SparseMatrixPattern, dof, storage)
+function _csr_matrix(pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
   backend = KA.get_backend(pattern)
-  return _csr_matrix(backend, pattern, dof, storage)
+  return _csr_matrix(backend, pattern, dof, coo_storage, csc_storage)
 end
 
-function _csr_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, storage)
-  coo = _coo_matrix(backend, pattern, dof, storage)
+function _csr_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+  coo = _coo_matrix(backend, pattern, dof, coo_storage)
   constructor = _csr_matrix_constructor(backend)
   return constructor(coo)
 end
 
 # TODO eventually write kernels to do this without going to csc first
-function _csr_matrix(backend::KA.CPU, pattern::SparseMatrixPattern, dof, storage)
-  csc = _csc_matrix(backend, pattern, dof, storage)
+function _csr_matrix(backend::KA.CPU, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+  csc = _csc_matrix(backend, pattern, dof, coo_storage, csc_storage)
   return SparseMatrixCSR(csc)
 end
 
