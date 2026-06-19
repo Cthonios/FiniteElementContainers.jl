@@ -76,6 +76,12 @@ function solve!(solver::DirectLinearSolver, Uu, p)
     assemble_vector_neumann_bc!(solver.assembler, Uu, p)
     # assemble_vector_robin_bc!(solver.assembler, Uu, p)
     assemble_stiffness!(solver.assembler, stiffness_method, Uu, p)
+
+    # Robin bcs - how to clean this up?
+    update_bc_values!(p.robin_bcs, solver.assembler, p.coords, p.times.time_current, p.field)
+    assemble_vector_robin_bc!(solver.assembler, Uu, p)
+    assemble_matrix_robin_bc!(solver.assembler, Uu, p)
+
     R = residual(solver.assembler)
     K = stiffness(solver.assembler)
     # TODO specialize to backend solvers if they exists
