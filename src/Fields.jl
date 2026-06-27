@@ -362,6 +362,23 @@ struct L2Field{
         end
         return L2Field(arrs)
     end
+
+    function L2Field{T, D, NF}(::UndefInitializer, qsizes::Vector{Tuple{Int, Int}}) where {T, D, NF}
+        arrs = Array{T, 3}[]
+        for (nq, ne) in qsizes
+            push!(arrs, Array{T, 3}(undef, NF, nq, ne))
+        end
+        nepes = map(x -> size(x, 2), arrs)
+        nelems = map(x -> size(x, 3), arrs)
+        offsets = Vector{eltype(nepes)}(undef, 0)
+        offset = 1
+        for b in 1:length(nepes)
+            push!(offsets, offset)
+            offset += NF * nepes[b] * nelems[b]
+        end
+        data = mapreduce(vec, vcat, arrs)
+        return L2Field{T, typeof(data), NF}(data, nepes, nelems, offsets)
+    end
 end
 
 function Adapt.adapt_structure(to, field::L2Field{T, D, NF}) where {T, D, NF}
