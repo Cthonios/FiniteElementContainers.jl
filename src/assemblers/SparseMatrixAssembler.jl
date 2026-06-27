@@ -21,7 +21,7 @@ struct SparseMatrixAssembler{
   mass_storage::RV
   residual_storage::FieldStorage
   residual_unknowns::RV
-  scalar_quadrature_storage::L2Field{Float64, RV}
+  scalar_quadrature_storage::L2Field{Float64, RV, 1}
   stiffness_storage::RV
   stiffness_action_storage::FieldStorage
   stiffness_action_unknowns::RV

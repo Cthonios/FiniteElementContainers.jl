@@ -180,6 +180,7 @@ end
 end
 
 @testitem "Assembler - assembler_consistency_mechanics" setup=[AssemblerHelperMechanics] begin
+  # using KernelAbstractions
   include("TestUtils.jl")
   backends = _get_backends()
   for dev in backends
@@ -217,6 +218,7 @@ end
     
         # test vector consistency
         assemble_vector!(asm_1, residual, U_1, p_1)
+      
         assemble_vector!(asm_2, residual!, U_2, p_2)
         R_1 = residual(asm_1) |> copy
         R_2 = residual(asm_2) |> copy

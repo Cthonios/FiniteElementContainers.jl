@@ -22,12 +22,6 @@ KA.get_backend(field::AbstractField) = KA.get_backend(field.data)
 
 abstract type AbstractContinuousField{T, D <: AbstractArray{T, 1}, NF} <: AbstractField{T, 2, D} end
 
-function Adapt.adapt_structure(to, field::AbstractContinuousField{T, D, NF}) where {T, D, NF}
-    data = adapt(to, field.data)
-    type = typeof(field).name.name
-    return eval(type){T, typeof(data), NF}(data)
-end
-
 # minimal abstractarray interface methods below
 
 function Base.axes(field::AbstractContinuousField{T, D, NF}) where {T, D, NF}
@@ -85,6 +79,46 @@ function num_fields(::AbstractContinuousField{T, D, NF}) where {T, D, NF}
 end
 
 abstract type AbstractDiscontinuousField{T, D <: AbstractArray{T, 1}} <: AbstractField{T, 1, D} end
+
+# need to implement num_fields method
+# function num_fields end
+
+# just to have something to fall back to
+Base.getindex(field::AbstractDiscontinuousField, i::Int) = field.data[i]
+Base.IndexStyle(::Type{<:AbstractDiscontinuousField}) = IndexLinear()
+Base.size(field::AbstractDiscontinuousField) = size(field.data)
+
+function Base.show(io::IO, field::AbstractDiscontinuousField)
+    println(io, "$(typeof(field)):")
+    for b in 1:num_blocks(field)
+        nf, nepe, ne = block_size(field, b)
+        println(io, "  Block $b:")
+        println(io, "    Number of fields               = $nf")
+        println(io, "    Number of entities per element = $nepe")
+        println(io, "    Number of elements             = $ne")
+    end
+end
+
+function Base.show(io::IO, ::MIME"text/plain", field::AbstractDiscontinuousField)
+    show(io, field)
+end
+
+function block_size(field::AbstractDiscontinuousField, b::Int)
+    return (num_fields(field, b), field.nepes[b], field.nelems[b])
+end
+
+function block_view(field::AbstractDiscontinuousField, b::Int)
+    nfield = num_fields(field, b)
+    nepe = field.nepes[b]
+    nelem = field.nelems[b]
+    boffset = field.offsets[b]
+    bend = boffset + nfield * nepe * nelem - 1
+    return reshape(view(field.data, boffset:bend), nfield, nepe, nelem)
+end
+
+function num_blocks(field::AbstractDiscontinuousField)
+    return length(field.nelems)
+end
 
 ######################################################################################################
 # Connectivity
@@ -219,6 +253,11 @@ struct H1Field{T, D, NF} <: AbstractContinuousField{T, D, NF}
     end
 end
 
+function Adapt.adapt_structure(to, field::H1Field{T, D, NF}) where {T, D, NF}
+    data = adapt(to, field.data)
+    return H1Field{T, typeof(data), NF}(data)
+end
+
 ######################################################################################################
 # HcurlField
 ######################################################################################################
@@ -229,15 +268,26 @@ Implementation of fields that live in Hdiv spaces.
 """
 struct HcurlField{T, D, NF} <: AbstractContinuousField{T, D, NF}
     data::D
+
+    function HcurlField{T, D, NF}(data::D) where {T, D, NF}
+        new{T, D, NF}(data)
+    end
+
+    function HcurlField{T, D, NF}(data::AbstractMatrix{T}) where {T, D, NF}
+        data = vec(data)
+        return HcurlField{T, D, NF}(data)
+    end
+
+    function HcurlField(data::M) where M <: AbstractMatrix
+        NF = size(data, 1)
+        data = vec(data)
+        return HcurlField{eltype(data), typeof(data), NF}(data)
+    end
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function HcurlField(data::M) where M <: AbstractMatrix
-    NF = size(data, 1)
-    data = vec(data)
-    return HcurlField{eltype(data), typeof(data), NF}(data)
+function Adapt.adapt_structure(to, field::HcurlField{T, D, NF}) where {T, D, NF}
+    data = adapt(to, field.data)
+    return HcurlField{T, typeof(data), NF}(data)
 end
 
 ######################################################################################################
@@ -250,21 +300,88 @@ Implementation of fields that live in Hdiv spaces.
 """
 struct HdivField{T, D, NF} <: AbstractContinuousField{T, D, NF}
     data::D
+
+    function HdivField{T, D, NF}(data::D) where {T, D, NF}
+        new{T, D, NF}(data)
+    end
+
+    function HdivField{T, D, NF}(data::AbstractMatrix{T}) where {T, D, NF}
+        data = vec(data)
+        return HdivField{T, D, NF}(data)
+    end
+
+    function HdivField(data::M) where M <: AbstractMatrix
+        NF = size(data, 1)
+        data = vec(data)
+        return HdivField{eltype(data), typeof(data), NF}(data)
+    end
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function HdivField(data::M) where M <: AbstractMatrix
-    NF = size(data, 1)
-    data = vec(data)
-    return HdivField{eltype(data), typeof(data), NF}(data)
+function Adapt.adapt_structure(to, field::HdivField{T, D, NF}) where {T, D, NF}
+    data = adapt(to, field.data)
+    return HdivField{T, typeof(data), NF}(data)
 end
 
 ######################################################################################################
 # L2Field
 ######################################################################################################
 struct L2Field{
+    T, # Let it be anything to allow for structs
+    D  <: AbstractVector{T},
+    NF
+} <: AbstractDiscontinuousField{T, D}
+    data::D              # flat storage (CPU or GPU)
+    nepes::Vector{Int}   # num nodes, q points, etc.
+    nelems::Vector{Int}
+    offsets::Vector{Int}
+
+    function L2Field{T, D, NF}(data, nepes, nelems, offsets) where {T, D, NF}
+        new{T, D, NF}(data, nepes, nelems, offsets)
+    end
+
+    function L2Field(arrs::Vector{<:AbstractArray{T, 3}}) where T
+        nfields = map(x -> size(x, 1), arrs)
+        @assert all(isequal(nfields[1]), nfields)
+        nfields = nfields[1]
+        nepes = map(x -> size(x, 2), arrs)
+        nelems = map(x -> size(x, 3), arrs)
+        offsets = Vector{eltype(nepes)}(undef, 0)
+        offset = 1
+        for b in 1:length(nepes)
+            push!(offsets, offset)
+            offset += nfields * nepes[b] * nelems[b]
+        end
+        data = mapreduce(vec, vcat, arrs)
+        return L2Field{T, typeof(data), nfields}(data, nepes, nelems, offsets)
+    end
+
+    function L2Field(::UndefInitializer, ::Type{T}, nfields::Int, qsizes::Vector{Tuple{Int, Int}}) where T
+        arrs = Array{T, 3}[]
+        for (nq, ne) in qsizes
+            push!(arrs, Array{T, 3}(undef, nfields, nq, ne))
+        end
+        return L2Field(arrs)
+    end
+end
+
+function Adapt.adapt_structure(to, field::L2Field{T, D, NF}) where {T, D, NF}
+    data = adapt(to, field.data)
+    return L2Field{T, typeof(data), NF}(
+        data,
+        field.nepes,
+        field.nelems,
+        field.offsets
+    )
+end
+
+function num_fields(::L2Field{T, D, NF}, b::Int) where {T, D, NF}
+    return NF
+end
+
+######################################################################################################
+# StateVariableField
+######################################################################################################
+struct StateVariableField{
     T, # Let it be anything to allow for structs
     D <: AbstractVector{T}
 } <: AbstractDiscontinuousField{T, D}
@@ -273,41 +390,45 @@ struct L2Field{
     nepes::Vector{Int} # num nodes, q points, etc.
     nelems::Vector{Int}
     offsets::Vector{Int}
-end
 
-function L2Field(arrs::Vector{<:AbstractArray{T, 3}}) where T
-    nfields = map(x -> size(x, 1), arrs)
-    nepes = map(x -> size(x, 2), arrs)
-    nelems = map(x -> size(x, 3), arrs)
-    offsets = Vector{eltype(nepes)}(undef, 0)
-    offset = 1
-    for b in 1:length(nepes)
-        push!(offsets, offset)
-        offset += nfields[b] * nepes[b] * nelems[b]
+    function StateVariableField{T, D}(data, nfields, nepes, nelems, offsets) where {T, D}
+        new{T, D}(data, nfields, nepes, nelems, offsets)
     end
-    data = mapreduce(vec, vcat, arrs)
-    return L2Field(data, nfields, nepes, nelems, offsets)
-end
 
-function L2Field(::UndefInitializer, ::Type{T}, nfields::Int, qsizes::Vector{Tuple{Int, Int}}) where T
-    arrs = Array{T, 3}[]
-    for (nq, ne) in qsizes
-        push!(arrs, Array{T, 3}(undef, nfields, nq, ne))
+    function StateVariableField(arrs::Vector{<:AbstractArray{T, 3}}) where T
+        nfields = map(x -> size(x, 1), arrs)
+        nepes = map(x -> size(x, 2), arrs)
+        nelems = map(x -> size(x, 3), arrs)
+        offsets = Vector{eltype(nepes)}(undef, 0)
+        offset = 1
+        for b in 1:length(nepes)
+            push!(offsets, offset)
+            offset += nfields[b] * nepes[b] * nelems[b]
+        end
+        data = mapreduce(vec, vcat, arrs)
+        return StateVariableField{T, typeof(data)}(data, nfields, nepes, nelems, offsets)
     end
-    return L2Field(arrs)
-end
 
-function L2Field(::UndefInitializer, ::Type{T}, nfields::Vector{Int}, qsizes::Vector{Tuple{Int, Int}}) where T
-    arrs = Array{T, 3}[]
-    for (nf, (nq, ne)) in zip(nfields, qsizes)
-        push!(arrs, Array{T, 3}(undef, nf, nq, ne))
+    function StateVariableField(::UndefInitializer, ::Type{T}, nfields::Int, qsizes::Vector{Tuple{Int, Int}}) where T
+        arrs = Array{T, 3}[]
+        for (nq, ne) in qsizes
+            push!(arrs, Array{T, 3}(undef, nfields, nq, ne))
+        end
+        return StateVariableField(arrs)
     end
-    return L2Field(arrs)
+
+    function StateVariableField(::UndefInitializer, ::Type{T}, nfields::Vector{Int}, qsizes::Vector{Tuple{Int, Int}}) where T
+        arrs = Array{T, 3}[]
+        for (nf, (nq, ne)) in zip(nfields, qsizes)
+            push!(arrs, Array{T, 3}(undef, nf, nq, ne))
+        end
+        return StateVariableField(arrs)
+    end
 end
 
-function Adapt.adapt_structure(to, field::L2Field{T, D}) where {T, D}
+function Adapt.adapt_structure(to, field::StateVariableField{T, D}) where {T, D}
     data = adapt(to, field.data)
-    return L2Field{T, typeof(data)}(
+    return StateVariableField{T, typeof(data)}(
         data,
         field.nfields,
         field.nepes,
@@ -316,39 +437,6 @@ function Adapt.adapt_structure(to, field::L2Field{T, D}) where {T, D}
     )
 end
 
-function Base.show(io::IO, field::L2Field)
-    println(io, "L2Field:")
-    for b in 1:num_blocks(field)
-        nf, nepe, ne = block_size(field, b)
-        println(io, "  Block $b:")
-        println(io, "    Number of fields               = $nf")
-        println(io, "    Number of entities per element = $nepe")
-        println(io, "    Number of elements             = $ne")
-    end
-end
-
-# just to have something to fall back to
-Base.getindex(field::L2Field, i::Int) = field.data[i]
-Base.IndexStyle(::Type{<:L2Field}) = IndexLinear()
-Base.size(field::L2Field) = size(field.data)
-
-function Base.show(io::IO, ::MIME"text/plain", field::L2Field)
-    show(io, field)
-end
-
-function block_size(field::L2Field, b::Int)
-    return (field.nfields[b], field.nepes[b], field.nelems[b])
-end
-
-function block_view(field::L2Field, b::Int)
-    nfield = field.nfields[b]
-    nepe = field.nepes[b]
-    nelem = field.nelems[b]
-    boffset = field.offsets[b]
-    bend = boffset + nfield * nepe * nelem - 1
-    return reshape(view(field.data, boffset:bend), nfield, nepe, nelem)
-end
-
-function num_blocks(field::L2Field)
-    return length(field.nelems)
+function num_fields(field::StateVariableField, b::Int)
+    return field.nfields[b]
 end

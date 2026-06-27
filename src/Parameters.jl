@@ -17,8 +17,8 @@ function _setup_state_variables(fspace, physics)
     push!(state_old, state_old_temp)
     push!(state_new, state_new_temp)
   end
-  state_old = L2Field(state_old)
-  state_new = L2Field(state_new)
+  state_old = StateVariableField(state_old)
+  state_new = StateVariableField(state_new)
   return state_old, state_new
 end
 
@@ -63,8 +63,8 @@ struct Parameters{
   times::TimeStepper{RT}
   physics::Phys
   properties::Props
-  state_old::L2Field{RT, RV}
-  state_new::L2Field{RT, RV}
+  state_old::StateVariableField{RT, RV}
+  state_new::StateVariableField{RT, RV}
   coords::Coords
   field::Field
   field_old::Field
@@ -216,8 +216,8 @@ struct TypeStableParameters{
   times::TimeStepper{RT}
   physics::Phys
   properties::Props
-  state_old::L2Field{RT, RV}
-  state_new::L2Field{RT, RV}
+  state_old::StateVariableField{RT, RV}
+  state_new::StateVariableField{RT, RV}
   coords::Coords
   field::Field
   field_old::Field
