@@ -91,6 +91,7 @@ end
 function assemble_matrix_robin_bc!(assembler, Uu, p)
   # _check_matrix_assembly_supported(assembler, "assemble_matrix_robin_bc!")
   # _update_for_assembly!(p, assembler.dof, Uu)
+  # update_field_unknowns!(p.field, assembler.dof, Uu)
   update_bc_values!(p.robin_bcs, assembler, coordinates(p), current_time(p), p.field)
   _assemble_matrix_weakly_enforced_bc!(
     assembler.stiffness_storage, assembler.matrix_pattern, assembler.dof,

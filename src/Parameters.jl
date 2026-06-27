@@ -361,6 +361,7 @@ function update_bc_values!(p::AbstractParameters, assembler)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, assembler, X, t)
   update_bc_values!(p.periodic_bcs, X, t)
+  # update_bc_values!(p.robin_bcs, assembler, X, t, p.field)
   update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?
@@ -379,6 +380,7 @@ function update_bc_values!(p::TypeStableParameters, assembler)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, assembler, X, t)
   update_bc_values!(p.periodic_bcs, X, t)
+  # update_bc_values!(p.robin_bcs, assembler, X, t, p.field)
   update_source_values!(p.sources, assembler, X, t)
 
   # TODO how to handle Robin BCs?

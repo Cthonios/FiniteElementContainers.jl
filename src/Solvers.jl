@@ -62,13 +62,6 @@ struct DirectLinearSolver{
 end
   
 function solve!(solver::DirectLinearSolver, Uu, p)
-    # if _use_inplace_methods(solver.assembler)
-    #     residual_method = residual!
-    #     stiffness_method = stiffness!
-    # else
-    #     residual_method = residual
-    #     stiffness_method = stiffness
-    # end
     residual_method = _default_residual_method(_use_inplace_methods(solver.assembler))
     stiffness_method = _default_stiffness_method(_use_inplace_methods(solver.assembler))
     assemble_vector!(solver.assembler, residual_method, Uu, p)
@@ -134,13 +127,6 @@ end
   # TODO specialize for operator like assemblers
 function solve!(solver::IterativeLinearSolver, Uu, p)
     asm = solver.assembler
-    # if _use_inplace_methods(asm)
-    #   residual_method = residual!
-    #   stiffness_method = stiffness!
-    # else
-    #   residual_method = residual
-    #   stiffness_method = stiffness
-    # end
     residual_method = _default_residual_method(_use_inplace_methods(solver.assembler))
     stiffness_method = _default_stiffness_method(_use_inplace_methods(solver.assembler))
     # assemble relevant fields
