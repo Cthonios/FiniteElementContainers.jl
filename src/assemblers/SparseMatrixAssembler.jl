@@ -21,7 +21,7 @@ struct SparseMatrixAssembler{
   mass_storage::RV
   residual_storage::FieldStorage
   residual_unknowns::RV
-  scalar_quadrature_storage::L2Field{Float64, RV}
+  scalar_quadrature_storage::L2Field{Float64, RV, 1}
   stiffness_storage::RV
   stiffness_action_storage::FieldStorage
   stiffness_action_unknowns::RV
@@ -103,7 +103,8 @@ function SparseMatrixAssembler{SparseMatrixType, UseInPlaceMethods, UseSparseVec
 
   # setup quadrature scalar storage
   fspace = function_space(dof)
-  scalar_quadrature_storage = L2Field(undef, Float64, 1, block_quadrature_sizes(fspace))
+  # scalar_quadrature_storage = L2Field(undef, Float64, 1, block_quadrature_sizes(fspace))
+  scalar_quadrature_storage = L2Field{Float64, Vector{Float64}, 1}(undef, block_quadrature_sizes(fspace))
   fill!(scalar_quadrature_storage, 0.0)
 
   return SparseMatrixAssembler{

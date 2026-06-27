@@ -53,6 +53,7 @@ export HcurlField
 export HdivField
 export L2Field
 export Properties
+export StateVariableField
 export num_entities
 export num_fields
 

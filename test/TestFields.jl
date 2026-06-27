@@ -163,8 +163,35 @@ end
 
 @testitem "Fields - test_l2_field" begin
   a1 = rand(2, 3, 40)
-  a2 = rand(3, 4, 10)
+  a2 = rand(2, 4, 10)
   field = L2Field([a1, a2])
+  @show field
+  @test size(FiniteElementContainers.block_view(field, 1)) == (2, 3, 40)
+  @test size(FiniteElementContainers.block_view(field, 2)) == (2, 4, 10)
+
+  bview = FiniteElementContainers.block_view(field, 1)
+  for k in axes(bview, 3)
+    for j in axes(bview, 2)
+      for i in axes(bview, 1)
+        @test bview[i, j, k] ≈ a1[i, j, k]
+      end
+    end
+  end
+
+  bview = FiniteElementContainers.block_view(field, 2)
+  for k in axes(bview, 3)
+    for j in axes(bview, 2)
+      for i in axes(bview, 1)
+        @test bview[i, j, k] ≈ a2[i, j, k]
+      end
+    end
+  end
+end
+
+@testitem "Fields - test_state_variable_field" begin
+  a1 = rand(2, 3, 40)
+  a2 = rand(3, 4, 10)
+  field = StateVariableField([a1, a2])
   @show field
   @test size(FiniteElementContainers.block_view(field, 1)) == (2, 3, 40)
   @test size(FiniteElementContainers.block_view(field, 2)) == (3, 4, 10)
