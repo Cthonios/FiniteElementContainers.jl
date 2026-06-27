@@ -62,13 +62,6 @@ struct DirectLinearSolver{
 end
   
 function solve!(solver::DirectLinearSolver, Uu, p)
-    # if _use_inplace_methods(solver.assembler)
-    #     residual_method = residual!
-    #     stiffness_method = stiffness!
-    # else
-    #     residual_method = residual
-    #     stiffness_method = stiffness
-    # end
     residual_method = _default_residual_method(_use_inplace_methods(solver.assembler))
     stiffness_method = _default_stiffness_method(_use_inplace_methods(solver.assembler))
     assemble_vector!(solver.assembler, residual_method, Uu, p)
@@ -76,6 +69,12 @@ function solve!(solver::DirectLinearSolver, Uu, p)
     assemble_vector_neumann_bc!(solver.assembler, Uu, p)
     # assemble_vector_robin_bc!(solver.assembler, Uu, p)
     assemble_stiffness!(solver.assembler, stiffness_method, Uu, p)
+
+    # Robin bcs - how to clean this up?
+    update_bc_values!(p.robin_bcs, solver.assembler, p.coords, p.times.time_current, p.field)
+    assemble_vector_robin_bc!(solver.assembler, Uu, p)
+    assemble_matrix_robin_bc!(solver.assembler, Uu, p)
+
     R = residual(solver.assembler)
     K = stiffness(solver.assembler)
     # TODO specialize to backend solvers if they exists
@@ -128,13 +127,6 @@ end
   # TODO specialize for operator like assemblers
 function solve!(solver::IterativeLinearSolver, Uu, p)
     asm = solver.assembler
-    # if _use_inplace_methods(asm)
-    #   residual_method = residual!
-    #   stiffness_method = stiffness!
-    # else
-    #   residual_method = residual
-    #   stiffness_method = stiffness
-    # end
     residual_method = _default_residual_method(_use_inplace_methods(solver.assembler))
     stiffness_method = _default_stiffness_method(_use_inplace_methods(solver.assembler))
     # assemble relevant fields

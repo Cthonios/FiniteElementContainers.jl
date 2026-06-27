@@ -70,7 +70,7 @@ function RobinBCFunction(func)
 end
 
 function _update_bc_values!(vals, dvalsdu, func, ref_fe, conns, sides, X, t, U)
-  fec_axes(vals, 2) do e
+  fec_foraxes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, 1)
     X_el = _element_level_fields(X, ref_fe, conn)
     u_el = _element_level_fields(U, ref_fe, conn)
