@@ -1,5 +1,4 @@
-const CONSTRAINED_DOF = -1
-
+const CONSTRAINED_DOF     = -1
 const DIRICHLET_DOF       = -1
 const PERIODIC_SIDE_B_DOF = -2
 
@@ -44,11 +43,11 @@ struct DofManager{
 
     function DofManager{Condensed}(var::AbstractFunction) where Condensed
         dirichlet_dofs = zeros(Int, 0)
-        dof_to_unknown = 1:size(var.fspace.coords, 2) * length(names(var)) |> collect
+        dof_to_unknown = 1:num_entities(var.fspace) * length(names(var)) |> collect
         periodic_side_a_dofs = zeros(Int, 0)
         periodic_side_b_dofs = zeros(Int, 0)
         periodic_side_b_to_side_a_unknown = zeros(Int, 0)
-        unknown_dofs = 1:size(var.fspace.coords, 2) * length(names(var)) |> collect
+        unknown_dofs = 1:num_entities(var.fspace) * length(names(var)) |> collect
         return DofManager{Condensed}(
             dirichlet_dofs, dof_to_unknown,
             periodic_side_a_dofs, periodic_side_b_dofs,
@@ -128,15 +127,15 @@ function Base.size(dof::DofManager, i::Int)
     end
 end
 
-Base.show(io::IO, dof::DofManager) = 
-print(io, "DofManager\n", 
-          "  Number of entities        = $(size(dof, 2))\n",
-          "  Number of dofs per entity = $(size(dof, 1))\n",
-          "  Number of total dofs      = $(length(dof))\n",
-          "  Number of dirichlet dofs  = $(length(dof.dirichlet_dofs))\n",
-          "  Number of periodic dofs   = $(length(dof.periodic_side_b_dofs))\n",
-          "  Number of unknown dofs    = $(length(dof.unknown_dofs))\n",
-          "  Storage type              = $(typeof(dof.unknown_dofs))")
+Base.show(io::IO, dof::DofManager; pad::String = "") = 
+print(io, "$(pad)DofManager\n", 
+          "$(pad)  Number of entities        = $(size(dof, 2))\n",
+          "$(pad)  Number of dofs per entity = $(size(dof, 1))\n",
+          "$(pad)  Number of total dofs      = $(length(dof))\n",
+          "$(pad)  Number of dirichlet dofs  = $(length(dof.dirichlet_dofs))\n",
+          "$(pad)  Number of periodic dofs   = $(length(dof.periodic_side_b_dofs))\n",
+          "$(pad)  Number of unknown dofs    = $(length(dof.unknown_dofs))\n",
+          "$(pad)  Storage type              = $(typeof(dof.unknown_dofs))")
 
 KA.get_backend(dof::DofManager) = KA.get_backend(dof.dirichlet_dofs)
 
@@ -148,13 +147,23 @@ based on the variable ```dof``` was created with
 function create_field(dof::DofManager, float_type::Type{RT} = Float64) where RT <: Number
     backend = KA.get_backend(dof)
     data = fec_dense_array(backend, float_type, length(dof))
-    coords = dof.var.fspace.coords
-    if isa(coords, H1Field)
-        field = H1Field{RT, typeof(data), num_fields(dof.var)}(data)
-    else
-        @assert false "Finish me"
+    var = dof.var
+    fspace = var.fspace
+    if _field_type(fspace) == H1Field
+        field = H1Field{RT, typeof(data), num_fields(var)}(data)
+    elseif _field_type(fspace) == HcurlField
+        field = HcurlField{RT, typeof(data), num_fields(var)}(data)
+    elseif _field_type(fspace) == HdivField
+        field = HdivField{RT, typeof(data), num_fields(var)}(data)
+    elseif _field_type(fspace) == L2Field
+        field = L2Field{RT, typeof(data), num_fields(var)}(undef, block_quadrature_sizes(fspace))
+        fill!(field, zero(RT))
     end
     return field
+end
+
+function create_field(dof::Tuple)
+    return map(create_field, dof)
 end
 
 """
@@ -174,6 +183,13 @@ function create_unknowns(dof::DofManager{Flag, IT, IDs, Var}, float_type = Float
     end
 end
 
+function create_unknowns(dof::Tuple)
+    # data = BlockedArray{Float64}(undef, map(length, dof) |> collect)
+    data = BlockedArray{Float64}(undef, map(x -> length(x.unknown_dofs), dof) |> collect)
+    fill!(data, zero(eltype(data)))
+    return data
+end
+
 """
 Map a single global DOF index to its reduced unknown index.
  
@@ -186,7 +202,6 @@ by global DOF, so this is a pure array lookup with no allocation — safe to
 call inside GPU kernels.
 """
 @inline function dof_to_unknown_index(dof::DofManager, n::Int)
-    # return dof_to_unknown_index(dof, n)
     dtu = dof.dof_to_unknown[n]
     if dtu == DIRICHLET_DOF
         return DIRICHLET_DOF
@@ -401,9 +416,9 @@ function update_field_unknowns!(
     @assert KA.get_backend(Uu) == backend
 
     if _is_condensed(dof)
-        @assert length(Uu) == length(U)
+        @assert length(Uu) == length(U) "Unknown size $(length(Uu)), field size $(size(U))"
     else
-        @assert length(Uu) == length(dof.unknown_dofs)
+        @assert length(Uu) == length(dof.unknown_dofs) "Unknown size $(length(Uu)), field size $(size(U))"
     end
 
     _update_field_unknowns!(KA.get_backend(U), U, dof, Uu)

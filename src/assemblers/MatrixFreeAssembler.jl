@@ -5,7 +5,7 @@ struct MatrixFreeAssembler{
     RV           <: AbstractArray{Float64, 1},
     Var          <: AbstractFunction,
     FieldStorage <: AbstractField{Float64, NumArrDims, RV}
-} <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
+} <: AbstractAssembler
     dof::DofManager{Condensed, Int, IV, Var}
     vector_pattern::SparseVectorPattern{IV}
     constraint_storage::RV

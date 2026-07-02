@@ -27,12 +27,12 @@ end
 
 # minimum interface
 function element_blocks(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
-  blocks = read_sets(mesh.mesh_obj, Block)
+  blocks = read_sets(mesh.mesh_obj, Exodus.Block)
   block_ids = convert(Vector{Int}, map(x -> x.id, blocks))
   conns = map(x -> convert(Matrix{Int}, x.conn), blocks)
   # el_id_maps = element_block_id_map.((mesh,), block_ids)
   el_id_maps = map(x -> convert(Vector{Int}, Exodus.read_block_id_map(mesh.mesh_obj, x)), block_ids)
-  names = Exodus.read_names(mesh.mesh_obj, Block)
+  names = Exodus.read_names(mesh.mesh_obj, Exodus.Block)
   types = map(x -> x.elem_type, blocks)
 
   conns = Dict(zip(names, conns))
@@ -183,7 +183,7 @@ function PostProcessor(
   all_el_var_names = element_var_names
   append!(all_el_var_names, quadrature_var_names)
 
-  # TODO need to add all the quadrature values labelled by block id
+  # TODO need to add all the quadrature values labelled by Exodus.Block id
 
   exo = ExodusDatabase(file_name, "rw")
 
@@ -270,9 +270,9 @@ end
 function write_field(pp::PostProcessor, time_index::Int, field_names, field::NamedTuple)
   @assert length(field_names) == length(field)
   field_names = String.(field_names)
-  for (block, val) in field
+  for (Exodus.Block, val) in field
     for name in field_names
-      # write_values(pp.field_output_db, ElementVariable, time_index, block, name, val)
+      # write_values(pp.field_output_db, ElementVariable, time_index, Exodus.Block, name, val)
     end
   end
 end

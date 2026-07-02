@@ -1,12 +1,13 @@
 name = "FiniteElementContainers"
 uuid = "d08262e4-672f-4e7f-a976-f2cea5767631"
-version = "0.14.2"
+version = "0.14.3"
 authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
 
 [deps]
 AcceleratedKernels = "6a4ca0a5-0e36-4168-a932-d9be78d558f1"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 Atomix = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
+BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
 DynamicExpressions = "a40a106e-89c9-4ca8-8020-a735e8728b6b"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
@@ -26,7 +27,6 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 [weakdeps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 AbaqusReader = "bc6b9049-e460-56d6-94b4-a597b2c0390d"
-BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
 Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
@@ -35,7 +35,6 @@ PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 [extensions]
 AMDGPUExt = "AMDGPU"
 AbaqusReaderExt = "AbaqusReader"
-BlockArraysExt = "BlockArrays"
 CUDAExt = "CUDA"
 GmshExt = "Gmsh"
 MetisExt = "Metis"

@@ -2,7 +2,7 @@
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-abstract type AbstractAssembler{Dof <: DofManager} end
+abstract type AbstractAssembler end
 """
 $(TYPEDSIGNATURES)
 """
@@ -60,7 +60,7 @@ end
 # that the provided storage came from either a sparse matrix or vector
 # if you pass a vector expecting it to act like a dense vector, it WON'T!
 # for IndexedAssembledReturnType, does nothing
-function _assemble_element!(
+@inline function _assemble_element!(
   storage, val_q, 
   conns, # all connectivities for this element
   ::Int
@@ -69,7 +69,7 @@ function _assemble_element!(
 end
 
 # assembled vector where storage is a field
-function _assemble_element!(
+@inline function _assemble_element!(
   storage::AbstractField, R_el::SVector{NDOF, T}, 
   conns, # all connectivities for this element
   ::Int
@@ -88,7 +88,7 @@ end
 
 # sparse vector attempt
 # this one is good for pbcs
-function _assemble_element!(
+@inline function _assemble_element!(
   storage::AbstractVector, R_el::SVector{NDOF, T},
   conns,
   el_id::Int
@@ -106,19 +106,17 @@ end
 # TODO we'll need a regular matrix implementation
 # as well (Can we live with 1?)
 # sparse matrix
-function _assemble_element!(
+@inline function _assemble_element!(
   storage, K_el::SMatrix{NDOF1, NDOF2, T, NDOF1xNDOF2}, 
   conns, # all connectivities for this element
   el_id::Int
 ) where {NDOF1, NDOF2, T, NDOF1xNDOF2}
-  # figure out ids needed to update
-  start_id = (el_id - 1) * NDOF1xNDOF2 + 1
-  end_id = start_id + NDOF1xNDOF2 - 1
-  ids = start_id:end_id
-
-  # get appropriate storage and update values
-  for (i, id) in enumerate(ids)
-    storage[id] = K_el.data[i]
+  base = (el_id - 1) * NDOF1xNDOF2
+  for j in 1:NDOF2
+    for i in 1:NDOF1
+      idx = base + (j - 1) * NDOF1 + i
+      storage[idx] = K_el[i, j]
+    end
   end
   return nothing
 end
@@ -137,34 +135,14 @@ create_unknowns(asm::AbstractAssembler) = create_unknowns(asm.dof)
   return @views conns[:, e]
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-@inline function _element_level_fields(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
-  NNPE = ReferenceFiniteElements.num_vertices(ref_fe)
-  NxNDof = NNPE * NF
-  u_el = @views SMatrix{NNPE, NF, eltype(U), NxNDof}(U[:, conns[:, e]])
-  return u_el
-end
-
 @inline function _element_level_fields(U::H1Field{T, D, NF}, ref_fe, conns) where {T, D, NF}
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
   NxNDof = NNPE * NF
   u_el = @views SMatrix{NF, NNPE, eltype(U), NxNDof}(U[:, conns])
-  # u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns])
   return u_el
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-@inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
-  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * NF
-  u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns[:, e]])
-  return u_el
-end
-
+# Used by source currently
 @inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns) where {T, D, NF}
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
   NxNDof = NNPE * NF
@@ -172,18 +150,25 @@ end
   return u_el
 end
 
-@inline function element_level_fields(ref_fe, conn, X, U, U_old)
-  x_el = _element_level_fields_flat(X, ref_fe, conn)
-  u_el = _element_level_fields_flat(U, ref_fe, conn)
-  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
+@inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
+  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+  NxNDof = NNPE * NF
+  u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns])
+  return u_el
+end
+
+@inline function element_level_fields(ref_fe, conn, e, X, U, U_old)
+  x_el = _element_level_fields_flat(X, ref_fe, conn, e)
+  u_el = _element_level_fields_flat(U, ref_fe, conn, e)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn, e)
   return x_el, u_el, u_el_old
 end
 
-@inline function element_level_fields(ref_fe, conn, X, U, U_old, V)
-  x_el = _element_level_fields_flat(X, ref_fe, conn)
-  u_el = _element_level_fields_flat(U, ref_fe, conn)
-  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
-  v_el = _element_level_fields_flat(V, ref_fe, conn)
+@inline function element_level_fields(ref_fe, conn, e, X, U, U_old, V)
+  x_el = _element_level_fields_flat(X, ref_fe, conn, e)
+  u_el = _element_level_fields_flat(U, ref_fe, conn, e)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn, e)
+  v_el = _element_level_fields_flat(V, ref_fe, conn, e)
   return x_el, u_el, u_el_old, v_el
 end
 
@@ -209,6 +194,18 @@ $(TYPEDSIGNATURES)
   NxNDof = NNPE * NF
   K_el = zeros(SMatrix{NxNDof, NxNDof, eltype(U), NxNDof * NxNDof})
   return K_el
+end
+
+@inline function _element_scratch(
+  ::AssembledMatrix,
+  ref_fe_row,
+  U_row::H1Field{T, D, NFr},
+  ref_fe_col,
+  U_col::H1Field{T, D, NFc},
+) where {T, D, NFr, NFc}
+  nr = num_cell_dofs(ref_fe_row) * NFr
+  nc = num_cell_dofs(ref_fe_col) * NFc
+  return zeros(SMatrix{nr, nc, T, nr * nc})
 end
 
 """
@@ -417,7 +414,7 @@ function _assemble_block!(
 }
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
+    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, e, X, U, U_old)
     props_el = _element_level_properties(props, e)
     val_el = _element_scratch(return_type, ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
@@ -448,7 +445,7 @@ function _assemble_block!(
 }
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
+    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, e, X, U, U_old)
     props_el = _element_level_properties(props, e)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
@@ -493,6 +490,7 @@ include("SparsityPatterns.jl")
 # types
 include("MatrixFreeAssembler.jl")
 include("SparseMatrixAssembler.jl")
+include("BlockMatrixAssemblers.jl")
 
 # methods
 include("Diagonal.jl")

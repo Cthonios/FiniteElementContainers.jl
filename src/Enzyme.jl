@@ -78,7 +78,7 @@ function _assemble_block_enzyme_safe!(
 
   for e in axes(state_old, 3)
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
+    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, e, X, U, U_old)
     props_el = _element_level_properties(props, e)
     val_el = _element_scratch(return_type, ref_fe, U)
 
@@ -124,7 +124,7 @@ KA.@kernel function _assemble_block_enzyme_safe_kernel!(
 }
   E = KA.@index(Global)
   conn = connectivity(ref_fe, conns, E, coffset)
-  x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
+  x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, E, X, U, U_old)
   props_el = _element_level_properties(props, E)
   val_el = _element_scratch(return_type, ref_fe, U)
   for q in 1:num_cell_quadrature_points(ref_fe)

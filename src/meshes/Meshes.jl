@@ -272,7 +272,7 @@ function write_to_file(mesh::AbstractMesh, file_name::String; force::Bool = fals
   # write block names
   # block_names = map(String, values(mesh.element_block_names))
   block_names = mesh.element_block_names
-  write_names(exo, Block, block_names)
+  write_names(exo, Exodus.Block, block_names)
 
   # TODO write block id maps
   # for (n, block_name) in mesh.element_block_names
@@ -514,3 +514,5 @@ end
 include("AMRMesh.jl")
 include("StructuredMesh.jl")
 include("UnstructuredMesh.jl")
+
+include("Toplogy.jl")
