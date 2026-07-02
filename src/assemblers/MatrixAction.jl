@@ -62,7 +62,7 @@ function _assemble_block_matrix_free_action!(
 }
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
+    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, e, X, U, U_old, V)
     props_el = _element_level_properties(props, e)
     Kv_el = _element_scratch(AssembledVector(), ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
@@ -221,7 +221,7 @@ function _assemble_block_matrix_action!(
 }
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
+    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, e, X, U, U_old, V)
     props_el = _element_level_properties(props, e)
     K_el = _element_scratch(AssembledMatrix(), ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
@@ -254,7 +254,7 @@ function _assemble_block_matrix_action!(
 }
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
+    x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, e, X, U, U_old, V)
     props_el = _element_level_properties(props, e)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
