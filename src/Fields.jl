@@ -227,6 +227,47 @@ function unsafe_connectivity(conn::Connectivity, e::Int, b::Int)
 end
 
 ######################################################################################################
+# Connectivity - new
+######################################################################################################
+"""
+$(TYPEDEF)
+"""
+struct Connectivity_v2{
+    T <: Integer, 
+    D <: AbstractVector{T}
+}
+    data::D
+    nblocks::T
+    nepes::D
+    nelems::D
+    offsets::D
+end
+
+function Connectivity_v2(conn::Connectivity)
+    return Connectivity_v2(conn.data, conn.nblocks, conn.nepes, conn.nelems, conn.offsets)
+end
+
+function Adapt.adapt_structure(to, conn::Connectivity_v2)
+    return Connectivity_v2(
+        adapt(to, conn.data),
+        conn.nblocks,
+        adapt(to, conn.nepes),
+        adapt(to, conn.nelems),
+        adapt(to, conn.offsets)
+    )
+end
+
+@inline function connectivity(conn::Connectivity_v2, n::Int, e::Int, b::Int)
+    # idx = conn.nepes[b]
+    idx = conn.offsets[b] + conn.nepes[b] * (e - 1) + n - 1
+    return conn.data[idx]
+end
+# function connectivity(data, offset::Int, nepe::Int, n::Int, e::Int)
+#     idx = offset + nepe * (e - 1) + n - 1
+#     return data[idx]
+# end
+
+######################################################################################################
 # H1Field
 ######################################################################################################
 """
