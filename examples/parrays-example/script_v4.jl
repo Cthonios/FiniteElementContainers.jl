@@ -6,6 +6,14 @@ using LinearAlgebra
 using PartitionedArrays
 using StaticArrays
 
+struct PLinearSystem{A, B, C, D}
+    residual_vals::A
+    residual_cache::B
+    stiffness_vals::C
+    stiffness_cache::D
+end
+
+
 include("../../test/poisson/TestPoissonCommon.jl")
 f(X, _) = 2. * π^2 * sin(2π * X[1]) * sin(2π * X[2])
 bc_func(_, _) = 0.
@@ -43,21 +51,35 @@ Uu = create_unknowns(asm)
 U = create_field(asm)
 update_field_unknowns!(U, dof, Uu)
 
-assemble_stiffness!(asm, stiffness, U, p)
-K = stiffness(asm)
+# rseidua
+residual_vals = map(asm.local_assemblers) do local_asm
+    local_asm.residual_unknowns
+end
+residual_vals = create_unknowns(dof)
+R, R_cache = pvector(asm.vector_pattern, residual_vals; reuse = true) |> fetch
 
-assemble_vector!(asm, residual, U, p)
-R = residual(asm)
+@time pvector!(R, residual_vals, R_cache) |> wait
+@time pvector!(R, residual_vals, R_cache) |> wait
 
-cg_workspace = CgWorkspace(K, -R)
-Krylov.cg!(cg_workspace, K, -R)
-x_new, stats = Krylov.results(cg_workspace)
+# system = PLinearSystem()
 
-U = create_field(dof)
-# update_field_dirichlet_bcs!(U, dof)
-update_field_unknowns!(U, dof, x_new)
+# assemble_stiffness!(asm, stiffness, U, p)
+# K = stiffness(asm)
 
-pp = PostProcessor(output_file, mesh, true; extra_nodal_names = [names(u)...])
-write_times(pp, 1, 0.0)
-write_field(pp, 1, ["u"], U)
-close(pp)
+# assemble_vector!(asm, residual, U, p)
+# R = residual(asm)
+
+# cg_workspace = CgWorkspace(K, -R)
+# Krylov.cg!(cg_workspace, K, -R)
+# x_new, stats = Krylov.results(cg_workspace)
+
+# U = create_field(dof)
+# # update_field_dirichlet_bcs!(U, dof)
+# update_field_unknowns!(U, dof, x_new)
+
+# pp = PostProcessor(output_file, mesh, true; extra_nodal_names = [names(u)...])
+# write_times(pp, 1, 0.0)
+# write_field(pp, 1, ["u"], U)
+# close(pp)
+
+# epu("output.e.$(num_ranks).")
