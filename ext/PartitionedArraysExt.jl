@@ -12,6 +12,7 @@ using PartitionedArrays
 # Helper methods for setup
 #######################################################################
 # NOTE dof_to_unknown returns -1 when the dof 
+# TODO doesn't suport PeriodicBCs
 function _create_field_to_unknown(n_total_fields, dirichlet_dofs)
 	unknown_to_field = Vector{eltype(dirichlet_dofs)}(undef, n_total_fields - length(dirichlet_dofs))
 	ids = 1:n_total_fields
@@ -25,7 +26,7 @@ function _create_field_to_unknown(n_total_fields, dirichlet_dofs)
     field_to_unknown = Dict([(x, y) for (x, y) in zip(unknown_to_field, 1:length(unknown_to_field))])
 
 	for dof in dirichlet_dofs
-		field_to_unknown[dof] = -1
+		field_to_unknown[dof] = FEC.DIRICHLET_DOF
 	end
 
 	new_field_to_unknown = Vector{Int}(undef, length(field_to_unknown))
@@ -260,32 +261,28 @@ function FEC.DofManager(
 		return dof_local
 	end
 
-	# # now need to scatter all to one proc
-	# # out = map(dirichlet_dofs) do ddofs
-	# # 	gather(ddofs, destination = 1)
-	# # end
-	# out = gather(dirichlet_dofs, destination = 1)
-	# dirichlet_dofs = map_main(out) do out_local
-	# 	return reduce(vcat, out_local) |> unique |> sort
-	# end
-
 	# slow approach for now
 	serial_mesh = UnstructuredMesh(mesh_file)
 	serial_V = FunctionSpace(serial_mesh, H1Field, Lagrange)
 	serial_u = eval(typeof(u).name.name){typeof(serial_V)}(serial_V, var_names)
 	serial_dof = DofManager(serial_u)
 	serial_dbcs = DirichletBCs(serial_mesh, serial_dof, dbcs)
-	dirichlet_dofs = FiniteElementContainers.dirichlet_dofs(serial_dbcs)
+	serial_pbcs = PeriodicBCs(serial_mesh, serial_dof, pbcs)
+	dirichlet_dofs = FEC.dirichlet_dofs(serial_dbcs)
+	_, periodic_side_b_dofs = FEC.periodic_dofs(serial_pbcs)
+	constrained_dofs = union(dirichlet_dofs, periodic_side_b_dofs) |> sort |> unique
 
 	# TODO need to cleanup up and finish everthing below
 	unknowns_to_colors = copy(fields_to_colors)
-	deleteat!(unknowns_to_colors, dirichlet_dofs)
+	deleteat!(unknowns_to_colors, constrained_dofs)
 
 	solution_parts = partition_from_color(ranks, unknowns_to_colors)
 	solution_parts = SolutionPartition(unknowns_to_colors, solution_parts)
 
 	# finally create the maps from field to solution and back
-	field_to_unknown, unknown_to_field = _create_field_to_unknown(length(fields_to_colors), dirichlet_dofs)
+	field_to_unknown, unknown_to_field = _create_field_to_unknown(
+		length(fields_to_colors), dirichlet_dofs
+	)
 	return PDofManager(
 		field_parts, solution_parts,
 		field_to_unknown, unknown_to_field,
@@ -425,11 +422,11 @@ function FEC.create_unknowns(pattern::PSparseVectorPattern)
 	return create_unknowns(pattern.dof)
 end
 
-function PartitionedArrays.pvector(pattern::PSparseVectorPattern, vals)
-	vals = map(pattern.unknown_dofs, vals) do dofs, val
-		val[dofs]
-	end
-	return pvector(pattern.Is, vals, pattern.dof.solution_partition.parts)
+function PartitionedArrays.pvector(pattern::PSparseVectorPattern, vals; reuse::Bool = false)
+	# vals = map(pattern.unknown_dofs, vals) do dofs, val
+	# 	val[dofs]
+	# end
+	return pvector(pattern.Is, vals, pattern.dof.solution_partition.parts; reuse = reuse)
 end
 
 function PartitionedArrays.pzeros(pattern::PSparseVectorPattern)
@@ -439,14 +436,34 @@ end
 struct PSparseMatrixAssembler{
 	Assemblers,
 	MatPattern <: PSparseMatrixPattern,
-	VecPattern <: PSparseVectorPattern
+	VecPattern <: PSparseVectorPattern,
+	MapScratch <: AbstractVector{Nothing},
+	RV,
+	RC
 }
 	local_assemblers::Assemblers
 	matrix_pattern::MatPattern
 	vector_pattern::VecPattern
+	map_scratch::MapScratch
+	#
+	residual_vals::RV
+	residual_cache::RC
 end
 
 function FEC.assemble_stiffness!(asm::PSparseMatrixAssembler, func, u, p)
+	# @show @allocated partition(u)
+	# @time map!(asm.map_scratch, asm.local_assemblers) do 
+	# function _assemble_local!(local_asm, func, local_u, local_p)
+	# 	assemble_stiffness!(local_asm, func, local_u, local_p)
+	# end
+	# map!(
+	# 	_assemble_local!, asm.map_scratch, asm.local_assemblers,
+	# 	Iterators.repeated(func),
+	# 	# func,
+	# 	partition(u),
+	# 	p.local_parameters
+	# )
+	# map!(asm.map_scratch,)
 	map(asm.local_assemblers, partition(u), p.local_parameters) do local_asm, local_u, local_p
 		assemble_stiffness!(local_asm, func, local_u, local_p)
 	end
@@ -487,9 +504,22 @@ function FEC.SparseMatrixAssembler(dof::PDofManager)
 	end
 	matrix_pattern = PSparseMatrixPattern(dof)
 	vector_pattern = PSparseVectorPattern(dof)
+	map_scratch = map(dof.local_dof_managers) do local_dof
+		nothing
+	end
+
+	# residual_vals, residual_cache = 
+	residual_temp = map(local_assemblers) do local_asm
+		local_asm.residual_unknowns
+	end
+	# residual_vals, residual_cache = pvector(vector_pattern, residual_temp, true) |> fetch
+	residual_vals, residual_cache = nothing, nothing
+
 	return PSparseMatrixAssembler(
 		local_assemblers,
-		matrix_pattern, vector_pattern
+		matrix_pattern, vector_pattern,
+		map_scratch,
+		residual_vals, residual_cache
 	)
 end
 

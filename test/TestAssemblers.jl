@@ -521,13 +521,18 @@ end
 end
 
 @testitem "Assemblers - test_enzyme_safe_consistency" setup=[AssemblerHelperPoisson] begin
-  asm = SparseMatrixAssembler(u)
+  asm = SparseMatrixAssembler(u; use_inplace_methods = true)
   p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
   FiniteElementContainers.initialize!(p)
   Uu = create_unknowns(asm)
   R1 = create_field(asm)
   R2 = create_field(asm)
-  assemble_vector!(R1, asm.matrix_pattern, asm.dof, residual, Uu, p)
-  FiniteElementContainers.assemble_vector_enzyme_safe!(R2, asm.matrix_pattern, asm.dof, residual, Uu, p)
+  s1 = asm.scalar_quadrature_storage
+  s2 = deepcopy(s1)
+  FiniteElementContainers.assemble_quadrature_quantity!(s1, asm.vector_pattern, asm.dof, energy, Uu, p)
+  assemble_vector!(R1, asm.matrix_pattern, asm.dof, residual!, Uu, p; use_inplace_methods = true)
+  FiniteElementContainers.assemble_scalar_enzyme_safe!(s2, nothing, asm.dof, energy, Uu, p)
+  FiniteElementContainers.assemble_vector_enzyme_safe!(R2, asm.matrix_pattern, asm.dof, residual!, Uu, p)
+  @test all(s1 .≈ s2)
   @test all(R1 .≈ R2)
 end
