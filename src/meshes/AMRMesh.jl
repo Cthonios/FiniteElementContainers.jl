@@ -51,6 +51,12 @@ function AMRMesh(mesh::AbstractMesh)
     )
 end
 
+# `AMRMesh` stores block names as an id => name `Dict` rather than an ordered
+# `Vector`, so canonical order is by ascending block id -- which is the order the
+# blocks appear in the mesh file, matching every other mesh type.
+block_names(mesh::AMRMesh) =
+    [mesh.element_block_names[id] for id in sort!(collect(keys(mesh.element_block_names)))]
+
 # this uses a longest edge initialization
 # slightly smarter than simply initalizing as 1
 # but not as great as structured based

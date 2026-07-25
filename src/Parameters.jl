@@ -1,3 +1,56 @@
+struct BlockMismatchError <: AbstractFECError
+  msg::String
+end
+_block_mismatch_error(msg::String) = throw(BlockMismatchError(msg))
+
+function _check_block_keys(given, expected, what)
+  extra  = filter(x -> !(x in expected), collect(given))
+  absent = filter(x -> !(x in given), collect(expected))
+  if !isempty(extra) || !isempty(absent)
+    msg = "$what must have exactly one entry per element block.\n" *
+          "  element blocks : $(join(expected, ", "))\n" *
+          "  $what entries : $(join(given, ", "))"
+    isempty(extra)  || (msg *= "\n  not element blocks   : $(join(extra, ", "))")
+    isempty(absent) || (msg *= "\n  blocks with no entry : $(join(absent, ", "))")
+    _block_mismatch_error(msg)
+  end
+  return nothing
+end
+
+"""
+Align a user-supplied `physics`/`properties` argument with the element blocks of
+`fspace`, returning a `NamedTuple` keyed by block name and ordered by block
+index, so that entry `b` always belongs to block `b`.
+
+Everything downstream -- `_setup_state_variables`, `foreach_block`, the
+assembly kernels -- pairs entry `b` with block `b` positionally. A `NamedTuple`
+supplied in a different order than the mesh's blocks would therefore hand each
+block another block's material without any error, so it is permuted here, and
+its keys are required to be exactly the block names.
+"""
+function _align_blocks(fspace, x::NamedTuple, what)
+  names = tuple(Symbol.(block_names(fspace))...)
+  _check_block_keys(keys(x), names, what)
+  return NamedTuple{names}(map(name -> getfield(x, name), names))
+end
+
+# A bare `Tuple` carries no block names, so there is no way to tell whether it
+# is in block order or not. Rejecting is the only safe reading.
+function _align_blocks(fspace, x::Tuple, what)
+  _block_mismatch_error(
+    "$what was given as an unnamed Tuple, which cannot be matched to element " *
+    "blocks. Supply a NamedTuple keyed by block name " *
+    "($(join(block_names(fspace), ", "))), or a single value to share across " *
+    "all blocks."
+  )
+end
+
+# a single physics/properties object shared by every block
+function _align_blocks(fspace, x, what)
+  names = tuple(Symbol.(block_names(fspace))...)
+  return NamedTuple{names}(ntuple(_ -> x, length(names)))
+end
+
 function _setup_state_variables(fspace, physics)
   state_old = Array{Float64, 3}[]
   state_new = Array{Float64, 3}[]
@@ -96,22 +149,8 @@ function Parameters(
   end
 
   # for mixed spaces we'll need to do this more carefully
-  if isa(physics, AbstractPhysics)
-    syms = map(x -> Symbol("region_$x"), 1:length(fspace.ref_fes))
-    physics = map(x -> physics, syms)
-    physics = NamedTuple{tuple(syms...)}(tuple(physics...))
-  else
-    @assert isa(physics, NamedTuple)
-    # TODO re-arrange physics tuple to match fspaces when appropriate
-  end
-
-  if isa(properties, AbstractArray)
-    syms = map(x -> Symbol("region_$x"), 1:length(fspace.ref_fes))
-    properties = map(x -> properties, syms)
-    properties = NamedTuple{tuple(syms...)}(tuple(properties...))
-  else
-    @assert isa(properties, NamedTuple)
-  end
+  physics = _align_blocks(fspace, physics, "physics")
+  properties = _align_blocks(fspace, properties, "properties")
 
   # setup state variables
   state_old, state_new = _setup_state_variables(fspace, physics)
@@ -234,6 +273,9 @@ struct TypeStableParameters{
     pbcs = PeriodicBCs{SF}(mesh, dof, pbcs)
     srcs = Sources{VF}(mesh, dof, srcs)
 
+    physics = _align_blocks(fspace, physics, "physics")
+    props = _align_blocks(fspace, props, "properties")
+
     state_old, state_new = _setup_state_variables(fspace, physics)
 
     coords = mesh.nodal_coords
@@ -260,11 +302,15 @@ struct TypeStableParameters{
   ) where {SF, VF}
     dof = assembler.dof
     ND = size(dof, 1)
+    fspace = function_space(dof)
     ics = InitialConditions{SF}(mesh, dof, ics)
     dbcs = DirichletBCs{SF}(mesh, dof, dbcs)
     nbcs = NeumannBCs{VF}(mesh, dof, nbcs)
     pbcs = PeriodicBCs{SF}(mesh, dof, pbcs)
     srcs = Sources{VF}(mesh, dof, srcs)
+
+    physics = _align_blocks(fspace, physics, "physics")
+    props = _align_blocks(fspace, props, "properties")
 
     coords = mesh.nodal_coords
     field = create_field(assembler)
