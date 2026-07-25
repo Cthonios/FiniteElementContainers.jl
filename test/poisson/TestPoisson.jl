@@ -22,35 +22,6 @@
   nlsolver = NewtonSolver
 end
 
-function test_poisson(backend, nlsolver, lsolver; kwargs...)
-  # several of the tests below all use the same stuff so lets not
-  # initialize it multiple times
-  mesh = UnstructuredMesh(mesh_file)
-  V = FunctionSpace(mesh, H1Field, Lagrange) 
-  physics = Poisson(f)
-  props = create_properties(physics)
-  u = ScalarFunction(V, "u")
-  asm = SparseMatrixAssembler(
-    u; 
-    sparse_matrix_type = kwargs[:sparse_matrix_type],
-    use_condensed = kwargs[:use_condensed],
-    use_inplace_methods = kwargs[:use_inplace_methods]
-  )
-
-  test_poisson_dirichlet(backend, nlsolver, lsolver, mesh, asm, u, physics, props; kwargs...)
-  test_poisson_dirichlet_with_nodesets(backend, nlsolver, lsolver, mesh, asm, u, physics, props; kwargs...)
-  test_poisson_dirichlet_with_nodesets_gmsh_geo_tri3(backend, nlsolver, lsolver; kwargs...)
-  test_poisson_dirichlet_with_nodesets_gmsh_msh_tri3(backend, nlsolver, lsolver; kwargs...)
-  test_poisson_dirichlet_multi_block_quad4_quad4(backend, nlsolver, lsolver; kwargs...)
-  test_poisson_dirichlet_multi_block_quad4_tri3(backend, nlsolver, lsolver; kwargs...)
-  test_poisson_dirichlet_structured_mesh_quad4(backend, nlsolver, lsolver; kwargs...)
-  test_poisson_dirichlet_structured_mesh_tri3(backend, nlsolver, lsolver; kwargs...)
-  test_poisson_neumann(backend, nlsolver, lsolver, mesh, asm, u, physics, props; kwargs...)
-  test_poisson_neumann_structured_mesh_quad4(backend, nlsolver, lsolver; kwargs...)
-  test_poisson_neumann_structured_mesh_tri3(backend, nlsolver, lsolver; kwargs...)
-  # test_poisson_robin(backend, nlsolver, lsolver, mesh, asm, u, physics, props; kwargs...)
-end
-
 @testitem "Regression test - test_poisson_dirichlet" setup=[PoissonRegressionHelper] begin
   output_file = "poisson_test_1.e"
   for dev in backends
@@ -317,6 +288,65 @@ end
       end
       rm(output_file; force=true)
       display(solver.timer)
+    end
+  end
+end
+
+@testitem "Regression test - test_poisson_mixed_dirichlet_and_neumann_with_sidesets_gmsh_msh_tri3" setup=[PoissonRegressionHelper] tags=[:gmsh] begin
+  using Gmsh
+  msh_file_tri3 = dirname(Base.source_dir()) * "/gmsh/square_meshed_with_tris.msh"
+  output_file = "poisson_test_gmsh_sidesets_2.e"
+  mesh = UnstructuredMesh(msh_file_tri3)
+  V = FunctionSpace(mesh, H1Field, Lagrange) 
+  physics = Poisson(f)
+  props = create_properties(physics)
+  u = ScalarFunction(V, "u")
+  for dev in backends
+    for use_condensed in use_condenseds
+      asm = SparseMatrixAssembler(
+        u; 
+        sparse_matrix_type = :csc,
+        use_condensed = use_condensed,
+        use_inplace_methods = false
+      )
+      # setup and update bcs
+      dbcs = DirichletBC[
+        DirichletBC("u", bc_func; sideset_name = "top"),
+        DirichletBC("u", bc_func; sideset_name = "left")
+      ]
+
+      nbcs = NeumannBC[
+        NeumannBC("u", bc_func_neumann, "bottom"),
+        NeumannBC("u", bc_func_neumann, "right")
+      ]
+
+      # direct solver test
+      # setup the parameters
+      p = create_parameters(
+        mesh, asm, physics, props; 
+        dirichlet_bcs=dbcs,
+        neumann_bcs=nbcs
+      )
+
+      if dev != cpu
+        p = p |> dev
+        asm = asm |> dev 
+      end
+
+      # setup solver and integrator
+      solver = nlsolver(lsolver(asm))
+      integrator = QuasiStaticIntegrator(solver)
+      evolve!(integrator, p)
+
+      if dev != cpu
+        p = p |> cpu
+      end
+      display(solver.timer)
+
+      pp = PostProcessor(mesh, output_file, u)
+      write_times(pp, 1, 0.0)
+      write_field(pp, 1, ("u",), p.field)
+      close(pp)
     end
   end
 end
