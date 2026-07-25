@@ -113,7 +113,7 @@ struct Sources{
   #   source_block_names = String[]
   #   for source in sources
   #     block_name = source.block_name
-  #     block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+  #     block_id = findfirst(x -> x == block_name, block_names(mesh))
   #     push!(source_block_ids, block_id)
   #     push!(source_block_names, block_name)
   #     NQ, NE = block_quadrature_size(fspace, block_id)
@@ -175,7 +175,7 @@ struct Sources{
     source_block_names = String[]
     for source in sources
       block_name = source.block_name
-      block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+      block_id = findfirst(x -> x == block_name, block_names(mesh))
       push!(source_block_ids, block_id)
       push!(source_block_names, block_name)
       NQ, NE = block_quadrature_size(fspace, block_id)

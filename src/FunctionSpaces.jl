@@ -56,14 +56,14 @@ const _juliac_safe_ref_fes = (
 const MAX_BLOCKS = 16
 
 function _setup_juliac_safe_block_to_ref_fe_id(mesh::AbstractMesh)
-  names = mesh.element_block_names
+  names = block_names(mesh)
   el_types = map(x -> _el_name_to_juliac_safe_id[mesh.element_types[x]], names)
   N = length(names)
   return ntuple(i -> i <= N ? el_types[i] : -1, Val(MAX_BLOCKS))  # replace `i` with your actual block value
 end
 
 function _setup_block_to_ref_fe_id(mesh::AbstractMesh)
-  return 1:length(mesh.element_types) |> collect
+  return 1:length(block_names(mesh)) |> collect
 end
 
 function _setup_block_to_ref_fe_id(mesh::AbstractMesh, ::Val{is_juliac_safe}) where is_juliac_safe
@@ -78,13 +78,13 @@ end
 default code path that sets up ref fes as a namedtuple
 """
 function _setup_ref_fes(
-  mesh::AbstractMesh, 
+  mesh::AbstractMesh,
   interp_type, p_degree,
   q_type::Type{<:ReferenceFiniteElements.AbstractQuadratureType}, q_degree
 )
-  block_names = mesh.element_block_names
+  names = block_names(mesh)
   ref_fes = ReferenceFE[]
-  for block_name in block_names
+  for block_name in names
     elem_name = mesh.element_types[block_name]
     elem_type = elem_type_map[uppercase(elem_name)]
     if p_degree === nothing
@@ -97,7 +97,7 @@ function _setup_ref_fes(
     ref_fe = ReferenceFE(elem_type{interp_type, p_degree}(), q_type(q_degree))
     push!(ref_fes, ref_fe)
   end
-  ref_fes = NamedTuple{tuple(Symbol.(values(block_names))...)}(tuple(ref_fes...))
+  ref_fes = NamedTuple{tuple(Symbol.(names)...)}(tuple(ref_fes...))
   return ref_fes
 end
 
@@ -275,6 +275,14 @@ end
 function _is_juliac_safe(::FunctionSpace{B, FT, I, V, BTRE, C, R}) where {B, FT, I, V, BTRE, C, R}
   return B
 end
+
+"""
+$(TYPEDSIGNATURES)
+Names of the element blocks, in block order: `block_names(fspace)[b]` is the
+name of the block whose connectivity, reference element, physics and properties
+all live at index `b`.
+"""
+block_names(fspace::FunctionSpace) = fspace.block_names
 
 function block_entity_size(fspace::FunctionSpace, b::Int)
   return (num_entities_per_element(fspace, b), num_elements(fspace, b))

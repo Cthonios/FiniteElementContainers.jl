@@ -43,6 +43,11 @@ function Base.IndexStyle(::Type{<:AbstractContinuousField})
     return IndexLinear()
 end
 
+function Base.resize!(field::AbstractContinuousField{T, D, NF}, n::Int) where {T, D, NF}
+    resize!(field.data, NF * n)
+    return nothing
+end
+
 function Base.setindex!(field::AbstractContinuousField{T, D, NF}, v::T, n::Int) where {T, D, NF}
     setindex!(field.data, v, n)
     return nothing
@@ -105,6 +110,10 @@ end
 
 function block_size(field::AbstractDiscontinuousField, b::Int)
     return (num_fields(field, b), field.nepes[b], field.nelems[b])
+end
+
+function block_sizes(field::AbstractDiscontinuousField)
+    return block_size.((field,), 1:num_blocks(field))
 end
 
 function block_view(field::AbstractDiscontinuousField, b::Int)
@@ -493,6 +502,18 @@ function Adapt.adapt_structure(to, field::StateVariableField{T, D}) where {T, D}
         field.nelems,
         field.offsets
     )
+end
+
+function Base.resize!(field::StateVariableField, block_sizes::Vector{Tuple{Int, Int, Int}})
+    n_blocks = length(block_sizes)
+    offset = 1
+    for n in 1:n_blocks
+        field.nfields[n] = block_sizes[n][1]
+        field.nepes[n] = block_sizes[n][2]
+        field.nelems[n] = block_sizes[n][3]
+        field.offsets[n] = offset
+        offset += prod(block_sizes[n])
+    end
 end
 
 function num_fields(field::StateVariableField, b::Int)

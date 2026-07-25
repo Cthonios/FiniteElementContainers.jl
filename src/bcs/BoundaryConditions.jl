@@ -141,7 +141,11 @@ function BCBookKeeping(
     # gather the blocks that are present in this sideset
     # and also map global element id to local element id
     # TODO this isn't quite right
-    for (n, val) in enumerate(values(mesh.element_id_maps))
+    # NOTE `n` is used below to index into `block_names(mesh)`, so it has to be
+    # a canonical block index -- iterating `values(mesh.element_id_maps)` would
+    # number the blocks in Dict hash order instead.
+    for (n, name) in enumerate(block_names(mesh))
+      val = mesh.element_id_maps[name]
       # note these are the local elem id to the block, e.g. starting from 1.
       indices_in_sset = indexin(val, elements)
       filter!(x -> x !== nothing, indices_in_sset)
@@ -152,7 +156,7 @@ function BCBookKeeping(
     end
 
     @assert length(unique(blocks)) == 1 "Sidesets need to be in a single block"
-    block_name = mesh.element_block_names[blocks[1]]
+    block_name = block_names(mesh)[blocks[1]]
     indices_in_sset = indexin(elements, mesh.element_id_maps[block_name])
     filter!(x -> x !== nothing, indices_in_sset)
     elements = convert(Vector{Int}, indices_in_sset)
@@ -274,7 +278,7 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
   new_bcs = type[]
   new_funcs = Function[]
   block_ids = Int[]
-  block_names = String[]
+  bc_block_names = String[]
   # sideset_ids = Int[]
   # sideset_names = String[]
   for (bk, func) in zip(bks, funcs)
@@ -287,9 +291,9 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
 
     for block in blocks
       block_name = mesh.element_block_names_map[block]
-      block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+      block_id = findfirst(x -> x == block_name, block_names(mesh))
       push!(block_ids, block_id)
-      push!(block_names, block_name)
+      push!(bc_block_names, block_name)
 
       ids = findall(x -> x == block, bk.blocks)
       new_blocks = bk.blocks[ids]
@@ -299,7 +303,7 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
 
       # TODO update nodes and dofs
       new_bk = BCBookKeeping(new_blocks, bk.dofs, new_elements, bk.nodes, new_sides, new_side_nodes)
-      id = findfirst(x -> x == block_name, mesh.element_block_names)
+      id = findfirst(x -> x == block_name, block_names(mesh))
       ref_fe = fspace.ref_fes[id]
       NQ = num_surface_quadrature_points(ref_fe)
       ND = length(dof.var)
@@ -331,7 +335,7 @@ function _setup_weakly_enforced_bc_container(mesh, dof, bcs, type)
       push!(new_funcs, func)
     end
   end
-  return new_bcs, new_funcs, block_ids, block_names
+  return new_bcs, new_funcs, block_ids, bc_block_names
 end
 
 function _setup_sideset(mesh, dof, bc)
@@ -348,7 +352,10 @@ function _setup_sideset(mesh, dof, bc)
   # gather the blocks that are present in this sideset
   # and also map global element id to local element id
   blocks = Vector{Int64}(undef, 0)
-  for (n, val) in enumerate(values(mesh.element_id_maps))
+  # NOTE `n` indexes `block_names(mesh)` below, so it has to be a canonical
+  # block index -- see the same loop in `BCBookKeeping`.
+  for (n, name) in enumerate(block_names(mesh))
+    val = mesh.element_id_maps[name]
     # note these are the local elem id to the block, e.g. starting from 1.
     indices_in_sset = indexin(val, elements)
     filter!(x -> x !== nothing, indices_in_sset)
@@ -360,7 +367,7 @@ function _setup_sideset(mesh, dof, bc)
 
   unique_block_ids = sort(unique(blocks))
   @assert length(unique_block_ids) == 1 "Sidesets need to be in a single block"
-  block_name = mesh.element_block_names[unique_block_ids[1]]
+  block_name = block_names(mesh)[unique_block_ids[1]]
   ids = findall(x -> x == unique_block_ids[1], blocks)
   indices_in_sset = indexin(elements, mesh.element_id_maps[block_name])
   filter!(x -> x !== nothing, indices_in_sset)
@@ -368,7 +375,7 @@ function _setup_sideset(mesh, dof, bc)
 
   # end bc bookkeeping
 
-  block_id = findfirst(x -> x == block_name, mesh.element_block_names)
+  block_id = findfirst(x -> x == block_name, block_names(mesh))
 
   # this probably doesn't do anything for when we just have one block
   blocks = blocks[ids]
