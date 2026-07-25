@@ -157,6 +157,7 @@ $(TYPEDFIELDS)
 """
 struct FunctionSpace{
   IsJuliaCSafe,
+  FieldType,
   IT            <: Integer,
   IV            <: AbstractVector{IT},
   BTRE,
@@ -172,23 +173,23 @@ struct FunctionSpace{
   node_id_map::IV
   ref_fes::RefFEs
 
-  function FunctionSpace{is_juliac_safe}(
+  function FunctionSpace{is_juliac_safe, FT}(
     block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, node_id_map, ref_fes
-  ) where is_juliac_safe
+  ) where {is_juliac_safe, FT}
     new{
-      is_juliac_safe, eltype(conns.data), typeof(conns.data), 
+      is_juliac_safe, FT, eltype(conns.data), typeof(conns.data), 
       typeof(block_to_ref_fe_id), typeof(coords), typeof(ref_fes)
     }(block_names, block_to_ref_fe_id, coords, conns, elem_id_maps, node_id_map, ref_fes)
   end
 end
 
 function FunctionSpace(
-  mesh::AbstractMesh, field_type::Type{IT}, interp_type,
+  mesh::AbstractMesh, field_type::Type{FT}, interp_type,
   ::Type{QT} = GaussLobattoLegendre;
   is_juliac_safe::Bool = false,
   p_degree::Union{Int, Nothing} = nothing,
   q_degree::Union{Int, Nothing} = nothing,
-) where {IT, QT <: ReferenceFiniteElements.AbstractQuadratureType}
+) where {FT, QT <: ReferenceFiniteElements.AbstractQuadratureType}
   return FunctionSpace{is_juliac_safe}(mesh, field_type, interp_type, QT; p_degree = p_degree, q_degree = q_degree)
 end
 
@@ -232,7 +233,7 @@ function FunctionSpace{is_juliac_safe}(
     block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh)
   end
 
-  return FunctionSpace{is_juliac_safe}(
+  return FunctionSpace{is_juliac_safe, H1Field}(
     block_names(mesh), block_to_ref_fe_id, coords, 
     conns, elem_id_maps, mesh.node_id_map, ref_fes
   )
@@ -265,14 +266,14 @@ function FunctionSpace{is_juliac_safe}(
   elem_id_maps = block_id_maps(mesh)
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, is_juliac_safe)
 
-  return FunctionSpace{is_juliac_safe}(
+  return FunctionSpace{is_juliac_safe, L2Field}(
     block_names(mesh), block_to_ref_fe_id, coords,
     conns, elem_id_maps, mesh.node_id_map, ref_fes
   )
 end
 
 function Adapt.adapt_structure(to, fspace::FunctionSpace)
-  return FunctionSpace{_is_juliac_safe(fspace)}(
+  return FunctionSpace{_is_juliac_safe(fspace), _field_type(fspace)}(
     fspace.block_names, fspace.block_to_ref_fe_id,
     adapt(to, fspace.coords),
     adapt(to, fspace.elem_conns), 
@@ -292,7 +293,11 @@ function Base.show(io::IO, fspace::FunctionSpace)
   end
 end
 
-function _is_juliac_safe(::FunctionSpace{B, I, V, BTRE, C, R}) where {B, I, V, BTRE, C, R}
+function _field_type(::FunctionSpace{B, FT, I, V, BTRE, C, R}) where {B, FT, I, V, BTRE, C, R}
+  return FT
+end
+
+function _is_juliac_safe(::FunctionSpace{B, FT, I, V, BTRE, C, R}) where {B, FT, I, V, BTRE, C, R}
   return B
 end
 
@@ -308,14 +313,14 @@ function block_entity_size(fspace::FunctionSpace, b::Int)
   return (num_entities_per_element(fspace, b), num_elements(fspace, b))
 end
 
-function block_reference_element(fspace::FunctionSpace{false, I, V, BTRE, C, R}, block_id::Int) where {I, V, BTRE, C, R}
+function block_reference_element(fspace::FunctionSpace{false, FT, I, V, BTRE, C, R}, block_id::Int) where {I, FT, V, BTRE, C, R}
   return fspace.ref_fes[block_id]
 end
 
 @generated function block_reference_element(
-  fspace::FunctionSpace{true, IT, IV, BTRE, C, R},
+  fspace::FunctionSpace{true, FT, IT, IV, BTRE, C, R},
   block_id::Int
-) where {IT, IV, BTRE, C, R}
+) where {FT, IT, IV, BTRE, C, R}
 
   n_refs = length(BTRE.parameters)
 
@@ -392,8 +397,24 @@ function num_elements(fspace::FunctionSpace, b::Int)
   return num_elements(fspace.elem_conns, b)
 end
 
+function num_entities(fspace::FunctionSpace)
+  if _field_type(fspace) == H1Field
+    return size(fspace.coords, 2)
+  elseif _field_type(fspace) == L2Field
+    return mapreduce(
+      x -> block_quadrature_size(fspace, x)[1] * block_quadrature_size(fspace, x)[2],
+      prod, 1:num_blocks(fspace)
+    )
+  end
+end
+
 function num_entities_per_element(fspace::FunctionSpace, b::Int)
   return num_entities_per_element(fspace.elem_conns, b)
+  if _field_type(fspace) == L2Field
+    return block_quadrature_size(fspace, b)[1]
+  else
+    return num_entities_per_element(fspace.elem_conns, b)
+  end
 end
 
 # function num_q_points(fspace::FunctionSpace, b::Int)
@@ -404,40 +425,3 @@ end
 function unsafe_connectivity(fspace::FunctionSpace, e::Int, b::Int)
   return unsafe_connectivity(fspace.elem_conns, e, b)
 end
-
-# # this is an H1 method, need to specialize
-# function _create_linear_edges(fspace::FunctionSpace, ::Type{<:H1Field}, ::Type{<:Lagrange})
-#   # need to assert this is already a linear function space
-#   for re in fspace.ref_fes
-#     if dimension(re) == 2
-#       @assert polynomial_degree(re) == 1
-#     else
-#       @assert false "Unsupported dimension = $(dimension(re))"
-#     end
-#   end
-
-#   # maps canonical edges
-#   # to a vector of triplets where each element of that 
-#   # vector corresponds to (el_id, local_edge_num, orientation)
-#   edge2elem = Dict{NTuple{2, Int}, Vector{NTuple{3, Int}}}()
-
-#   for b in 1:num_blocks(fspace)
-#     conn = connectivity(fspace, b)
-#     el_ids = fspace.elem_id_maps[b]
-#     re = values(fspace.ref_fes)[b]
-#     for e in axes(conn, 2)
-#       local_edges = _create_local_edges(conn, re, e)
-#       el_id = el_ids[e]
-#       for (le_num, le) in enumerate(local_edges)
-#         ce = _canonical_edge(le...)
-#         orientation = le[1] < le[2] ? 1 : -1
-#         push!(
-#           get!(edge2elem, ce, Vector{NTuple{3, Int}}()),
-#           (el_id, le_num, orientation)
-#         )
-#       end
-#     end
-#   end
-#   return edge2elem
-# end
-
