@@ -110,6 +110,7 @@ export evolve!
 export FileMesh
 export StructuredMesh
 export UnstructuredMesh
+export block_names
 export distribute_mesh
 export element_blocks
 export element_ids

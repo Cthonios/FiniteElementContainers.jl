@@ -205,6 +205,33 @@ returns the connectivity and element type associated with the block named `"soli
 
 This organization makes it straightforward to assign different material models or physics objects to different regions of a mesh.
 
+## Block order
+
+Per-block mesh data is stored in `Dict`s keyed by block name, but a great deal
+of the library refers to blocks by *position* — `num_elements(fspace, b)`,
+`foreach_block`, and the per-block entries of `physics` and `properties` all
+index block `b`. `Dict` iteration is hash order, which is neither the order the
+blocks appear in the mesh file nor stable under a change of block names, so it
+must never be used to establish that position.
+
+The canonical order is given by
+
+```julia
+block_names(mesh)
+```
+
+and block `b` is `block_names(mesh)[b]`. The matching per-block data in the same
+order is available as
+
+```julia
+block_conns(mesh)
+block_id_maps(mesh)
+```
+
+A `FunctionSpace` carries the same order, so `block_names(fspace)[b]` names the
+block whose connectivity, reference element, physics and properties all live at
+index `b`.
+
 ---
 
 # Nodesets and Sidesets

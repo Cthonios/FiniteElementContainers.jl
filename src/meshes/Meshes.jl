@@ -53,16 +53,42 @@ $(TYPEDEF)
 """
 abstract type AbstractMesh end
 
+"""
+$(TYPEDSIGNATURES)
+Element block names in canonical block order, i.e. the order the blocks appear
+in the mesh file.
+
+This is the single source of truth for what "block `b`" means. Meshes store
+per-block data (`element_conns`, `element_id_maps`, `element_types`) in `Dict`s
+keyed by block name, and `Dict` iteration order is hash order -- neither the
+mesh file order nor stable under a change of block names. Anything that indexes
+blocks by position must derive that order from here rather than from
+`values(some_dict)`.
+"""
+block_names(mesh::AbstractMesh) = mesh.element_block_names
+
+"""
+$(TYPEDSIGNATURES)
+Per-block element connectivities in canonical block order. See [`block_names`](@ref).
+"""
+block_conns(mesh::AbstractMesh) = [mesh.element_conns[name] for name in block_names(mesh)]
+
+"""
+$(TYPEDSIGNATURES)
+Per-block element ID maps in canonical block order. See [`block_names`](@ref).
+"""
+block_id_maps(mesh::AbstractMesh) = [mesh.element_id_maps[name] for name in block_names(mesh)]
+
 function Base.show(io::IO, mesh::AbstractMesh)
   println(io, typeof(mesh).name.name, ":")
   println(io, "  Number of dimensions = $(size(mesh.nodal_coords, 1))")
   println(io, "  Number of nodes      = $(size(mesh.nodal_coords, 2))")
 
   println(io, "  Element Blocks:")
-  for (name, type) in zip(values(mesh.element_block_names), mesh.element_types)
+  for name in block_names(mesh)
     conn = mesh.element_conns[name]
     println(io, "    $name:")
-    println(io, "      Element type       = $type")
+    println(io, "      Element type       = $(mesh.element_types[name])")
     println(io, "      Number of elements = $(size(conn, 2))")
   end
 
@@ -270,13 +296,14 @@ function write_to_file(mesh::AbstractMesh, file_name::String; force::Bool = fals
   # write_id_map(exo, NodeMap, convert.(Int32, mesh.node_id_map))
 
   # write block names
-  # block_names = map(String, values(mesh.element_block_names))
-  block_names = mesh.element_block_names
-  write_names(exo, Block, block_names)
+  write_names(exo, Block, block_names(mesh))
 
   # TODO write block id maps
-  # for (n, block_name) in mesh.element_block_names
-  for (n, block_name) in mesh.element_block_names_map
+  # Blocks are written in ascending block id, matching the order the names were
+  # just written in -- iterating the id => name `Dict` directly would write them
+  # in hash order and pair each block with another block's name.
+  for n in sort!(collect(keys(mesh.element_block_names_map)))
+    block_name = mesh.element_block_names_map[n]
     el_type = mesh.element_types[block_name]
     conn = mesh.element_conns[block_name]
     write_block(exo, n, String(el_type), conn |> collect)

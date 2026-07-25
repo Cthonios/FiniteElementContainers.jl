@@ -65,25 +65,25 @@ const MAX_BLOCKS = 16
 function _setup_block_to_ref_fe_id(mesh::AbstractMesh, is_juliac_safe::Bool)
   if is_juliac_safe
     block_ids = Vector{Int}(undef, 0)
-    for block_name in mesh.element_block_names
+    for block_name in block_names(mesh)
       el_type = mesh.element_types[block_name]
       push!(block_ids, _el_name_to_juliac_safe_id[el_type])
     end
     return block_ids
   else
-    return 1:length(mesh.element_types) |> collect
+    return 1:length(block_names(mesh)) |> collect
   end
 end
 
 function _setup_juliac_safe_block_to_ref_fe_id(mesh::AbstractMesh)
-  names = mesh.element_block_names
+  names = block_names(mesh)
   el_types = map(x -> _el_name_to_juliac_safe_id[mesh.element_types[x]], names)
   N = length(names)
   return ntuple(i -> i <= N ? el_types[i] : -1, Val(MAX_BLOCKS))  # replace `i` with your actual block value
 end
 
 function _setup_block_to_ref_fe_id(mesh::AbstractMesh)
-  return 1:length(mesh.element_types) |> collect
+  return 1:length(block_names(mesh)) |> collect
 end
 
 # Lagrange elements
@@ -102,13 +102,13 @@ const _juliac_safe_ref_fes = (
 default code path that sets up ref fes as a namedtuple
 """
 function _setup_ref_fes(
-  mesh::AbstractMesh, 
+  mesh::AbstractMesh,
   interp_type, p_degree,
   q_type::Type{<:ReferenceFiniteElements.AbstractQuadratureType}, q_degree
 )
-  block_names = mesh.element_block_names
+  names = block_names(mesh)
   ref_fes = ReferenceFE[]
-  for block_name in block_names
+  for block_name in names
     elem_name = mesh.element_types[block_name]
     elem_type = elem_type_map[uppercase(elem_name)]
     if p_degree === nothing
@@ -121,7 +121,7 @@ function _setup_ref_fes(
     ref_fe = ReferenceFE(elem_type{interp_type, p_degree}(), q_type(q_degree))
     push!(ref_fes, ref_fe)
   end
-  ref_fes = NamedTuple{tuple(Symbol.(values(block_names))...)}(tuple(ref_fes...))
+  ref_fes = NamedTuple{tuple(Symbol.(names)...)}(tuple(ref_fes...))
   return ref_fes
 end
 
@@ -220,9 +220,11 @@ function FunctionSpace{is_juliac_safe}(
       ref_fes = _setup_ref_fes(mesh, interp_type, nothing, q_type, q_degree)
     end
     coords = mesh.nodal_coords
-    conns = Connectivity([val for val in values(mesh.element_conns)])
+    # canonical block order -- NOT `values(mesh.element_conns)`, whose Dict
+    # iteration order does not agree with `block_names(mesh)`
+    conns = Connectivity(block_conns(mesh))
   end
-  elem_id_maps = [val for val in values(mesh.element_id_maps)]
+  elem_id_maps = block_id_maps(mesh)
   if is_juliac_safe
     block_to_ref_fe_id = _setup_juliac_safe_block_to_ref_fe_id(mesh)
   else
@@ -231,7 +233,7 @@ function FunctionSpace{is_juliac_safe}(
   end
 
   return FunctionSpace{is_juliac_safe}(
-    mesh.element_block_names, block_to_ref_fe_id, coords, 
+    block_names(mesh), block_to_ref_fe_id, coords, 
     conns, elem_id_maps, mesh.node_id_map, ref_fes
   )
 end
@@ -249,22 +251,22 @@ function FunctionSpace{is_juliac_safe}(
     ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_type, q_degree)
   end
 
-  conns = Connectivity([val for val in values(mesh.element_conns)])
-  coords = L2Field(map(x -> mesh.nodal_coords[:, x], [values(mesh.element_conns)...]))
+  # canonical block order throughout -- the L2 coordinates and the offsets that
+  # index into them have to agree with each other AND with `block_names(mesh)`
+  coords = L2Field(map(x -> mesh.nodal_coords[:, x], block_conns(mesh)))
 
   new_conns = Array{Int, 2}[]
   offset = 1
-  for name in keys(mesh.element_conns)
-    conn = mesh.element_conns[name]
+  for conn in block_conns(mesh)
     push!(new_conns, reshape(offset:offset + length(conn) - 1, size(conn)...))
     offset += size(conn, 1) * size(conn, 2)
   end
   conns = Connectivity(new_conns)
-  elem_id_maps = [val for val in values(mesh.element_id_maps)]
+  elem_id_maps = block_id_maps(mesh)
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, is_juliac_safe)
 
   return FunctionSpace{is_juliac_safe}(
-    mesh.element_block_names, block_to_ref_fe_id, coords,
+    block_names(mesh), block_to_ref_fe_id, coords,
     conns, elem_id_maps, mesh.node_id_map, ref_fes
   )
 end
@@ -293,6 +295,14 @@ end
 function _is_juliac_safe(::FunctionSpace{B, I, V, BTRE, C, R}) where {B, I, V, BTRE, C, R}
   return B
 end
+
+"""
+$(TYPEDSIGNATURES)
+Names of the element blocks, in block order: `block_names(fspace)[b]` is the
+name of the block whose connectivity, reference element, physics and properties
+all live at index `b`.
+"""
+block_names(fspace::FunctionSpace) = fspace.block_names
 
 function block_entity_size(fspace::FunctionSpace, b::Int)
   return (num_entities_per_element(fspace, b), num_elements(fspace, b))
