@@ -181,6 +181,7 @@ import AcceleratedKernels as AK
 import KernelAbstractions as KA
 using Adapt
 using Atomix
+using BlockArrays
 using DocStringExtensions
 using Exodus
 using ForwardDiff

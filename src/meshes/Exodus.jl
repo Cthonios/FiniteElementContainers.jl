@@ -27,12 +27,12 @@ end
 
 # minimum interface
 function element_blocks(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
-  blocks = read_sets(mesh.mesh_obj, Block)
+  blocks = read_sets(mesh.mesh_obj, Exodus.Block)
   block_ids = convert(Vector{Int}, map(x -> x.id, blocks))
   conns = map(x -> convert(Matrix{Int}, x.conn), blocks)
   # el_id_maps = element_block_id_map.((mesh,), block_ids)
   el_id_maps = map(x -> convert(Vector{Int}, Exodus.read_block_id_map(mesh.mesh_obj, x)), block_ids)
-  names = Exodus.read_names(mesh.mesh_obj, Block)
+  names = Exodus.read_names(mesh.mesh_obj, Exodus.Block)
   types = map(x -> x.elem_type, blocks)
 
   conns = Dict(zip(names, conns))
