@@ -296,7 +296,7 @@ function write_to_file(mesh::AbstractMesh, file_name::String; force::Bool = fals
   # write_id_map(exo, NodeMap, convert.(Int32, mesh.node_id_map))
 
   # write block names
-  write_names(exo, Block, block_names(mesh))
+  write_names(exo, Exodus.Block, block_names(mesh))
 
   # TODO write block id maps
   # Blocks are written in ascending block id, matching the order the names were
