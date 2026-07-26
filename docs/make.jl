@@ -41,6 +41,7 @@ makedocs(;
         "Meshes"              => "meshes.md",
         "MPI Parallelism"     => "mpi_parallelism.md",
         "Parameters"          => "parameters.md",
+        "Parser"              => "parser.md",
         "Physics"             => "physics.md",
         "Utilities"           => "utils.md"
     ],
