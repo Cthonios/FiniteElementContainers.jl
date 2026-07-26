@@ -133,7 +133,6 @@ struct FunctionSpace{
   RV            <: AbstractVector{RT},
   ND,
   BTRE,
-  # Coords,
   RefFEs
 } <: AbstractFunctionSpace
   block_names::Vector{String}
@@ -180,8 +179,8 @@ function FunctionSpace{is_juliac_safe}(
 ) where {is_juliac_safe, QT <: ReferenceFiniteElements.AbstractQuadratureType}
   ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_type, q_degree, Val{is_juliac_safe}())
   coords = mesh.nodal_coords
-  conns = Connectivity([val for val in values(mesh.element_conns)])
-  elem_id_maps = [val for val in values(mesh.element_id_maps)]
+  conns = Connectivity(block_conns(mesh))
+  elem_id_maps = block_id_maps(mesh)
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, Val{is_juliac_safe}())
 
   return FunctionSpace{is_juliac_safe, H1Field}(
@@ -203,7 +202,7 @@ function FunctionSpace{is_juliac_safe}(
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, Val{is_juliac_safe}())
 
   # TODO only will work for likely linear elements right now
-  topology = UnstructuredTopology(mesh)
+  topology = MeshTopology(mesh)
   elem_to_facets = Connectivity([val for val in values(topology.elem_to_facets)])
   facet_orientation = Connectivity([val for val in values(topology.facet_orientation)])
 
@@ -220,24 +219,11 @@ function FunctionSpace{is_juliac_safe}(
   p_degree = nothing,
   q_degree = nothing
 ) where {is_juliac_safe, QT <: ReferenceFiniteElements.AbstractQuadratureType}
-  if interp_type == Lagrange && p_degree !== nothing && q_degree === nothing
-    q_degree = p_degree + 1
-  end
   ref_fes = _setup_ref_fes(mesh, interp_type, p_degree, q_type, q_degree, Val{is_juliac_safe}())
-  conns = Connectivity([val for val in values(mesh.element_conns)])
-  # coords = L2Field(map(x -> mesh.nodal_coords[:, x], [values(mesh.element_conns)...]))
+  conns = Connectivity(block_conns(mesh))
   coords = mesh.nodal_coords
-  # new_conns = Array{Int, 2}[]
-  # offset = 1
-  # for name in keys(mesh.element_conns)
-  #   conn = mesh.element_conns[name]
-  #   push!(new_conns, reshape(offset:offset + length(conn) - 1, size(conn)...))
-  #   offset += size(conn, 1) * size(conn, 2)
-  # end
-  # conns = Connectivity(new_conns)
-  conns = Connectivity([val for val in block_conns(mesh)])
   elem_id_maps = block_id_maps(mesh)
-  block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh)
+  block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, Val{is_juliac_safe}())
 
   return FunctionSpace{is_juliac_safe, L2Field}(
     block_names(mesh), block_to_ref_fe_id, coords,
@@ -250,7 +236,6 @@ function Adapt.adapt_structure(to, fspace::FunctionSpace)
     fspace.block_names, fspace.block_to_ref_fe_id,
     adapt(to, fspace.coords),
     adapt(to, fspace.elem_conns), 
-    # fspace.elem_id_maps,
     map(x -> adapt(to, x), fspace.elem_id_maps),
     adapt(to, fspace.elem_to_facets),
     adapt(to, fspace.facet_orientation),
@@ -382,11 +367,6 @@ function num_entities_per_element(fspace::FunctionSpace, b::Int)
     return num_entities_per_element(fspace.elem_conns, b)
   end
 end
-
-# function num_q_points(fspace::FunctionSpace, b::Int)
-#   ref_fe = values(fspace.ref_fes)[b]
-#   return num_quadrature_points(ref_fe)
-# end
 
 function connectivity(fspace::FunctionSpace, e::Int, b::Int)
   return connectivity(fspace.elem_conns, e, b)

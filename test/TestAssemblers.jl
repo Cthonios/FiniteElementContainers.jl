@@ -11,14 +11,15 @@
 
   if _check_functional_backend(:AMDGPU)
     A_gpu = adapt(ROCArray, A)
+    trA = FiniteElementContainers._sptrace(A_gpu)
+    @test trA ≈ trA_check
   elseif _check_functional_backend(:CUDA)
     A_gpu = adapt(CuArray, A)
+    trA = FiniteElementContainers._sptrace(A_gpu)
+    @test trA ≈ trA_check
   else
     return nothing
   end
-
-  trA = FiniteElementContainers._sptrace(A_gpu)
-  @test trA ≈ trA_check
 
   temp = rand(10, 10)
   A = SparseMatrixCSR(temp)
@@ -26,14 +27,15 @@
 
   if _check_functional_backend(:AMDGPU)
     A_gpu = AMDGPU.rocSPARSE.ROCSparseMatrixCSR(adapt(ROCArray, temp))
+    trA = FiniteElementContainers._sptrace(A_gpu)
+    @test trA ≈ trA_check
   elseif _check_functional_backend(:CUDA)
     A_gpu = CUDA.CUSPARSE.CuSparseMatrixCSR(adapt(CuArray, temp))
+    trA = FiniteElementContainers._sptrace(A_gpu)
+    @test trA ≈ trA_check
   else
     return nothing
   end
-
-  trA = FiniteElementContainers._sptrace(A_gpu)
-  @test trA ≈ trA_check
 end
 
 @testsnippet AssemblerHelperPoisson begin
