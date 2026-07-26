@@ -52,7 +52,6 @@ export H1Field
 export HcurlField
 export HdivField
 export L2Field
-export Properties
 export StateVariableField
 export num_entities
 export num_fields
@@ -224,7 +223,6 @@ include("InitialConditions.jl")
 include("Formulations.jl")
 include("Gather.jl")
 include("Physics.jl")
-include("Properties.jl")
 include("assemblers/Assemblers.jl")
 #
 include("TimeSteppers.jl")

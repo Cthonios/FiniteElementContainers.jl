@@ -91,7 +91,7 @@ function SparseMatrixPattern(dof::DofManager)
   n = 1
   for b in 1:n_blocks
     for e in 1:num_elements(fspace, b)
-      conn = unsafe_connectivity(fspace, e, b)
+      conn = connectivity(fspace, e, b)
       dof_conn = @views reshape(ids[:, conn], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conn, 1)
         for j in axes(dof_conn, 1)
@@ -272,8 +272,8 @@ function _update_dofs!(
     # @assert num_elements(fspace_1) == num_elements(fspace_2)
     @assert block_entity_size(fspace_1, b)[2] == block_entity_size(fspace_2, b)[2]
     for e in 1:num_elements(fspace_1, b)
-      conns_1 = unsafe_connectivity(fspace_1, e, b)
-      conns_2 = unsafe_connectivity(fspace_2, e, b)
+      conns_1 = connectivity(fspace_1, e, b)
+      conns_2 = connectivity(fspace_2, e, b)
       dof_conns_1 = @views reshape(ids_1[:, conns_1], ND1 * num_entities_per_element(fspace_1, b))
       dof_conns_2 = @views reshape(ids_2[:, conns_2], ND2 * num_entities_per_element(fspace_2, b))
       for i in axes(dof_conns_1, 1)
@@ -301,8 +301,8 @@ function _update_dofs!(
   n = 1
   for b in 1:num_blocks(fspace_1)
     for e in 1:num_elements(fspace_1, b)
-      conns_1 = unsafe_connectivity(fspace_1, e, b)
-      conns_2 = unsafe_connectivity(fspace_2, e, b)
+      conns_1 = connectivity(fspace_1, e, b)
+      conns_2 = connectivity(fspace_2, e, b)
       dof_conns_1 = @views reshape(ids_1[:, conns_1], ND1 * num_entities_per_element(fspace_1, b))
       dof_conns_2 = @views reshape(ids_2[:, conns_2], ND2 * num_entities_per_element(fspace_2, b))
       for i in axes(dof_conns_1, 1)
@@ -514,7 +514,7 @@ function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs, period
   n_entries = 0
   for b in 1:num_blocks(fspace)
     for e in 1:num_elements(fspace, b)
-      conns = unsafe_connectivity(fspace, e, b)
+      conns = connectivity(fspace, e, b)
       dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conns, 1)
         ri = dof_to_unknown_index(dof, dof_conns[i])
@@ -536,7 +536,7 @@ function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs, period
   n = 1
   for b in 1:num_blocks(fspace)
     for e in 1:num_elements(fspace, b)
-      conns = unsafe_connectivity(fspace, e, b)
+      conns = connectivity(fspace, e, b)
       conn = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for temp in conn
         ri = dof_to_unknown_index(dof, temp)
