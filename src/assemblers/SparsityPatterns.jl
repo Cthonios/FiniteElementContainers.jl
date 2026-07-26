@@ -71,7 +71,7 @@ function SparseMatrixPattern(dof::DofManager)
   n = 1
   for b in 1:n_blocks
     for e in 1:num_elements(fspace, b)
-      conn = unsafe_connectivity(fspace, e, b)
+      conn = connectivity(fspace, e, b)
       dof_conn = @views reshape(ids[:, conn], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conn, 1)
         for j in axes(dof_conn, 1)
@@ -167,7 +167,7 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs, period
   n_entries = 0
   for b in 1:num_blocks(fspace)
     for e in 1:num_elements(fspace, b)
-      conns = unsafe_connectivity(fspace, e, b)
+      conns = connectivity(fspace, e, b)
       dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conns, 1)
         ri = dof_to_unknown_index(dof, dof_conns[i])
@@ -194,7 +194,7 @@ function _update_dofs!(pattern::SparseMatrixPattern, dof, dirichlet_dofs, period
   n = 1
   for b in 1:num_blocks(fspace)
     for e in 1:num_elements(fspace, b)
-      conns = unsafe_connectivity(fspace, e, b)
+      conns = connectivity(fspace, e, b)
       dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conns, 1)
         ri = dof_to_unknown_index(dof, dof_conns[i])
@@ -403,7 +403,7 @@ function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs, period
   n_entries = 0
   for b in 1:num_blocks(fspace)
     for e in 1:num_elements(fspace, b)
-      conns = unsafe_connectivity(fspace, e, b)
+      conns = connectivity(fspace, e, b)
       dof_conns = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for i in axes(dof_conns, 1)
         ri = dof_to_unknown_index(dof, dof_conns[i])
@@ -425,7 +425,7 @@ function _update_dofs!(pattern::SparseVectorPattern, dof, dirichlet_dofs, period
   n = 1
   for b in 1:num_blocks(fspace)
     for e in 1:num_elements(fspace, b)
-      conns = unsafe_connectivity(fspace, e, b)
+      conns = connectivity(fspace, e, b)
       conn = @views reshape(ids[:, conns], ND * num_entities_per_element(fspace, b))
       for temp in conn
         ri = dof_to_unknown_index(dof, temp)

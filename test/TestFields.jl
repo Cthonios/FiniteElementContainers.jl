@@ -1,4 +1,5 @@
 @testitem "Fields - test_connectivity" begin
+  import FiniteElementContainers as FEC
   using ReferenceFiniteElements
 
   ref_fe_1 = ReferenceFE(Quad{Lagrange, 1}(), GaussLobattoLegendre(1))
@@ -34,6 +35,19 @@
   @test connectivity(ref_fe_2, conn.data, 3, 13) == [19, 20, 21]
   @test connectivity(ref_fe_2, conn.data, 4, 13) == [22, 23, 24]
   @test connectivity(ref_fe_2, conn.data, 5, 13) == [25, 26, 27]
+
+  # testing v2 connectivity
+  conn = FEC.Connectivity_v2(conn)
+  # block 1
+  @test map(x -> connectivity(conn, x, 1, 1), 1:4) == [1, 2, 3, 4]
+  @test map(x -> connectivity(conn, x, 2, 1), 1:4) == [5, 6, 7, 8]
+  @test map(x -> connectivity(conn, x, 3, 1), 1:4) == [9, 10, 11, 12]
+  # block 2
+  @test map(x -> connectivity(conn, x, 1, 2), 1:3) == [13, 14, 15]
+  @test map(x -> connectivity(conn, x, 2, 2), 1:3) == [16, 17, 18]
+  @test map(x -> connectivity(conn, x, 3, 2), 1:3) == [19, 20, 21]
+  @test map(x -> connectivity(conn, x, 4, 2), 1:3) == [22, 23, 24]
+  @test map(x -> connectivity(conn, x, 5, 2), 1:3) == [25, 26, 27]
 end
 
 @testitem "Fields - test_h1_field" begin
@@ -186,6 +200,17 @@ end
       end
     end
   end
+end
+
+@testitem "Fields - test_property_field_all_constant" begin
+  props_1 = rand(2)
+  props_2 = rand(3)
+  props = FiniteElementContainers.PropertyField([props_1, props_2])
+  @test all(FiniteElementContainers.properties(props, 1, 1) .≈ props_1)
+  @test all(FiniteElementContainers.properties(props, 100, 1) .≈ props_1)
+
+  @test all(FiniteElementContainers.properties(props, 1, 2) .≈ props_2)
+  @test all(FiniteElementContainers.properties(props, 100, 2) .≈ props_2)
 end
 
 @testitem "Fields - test_state_variable_field" begin

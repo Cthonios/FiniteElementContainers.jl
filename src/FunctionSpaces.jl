@@ -422,6 +422,6 @@ end
 #   return num_quadrature_points(ref_fe)
 # end
 
-function unsafe_connectivity(fspace::FunctionSpace, e::Int, b::Int)
-  return unsafe_connectivity(fspace.elem_conns, e, b)
+function connectivity(fspace::FunctionSpace, e::Int, b::Int)
+  return connectivity(fspace.elem_conns, e, b)
 end
