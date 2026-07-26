@@ -164,3 +164,10 @@ end
   file_name = "some_file.badext"
   @test_throws ErrorException UnstructuredMesh(file_name)
 end
+
+@testitem "Meshes - topology" begin
+  import FiniteElementContainers as FEC
+  file_name = "poisson/poisson.g"
+  mesh = UnstructuredMesh(file_name)
+  topology = FEC.MeshToplogy(mesh)
+end
