@@ -54,7 +54,7 @@ function _is_oriented_positive(nodes)
     return nodes[1] == minimum(nodes)
 end
 
-struct MeshToplogy{I <: Integer}
+struct MeshTopology{I <: Integer}
     elem_to_facets::Dict{String, Matrix{I}}
     facets::Vector{Vector{I}}
     facet_map::Dict{Vector{I}, I}
@@ -62,7 +62,7 @@ struct MeshToplogy{I <: Integer}
     facet_to_elem::Vector{Vector{I}}
 end
 
-function MeshToplogy(mesh::AbstractMesh)
+function MeshTopology(mesh::AbstractMesh)
     facets = Vector{Vector{Int}}()
     facet_map = Dict{Vector{Int}, Int}()
     facet_to_elem = Vector{Vector{Int}}()
@@ -121,7 +121,7 @@ function MeshToplogy(mesh::AbstractMesh)
         facet_orientation_new[block_name] = temp
     end
 
-    return MeshToplogy(
+    return MeshTopology(
         elem_to_facets,
         facets,
         facet_map,

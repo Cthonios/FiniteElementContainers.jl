@@ -169,5 +169,5 @@ end
   import FiniteElementContainers as FEC
   file_name = "poisson/poisson.g"
   mesh = UnstructuredMesh(file_name)
-  topology = FEC.MeshToplogy(mesh)
+  topology = FEC.MeshTopology(mesh)
 end
