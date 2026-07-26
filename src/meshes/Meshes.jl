@@ -540,4 +540,5 @@ end
 
 include("AMRMesh.jl")
 include("StructuredMesh.jl")
+include("Topology.jl")
 include("UnstructuredMesh.jl")
