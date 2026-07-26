@@ -208,7 +208,7 @@ function FunctionSpace{is_juliac_safe}(
   facet_orientation = Connectivity([val for val in values(topology.facet_orientation)])
 
   return FunctionSpace{is_juliac_safe, HdivField}(
-    mesh.element_block_names, block_to_ref_fe_id, coords, 
+    block_names(mesh), block_to_ref_fe_id, coords, 
     conns, elem_id_maps, elem_to_facets, facet_orientation, mesh.node_id_map, ref_fes
   )
 end
@@ -235,12 +235,12 @@ function FunctionSpace{is_juliac_safe}(
   #   offset += size(conn, 1) * size(conn, 2)
   # end
   # conns = Connectivity(new_conns)
-  conns = Connectivity([val for val in values(mesh.element_conns)])
-  elem_id_maps = [val for val in values(mesh.element_id_maps)]
+  conns = Connectivity([val for val in block_conns(mesh)])
+  elem_id_maps = block_id_maps(mesh)
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh)
 
   return FunctionSpace{is_juliac_safe, L2Field}(
-    mesh.element_block_names, block_to_ref_fe_id, coords,
+    block_names(mesh), block_to_ref_fe_id, coords,
     conns, elem_id_maps, nothing, nothing, mesh.node_id_map, ref_fes
   )
 end

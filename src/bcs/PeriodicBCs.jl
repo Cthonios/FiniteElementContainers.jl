@@ -221,13 +221,9 @@ end
 Base.length(bcs::PeriodicBCs) = length(bcs.bc_funcs)
 
 function Base.show(io::IO, bcs::PeriodicBCs)
-    # for (n, (cache, func)) in enumerate(zip(bcs.bc_cache, bcs.bc_funcs))
     show(io, "PeriodicBC:")
     show(io, bcs.bc_caches)
-    # show(io, bcs.bc_lengths)
-    # show(io, func)
     show(io, "\n")
-    # end
 end
 
 function periodic_dofs(bcs::PeriodicBCs)
