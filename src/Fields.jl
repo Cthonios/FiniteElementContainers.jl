@@ -444,6 +444,7 @@ function Adapt.adapt_structure(to, field::L2Field{T, D, NF}) where {T, D, NF}
     data = adapt(to, field.data)
     return L2Field{T, typeof(data), NF}(
         data,
+        field.nblocks,
         field.nepes,
         field.nelems,
         field.offsets
@@ -574,6 +575,7 @@ function Adapt.adapt_structure(to, field::StateVariableField{T, D}) where {T, D}
     data = adapt(to, field.data)
     return StateVariableField{T, typeof(data)}(
         data,
+        field.nblocks,
         field.nfields,
         field.nepes,
         field.nelems,
