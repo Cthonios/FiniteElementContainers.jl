@@ -1,5 +1,11 @@
-function _canonical_facet(nodes::NTuple{N, I}) where {N, I <: Integer}
-    return sort(nodes)
+# doesn't work on 1.10
+# function _canonical_facet(nodes::NTuple{N, I}) where {N, I <: Integer}
+#     return sort(nodes)
+# end
+
+function _canonical_facet(nodes::NTuple{N,I}) where {N,I<:Integer}
+    sorted = sort!(collect(nodes))
+    return ntuple(i -> sorted[i], Val(N))
 end
 
 function _get_local_facets(el_type, conn, e)
