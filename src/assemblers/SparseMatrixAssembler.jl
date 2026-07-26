@@ -85,7 +85,7 @@ function SparseMatrixAssembler{SparseMatrixType, UseInPlaceMethods, UseSparseVec
   # global matrix (e.g. central difference, L-BFGS).  Calling assemble_matrix!
   # on such an assembler errors with a clear message; the mass/stiffness
   # accessors return a zero sparse matrix of the correct shape.
-  matrix_pattern = matrix_free ? _empty_matrix_pattern(dof) : SparseMatrixPattern(dof)
+  matrix_pattern = matrix_free ? _empty_matrix_pattern(dof) : SparseMatrixPattern(dof, dof)
   vector_pattern = SparseVectorPattern(dof)
 
   ND, NN = size(dof)
@@ -270,7 +270,7 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs,
 
   # problaby a better way to order all this logic for different things
   if _use_sparse_vector(assembler)
-    _, n_entries = _setup_block_sizes(assembler.dof, 1)
+    _, n_entries = _setup_block_sizes(assembler.dof)
     resize!(assembler.residual_unknowns, n_entries)
   end
 

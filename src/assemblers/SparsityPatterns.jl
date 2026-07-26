@@ -1,5 +1,5 @@
-# ndims needs to be 1 (vector) or 2 (matrix)
-function _setup_block_sizes(dof::DofManager, ndims::Int)
+# below is for dense/sparse vectors
+function _setup_block_sizes(dof::DofManager)
   ND = size(dof, 1)
   fspace = function_space(dof)
   n_blocks = num_blocks(fspace)
@@ -8,11 +8,7 @@ function _setup_block_sizes(dof::DofManager, ndims::Int)
   start_carry = 1
   for b in 1:n_blocks
     NEPE, NE = block_entity_size(fspace, b)
-    if ndims == 1
-      n_dofs_per_el = ND * NEPE
-    elseif ndims == 2
-      n_dofs_per_el = (ND * NEPE) * (ND * NEPE)
-    end
+    n_dofs_per_el = ND * NEPE
     block_start_indices[b] = start_carry
     start_carry = start_carry + n_dofs_per_el * NE
   end
@@ -70,33 +66,34 @@ struct SparseMatrixPattern{
   permutation::I
 end
 
-function SparseMatrixPattern(dof::DofManager)
+function SparseMatrixPattern(dof_1::DofManager, dof_2::DofManager)
+  ND1, NN1 = size(dof_1)
+  ND2, NN2 = size(dof_2)
+  n_total_dofs_1 = NN1 * ND1
+  n_total_dofs_2 = NN2 * ND2
 
-  # get number of dofs for creating cache arrays
-  ND, NN = size(dof)
-  n_total_dofs = NN * ND
-
-  fspace = function_space(dof)
-  n_blocks = num_blocks(fspace)
-
-  block_start_indices, n_entries = _setup_block_sizes(dof, 2)
+  fspace_1, fspace_2 = function_space(dof_1), function_space(dof_2)
+  n_blocks = num_blocks(fspace_1)
+  block_start_indices, n_entries = _setup_block_sizes(dof_1, dof_2)
 
   # setup pre-allocated arrays based on number of entries found above
   Is = Vector{Int64}(undef, n_entries)
   Js = Vector{Int64}(undef, n_entries)
   unknown_dofs = Vector{Int64}(undef, n_entries)
 
-  # now loop over function spaces and elements
-  ids = reshape(1:n_total_dofs, ND, NN)
+  ids_1 = reshape(1:n_total_dofs_1, ND1, NN1)
+  ids_2 = reshape(1:n_total_dofs_2, ND2, NN2)
   n = 1
   for b in 1:n_blocks
-    for e in 1:num_elements(fspace, b)
-      conn = connectivity(fspace, e, b)
-      dof_conn = @views reshape(ids[:, conn], ND * num_entities_per_element(fspace, b))
-      for i in axes(dof_conn, 1)
-        for j in axes(dof_conn, 1)
-          Is[n] = dof_conn[i]
-          Js[n] = dof_conn[j]
+    for e in 1:num_elements(fspace_1, b)
+      conn_1 = connectivity(fspace_1, e, b)
+      conn_2 = connectivity(fspace_2, e, b)
+      dof_conn_1 = @views reshape(ids_1[:, conn_1], ND1 * num_entities_per_element(fspace_1, b))
+      dof_conn_2 = @views reshape(ids_2[:, conn_2], ND2 * num_entities_per_element(fspace_2, b))
+      for i in axes(dof_conn_1, 1)
+        for j in axes(dof_conn_2, 1)
+          Is[n] = dof_conn_1[i]
+          Js[n] = dof_conn_2[j]
           unknown_dofs[n] = n
           n += 1
         end
@@ -105,6 +102,12 @@ function SparseMatrixPattern(dof::DofManager)
   end
 
   # create caches
+  # TODO not sure what to do for klasttouch and csrrowptr
+  # so making it the maximum size so we don't hit index out of bounds
+  # errors
+  # Is this right though?
+  n_total_dofs = max(n_total_dofs_1, n_total_dofs_2)
+  # hack above
   klasttouch = zeros(Int64, n_total_dofs)
   csrrowptr  = zeros(Int64, n_total_dofs + 1)
   csrcolval  = zeros(Int64, length(Is))
@@ -459,7 +462,7 @@ function SparseVectorPattern(dof::DofManager)
   ids = reshape(1:n_total_dofs, ND, NN)
 
   fspace = function_space(dof)
-  block_start_indices, n_entries = _setup_block_sizes(dof, 1)
+  block_start_indices, n_entries = _setup_block_sizes(dof)
 
   # setup pre-allocated arrays based on number of entries
   Is = Vector{Int64}(undef, n_entries)
