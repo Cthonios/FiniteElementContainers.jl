@@ -83,6 +83,15 @@ struct InitialConditionContainer{
         vals = zeros(length(dofs))
         new{typeof(dofs), typeof(vals)}(dofs, nodes, vals)
     end
+
+    # Field-wise constructor, mirroring DirichletBCContainer.  Declaring the
+    # constructor above suppresses Julia's default one, so without this
+    # `adapt_structure` below has no method to call and moving a parameter set
+    # containing initial conditions to a device fails with a MethodError -- i.e.
+    # initial conditions could not be placed on a GPU at all.
+    function InitialConditionContainer(dofs, locations, vals)
+        new{typeof(dofs), typeof(vals)}(dofs, locations, vals)
+    end
 end
 
 function Adapt.adapt_structure(to, ic::InitialConditionContainer)

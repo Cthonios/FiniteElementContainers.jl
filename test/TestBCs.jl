@@ -299,4 +299,31 @@ end
   for dev in gpu_backends
     @test bc_values(dev) ≈ reference
   end
+
+  # Initial conditions go through the same evaluator by a different route:
+  # `initialize!` calls `update_ic_values!`, and `_update_ic_values!` dispatches
+  # on the IC container's backend, so a device-resident parameter set evaluates
+  # the expression in a kernel too. That overload takes coordinates only (no
+  # time), so num_vars must equal ND rather than ND + 1.
+  ic_expr = ScalarExpressionFunction{Float64}("4.0 * x + 5.0 * y", ["x", "y"])
+
+  function ic_values(dev)
+    asm = SparseMatrixAssembler(u; sparse_matrix_type = :csc, use_inplace_methods = false)
+    p = create_parameters(mesh, asm, physics, props;
+                          ics = InitialCondition[InitialCondition("u", ic_expr; block_name = "block_1")])
+    if dev != cpu
+      p = p |> dev
+      asm = asm |> dev
+    end
+    FiniteElementContainers.initialize!(p)
+    p = dev == cpu ? p : (p |> cpu)
+    return Array(p.field.data)
+  end
+
+  ic_reference = ic_values(cpu)
+  @test any(!iszero, ic_reference)
+
+  for dev in gpu_backends
+    @test ic_values(dev) ≈ ic_reference
+  end
 end
