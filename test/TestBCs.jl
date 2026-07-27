@@ -247,3 +247,56 @@ end
   # source_in = Source("disp", dummy_func_2, "block_1")
   # @test_throws E Sources(mesh, dof, Source[source_in])
 end
+
+@testitem "BCs - dirichlet expression functions compile in GPU kernels" tags=[:gpu] begin
+  if "--test-amdgpu" in ARGS @eval using AMDGPU end
+  if "--test-cuda" in ARGS @eval using CUDA end
+  using StaticArrays
+  import FiniteElementContainers.Expressions: ScalarExpressionFunction
+  include("TestUtils.jl")
+  include("poisson/TestPoissonCommon.jl")
+
+  # `_update_bc_values!` dispatches on the device-resident BC container, so a
+  # Dirichlet BC function is evaluated inside a KA kernel on every time step.
+  # Every other GPU test in this suite supplies a plain closure such as
+  # `bc_func(_, _) = 0.`, which compiles without trouble.  A parsed
+  # `ScalarExpressionFunction` -- what an input-file driven application actually
+  # passes -- did not: its call overload asserted with an interpolated message,
+  # and building that string on the failure branch emits IR GPUCompiler rejects.
+  # Dirichlet BCs were therefore unusable on GPU for any file-driven problem
+  # while this suite stayed green, so pin the expression path specifically.
+  backends = _get_backends()
+  gpu_backends = filter(!=(cpu), backends)
+  isempty(gpu_backends) && return nothing
+
+  mesh = UnstructuredMesh("poisson/poisson.g")
+  V = FunctionSpace(mesh, H1Field, Lagrange)
+  u = ScalarFunction(V, "u")
+  physics = Poisson((X, _) -> 0.0)
+  props = create_properties(physics)
+
+  # Time is the last variable by convention, and the mesh is 2D, so num_vars
+  # must be ND + 1 = 3.  Deliberately depends on x, y and t so a mix-up in the
+  # packed SVector cannot cancel out.
+  expr = ScalarExpressionFunction{Float64}("2.0 * t * x + 3.0 * y", ["x", "y", "t"])
+
+  function bc_values(dev)
+    asm = SparseMatrixAssembler(u; sparse_matrix_type = :csc, use_inplace_methods = false)
+    dbcs = DirichletBC[DirichletBC("u", expr; sideset_name = "sset_1")]
+    p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
+    if dev != cpu
+      p = p |> dev
+      asm = asm |> dev
+    end
+    update_bc_values!(p, asm)
+    p = dev == cpu ? p : (p |> cpu)
+    return Array(p.dirichlet_bcs.bc_cache.vals)
+  end
+
+  reference = bc_values(cpu)
+  @test any(!iszero, reference)          # the expression must actually do something
+
+  for dev in gpu_backends
+    @test bc_values(dev) ≈ reference
+  end
+end

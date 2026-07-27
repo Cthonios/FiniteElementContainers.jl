@@ -601,14 +601,24 @@ end
 
 # IC-style call: ND spatial coords (no time variable in the expression).
 function (f::ScalarExpressionFunction{T})(X::SVector{ND, T}) where {ND, T <: Number}
-    @assert Int(f.num_vars) == ND "You need $ND variables for this function"
+    # See the note on the (X, t) method below: no interpolation in this message.
+    # `_update_ic_values!` dispatches on the IC container's backend, so this call
+    # lands inside a KA kernel whenever the parameters live on the device.
+    @assert Int(f.num_vars) == ND "wrong number of variables for this expression"
     return _eval_node(f.nodes, UInt16(1), X)
 end
 
 # BC-style call: ND spatial coords + scalar time, packed into a stack-
 # allocated SVector so the call survives KA kernels.
 function (f::ScalarExpressionFunction{T})(X::SVector{ND, T}, t::T) where {ND, T <: Number}
-    @assert Int(f.num_vars) == ND + 1 "You need $(ND + 1) variables for this function"
+    # NOTE: the message must not interpolate.  This method is called from inside
+    # KA kernels (`_update_bc_values!` and the periodic-BC equivalent dispatch on
+    # the device-resident container), and building an interpolated string on the
+    # failure branch emits IR that GPUCompiler rejects.  That made every
+    # Dirichlet BC unusable on GPU, and surfaced as a segfault rather than a
+    # readable error because GPUCompiler crashed while formatting the report.  A
+    # literal message compiles to a trap and is fine.
+    @assert Int(f.num_vars) == ND + 1 "wrong number of variables for this expression"
     if ND == 1
         vars = SVector{2, T}(X[1], t)
     elseif ND == 2
