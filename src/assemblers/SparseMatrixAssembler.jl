@@ -159,6 +159,43 @@ end
 # pattern and matrix-value buffers are empty and assemble_matrix! is forbidden.
 _is_matrix_free(asm::SparseMatrixAssembler) = isempty(asm.matrix_pattern.Is)
 
+"""
+$(TYPEDSIGNATURES)
+Return a matrix-free view of `asm`: a new `SparseMatrixAssembler` sharing all
+of `asm`'s fields except the sparse matrix pattern and the mass/stiffness value
+buffers, which are replaced by the same empty placeholders an assembler
+constructed with `matrix_free = true` carries.  The original assembler is
+untouched and can still assemble matrices.
+
+Intended use: solvers that only ever run matrix-free operations on a device
+(`assemble_matrix_free_action!`, `assemble_diagonal!`, `assemble_vector!`, ...)
+should transfer `as_matrix_free(asm)` instead of `asm` — the pattern and value
+buffers dominate the assembler's memory footprint (roughly 25x the matrix-free
+remainder at ~500k DOFs) and are dead weight there.  Call on a host-resident
+assembler, before `to_backend`; the empty placeholders are host arrays.
+"""
+function as_matrix_free(asm::SparseMatrixAssembler)
+  _is_matrix_free(asm) && return asm
+  return SparseMatrixAssembler{
+    _is_condensed(asm.dof),
+    _sparse_matrix_type(asm),
+    _use_inplace_methods(asm),
+    _use_sparse_vector(asm)
+  }(
+    asm.dof,
+    _empty_matrix_pattern(asm.dof),
+    asm.vector_pattern,
+    asm.constraint_storage,
+    similar(asm.mass_storage, 0),
+    asm.residual_storage,
+    asm.residual_unknowns,
+    asm.scalar_quadrature_storage,
+    similar(asm.stiffness_storage, 0),
+    asm.stiffness_action_storage,
+    asm.stiffness_action_unknowns
+  )
+end
+
 function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
   return SparseMatrixAssembler{
     _is_condensed(asm.dof),
