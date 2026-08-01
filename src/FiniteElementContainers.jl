@@ -8,6 +8,7 @@ export to_backend
 
 # Assemblers
 export SparseMatrixAssembler
+export as_matrix_free
 export create_assembler_cache
 export assemble_lumped_mass!
 export assemble_mass!
