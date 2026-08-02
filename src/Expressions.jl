@@ -1,5 +1,6 @@
 module Expressions
 
+import Adapt
 import DynamicExpressions.NodeModule: DEFAULT_MAX_DEGREE
 using DocStringExtensions
 using DynamicExpressions
@@ -685,6 +686,24 @@ end
 function (f::VectorExpressionFunction)(X::SVector{ND, T}, t::T) where {ND, T <: Number}
     return map(func -> func(X, t), f.exprs)
 end
+
+########################################################
+# Adapt
+#
+# Both flat expression functions subtype `Function` so they can be called,
+# but they are plain isbits data — no captured arrays, nothing to move to a
+# device.  Adapt's generic `Function` method assumes any callable is a
+# closure and infers one type parameter per captured field: for
+# `ScalarExpressionFunction{T}` that is 1 type parameter against 3 fields,
+# so it computes `num_static_params = -2` and throws
+# `ArgumentError: tuple length should be >= 0, got -2`.  That fires the
+# moment one of these is passed to a GPU kernel as a bare argument rather
+# than reached through an enclosing closure.  Adapting them is the
+# identity.
+########################################################
+
+Adapt.adapt_structure(to, f::ScalarExpressionFunction) = f
+Adapt.adapt_structure(to, f::VectorExpressionFunction) = f
 
 ########################################################
 # Symbolic differentiation on the recursive Node form.
