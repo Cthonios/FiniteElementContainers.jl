@@ -392,7 +392,27 @@ abstract type AbstractExpressionFunction{T, N, D} <: Function end
 # construction time.
 ########################################################
 
-const FEC_EXPR_MAX_NODES = 256
+# Trees are padded up to the next width on this ladder, and the width is a
+# type parameter of `ScalarExpressionFunction`.  A dynamically indexed
+# by-value NTuple is copied to LOCAL memory PER THREAD on the GPU, so every
+# evaluated node pays for the padding, not for the tree: measured on a V100
+# over 200k BC nodes, a 15-node expression costs 2.31 ns/node padded to 16
+# and 28.38 ns/node padded to 256.  Sizing the pad to the tree is therefore
+# worth ~12x on any BC or IC applied to many nodes.
+#
+# The ladder (rather than an exact width) keeps the number of kernel
+# specialisations bounded — one per distinct width in use, typically two or
+# three for a whole input deck.
+const FEC_EXPR_WIDTHS    = (16, 32, 64, 128, 256, 512, 1024)
+const FEC_EXPR_MAX_NODES = last(FEC_EXPR_WIDTHS)
+
+# Smallest ladder width that holds `n` nodes.
+function _bucket_width(n::Integer)
+    for w in FEC_EXPR_WIDTHS
+        n <= w && return w
+    end
+    error("expression too large: $n nodes (max $FEC_EXPR_MAX_NODES)")
+end
 
 """
 $(TYPEDEF)
@@ -448,8 +468,8 @@ function _flatten_visit!(buf::Vector{FlatNode{T}}, node::Node{T, D})::UInt16 whe
     end
 end
 
-@generated function _vector_to_ntuple(v::Vector{T}) where {T}
-    Expr(:tuple, [:(@inbounds(v[$i])) for i=1:FEC_EXPR_MAX_NODES]...)
+@generated function _vector_to_ntuple(v::Vector{T}, ::Val{M}) where {T, M}
+    Expr(:tuple, [:(@inbounds(v[$i])) for i=1:M]...)
 end
 
 function _flatten(root::Node{T, D}) where {T, D}
@@ -457,16 +477,13 @@ function _flatten(root::Node{T, D}) where {T, D}
     sizehint!(buf, FEC_EXPR_MAX_NODES)
     _flatten_visit!(buf, root)
     n_active = length(buf)
-    n_active <= FEC_EXPR_MAX_NODES || error(
-        "expression too large: $n_active nodes (max $FEC_EXPR_MAX_NODES)"
-    )
-    # Pad to fixed length with default nodes so the resulting NTuple type
-    # has a constant size at the type level.
-    while length(buf) < FEC_EXPR_MAX_NODES
+    # Pad to the next ladder width so the NTuple type has a constant size at
+    # the type level, while still costing only what this tree needs.
+    width = _bucket_width(n_active)
+    while length(buf) < width
         push!(buf, FlatNode{T}())
     end
-    # nodes = NTuple{FEC_EXPR_MAX_NODES, FlatNode{T}}(buf)
-    nodes = _vector_to_ntuple(buf)
+    nodes = _vector_to_ntuple(buf, Val(width))
     return nodes, UInt16(n_active)
 end
 
@@ -565,44 +582,69 @@ KernelAbstractions kernel argument and trim-mode safe under `juliac`.
 The trailing variable is conventionally time; FEC's juliac-safe
 `DirichletBCs` constructor uses `num_vars` as the time-derivative index.
 """
-struct ScalarExpressionFunction{T <: Number} <: AbstractExpressionFunction{T, FlatNode{T}, ntuple_type}
-    nodes::NTuple{FEC_EXPR_MAX_NODES, FlatNode{T}}
+struct ScalarExpressionFunction{T <: Number, N} <: AbstractExpressionFunction{T, FlatNode{T}, ntuple_type}
+    nodes::NTuple{N, FlatNode{T}}
     n_active::UInt16
     num_vars::UInt8
 
-    """
-    $(TYPEDSIGNATURES)
-
-    Parse `string` as an expression in the variable namespace `var_names`
-    and store the resulting tree in flat form.  `var_names` is consumed by
-    the parser to bind identifiers to feature indices; it is not retained
-    on the resulting function.
-    """
-    function ScalarExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
-        p = Parser{T}(string, var_names)
-        _reset!(p)
-        ast = _parse_statement(p, 0)
-        nodes, n_active = _flatten(ast)
-        new{T}(nodes, n_active, UInt8(length(var_names)))
-    end
-
-    """
-    $(TYPEDSIGNATURES)
-
-    Build a `ScalarExpressionFunction` from a prebuilt flat NTuple — used
-    internally by [`differentiate`](@ref) to wrap the result of a tree
-    rewrite without round-tripping through the parser.
-    """
-    function ScalarExpressionFunction{T}(
-        nodes::NTuple{FEC_EXPR_MAX_NODES, FlatNode{T}},
+    function ScalarExpressionFunction{T, N}(
+        nodes::NTuple{N, FlatNode{T}},
         n_active::UInt16,
         num_vars::Integer
-    ) where T <: Number
-        new{T}(nodes, n_active, UInt8(num_vars))
+    ) where {T <: Number, N}
+        new{T, N}(nodes, n_active, UInt8(num_vars))
     end
 end
 
+"""
+$(TYPEDSIGNATURES)
+
+Parse `string` as an expression in the variable namespace `var_names` and
+store the resulting tree in flat form.  `var_names` is consumed by the
+parser to bind identifiers to feature indices; it is not retained on the
+resulting function.  The tuple width is chosen from `FEC_EXPR_WIDTHS` to
+fit this tree, so the returned type is `ScalarExpressionFunction{T, N}`
+with N depending on the expression.
+"""
+function ScalarExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
+    p = Parser{T}(string, var_names)
+    _reset!(p)
+    ast = _parse_statement(p, 0)
+    nodes, n_active = _flatten(ast)
+    return ScalarExpressionFunction{T, length(nodes)}(nodes, n_active,
+                                                      UInt8(length(var_names)))
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Build a `ScalarExpressionFunction` from a prebuilt flat NTuple — used
+internally by [`differentiate`](@ref) to wrap the result of a tree rewrite
+without round-tripping through the parser.
+"""
+function ScalarExpressionFunction{T}(
+    nodes::NTuple{N, FlatNode{T}},
+    n_active::UInt16,
+    num_vars::Integer
+) where {T <: Number, N}
+    return ScalarExpressionFunction{T, N}(nodes, n_active, num_vars)
+end
+
+"""
+$(TYPEDSIGNATURES)
+
+Re-pad `f` to a wider tuple.  Needed where several expressions must share
+one concrete type — `VectorExpressionFunction` holds its components in an
+`SVector`, which has to be homogeneous.
+"""
+function _repad(f::ScalarExpressionFunction{T, N}, ::Val{M}) where {T, N, M}
+    M >= N || error("cannot re-pad a width-$N expression down to $M")
+    nodes = ntuple(i -> i <= N ? f.nodes[i] : FlatNode{T}(), Val(M))
+    return ScalarExpressionFunction{T, M}(nodes, f.n_active, f.num_vars)
+end
+
 Base.eltype(::ScalarExpressionFunction{T}) where T <: Number = T
+Base.length(::ScalarExpressionFunction{T, N}) where {T, N} = N
 
 # Single scalar
 function (f::ScalarExpressionFunction{T})(var::T) where T <: Number
@@ -654,21 +696,31 @@ $(METHODLIST)
 $(TYPEDFIELDS)
 $(TYPEDEF)
 """
-struct VectorExpressionFunction{N, T <: Number} <: AbstractExpressionFunction{T, Node{T, DEFAULT_MAX_DEGREE}, ntuple_type}
-    exprs::SVector{N, ScalarExpressionFunction{T}}
+struct VectorExpressionFunction{N, T <: Number, M} <: AbstractExpressionFunction{T, Node{T, DEFAULT_MAX_DEGREE}, ntuple_type}
+    exprs::SVector{N, ScalarExpressionFunction{T, M}}
     num_vars::Int
 
-    function VectorExpressionFunction{N, T}(
-        strings::Vector{String},
-        var_names::Vector{String},
-    ) where {N, T<:Number}
-        @assert length(strings) == N
-        funcs = ntuple(
-            i -> ScalarExpressionFunction{T}(strings[i], var_names),
-            Val(N),
-        )
-        return new{N, T}(SVector{N}(funcs), length(var_names))
+    function VectorExpressionFunction{N, T, M}(
+        exprs::SVector{N, ScalarExpressionFunction{T, M}},
+        num_vars::Integer
+    ) where {N, T <: Number, M}
+        return new{N, T, M}(exprs, Int(num_vars))
     end
+end
+
+# The components are parsed independently and may land on different ladder
+# widths; the SVector needs one concrete element type, so widen them all to
+# the widest.
+function VectorExpressionFunction{N, T}(
+    strings::Vector{String},
+    var_names::Vector{String},
+) where {N, T <: Number}
+    @assert length(strings) == N
+    funcs = ntuple(i -> ScalarExpressionFunction{T}(strings[i], var_names), Val(N))
+    M = maximum(length, funcs)
+    padded = ntuple(i -> _repad(funcs[i], Val(M)), Val(N))
+    return VectorExpressionFunction{N, T, M}(
+        SVector{N, ScalarExpressionFunction{T, M}}(padded), length(var_names))
 end
 
 function (f::VectorExpressionFunction)(var::T) where T <: Number
