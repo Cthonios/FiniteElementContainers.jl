@@ -517,26 +517,42 @@ end
     return T(NaN)
 end
 
-# Recursive evaluator over the flat NTuple.  Depth is bounded by the
-# expression tree height (≤ ~10 for the expressions Carina uses today),
-# so GPUCompiler handles the recursion without stack pressure.
-function _eval_node(nodes::NTuple{N, FlatNode{T}}, idx::UInt16,
-                    vars) where {N, T}
-    n = nodes[idx]
-    if n.degree == 0
-        if n.constant
-            return n.val
+# Iterative evaluator over the flat NTuple.
+#
+# MUST NOT RECURSE.  `nodes` is an NTuple passed by value, and indexing it
+# with a runtime index forces the whole tuple (6152 B at the default
+# `FEC_EXPR_MAX_NODES`) into an addressable stack slot.  A recursive walk
+# therefore needs one such frame per level, and because ptxas cannot bound
+# the depth of a recursive call it sizes the per-thread stack from CUDA's
+# `cuLimitStackSize`, which defaults to 1024 B.  Every device-side BC/IC
+# evaluation then overflowed the stack on its very first call — even for
+# the single-node expression "0.0" — and surfaced as
+# `ERROR_ILLEGAL_ADDRESS` from an unrelated later launch.  ROCm's larger
+# default scratch allocation hid the same bug, so this only ever showed up
+# on NVIDIA.  Written as a loop, the frame is statically sized and ptxas
+# allocates local memory for it directly; no stack-limit tuning needed.
+#
+# `_flatten_visit!` reserves a parent's slot before descending, so every
+# child index is strictly greater than its parent's.  Sweeping
+# `n_active:-1:1` is therefore a valid bottom-up order: when a node is
+# reached, both of its children already hold values.  The root is at
+# index 1 by construction.
+@inline function _eval_node(nodes::NTuple{N, FlatNode{T}}, n_active::UInt16,
+                            vars) where {N, T}
+    vals = MVector{N, T}(undef)
+    i = Int(n_active)
+    @inbounds while i >= 1
+        n = nodes[i]
+        if n.degree == 0
+            vals[i] = n.constant ? n.val : T(vars[n.feature])
+        elseif n.degree == 1
+            vals[i] = _apply_unary_op(T, n.op, vals[n.l_idx])
         else
-            return T(vars[n.feature])
+            vals[i] = _apply_binary_op(T, n.op, vals[n.l_idx], vals[n.r_idx])
         end
-    elseif n.degree == 1
-        u = _eval_node(nodes, n.l_idx, vars)
-        return _apply_unary_op(T, n.op, u)
-    else
-        u = _eval_node(nodes, n.l_idx, vars)
-        v = _eval_node(nodes, n.r_idx, vars)
-        return _apply_binary_op(T, n.op, u, v)
+        i -= 1
     end
+    return @inbounds vals[1]
 end
 
 """
@@ -590,13 +606,13 @@ Base.eltype(::ScalarExpressionFunction{T}) where T <: Number = T
 # Single scalar
 function (f::ScalarExpressionFunction{T})(var::T) where T <: Number
     @assert f.num_vars == 1
-    return _eval_node(f.nodes, UInt16(1), SVector{1, T}(var))
+    return _eval_node(f.nodes, f.n_active, SVector{1, T}(var))
 end
 
 # Vector of variable values (no `t` overload)
 function (f::ScalarExpressionFunction{T})(vars::AbstractVector{T}) where T <: Number
     @assert length(vars) == Int(f.num_vars) "expected $(Int(f.num_vars)) variables, got $(length(vars))"
-    return _eval_node(f.nodes, UInt16(1), vars)
+    return _eval_node(f.nodes, f.n_active, vars)
 end
 
 # IC-style call: ND spatial coords (no time variable in the expression).
@@ -605,7 +621,7 @@ function (f::ScalarExpressionFunction{T})(X::SVector{ND, T}) where {ND, T <: Num
     # `_update_ic_values!` dispatches on the IC container's backend, so this call
     # lands inside a KA kernel whenever the parameters live on the device.
     @assert Int(f.num_vars) == ND "wrong number of variables for this expression"
-    return _eval_node(f.nodes, UInt16(1), X)
+    return _eval_node(f.nodes, f.n_active, X)
 end
 
 # BC-style call: ND spatial coords + scalar time, packed into a stack-
@@ -629,7 +645,7 @@ function (f::ScalarExpressionFunction{T})(X::SVector{ND, T}, t::T) where {ND, T 
         # Generic path (very unlikely; covered for completeness).  Allocates.
         vars = T[X...; t]
     end
-    return _eval_node(f.nodes, UInt16(1), vars)
+    return _eval_node(f.nodes, f.n_active, vars)
 end
 
 """
