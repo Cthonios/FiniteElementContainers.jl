@@ -332,11 +332,11 @@ end
 
 struct BCSettings{N, T <: Number}
     dict::Dict{String, Any}
-    dirichlet::Vector{DirichletBC{ScalarExpressionFunction{T}}}
-    neumann::Vector{NeumannBC{VectorExpressionFunction{N, T}}}
-    periodic::Vector{PeriodicBC{ScalarExpressionFunction{T}}}
-    robin::Vector{RobinBC{VectorExpressionFunction{N, T}}}
-    source::Vector{Source{VectorExpressionFunction{N, T}}}
+    dirichlet::Vector{DirichletBC{<:ScalarExpressionFunction{T}}}
+    neumann::Vector{NeumannBC{<:VectorExpressionFunction{N, T}}}
+    periodic::Vector{PeriodicBC{<:ScalarExpressionFunction{T}}}
+    robin::Vector{RobinBC{<:VectorExpressionFunction{N, T}}}
+    source::Vector{Source{<:VectorExpressionFunction{N, T}}}
 
     function BCSettings{N, T}(log_file, parser, functions::FunctionSettings{N, T}) where {N, T <: Number}
         print_banner(log_file, "Boundary conditions")
@@ -345,11 +345,11 @@ struct BCSettings{N, T <: Number}
         else
             bc_settings = Dict{String, Any}()
         end
-        dbcs = DirichletBC{ScalarExpressionFunction{T}}[]
-        nbcs = NeumannBC{VectorExpressionFunction{N, T}}[]
-        pbcs = PeriodicBC{ScalarExpressionFunction{T}}[]
-        rbcs = RobinBC{VectorExpressionFunction{N, T}}[]
-        srcs = Source{VectorExpressionFunction{N, T}}[]
+        dbcs = DirichletBC{<:ScalarExpressionFunction{T}}[]
+        nbcs = NeumannBC{<:VectorExpressionFunction{N, T}}[]
+        pbcs = PeriodicBC{<:ScalarExpressionFunction{T}}[]
+        rbcs = RobinBC{<:VectorExpressionFunction{N, T}}[]
+        srcs = Source{<:VectorExpressionFunction{N, T}}[]
         if haskey(bc_settings, "dirichlet")
             dbc_settings = bc_settings["dirichlet"]::Vector{Any}
             for bc in dbc_settings
@@ -445,11 +445,11 @@ struct BCSettings{N, T <: Number}
 end
 
 struct ICSettings{T <: Number}
-    ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
+    ics::Vector{InitialCondition{<:ScalarExpressionFunction{T}}}
 
     function ICSettings{T}(log_file, parser, functions::FunctionSettings{N, T}) where {N, T}
         print_banner(log_file, "Initial conditions")
-        ics = InitialCondition{ScalarExpressionFunction{Float64}}[]
+        ics = InitialCondition{<:ScalarExpressionFunction{Float64}}[]
         if haskey(parser, "initial conditions")
             ic_settings = parser["initial conditions"]::Vector{Any}
             for ic in ic_settings
@@ -661,15 +661,15 @@ function setup(app::App{D, N}, args::Vector{String}) where {D, N}
 end
 
 struct Simulation{D, N, T <: Number, IO, Mesh}
-    dbcs::Vector{DirichletBC{ScalarExpressionFunction{T}}}
-    ics::Vector{InitialCondition{ScalarExpressionFunction{T}}}
+    dbcs::Vector{DirichletBC{<:ScalarExpressionFunction{T}}}
+    ics::Vector{InitialCondition{<:ScalarExpressionFunction{T}}}
     input_settings::InputSettings{N, T}
     log_file::LogFile{IO}
     mesh::Mesh
-    nbcs::Vector{NeumannBC{VectorExpressionFunction{N, T}}}
-    pbcs::Vector{PeriodicBC{ScalarExpressionFunction{T}}}
-    rbcs::Vector{RobinBC{VectorExpressionFunction{N, T}}}
-    srcs::Vector{Source{VectorExpressionFunction{N, T}}}
+    nbcs::Vector{NeumannBC{<:VectorExpressionFunction{N, T}}}
+    pbcs::Vector{PeriodicBC{<:ScalarExpressionFunction{T}}}
+    rbcs::Vector{RobinBC{<:VectorExpressionFunction{N, T}}}
+    srcs::Vector{Source{<:VectorExpressionFunction{N, T}}}
 
     function Simulation{D, N}(settings::InputSettings, log_file::LogFile{IO}) where {D, N, IO}
         print_banner(log_file, "Mesh")

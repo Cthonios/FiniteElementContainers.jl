@@ -188,9 +188,13 @@ end
 @testitem "ScalarExpressionFunction - is isbits (GPU + juliac safe)" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction, FlatNode
     @test isbitstype(FlatNode{Float64})
-    @test isbitstype(ScalarExpressionFunction{Float64})
     f = ScalarExpressionFunction{Float64}("a*exp(-(t-tc)^2 / (2*tau^2))",
                                           ["a", "tc", "tau", "t"])
+    # The flat tuple's width is a type parameter chosen per expression, so
+    # `ScalarExpressionFunction{Float64}` is a UnionAll and cannot itself be a
+    # bits type.  What has to be isbits — for both KA kernel arguments and
+    # juliac --trim — is the concrete type the constructor produces.
+    @test isbitstype(typeof(f))
     @test isbits(f)
 end
 
