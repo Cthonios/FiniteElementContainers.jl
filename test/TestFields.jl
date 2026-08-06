@@ -213,6 +213,30 @@ end
   @test all(FiniteElementContainers.properties(props, 100, 2) .≈ props_2)
 end
 
+@testitem "Fields - test_property_field_,mixed_constant_and_element_level" begin
+  props_1 = rand(3)
+  props_2 = rand(4, 20)
+  props = FiniteElementContainers.PropertyField([props_1, props_2])
+  @test all(FiniteElementContainers.properties(props, 1, 1) .≈ props_1)
+  @test all(FiniteElementContainers.properties(props, 100, 1) .≈ props_1)
+
+  for e in axes(props_2, 2)
+    @test all(FiniteElementContainers.properties(props, e, 2) .≈ props_2[:, e])
+  end
+end
+
+@testitem "Fields - test_property_field_all_element_level" begin
+  props_1 = rand(3, 10)
+  props_2 = rand(4, 20)
+  props = FiniteElementContainers.PropertyField([props_1, props_2])
+  for e in axes(props_1, 2)
+    @test all(FiniteElementContainers.properties(props, e, 1) .≈ props_1[:, e])
+  end
+  for e in axes(props_2, 2)
+    @test all(FiniteElementContainers.properties(props, e, 2) .≈ props_2[:, e])
+  end
+end
+
 @testitem "Fields - test_state_variable_field" begin
   a1 = rand(2, 3, 40)
   a2 = rand(3, 4, 10)

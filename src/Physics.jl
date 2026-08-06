@@ -30,7 +30,7 @@ end
 
 # default
 function create_initial_state(::AbstractPhysics{NF, NP, 0}) where {NF, NP}
-  return SVector{0, Float64}()
+  return zeros(0)
 end
 
 """
@@ -43,7 +43,7 @@ end
 
 # default
 function create_properties(::AbstractPhysics{NF, 0, NS}) where {NF, NS}
-  return SVector{0, Float64}()
+  return zeros(0)
 end
 
 # default

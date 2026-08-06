@@ -13,20 +13,21 @@ function assemble_scalar_enzyme_safe!(
   conns = fspace.elem_conns
   # foreach_block(fspace, p) do physics, props, ref_fe, b
   for (b, (
-    block_physics, ref_fe, props
+    block_physics, ref_fe
   )) in enumerate(zip(
-    values(p.physics), values(fspace.ref_fes),
-    values(p.properties)
+    values(p.physics), values(fspace.ref_fes)
   ))
     _assemble_scalar_block_enzyme_safe!(
       KA.CPU(),
       block_view(storage, b),
       conns.data, conns.offsets[b], 
       func,
+      b,
       block_physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
+      block_view(p.state_old, b), block_view(p.state_new, b),
+      p.properties,
       return_type
     )
   end
@@ -38,6 +39,7 @@ function _assemble_scalar_block_enzyme_safe!(
   field,
   conns::Conn, coffset::Int,
   func::Function,
+  b::Int,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
   U::Solution, U_old::Solution, 
@@ -54,7 +56,7 @@ function _assemble_scalar_block_enzyme_safe!(
   for e in axes(state_old, 3)
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
-    props_el = _element_level_properties(props, e)
+    props_el = properties(props, e, b)
     # val_el = _element_scratch(return_type, ref_fe, U)
 
     for q in 1:num_cell_quadrature_points(ref_fe)
@@ -111,10 +113,9 @@ function assemble_vector_enzyme_safe!(
   # return_type = AssembledVector()
   conns = fspace.elem_conns
   for (b, (
-    block_physics, ref_fe, props
+    block_physics, ref_fe
   )) in enumerate(zip(
-    values(p.physics), values(fspace.ref_fes),
-    values(p.properties)
+    values(p.physics), values(fspace.ref_fes)
   ))
     _assemble_vector_block_enzyme_safe!(
       # KA.get_backend(storage),
@@ -122,10 +123,12 @@ function assemble_vector_enzyme_safe!(
       storage,
       conns.data, conns.offsets[b], 
       func,
+      b,
       block_physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
+      block_view(p.state_old, b), block_view(p.state_new, b),
+      p.properties
       # return_type
     )
   end
@@ -147,6 +150,7 @@ function _assemble_vector_block_enzyme_safe!(
   field,
   conns::Conn, coffset::Int,
   func::Function,
+  b::Int,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
   U::Solution, U_old::Solution, 
@@ -164,7 +168,7 @@ function _assemble_vector_block_enzyme_safe!(
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     
-    props_el = _element_level_properties(props, e)
+    props_el = properties(props, e, b)
   #   # val_el = _element_scratch(return_type, ref_fe, U)
 
     for q in 1:num_cell_quadrature_points(ref_fe)

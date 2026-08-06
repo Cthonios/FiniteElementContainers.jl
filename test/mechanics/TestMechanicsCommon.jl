@@ -8,7 +8,7 @@ function FiniteElementContainers.create_properties(::Mechanics)
   ρ = 1e3
   K = 10.e9
   G = 1.e9
-  return SVector{3, Float64}(ρ, K, G)
+  return [ρ, K, G]
 end
 
 @inline function strain_energy(
