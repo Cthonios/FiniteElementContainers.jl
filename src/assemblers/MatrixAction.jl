@@ -33,15 +33,17 @@ function assemble_matrix_free_action!(
   V = p.hvp_scratch_field
   _update_for_assembly!(p, dof, Uu, Vu)
   conns = fspace.elem_conns
-  foreach_block(fspace, p) do physics, props, ref_fe, b
+  foreach_block(fspace, p) do physics, ref_fe, b
     _assemble_block_matrix_free_action!(
       storage,
       conns.data, conns.offsets[b],
       func_action,
+      b,
       physics, ref_fe,
       X, t, Δt,
       U, U_old, V,
-      block_view(p.state_old, b), block_view(p.state_new, b), props
+      block_view(p.state_old, b), block_view(p.state_new, b),
+      p.properties
     )
   end
 end
@@ -50,6 +52,7 @@ function _assemble_block_matrix_free_action!(
   field::AbstractField,
   conns::Conn, coffset,
   func_action::Function,
+  b::Int,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
   U::Solution, U_old::Solution, V::Solution,
@@ -63,7 +66,7 @@ function _assemble_block_matrix_free_action!(
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
-    props_el = _element_level_properties(props, e)
+    props_el = properties(props, physics, e, b)
     Kv_el = _element_scratch(AssembledVector(), ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
@@ -123,15 +126,17 @@ function assemble_matrix_free_action_full!(
   V = p.hvp_scratch_field
   _update_for_assembly_full!(p, U_full, v_full)
   conns = fspace.elem_conns
-  foreach_block(fspace, p) do physics, props, ref_fe, b
+  foreach_block(fspace, p) do physics, ref_fe, b
     _assemble_block_matrix_free_action!(
       storage,
       conns.data, conns.offsets[b],
       func_action,
+      b,
       physics, ref_fe,
       X, t, Δt,
       U, U_old, V,
-      block_view(p.state_old, b), block_view(p.state_new, b), props
+      block_view(p.state_old, b), block_view(p.state_new, b),
+      p.properties
     )
   end
   # The free-DOF entry point above relies on `p.hvp_scratch_field`'s BC
@@ -180,14 +185,15 @@ function assemble_matrix_action!(
   V = p.hvp_scratch_field
   _update_for_assembly!(p, dof, Uu, Vu)
   conns = fspace.elem_conns
-  foreach_block(fspace, p) do physics, props, ref_fe, b
+  foreach_block(fspace, p) do physics, ref_fe, b
     if use_inplace_methods
       _assemble_block_matrix_action!(
         storage,
         func,
+        b,
         physics,
         t, Δt,
-        props,
+        p.properties,
         block_view(p.state_old, b), block_view(p.state_new, b),
         conns.data, conns.offsets[b], ref_fe, X, U, U_old, V
       )
@@ -196,10 +202,12 @@ function assemble_matrix_action!(
         storage,
         conns.data, conns.offsets[b],
         func,
+        b,
         physics, ref_fe,
         X, t, Δt,
         U, U_old, V,
-        block_view(p.state_old, b), block_view(p.state_new, b), props
+        block_view(p.state_old, b), block_view(p.state_new, b),
+        p.properties
       )
     end
   end
@@ -209,6 +217,7 @@ function _assemble_block_matrix_action!(
   field::AbstractField, 
   conns::Conn, coffset,
   func::Function,
+  b::Int,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
   U::Solution, U_old::Solution, V::Solution,
@@ -222,7 +231,8 @@ function _assemble_block_matrix_action!(
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
-    props_el = _element_level_properties(props, e)
+    # props_el = _element_level_properties(props, e)
+    props_el = properties(props, physics, e, b)
     K_el = _element_scratch(AssembledMatrix(), ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
@@ -240,6 +250,7 @@ end
 function _assemble_block_matrix_action!(
   field,
   func!::Function,
+  b::Int,
   physics::AbstractPhysics,
   t::T, Δt::T,
   props::P, state_old::S, state_new::S,
@@ -255,7 +266,7 @@ function _assemble_block_matrix_action!(
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
-    props_el = _element_level_properties(props, e)
+    props_el = properties(props, physics, e, b)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)

@@ -180,7 +180,7 @@ end
     for k in 1:N
         push!(stmts.args, quote
             f(
-                values(p.physics)[$k], values(p.properties)[$k],
+                values(p.physics)[$k],
                 block_reference_element(fspace, $k), $k
             )
         end)
@@ -201,7 +201,7 @@ end
         ref_dispatches = map(1:n_refs) do j
             quote
                 if fspace.block_to_ref_fe_id[$i] == $j
-                    f(p.physics[$i], p.properties[$i], fspace.ref_fes[$j], $i)
+                    f(p.physics[$i], fspace.ref_fes[$j], $i)
                 end
             end
         end

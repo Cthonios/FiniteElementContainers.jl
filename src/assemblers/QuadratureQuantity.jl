@@ -29,15 +29,17 @@ function assemble_quadrature_quantity!(
   U_old = p.field_old
   _update_for_assembly!(p, dof, Uu)
   conns = fspace.elem_conns
-  foreach_block(fspace, p) do physics, props, ref_fe, b
+  foreach_block(fspace, p) do physics, ref_fe, b
     _assemble_block!(
       block_view(storage, b),
       conns.data, conns.offsets[b], 
       func,
+      b,
       physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
+      block_view(p.state_old, b), block_view(p.state_new, b),
+      p.properties,
       return_type
     )
   end
@@ -61,21 +63,22 @@ function assemble_quadrature_quantity!(
   conns = fspace.elem_conns
   for (b, (
     block_storage,
-    block_physics, ref_fe, props
+    block_physics, ref_fe
   )) in enumerate(zip(
     values(storage),
-    values(p.physics), values(fspace.ref_fes),
-    values(p.properties)
+    values(p.physics), values(fspace.ref_fes)
   ))
     _assemble_block!(
       # backend,
       block_storage,
       conns.data, conns.offsets[b], 
       func,
+      b,
       block_physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
+      block_view(p.state_old, b), block_view(p.state_new, b),
+      p.properties,
       return_type
     )
   end

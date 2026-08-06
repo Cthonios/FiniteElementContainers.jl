@@ -50,7 +50,7 @@ end
   f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
   bc_func(_, _) = 0.
   physics = Poisson(f)
-  props = SVector{0, Float64}()
+  props = zeros(0)
   u = ScalarFunction(V, "u")
   dbcs = DirichletBC[
     DirichletBC("u", bc_func; sideset_name = "boundary")

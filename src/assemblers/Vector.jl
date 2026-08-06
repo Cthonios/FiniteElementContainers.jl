@@ -38,7 +38,8 @@ function assemble_vector!(
   return_type = AssembledVector()
   conns = fspace.elem_conns
   # foreach_block(conns, p.physics, p.properties, fspace.ref_fes) do physics, props, ref_fe, b
-  foreach_block(fspace, p) do physics, props, ref_fe, b
+  # foreach_block(fspace, p) do physics, props, ref_fe, b
+  foreach_block(fspace, p) do physics, ref_fe, b
     # if use_sparse_vector
     #   field = block_view(storage, pattern, b)
     # else
@@ -50,9 +51,11 @@ function assemble_vector!(
       _assemble_block!(
         field,
         func,
+        b,
         physics,
         t, Δt,
-        props,
+        # props,
+        p.properties,
         block_view(p.state_old, b), block_view(p.state_new, b),
         conns.data, conns.offsets[b], ref_fe, X, U, U_old
       )
@@ -61,10 +64,12 @@ function assemble_vector!(
         field,
         conns.data, conns.offsets[b], 
         func,
+        b,
         physics, ref_fe,
         X, t, Δt,
         U, U_old,
-        block_view(p.state_old, b), block_view(p.state_new, b), props,
+        block_view(p.state_old, b), block_view(p.state_new, b),
+        p.properties,
         return_type
       )
     end

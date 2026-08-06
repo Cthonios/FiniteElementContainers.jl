@@ -463,42 +463,78 @@ const PROPS_ELEMS = -2
 
 struct PropertyField{
     T <: Number,
-    D <: AbstractVector{T}
+    D <: AbstractVector{T},
+    I <: AbstractVector{Int}
 } <: AbstractDiscontinuousField{T, D}
     data::D
-    isblockconstant::Vector{Int}
+    isblockconstant::I
     nblocks::Int
-    nfields::Vector{Int}
-    nepes::Vector{Int}
-    nelems::Vector{Int}
-    offsets::Vector{Int}
+    nepes::I
+    nelems::I
+    offsets::I
 
-    function PropertyField{T, D}(data, isblockconstant, nblocks, nfields, nepes, nelems, offsets) where {T, D}
-        new{T, D}(data, isblockconstant, nblocks, nfields, nepes, nelems, offsets)
+    function PropertyField{T, D, I}(data, isblockconstant, nblocks, nepes, nelems, offsets) where {T, D, I}
+        new{T, D, I}(data, isblockconstant, nblocks, nepes, nelems, offsets)
     end
 
+    # case where all blocks have properties the same throughout
     function PropertyField(arrs::Vector{<:Vector{T}}) where T <: Number
         data = reduce(vcat, arrs)
         isblockconstant = PROPS_CONST * ones(Int, length(arrs))
         nblocks = length(arrs)
-        nfields = map(length, arrs)
-        nepes = -1 * ones(Int, nblocks)
+        nepes = map(length, arrs)
         nelems = -1 * ones(Int, nblocks)
         offsets = Vector{Int}(undef, 0)
         offset = 1
         for n in axes(arrs, 1)
             push!(offsets, offset)
-            offset += nfields[n]
+            offset += nepes[n]
         end
-        return PropertyField{T, typeof(data)}(data, isblockconstant, nblocks, nfields, nepes, nelems, offsets)
+        return PropertyField{T, typeof(data), typeof(isblockconstant)}(data, isblockconstant, nblocks, nepes, nelems, offsets)
+    end
+
+    # case where we have mixed constant or none constant
+    function PropertyField(arrs::Vector{<:Array{T}}) where T <: Number
+        data = mapreduce(vec, vcat, arrs)
+        isblockconstant = map(x -> begin
+            if isa(x, Matrix)
+                return PROPS_ELEMS
+            elseif isa(x, Vector)
+                return PROPS_CONST
+            else
+                @assert false "Property arrays should be Vector or Matrix"
+            end
+        end, arrs)
+        nblocks = length(arrs)
+        out = map(x -> begin
+            if isa(x, Matrix)
+                return size(x)
+            elseif isa(x, Vector)
+                return (length(x), -1)
+            end
+        end, arrs)
+        nepes = map(x -> x[1], out)
+        nelems = map(x -> x[2], out)
+        offsets = Vector{Int}(undef, 0)
+        offset = 1
+        for n in axes(arrs, 1)
+            push!(offsets, offset)
+            if isa(arrs[n], Matrix)
+                offset += nepes[n] * nelems[n]
+            elseif isa(arrs[n], Vector)
+                offset += nepes[n]
+            end
+        end
+        return PropertyField{T, typeof(data), typeof(isblockconstant)}(data, isblockconstant, nblocks, nepes, nelems, offsets)
     end
 end
 
 function Adapt.adapt_structure(to, field::PropertyField)
     data = adapt(to, field.data)
-    return PropertyField{eltype(field), typeof(data)}(
+    isblockconstant = adapt(to, field.isblockconstant)
+    return PropertyField{eltype(field), typeof(data), typeof(isblockconstant)}(
         data,
-        adapt(to, field.isblockconstant),
+        isblockconstant,
         field.nblocks,
         adapt(to, field.nepes),
         adapt(to, field.nelems),
@@ -507,19 +543,22 @@ function Adapt.adapt_structure(to, field::PropertyField)
 end
 
 function num_fields(field::PropertyField, b::Int)
-    return field.nfields[b]
+    return field.nepes[b]
 end
 
 function properties(field::PropertyField, e::Int, b::Int)
     offset = field.offsets[b]
     nfields = num_fields(field, b)
     if field.isblockconstant[b] == PROPS_CONST
-        return view(field.data, offset:offset + nfields - 1)
+        start = offset
+        finish = offset + nfields - 1
     elseif field.isblockconstant[b] == PROPS_ELEMS
-        @assert false finish me
+        start = offset + nfields * (e - 1)
+        finish = offset + nfields * e - 1
     else
         @assert false "Should never happen"
     end
+    return view(field.data, start:finish)
 end
 
 ######################################################################################################
