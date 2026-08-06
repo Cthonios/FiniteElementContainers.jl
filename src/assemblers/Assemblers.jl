@@ -190,6 +190,18 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+# GPU safe: the property count comes from the physics type, so the slice is a
+# statically sized SVector.  `view(field.data, range)` builds a SubArray whose
+# construction lowers to a dynamic call inside a device kernel.
+@inline function properties(
+  field::PropertyField, ::AbstractPhysics{NF, NP, NS}, e::Int, b::Int
+) where {NF, NP, NS}
+  offset = field.offsets[b]
+  ec = ifelse(field.isblockconstant[b] == PROPS_CONST, 1, e)
+  base = offset + NP * (ec - 1)
+  return SVector{NP, eltype(field)}(ntuple(i -> field.data[base + i - 1], NP))
+end
+
 @inline function _element_level_properties(props::AbstractArray, ::Int)
   return props
 end
@@ -419,7 +431,7 @@ function _assemble_block!(
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
-    props_el = properties(props, e, b)
+    props_el = properties(props, physics, e, b)
     val_el = _element_scratch(return_type, ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
@@ -451,7 +463,7 @@ function _assemble_block!(
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
-    props_el = properties(props, e, b)
+    props_el = properties(props, physics, e, b)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
       state_old_q = _quadrature_level_state(state_old, q, e)

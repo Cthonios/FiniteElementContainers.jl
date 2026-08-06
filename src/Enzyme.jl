@@ -56,7 +56,7 @@ function _assemble_scalar_block_enzyme_safe!(
   for e in axes(state_old, 3)
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
-    props_el = properties(props, e, b)
+    props_el = properties(props, physics, e, b)
     # val_el = _element_scratch(return_type, ref_fe, U)
 
     for q in 1:num_cell_quadrature_points(ref_fe)
@@ -168,7 +168,7 @@ function _assemble_vector_block_enzyme_safe!(
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     
-    props_el = properties(props, e, b)
+    props_el = properties(props, physics, e, b)
   #   # val_el = _element_scratch(return_type, ref_fe, U)
 
     for q in 1:num_cell_quadrature_points(ref_fe)
