@@ -54,21 +54,20 @@ function assemble_matrix!(
         b,
         physics,
         t, dt,
-        p.properties,
-        block_view(p.state_old, b), block_view(p.state_new, b),
-        conns.data, conns.offsets[b], ref_fe, X, U, U_old
+        p.properties, p.state_old, p.state_new,
+        conns,
+        ref_fe, X, U, U_old
       )
     else
       _assemble_block!(
         block_view(storage, pattern, b),
-        conns.data, conns.offsets[b],
+        conns,
         func,
         b,
         physics, ref_fe,
         X, t, dt,
         U, U_old, 
-        block_view(p.state_old, b), block_view(p.state_new, b),
-        p.properties,
+        p.state_old, p.state_new, p.properties,
         return_type
       )
     end
