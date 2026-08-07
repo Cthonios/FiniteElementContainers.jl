@@ -552,14 +552,24 @@ function properties(field::PropertyField, e::Int, b::Int)
     nfields = num_fields(field, b)
     if field.isblockconstant[b] == PROPS_CONST
         start = offset
-        finish = offset + nfields - 1
     elseif field.isblockconstant[b] == PROPS_ELEMS
         start = offset + nfields * (e - 1)
-        finish = offset + nfields * e - 1
-    else
-        @assert false "Should never happen"
     end
-    return view(field.data, start:finish)
+    return PropertyFieldView(field.data, start, nfields)
+end
+
+struct PropertyFieldView{T, D <: AbstractVector{T}} <: AbstractVector{T}
+    data::D
+    start::Int
+    len::Int
+end
+
+Base.size(v::PropertyFieldView) = (v.len,)
+Base.length(v::PropertyFieldView) = v.len
+Base.IndexStyle(::Type{<:PropertyFieldView}) = IndexLinear()
+Base.@propagate_inbounds function Base.getindex(v::PropertyFieldView, i::Int)
+    @boundscheck checkbounds(v, i)
+    return @inbounds v.data[v.start + i - 1]
 end
 
 ######################################################################################################

@@ -66,7 +66,7 @@ function _assemble_block_matrix_free_action!(
   fec_foraxes(state_old, 3) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
-    props_el = properties(props, physics, e, b)
+    props_el = properties(props, e, b)
     Kv_el = _element_scratch(AssembledVector(), ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
