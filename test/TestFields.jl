@@ -281,6 +281,41 @@ end
   @test all(FiniteElementContainers.properties(props, 1, 1) .≈ original)
 end
 
+@testitem "Fields - test_property_field_view_eltype_is_concrete" begin
+  using StaticArrays
+  # `PropertyFieldView` must carry the element type as a parameter.  Declaring
+  # it as `AbstractVector{eltype(D)}` over a bare `D` silently yields
+  # `AbstractVector{Any}`, because `eltype` of an unbound TypeVar is `Any`.
+  # Downstream that is not cosmetic: ConstitutiveModels' `module_props` builds
+  # `SVector{NP, eltype(props)}`, so an `Any` eltype turns every constitutive
+  # evaluation into a boxed, dynamically dispatched call.
+  props = FiniteElementContainers.PropertyField([[1.0, 2.0, 3.0]])
+  view = FiniteElementContainers.properties(props, 1, 1)
+  @test eltype(view) === Float64
+  @test view isa AbstractVector{Float64}
+  @test eltype(collect(view)) === Float64
+  @test isconcretetype(eltype(SVector{2, eltype(view)}(view[1], view[2])))
+  @test Base.IndexStyle(typeof(view)) === IndexLinear()
+end
+
+@testitem "Fields - test_property_field_view_is_bounds_checked" begin
+  # Every block's properties live in one flat vector, so an unchecked
+  # out-of-range read returns the *next* block's properties instead of
+  # failing.  Two blocks with different property counts make that concrete.
+  props = FiniteElementContainers.PropertyField([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0, 40.0]])
+  block1 = FiniteElementContainers.properties(props, 1, 1)
+  @test length(block1) == 3
+  @test block1[3] ≈ 3.0
+  # Without a bounds check this returns 10.0 -- block 2's first property.
+  @test_throws BoundsError block1[4]
+  @test_throws BoundsError block1[0]
+
+  block2 = FiniteElementContainers.properties(props, 1, 2)
+  @test length(block2) == 4
+  @test block2[4] ≈ 40.0
+  @test_throws BoundsError block2[5]
+end
+
 @testitem "Fields - test_state_variable_field" begin
   a1 = rand(2, 3, 40)
   a2 = rand(3, 4, 10)

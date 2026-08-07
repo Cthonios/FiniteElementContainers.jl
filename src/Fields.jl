@@ -558,7 +558,7 @@ function properties(field::PropertyField, e::Int, b::Int)
     return PropertyFieldView(field.data, start, nfields)
 end
 
-struct PropertyFieldView{D <: AbstractVector} <: AbstractVector{eltype(D)}
+struct PropertyFieldView{T, D <: AbstractVector{T}} <: AbstractVector{T}
     data::D
     start::Int
     len::Int
@@ -566,7 +566,11 @@ end
 
 Base.size(v::PropertyFieldView) = (v.len,)
 Base.length(v::PropertyFieldView) = v.len
-Base.@propagate_inbounds Base.getindex(v::PropertyFieldView, i::Int) = v.data[v.start + i - 1]
+Base.IndexStyle(::Type{<:PropertyFieldView}) = IndexLinear()
+Base.@propagate_inbounds function Base.getindex(v::PropertyFieldView, i::Int)
+    @boundscheck checkbounds(v, i)
+    return @inbounds v.data[v.start + i - 1]
+end
 
 ######################################################################################################
 # StateVariableField
