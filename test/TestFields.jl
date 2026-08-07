@@ -316,6 +316,60 @@ end
   @test_throws BoundsError block2[5]
 end
 
+@testitem "Fields - test_state_variable_field_view_indexing" begin
+  # `state_variables(field, q, e, b)` must address the same entry that
+  # `block_view(field, b)[:, q, e]` does -- the flat offset arithmetic is the
+  # only thing standing between a quadrature point and its neighbour's state.
+  a1 = rand(2, 3, 5)   # 2 state vars, 3 quadrature points, 5 elements
+  a2 = rand(4, 2, 7)   # a second block with a different shape
+  field = StateVariableField([a1, a2])
+
+  for (b, a) in enumerate((a1, a2))
+    for e in axes(a, 3), q in axes(a, 2)
+      sv = FiniteElementContainers.state_variables(field, q, e, b)
+      @test length(sv) == size(a, 1)
+      @test all(sv[i] ≈ a[i, q, e] for i in axes(a, 1))
+    end
+  end
+
+  # Same eltype trap as PropertyFieldView: an unparameterized `eltype(D)` in
+  # the supertype silently yields `Any`, which un-isbits anything built from it.
+  sv = FiniteElementContainers.state_variables(field, 1, 1, 1)
+  @test eltype(sv) === Float64
+  @test sv isa AbstractVector{Float64}
+  @test eltype(collect(sv)) === Float64
+  @test Base.IndexStyle(typeof(sv)) === IndexLinear()
+end
+
+@testitem "Fields - test_state_variable_field_view_is_bounds_checked" begin
+  # All blocks share one flat vector, so an unchecked read runs into the
+  # neighbouring quadrature point, element, or block rather than failing.
+  field = StateVariableField([rand(2, 3, 5), rand(4, 2, 7)])
+  sv = FiniteElementContainers.state_variables(field, 1, 1, 1)
+  @test length(sv) == 2
+  @test_throws BoundsError sv[3]
+  @test_throws BoundsError sv[0]
+  @test_throws BoundsError sv[3] = 1.0
+end
+
+@testitem "Fields - test_state_variable_field_view_setindex" begin
+  # `setindex!` is what the constitutive update writes new state through, so
+  # it has to land in the flat storage at the same place `getindex` reads.
+  a = rand(2, 3, 4)
+  field = StateVariableField([copy(a)])
+  sv = FiniteElementContainers.state_variables(field, 2, 3, 1)
+  sv[1] = -1.0
+  sv[2] = -2.0
+  @test FiniteElementContainers.block_view(field, 1)[1, 2, 3] ≈ -1.0
+  @test FiniteElementContainers.block_view(field, 1)[2, 2, 3] ≈ -2.0
+  # Nothing else moved.
+  bv = FiniteElementContainers.block_view(field, 1)
+  for e in axes(a, 3), q in axes(a, 2), i in axes(a, 1)
+    (q, e) == (2, 3) && continue
+    @test bv[i, q, e] ≈ a[i, q, e]
+  end
+end
+
 @testitem "Fields - test_state_variable_field" begin
   a1 = rand(2, 3, 40)
   a2 = rand(3, 4, 10)

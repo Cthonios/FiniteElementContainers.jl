@@ -47,7 +47,7 @@ function assemble_diagonal!(
         physics,
         t, Δt,
         p.properties, p.state_old, p.state_new,
-        conns.data, conns.offsets[b], ref_fe, X, U, U_old
+        conns, ref_fe, X, U, U_old
       )
     else
       _assemble_block!(

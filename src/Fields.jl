@@ -551,9 +551,13 @@ function properties(field::PropertyField, e::Int, b::Int)
     @assert 1 <= b && b <= field.nblocks
     offset = field.offsets[b]
     nfields = num_fields(field, b)
+    # `if/elseif` with no `else` leaves `start` undefined on any third value,
+    # which surfaces as an `UndefVarError` rather than saying what went wrong.
+    # Only two layouts exist, so make the second branch total and assert it.
     if field.isblockconstant[b] == PROPS_CONST
         start = offset
-    elseif field.isblockconstant[b] == PROPS_ELEMS
+    else
+        @assert field.isblockconstant[b] == PROPS_ELEMS
         @assert 1 <= e && e <= field.nelems[b]
         start = offset + nfields * (e - 1)
     end
@@ -630,7 +634,7 @@ function Adapt.adapt_structure(to, field::StateVariableField{T, D, I}) where {T,
     return StateVariableField{T, typeof(data), typeof(nfields)}(
         data,
         field.nblocks,
-        field.nfields,
+        nfields,
         adapt(to, field.nepes),
         adapt(to, field.nelems),
         adapt(to, field.offsets)
