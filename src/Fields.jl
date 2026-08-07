@@ -548,11 +548,17 @@ function num_fields(field::PropertyField, b::Int)
 end
 
 function properties(field::PropertyField, e::Int, b::Int)
+    @assert 1 <= b && b <= field.nblocks
     offset = field.offsets[b]
     nfields = num_fields(field, b)
+    # `if/elseif` with no `else` leaves `start` undefined on any third value,
+    # which surfaces as an `UndefVarError` rather than saying what went wrong.
+    # Only two layouts exist, so make the second branch total and assert it.
     if field.isblockconstant[b] == PROPS_CONST
         start = offset
-    elseif field.isblockconstant[b] == PROPS_ELEMS
+    else
+        @assert field.isblockconstant[b] == PROPS_ELEMS
+        @assert 1 <= e && e <= field.nelems[b]
         start = offset + nfields * (e - 1)
     end
     return PropertyFieldView(field.data, start, nfields)
@@ -564,30 +570,31 @@ struct PropertyFieldView{T, D <: AbstractVector{T}} <: AbstractVector{T}
     len::Int
 end
 
-Base.size(v::PropertyFieldView) = (v.len,)
-Base.length(v::PropertyFieldView) = v.len
-Base.IndexStyle(::Type{<:PropertyFieldView}) = IndexLinear()
 Base.@propagate_inbounds function Base.getindex(v::PropertyFieldView, i::Int)
     @boundscheck checkbounds(v, i)
     return @inbounds v.data[v.start + i - 1]
 end
+Base.IndexStyle(::Type{<:PropertyFieldView}) = IndexLinear()
+Base.length(v::PropertyFieldView) = v.len
+Base.size(v::PropertyFieldView) = (v.len,)
 
 ######################################################################################################
 # StateVariableField
 ######################################################################################################
 struct StateVariableField{
     T, # Let it be anything to allow for structs
-    D <: AbstractVector{T}
+    D <: AbstractVector{T},
+    I <: AbstractVector{Int}
 } <: AbstractDiscontinuousField{T, D}
     data::D                    # flat storage (CPU or GPU)
     nblocks::Int
-    nfields::Vector{Int}
-    nepes::Vector{Int} # num nodes, q points, etc.
-    nelems::Vector{Int}
-    offsets::Vector{Int}
+    nfields::I
+    nepes::I # num nodes, q points, etc.
+    nelems::I
+    offsets::I
 
-    function StateVariableField{T, D}(data, nblocks, nfields, nepes, nelems, offsets) where {T, D}
-        new{T, D}(data, nblocks, nfields, nepes, nelems, offsets)
+    function StateVariableField{T, D, I}(data, nblocks, nfields, nepes, nelems, offsets) where {T, D, I}
+        new{T, D, I}(data, nblocks, nfields, nepes, nelems, offsets)
     end
 
     function StateVariableField(arrs::Vector{<:AbstractArray{T, 3}}) where T
@@ -601,7 +608,7 @@ struct StateVariableField{
             offset += nfields[b] * nepes[b] * nelems[b]
         end
         data = mapreduce(vec, vcat, arrs)
-        return StateVariableField{T, typeof(data)}(data, length(nepes), nfields, nepes, nelems, offsets)
+        return StateVariableField{T, typeof(data), typeof(nepes)}(data, length(nepes), nfields, nepes, nelems, offsets)
     end
 
     function StateVariableField(::UndefInitializer, ::Type{T}, nfields::Int, qsizes::Vector{Tuple{Int, Int}}) where T
@@ -621,15 +628,16 @@ struct StateVariableField{
     end
 end
 
-function Adapt.adapt_structure(to, field::StateVariableField{T, D}) where {T, D}
+function Adapt.adapt_structure(to, field::StateVariableField{T, D, I}) where {T, D, I}
     data = adapt(to, field.data)
-    return StateVariableField{T, typeof(data)}(
+    nfields = adapt(to, field.nfields)
+    return StateVariableField{T, typeof(data), typeof(nfields)}(
         data,
         field.nblocks,
-        field.nfields,
-        field.nepes,
-        field.nelems,
-        field.offsets
+        nfields,
+        adapt(to, field.nepes),
+        adapt(to, field.nelems),
+        adapt(to, field.offsets)
     )
 end
 
@@ -648,3 +656,32 @@ end
 function num_fields(field::StateVariableField, b::Int)
     return field.nfields[b]
 end
+
+function state_variables(field::StateVariableField, q::Int, e::Int, b::Int)
+    @assert 1 <= q <= field.nepes[b]
+    @assert 1 <= e <= field.nelems[b]
+    offset  = field.offsets[b]
+    nfields = field.nfields[b]
+    nqs     = field.nepes[b]
+    start   = offset + nfields * (q - 1) + nfields * nqs * (e - 1)
+    return StateVariableFieldView(field.data, start, nfields)
+end
+
+struct StateVariableFieldView{T, D <: AbstractVector{T}} <: AbstractVector{T}
+    data::D
+    start::Int
+    len::Int
+end
+
+Base.@propagate_inbounds function Base.getindex(v::StateVariableFieldView, i::Int)
+    @boundscheck checkbounds(v, i)
+    return @inbounds v.data[v.start + i - 1]
+end
+Base.IndexStyle(::Type{<:StateVariableFieldView}) = IndexLinear()
+Base.length(v::StateVariableFieldView) = v.len
+Base.@propagate_inbounds function Base.setindex!(v::StateVariableFieldView{T, D}, val::T, i::Int) where {T, D}
+    @boundscheck checkbounds(v, i)
+    @inbounds v.data[v.start + i - 1] = val
+    return nothing
+end
+Base.size(v::StateVariableFieldView) = (v.len,)

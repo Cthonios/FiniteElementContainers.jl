@@ -190,36 +190,6 @@ end
 """
 $(TYPEDSIGNATURES)
 """
-# GPU safe: the property count comes from the physics type, so the slice is a
-# statically sized SVector.  `view(field.data, range)` builds a SubArray whose
-# construction lowers to a dynamic call inside a device kernel.
-@inline function properties(
-  field::PropertyField, ::AbstractPhysics{NF, NP, NS}, e::Int, b::Int
-) where {NF, NP, NS}
-  offset = field.offsets[b]
-  ec = ifelse(field.isblockconstant[b] == PROPS_CONST, 1, e)
-  base = offset + NP * (ec - 1)
-  # return SVector{NP, eltype(field)}(ntuple(i -> field.data[base + i - 1], NP))
-  nprops = num_fields(field, b)
-  # return view(field.data, base:base + NP - 1)
-  # return PropertyFieldView(field.data, base, NP)
-  return PropertyFieldView(field.data, base, nprops)
-end
-
-@inline function _element_level_properties(props::AbstractArray, ::Int)
-  return props
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
-@inline function _element_level_properties(props::SVector{NP, T}, ::Int) where {NP, T}
-  return props
-end
-
-"""
-$(TYPEDSIGNATURES)
-"""
 @inline function _element_scratch(::AssembledMatrix, ref_fe, U::H1Field{T, D, NF}) where {T, D, NF}
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
   NxNDof = NNPE * NF
@@ -258,13 +228,13 @@ end
   return zeros(SVector{NxNDof, eltype(U)})
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::Int)
-  state_q = view(state, :, q, e)
-  return state_q
-end
+# """
+# $(TYPEDSIGNATURES)
+# """
+# function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::Int)
+#   state_q = view(state, :, q, e)
+#   return state_q
+# end
 
 function _sparse_matrix_mass(asm::AbstractAssembler, coo_storage)
   type = _sparse_matrix_type(asm)
@@ -417,30 +387,30 @@ end
 
 function _assemble_block!(
   field,
-  conns::Conn, coffset::Int,
+  conns_all,
   func::Function,
   b::Int, # block index
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
   U::Solution, U_old::Solution, 
-  state_old::S, state_new::S, props::AbstractArray,
+  state_old::StateVariableField, state_new::StateVariableField, props::PropertyField,
   return_type::R
 ) where {
   T        <: Number,
-  Conn     <: AbstractArray,
   Solution <: AbstractField,
-  S,       #<: L2QuadratureField
   R        <: AssembledReturnType
 }
-  fec_foraxes(state_old, 3) do e
+  conns = conns_all.data
+  coffset = conns_all.offsets[b]
+  foreach_element(conns_all, b) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = properties(props, e, b)
     val_el = _element_scratch(return_type, ref_fe, U)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
-      state_old_q = _quadrature_level_state(state_old, q, e)
-      state_new_q = _quadrature_level_state(state_new, q, e)
+      state_old_q = state_variables(state_old, q, e, b)
+      state_new_q = state_variables(state_new, q, e, b)
       val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
     end
@@ -454,24 +424,23 @@ function _assemble_block!(
   b::Int, # block index
   physics::AbstractPhysics,
   t::T, Δt::T,
-  props::P, state_old::S, state_new::S,
-  conns::Conn, coffset::Int, ref_fe::ReferenceFE,
+  props::PropertyField, state_old::StateVariableField, state_new::StateVariableField,
+  conns_all, ref_fe::ReferenceFE,
   X::AbstractField, U::Solution, U_old::Solution
 ) where {
   T        <: Number,
-  S,
-  P,
-  Conn     <: AbstractArray,
   Solution <: AbstractField
 }
-  fec_foraxes(state_old, 3) do e
+  conns = conns_all.data
+  coffset = conns_all.offsets[b]
+  foreach_element(conns_all, b) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = properties(props, e, b)
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
-      state_old_q = _quadrature_level_state(state_old, q, e)
-      state_new_q = _quadrature_level_state(state_new, q, e)
+      state_old_q = state_variables(state_old, q, e, b)
+      state_new_q = state_variables(state_new, q, e, b)
       func!(
         field, e, physics, t, Δt, 
         props_el, state_old_q, state_new_q,

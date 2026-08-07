@@ -32,14 +32,13 @@ function assemble_quadrature_quantity!(
   foreach_block(fspace, p) do physics, ref_fe, b
     _assemble_block!(
       block_view(storage, b),
-      conns.data, conns.offsets[b], 
+      conns, 
       func,
       b,
       physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b),
-      p.properties,
+      p.state_old, p.state_new, p.properties,
       return_type
     )
   end
@@ -69,16 +68,14 @@ function assemble_quadrature_quantity!(
     values(p.physics), values(fspace.ref_fes)
   ))
     _assemble_block!(
-      # backend,
       block_storage,
-      conns.data, conns.offsets[b], 
+      conns,
       func,
       b,
       block_physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b),
-      p.properties,
+      p.state_old, p.state_new, p.properties,
       return_type
     )
   end

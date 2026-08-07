@@ -24,16 +24,11 @@ function assemble_diagonal!(
   )
 end
 
-# function assemble_diagonal!(
-#   assembler, func::F, Uu, p
-# ) where F <: Function
-  # storage = assembler.residual_storage
 function assemble_diagonal!(
   storage, pattern, dof, func, Uu, p;
   use_inplace_methods::Bool = false
 )
   fill!(storage, zero(eltype(storage)))
-  # dof = assembler.dof
   fspace = function_space(dof)
   X = coordinates(p)
   t = current_time(p)
@@ -51,21 +46,19 @@ function assemble_diagonal!(
         b,
         physics,
         t, Δt,
-        p.properties,
-        block_view(p.state_old, b), block_view(p.state_new, b),
-        conns.data, conns.offsets[b], ref_fe, X, U, U_old
+        p.properties, p.state_old, p.state_new,
+        conns, ref_fe, X, U, U_old
       )
     else
       _assemble_block!(
         storage,
-        conns.data, conns.offsets[b],
+        conns,
         func,
         b,
         physics, ref_fe,
         X, t, Δt,
         U, U_old,
-        block_view(p.state_old, b), block_view(p.state_new, b),
-        p.properties,
+        p.state_old, p.state_new, p.properties,
         return_type
       )
     end

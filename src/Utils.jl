@@ -267,6 +267,32 @@ end
     quote $(exprs...) end
 end
 
+"""
+takes in connectivity and element id
+"""
+function foreach_element(
+    f, conns, block_id,
+    backend = KA.get_backend(conns.data);
+    max_tasks = Threads.nthreads(),
+    min_elems = 1,
+    prefer_threads::Bool = true,
+    # GPU settings
+    block_size = 256
+)
+    nelems = conns.nelems[block_id]
+    if AK.use_gpu_algorithm(backend, prefer_threads)
+        AK._forindices_gpu(f, 1:nelems, backend; block_size)
+    elseif max_tasks == 1
+        _forindices_serial(f, 1:nelems)
+    else
+        _forindices_threads(
+            f, 1:nelems,
+            max_tasks = max_tasks,
+            min_elems = min_elems
+        )
+    end
+end
+
 #########################################
 # hooks for extensions
 #########################################
