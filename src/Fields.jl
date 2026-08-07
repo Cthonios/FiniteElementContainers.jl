@@ -477,57 +477,58 @@ struct PropertyField{
         new{T, D, I}(data, isblockconstant, nblocks, nepes, nelems, offsets)
     end
 
-    # case where all blocks have properties the same throughout
-    function PropertyField(arrs::Vector{<:Vector{T}}) where T <: Number
-        data = reduce(vcat, arrs)
-        isblockconstant = PROPS_CONST * ones(Int, length(arrs))
-        nblocks = length(arrs)
-        nepes = map(length, arrs)
-        nelems = -1 * ones(Int, nblocks)
-        offsets = Vector{Int}(undef, 0)
-        offset = 1
-        for n in axes(arrs, 1)
-            push!(offsets, offset)
-            offset += nepes[n]
-        end
-        return PropertyField{T, typeof(data), typeof(isblockconstant)}(data, isblockconstant, nblocks, nepes, nelems, offsets)
-    end
+    # One entry per block.  A vector-like entry means the properties are
+    # constant across that block; a matrix-like entry means one column per
+    # element.  The two may be mixed freely.
+    function PropertyField(arrs::AbstractVector)
+        isempty(arrs) && throw(ArgumentError(
+            "PropertyField needs at least one block of properties, got none"))
 
-    # case where we have mixed constant or none constant
-    function PropertyField(arrs::Vector{<:Array{T}}) where T <: Number
-        data = mapreduce(vec, vcat, arrs)
-        isblockconstant = map(x -> begin
-            if isa(x, Matrix)
-                return PROPS_ELEMS
-            elseif isa(x, Vector)
-                return PROPS_CONST
-            else
-                @assert false "Property arrays should be Vector or Matrix"
-            end
-        end, arrs)
-        nblocks = length(arrs)
-        out = map(x -> begin
-            if isa(x, Matrix)
-                return size(x)
-            elseif isa(x, Vector)
-                return (length(x), -1)
-            end
-        end, arrs)
-        nepes = map(x -> x[1], out)
-        nelems = map(x -> x[2], out)
-        offsets = Vector{Int}(undef, 0)
+        blocks = map(_property_block, arrs)
+        T = promote_type(map(eltype, blocks)...)
+        blocks = map(x -> convert(AbstractArray{T}, x), blocks)
+
+        nblocks = length(blocks)
+        isblockconstant = Vector{Int}(undef, nblocks)
+        nepes           = Vector{Int}(undef, nblocks)
+        nelems          = Vector{Int}(undef, nblocks)
+        offsets         = Vector{Int}(undef, nblocks)
+
         offset = 1
-        for n in axes(arrs, 1)
-            push!(offsets, offset)
-            if isa(arrs[n], Matrix)
-                offset += nepes[n] * nelems[n]
-            elseif isa(arrs[n], Vector)
-                offset += nepes[n]
-            end
+        for (n, x) in enumerate(blocks)
+            elementwise = x isa AbstractMatrix
+            isblockconstant[n] = elementwise ? PROPS_ELEMS : PROPS_CONST
+            nepes[n]           = elementwise ? size(x, 1) : length(x)
+            nelems[n]          = elementwise ? size(x, 2) : -1
+            offsets[n]         = offset
+            offset            += length(x)
         end
-        return PropertyField{T, typeof(data), typeof(isblockconstant)}(data, isblockconstant, nblocks, nepes, nelems, offsets)
+
+        data = Vector{T}(undef, offset - 1)
+        i = 1
+        for x in blocks
+            n = length(x)
+            copyto!(data, i, vec(x), 1, n)
+            i += n
+        end
+
+        return PropertyField{T, typeof(data), typeof(isblockconstant)}(
+            data, isblockconstant, nblocks, nepes, nelems, offsets
+        )
     end
 end
+
+# Normalize one block's properties to a dense array we own.  This deliberately
+# accepts any AbstractVector/AbstractMatrix rather than Vector/Matrix: an
+# `SVector` is what a `create_properties` implementation naturally returns, and
+# rejecting it left downstream packages with a bare MethodError naming an
+# internal constructor.
+_property_block(x::AbstractVector{<:Number}) = collect(x)
+_property_block(x::AbstractMatrix{<:Number}) = collect(x)
+_property_block(x) = throw(ArgumentError(
+    "each block's properties must be an AbstractVector of numbers (constant " *
+    "across the block) or an AbstractMatrix of numbers with one column per " *
+    "element (element-level properties); got $(typeof(x))"))
 
 function Adapt.adapt_structure(to, field::PropertyField)
     data = adapt(to, field.data)

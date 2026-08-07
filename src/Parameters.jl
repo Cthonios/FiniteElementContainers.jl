@@ -54,7 +54,8 @@ end
 # a single properties object shared by every block
 # needs to be constant props, can't be element level
 # unless we have one block, but let's not specialize that muc
-function _setup_properties(fspace, props::Vector)
+# Any AbstractVector of numbers, so an SVector works here too.
+function _setup_properties(fspace, props::AbstractVector{<:Number})
   return PropertyField(map(_ -> props, block_names(fspace)))
 end
 
