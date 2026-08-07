@@ -567,15 +567,12 @@ struct PropertyFieldView{T, D <: AbstractVector{T}} <: AbstractVector{T}
 end
 
 Base.@propagate_inbounds function Base.getindex(v::PropertyFieldView, i::Int)
-    @assert i >= 1 && i <= v.len
-    return v.data[v.start + i - 1]
-end
-Base.length(v::PropertyFieldView) = v.len
-Base.IndexStyle(::Type{<:PropertyFieldView}) = IndexLinear()
-Base.@propagate_inbounds function Base.getindex(v::PropertyFieldView, i::Int)
     @boundscheck checkbounds(v, i)
     return @inbounds v.data[v.start + i - 1]
 end
+Base.IndexStyle(::Type{<:PropertyFieldView}) = IndexLinear()
+Base.length(v::PropertyFieldView) = v.len
+Base.size(v::PropertyFieldView) = (v.len,)
 
 ######################################################################################################
 # StateVariableField
@@ -666,19 +663,21 @@ function state_variables(field::StateVariableField, q::Int, e::Int, b::Int)
     return StateVariableFieldView(field.data, start, nfields)
 end
 
-struct StateVariableFieldView{D <: AbstractVector} <: AbstractVector{eltype(D)}
+struct StateVariableFieldView{T, D <: AbstractVector{T}} <: AbstractVector{T}
     data::D
     start::Int
     len::Int
 end
 
 Base.@propagate_inbounds function Base.getindex(v::StateVariableFieldView, i::Int)
-    @assert i >= 1 && i <= v.len
-    return v.data[v.start + i - 1]
+    @boundscheck checkbounds(v, i)
+    return @inbounds v.data[v.start + i - 1]
 end
+Base.IndexStyle(::Type{<:StateVariableFieldView}) = IndexLinear()
 Base.length(v::StateVariableFieldView) = v.len
-function Base.setindex!(v::StateVariableFieldView, val, i::Int)
-    @assert i >= 1 && i <= v.len
-    v.data[v.start + i - 1] = val
+Base.@propagate_inbounds function Base.setindex!(v::StateVariableFieldView{T, D}, val::T, i::Int) where {T, D}
+    @boundscheck checkbounds(v, i)
+    @inbounds v.data[v.start + i - 1] = val
+    return nothing
 end
 Base.size(v::StateVariableFieldView) = (v.len,)

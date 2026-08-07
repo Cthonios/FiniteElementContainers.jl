@@ -257,7 +257,7 @@ function _assemble_block_matrix_action!(
   Solution <: AbstractField
 }
   conns = conns_all.data
-  coffset = conns.offsets[b]
+  coffset = conns_all.offsets[b]
   foreach_element(conns_all, b) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)

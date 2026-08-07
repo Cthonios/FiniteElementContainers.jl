@@ -49,8 +49,8 @@ function _assemble_scalar_block_enzyme_safe!(
 }
 
   conns = conns_all.data
-  coffset = conns.offsets[b]
-  for e in axes(state_old, 3)
+  coffset = conns_all.offsets[b]
+  for e in 1:conns_all.nelems[b]
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = properties(props, e, b)
@@ -140,8 +140,8 @@ function _assemble_vector_block_enzyme_safe!(
   Solution <: AbstractField
 }
   conns = conns_all.data
-  coffset = conns.offsets[b]
-  for e in axes(state_old, 3)
+  coffset = conns_all.offsets[b]
+  for e in 1:conns_all.nelems[b]
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     

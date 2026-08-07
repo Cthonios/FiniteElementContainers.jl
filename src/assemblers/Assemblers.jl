@@ -228,13 +228,13 @@ end
   return zeros(SVector{NxNDof, eltype(U)})
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
-function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::Int)
-  state_q = view(state, :, q, e)
-  return state_q
-end
+# """
+# $(TYPEDSIGNATURES)
+# """
+# function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::Int)
+#   state_q = view(state, :, q, e)
+#   return state_q
+# end
 
 function _sparse_matrix_mass(asm::AbstractAssembler, coo_storage)
   type = _sparse_matrix_type(asm)
@@ -433,7 +433,7 @@ function _assemble_block!(
 }
   conns = conns_all.data
   coffset = conns_all.offsets[b]
-  foreach_element(conns, b) do e
+  foreach_element(conns_all, b) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = properties(props, e, b)
