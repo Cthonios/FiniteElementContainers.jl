@@ -10,6 +10,11 @@
 
 SetFactory("OpenCASCADE");
 
+// Default if nothing is supplied on the command line
+DefineConstant[
+    element_order = 1
+];
+
 // Geometry
 Point(1) = {0,  0, 0};
 Point(2) = {48,44, 0};
@@ -42,7 +47,7 @@ Physical Curve("Right")  = {2};
 Physical Curve("Bottom") = {1};
 Physical Curve("Top")    = {3};
 
-Mesh.ElementOrder = 1;
+Mesh.ElementOrder = element_order;
 Mesh.SecondOrderIncomplete = 0;
 
 Mesh 2;
