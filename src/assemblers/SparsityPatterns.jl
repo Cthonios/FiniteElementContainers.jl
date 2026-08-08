@@ -139,6 +139,79 @@ function SparseMatrixPattern(dof_1::DofManager, dof_2::DofManager)
   return pattern
 end
 
+function SparseMatrixPattern(dof_1::DofManager, dof_2::DofManager)
+  ND1, NN1 = size(dof_1)
+  ND2, NN2 = size(dof_2)
+  n_total_dofs_1 = NN1 * ND1
+  n_total_dofs_2 = NN2 * ND2
+
+  fspace_1, fspace_2 = function_space(dof_1), function_space(dof_2)
+  n_blocks = num_blocks(fspace_1)
+  block_start_indices, n_entries = _setup_block_sizes(dof_1, dof_2)
+
+  # setup pre-allocated arrays based on number of entries found above
+  Is = Vector{Int64}(undef, n_entries)
+  Js = Vector{Int64}(undef, n_entries)
+  unknown_dofs = Vector{Int64}(undef, n_entries)
+
+  ids_1 = reshape(1:n_total_dofs_1, ND1, NN1)
+  ids_2 = reshape(1:n_total_dofs_2, ND2, NN2)
+  n = 1
+  for b in 1:n_blocks
+    for e in 1:num_elements(fspace_1, b)
+      conn_1 = connectivity(fspace_1, e, b)
+      conn_2 = connectivity(fspace_2, e, b)
+      dof_conn_1 = @views reshape(ids_1[:, conn_1], ND1 * num_entities_per_element(fspace_1, b))
+      dof_conn_2 = @views reshape(ids_2[:, conn_2], ND2 * num_entities_per_element(fspace_2, b))
+      for i in axes(dof_conn_1, 1)
+        for j in axes(dof_conn_2, 1)
+          Is[n] = dof_conn_1[i]
+          Js[n] = dof_conn_2[j]
+          unknown_dofs[n] = n
+          n += 1
+        end
+      end
+    end
+  end
+
+  # create caches
+  # TODO not sure what to do for klasttouch and csrrowptr
+  # so making it the maximum size so we don't hit index out of bounds
+  # errors
+  # Is this right though?
+  n_total_dofs = max(n_total_dofs_1, n_total_dofs_2)
+  # hack above
+  klasttouch = zeros(Int64, n_total_dofs)
+  csrrowptr  = zeros(Int64, n_total_dofs + 1)
+  csrcolval  = zeros(Int64, length(Is))
+  csrnzval   = zeros(Float64, length(Is))
+
+  csccolptr          = Vector{Int64}(undef, 0)
+  cscrowval          = Vector{Int64}(undef, 0)
+  cscnzval_mass      = Vector{Float64}(undef, 0)
+  cscnzval_stiffness = Vector{Float64}(undef, 0)
+
+  # set permutation — pack (row, col) into one Int64 key so sortperm takes the
+  # integer radix-sort path instead of an O(N log N) tuple comparison sort.
+  # DOF indices are << 2^32, so the packed key preserves (i, j) lexicographic
+  # order and (sortperm being stable) yields an identical permutation.
+  ks = map((i, j) -> (Int64(i) << 32) | Int64(j), Is, Js)
+  permutation = sortperm(ks)
+
+  pattern = SparseMatrixPattern(
+    Is, Js, 
+    unknown_dofs, 
+    block_start_indices, [n_entries],
+    # cache arrays
+    klasttouch, csrrowptr, csrcolval, csrnzval,
+    # additional cache arrays
+    csccolptr, cscrowval, cscnzval_mass, cscnzval_stiffness,
+    permutation
+  )
+
+  return pattern
+end
+
 function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   return SparseMatrixPattern(
     adapt(to, asm.Is),

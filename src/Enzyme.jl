@@ -145,7 +145,6 @@ function _assemble_vector_block_enzyme_safe!(
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = properties(props, e, b)
-  #   # val_el = _element_scratch(return_type, ref_fe, U)
 
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
@@ -176,6 +175,7 @@ function _assemble_vector_block_enzyme_safe!(
   return nothing
 end
 
+<<<<<<< HEAD
 # # GPU implementation
 # # COV_EXCL_START
 # KA.@kernel function _assemble_block_enzyme_safe_kernel!(
@@ -206,6 +206,38 @@ end
 #     val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
 #     val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, E)
 #   end
+=======
+# GPU implementation
+# COV_EXCL_START
+KA.@kernel function _assemble_block_enzyme_safe_kernel!(
+  field,
+  conns::Conn, coffset::Int,
+  func::Function,
+  physics::AbstractPhysics, ref_fe::ReferenceFE,
+  X::AbstractField, t::T, dt::T,
+  U::Solution, U_old::Solution, 
+  state_old::S, state_new::S, props::AbstractArray,
+  return_type::R
+) where {
+  T        <: Number,
+  Conn     <: AbstractArray,
+  Solution <: AbstractField,
+  S,       #<: L2QuadratureField
+  R        <: AssembledReturnType
+}
+  E = KA.@index(Global)
+  conn = connectivity(ref_fe, conns, E, coffset)
+  x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, E, X, U, U_old)
+  props_el = _element_level_properties(props, E)
+  val_el = _element_scratch(return_type, ref_fe, U)
+  for q in 1:num_cell_quadrature_points(ref_fe)
+    interps = _cell_interpolants(ref_fe, q)
+    state_old_q = _quadrature_level_state(state_old, q, E)
+    state_new_q = _quadrature_level_state(state_new, q, E)
+    val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
+    val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, E)
+  end
+>>>>>>> 115c6fc (Some work towards mixed space assembly. Its really hacky right now and using maximum code re-use. Definitely not efficient are ready for prime time though.)
 
 #   # need the atomic here
 #   _assemble_element!(field, val_el, conn, E)

@@ -150,25 +150,25 @@ end
   return u_el
 end
 
-@inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
-  NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
-  NxNDof = NNPE * NF
-  u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns])
-  return u_el
-end
+# @inline function _element_level_fields_flat(U::H1Field{T, D, NF}, ref_fe, conns, e) where {T, D, NF}
+#   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
+#   NxNDof = NNPE * NF
+#   u_el = @views SVector{NxNDof, eltype(U)}(U[:, conns])
+#   return u_el
+# end
 
-@inline function element_level_fields(ref_fe, conn, e, X, U, U_old)
-  x_el = _element_level_fields_flat(X, ref_fe, conn, e)
-  u_el = _element_level_fields_flat(U, ref_fe, conn, e)
-  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn, e)
+@inline function element_level_fields(ref_fe, conn, X, U, U_old)
+  x_el = _element_level_fields_flat(X, ref_fe, conn)
+  u_el = _element_level_fields_flat(U, ref_fe, conn)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
   return x_el, u_el, u_el_old
 end
 
 @inline function element_level_fields(ref_fe, conn, e, X, U, U_old, V)
-  x_el = _element_level_fields_flat(X, ref_fe, conn, e)
-  u_el = _element_level_fields_flat(U, ref_fe, conn, e)
-  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn, e)
-  v_el = _element_level_fields_flat(V, ref_fe, conn, e)
+  x_el = _element_level_fields_flat(X, ref_fe, conn)
+  u_el = _element_level_fields_flat(U, ref_fe, conn)
+  u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
+  v_el = _element_level_fields_flat(V, ref_fe, conn)
   return x_el, u_el, u_el_old, v_el
 end
 
