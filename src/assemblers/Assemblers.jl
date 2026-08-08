@@ -164,7 +164,7 @@ end
   return x_el, u_el, u_el_old
 end
 
-@inline function element_level_fields(ref_fe, conn, e, X, U, U_old, V)
+@inline function element_level_fields(ref_fe, conn, X, U, U_old, V)
   x_el = _element_level_fields_flat(X, ref_fe, conn)
   u_el = _element_level_fields_flat(U, ref_fe, conn)
   u_el_old = _element_level_fields_flat(U_old, ref_fe, conn)
