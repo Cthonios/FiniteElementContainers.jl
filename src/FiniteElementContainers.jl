@@ -222,6 +222,7 @@ include("Constraints.jl")
 include("InitialConditions.jl")
 
 include("Formulations.jl")
+include("Gather.jl")
 include("Physics.jl")
 include("assemblers/Assemblers.jl")
 #

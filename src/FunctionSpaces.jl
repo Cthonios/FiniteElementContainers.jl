@@ -42,6 +42,8 @@ const _el_name_to_juliac_safe_id = Dict{String, Int}(
   "TETRA4"  => 6,
   "TETRA10" => 7
 )
+# Lagrange elements
+# defaulting to fully integrated elements for now
 const _juliac_safe_ref_fes = (
   ReferenceFE(Hex{Lagrange, 1}(), GaussLobattoLegendre(2, 2)),  # HEX8 for Lagrange
   ReferenceFE(Quad{Lagrange, 1}(), GaussLobattoLegendre(2, 2)), # QUAD4 for Lagrange
@@ -137,7 +139,6 @@ struct FunctionSpace{
   block_to_ref_fe_id::BTRE
   coords::H1Field{RT, RV, ND}
   elem_conns::Connectivity{IT, IV}
-  # need to remove this mabye?
   elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
   elem_to_facets::Union{Nothing, Connectivity{IT, IV}}
   facet_orientation::Union{Nothing, Connectivity{IT, IV}}
@@ -146,7 +147,7 @@ struct FunctionSpace{
   ref_fes::RefFEs
 
   function FunctionSpace{is_juliac_safe, FT}(
-    block_names, block_to_ref_fe_id, coords, elem_conns,
+    block_names, block_to_ref_fe_id, coords, elem_conns, 
     elem_id_maps, elem_to_facets, facet_orientation, node_id_map, ref_fes
   ) where {is_juliac_safe, FT}
     new{
@@ -272,7 +273,7 @@ function block_entity_size(fspace::FunctionSpace, b::Int)
   return (num_entities_per_element(fspace, b), num_elements(fspace, b))
 end
 
-function block_reference_element(fspace::FunctionSpace{false, FT, I, V, BTRE, C, R}, block_id::Int) where {I, FT, V, BTRE, C, R}
+function block_reference_element(fspace::FunctionSpace{false, FT, I, V, BTRE, C, R}, block_id::Int) where {FT, I, V, BTRE, C, R}
   return fspace.ref_fes[block_id]
 end
 
@@ -360,7 +361,6 @@ function num_entities(fspace::FunctionSpace)
 end
 
 function num_entities_per_element(fspace::FunctionSpace, b::Int)
-  return num_entities_per_element(fspace.elem_conns, b)
   if _field_type(fspace) == L2Field
     return block_quadrature_size(fspace, b)[1]
   else

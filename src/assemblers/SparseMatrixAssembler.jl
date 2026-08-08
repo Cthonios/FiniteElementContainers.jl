@@ -13,7 +13,7 @@ struct SparseMatrixAssembler{
   RV           <: AbstractArray{Float64, 1},
   Var          <: AbstractFunction,
   FieldStorage
-} <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
+} <: AbstractAssembler
   dof::DofManager{Condensed, Int, IV, Var}
   matrix_pattern::SparseMatrixPattern{IV, RV}
   vector_pattern::SparseVectorPattern{IV}
@@ -301,7 +301,6 @@ function update_dofs!(assembler::AbstractAssembler, dirichlet_bcs::DirichletBCs,
         assembler.dof, ddofs, pdofs_side_b,
         assembler.dof, ddofs, pdofs_side_b
       )
-
     end
     _update_dofs!(assembler.vector_pattern, assembler.dof, ddofs, pdofs_side_b)
   end

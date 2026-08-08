@@ -2,6 +2,7 @@
   using Adapt
   if "--test-amdgpu" in ARGS @eval using AMDGPU end
   if "--test-cuda" in ARGS @eval using CUDA end
+  using KernelAbstractions
   using LinearAlgebra
   using SparseArrays
   using SparseMatricesCSR
@@ -41,6 +42,7 @@ end
 @testsnippet AssemblerHelperPoisson begin
   if "--test-amdgpu" in ARGS @eval using AMDGPU end
   if "--test-cuda" in ARGS @eval using CUDA end
+  using KernelAbstractions
   using LinearAlgebra
   using StaticArrays
   include("poisson/TestPoissonCommon.jl")
@@ -60,6 +62,7 @@ end
 @testsnippet AssemblerHelperMechanics begin
   if "--test-amdgpu" in ARGS @eval using AMDGPU end
   if "--test-cuda" in ARGS @eval using CUDA end
+  using KernelAbstractions
   using StaticArrays
   using Tensors
   include("mechanics/TestMechanicsCommon.jl")
@@ -121,7 +124,9 @@ end
 
         # test vector consistency
         assemble_vector!(asm_1, residual, U_1, p_1)
+        KA.synchronize(KA.get_backend(asm_1))
         assemble_vector!(asm_2, residual!, U_2, p_2)
+        KA.synchronize(KA.get_backend(asm_2))
         R_1 = residual(asm_1) |> copy
         R_2 = residual(asm_2) |> copy
         if dev != cpu
