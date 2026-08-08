@@ -62,24 +62,24 @@ end
 
 # TODO not finished...
 # need to write jacobian mapping operator
-@generated function interpolate_gradients(
-    u::H1Field{T, D, NF}, x::H1Field{T, D, NF},
-    conns, ref_fe,
-    q, e, b
-) where {T, D, NF}
-    dim = ReferenceFiniteElements.dimension(ref_fe)
-    sums = [Symbol(:u_, j, :_, i) for j = 1:dim, i = 1:NF]
-    init = [:($(s) = zero(T)) for s in sums]
-    updates = [
-        :($(sums[j, i]) += ∇N_ji * u[$i, idx])
-        for j = 1:dim, i = 1:NF
-    ]
-    ret = :(SMatrix{$dim, $NF, T $dim * $NF})($(sums...))
-    quote
-        $(init...)
-        ∇N_ξ
-    end
-end
+# @generated function interpolate_gradients(
+#     u::H1Field{T, D, NF}, x::H1Field{T, D, NF},
+#     conns, ref_fe,
+#     q, e, b
+# ) where {T, D, NF}
+#     dim = ReferenceFiniteElements.dimension(ref_fe)
+#     sums = [Symbol(:u_, j, :_, i) for j = 1:dim, i = 1:NF]
+#     init = [:($(s) = zero(T)) for s in sums]
+#     updates = [
+#         :($(sums[j, i]) += ∇N_ji * u[$i, idx])
+#         for j = 1:dim, i = 1:NF
+#     ]
+#     ret = :(SMatrix{$dim, $NF, T $dim * $NF})($(sums...))
+#     quote
+#         $(init...)
+#         ∇N_ξ
+#     end
+# end
 
 @inline function interpolate_gradient(
     u::H1Field{T, D, NF}, x::H1Field{T, D, ND},
