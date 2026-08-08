@@ -98,15 +98,6 @@ end
     A_iso = material_tangent_iso(props_el, ∇u_q, p_q[1])
     A_vol = material_tangent_vol(props_el, ∇u_q, p_q[1])
     G_q = discrete_gradient(PlaneStrain(), interps_u.∇N_X)
-    # G_pu_x = J_q .* (
-    #     F_inv_T_q[1, 1] * interps_u.∇N_X[: ,1] +
-    #     F_inv_T_q[2, 1] * interps_u.∇N_X[: ,2]
-    # )
-
-    # G_pu_y = J_q * (
-    #     F_inv_T_q[1, 2] * interps_u.∇N_X[:, 1] +
-    #     F_inv_T_q[2, 2] * interps_u.∇N_X[:, 2]
-    # )
     G_pu_x = J_q .* (
         F_inv_T_q[1, 1] .* interps_u.∇N_X[:, 1] +
         F_inv_T_q[1, 2] .* interps_u.∇N_X[:, 2]
