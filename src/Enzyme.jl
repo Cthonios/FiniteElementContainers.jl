@@ -11,22 +11,21 @@ function assemble_scalar_enzyme_safe!(
   U_old = p.field_old
   _update_for_assembly!(p, dof, Uu)
   conns = fspace.elem_conns
-  # foreach_block(fspace, p) do physics, props, ref_fe, b
   for (b, (
-    block_physics, ref_fe, props
+    block_physics, ref_fe
   )) in enumerate(zip(
-    values(p.physics), values(fspace.ref_fes),
-    values(p.properties)
+    values(p.physics), values(fspace.ref_fes)
   ))
     _assemble_scalar_block_enzyme_safe!(
       KA.CPU(),
       block_view(storage, b),
-      conns.data, conns.offsets[b], 
+      conns, 
       func,
+      b,
       block_physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
+      p.state_old, p.state_new, p.properties,
       return_type
     )
   end
@@ -34,48 +33,35 @@ end
 
 function _assemble_scalar_block_enzyme_safe!(
   ::KA.CPU,
-  # field::AbstractField,
   field,
-  conns::Conn, coffset::Int,
+  conns_all,
   func::Function,
+  b::Int,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
   U::Solution, U_old::Solution, 
-  state_old::S, state_new::S, props::AbstractArray,
+  state_old::StateVariableField, state_new::StateVariableField, props::PropertyField,
   return_type::R
 ) where {
   T        <: Number,
-  Conn     <: AbstractArray,
   Solution <: AbstractField,
-  S,       #<: L2QuadratureField
   R        <: AssembledReturnType
 }
 
-  for e in axes(state_old, 3)
+  conns = conns_all.data
+  coffset = conns_all.offsets[b]
+  for e in 1:conns_all.nelems[b]
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
-    props_el = _element_level_properties(props, e)
-    # val_el = _element_scratch(return_type, ref_fe, U)
+    props_el = properties(props, e, b)
 
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
-      state_old_q = _quadrature_level_state(state_old, q, e)
-      state_new_q = _quadrature_level_state(state_new, q, e)
+      state_old_q = state_variables(state_old, q, e, b)
+      state_new_q = state_variables(state_new, q, e, b)
       val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
-      # val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
       field[1, q, e] = val_q
     end
-    # _assemble_element!(field, val_el, conn, e)
-    
-    # writing inline to avoid atomic call
-    # n_dofs = size(field, 1)
-    # for d in axes(field, 1)
-    #   for n in axes(conn, 1)
-    #     global_id = n_dofs * (conn[n] - 1) + d
-    #     local_id = n_dofs * (n - 1) + d
-    #     field.data[global_id] += val_el[local_id]
-    #   end
-    # end
   end
   return nothing
 end
@@ -111,22 +97,20 @@ function assemble_vector_enzyme_safe!(
   # return_type = AssembledVector()
   conns = fspace.elem_conns
   for (b, (
-    block_physics, ref_fe, props
+    block_physics, ref_fe
   )) in enumerate(zip(
-    values(p.physics), values(fspace.ref_fes),
-    values(p.properties)
+    values(p.physics), values(fspace.ref_fes)
   ))
     _assemble_vector_block_enzyme_safe!(
-      # KA.get_backend(storage),
       KA.CPU(),
       storage,
-      conns.data, conns.offsets[b], 
+      conns,
       func,
+      b,
       block_physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
-      # return_type
+      p.state_old, p.state_new, p.properties
     )
   end
   
@@ -143,33 +127,30 @@ TODO add state variables and physics properties
 """
 function _assemble_vector_block_enzyme_safe!(
   ::KA.CPU,
-  # field::AbstractField,
   field,
-  conns::Conn, coffset::Int,
+  conns_all,
   func::Function,
+  b::Int,
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, dt::T,
   U::Solution, U_old::Solution, 
-  state_old::S, state_new::S, props::AbstractArray,
-  # return_type::R
+  state_old::StateVariableField, state_new::StateVariableField, props::PropertyField,
 ) where {
   T        <: Number,
-  Conn     <: AbstractArray,
-  Solution <: AbstractField,
-  S,       #<: L2QuadratureField
-  # R        <: AssembledReturnType
+  Solution <: AbstractField
 }
-
-  for e in axes(state_old, 3)
+  conns = conns_all.data
+  coffset = conns_all.offsets[b]
+  for e in 1:conns_all.nelems[b]
     conn = connectivity(ref_fe, conns, e, coffset)
-    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, e, X, U, U_old)
-    props_el = _element_level_properties(props, e)
+    x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
+    props_el = properties(props, e, b)
   #   # val_el = _element_scratch(return_type, ref_fe, U)
 
     for q in 1:num_cell_quadrature_points(ref_fe)
       interps = _cell_interpolants(ref_fe, q)
-      state_old_q = _quadrature_level_state(state_old, q, e)
-      state_new_q = _quadrature_level_state(state_new, q, e)
+      state_old_q = state_variables(state_old, q, e, b)
+      state_new_q = state_variables(state_new, q, e, b)
       # val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
       # val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
 

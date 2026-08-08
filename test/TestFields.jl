@@ -213,6 +213,163 @@ end
   @test all(FiniteElementContainers.properties(props, 100, 2) .≈ props_2)
 end
 
+@testitem "Fields - test_property_field_,mixed_constant_and_element_level" begin
+  props_1 = rand(3)
+  props_2 = rand(4, 20)
+  props = FiniteElementContainers.PropertyField([props_1, props_2])
+  @test all(FiniteElementContainers.properties(props, 1, 1) .≈ props_1)
+  @test all(FiniteElementContainers.properties(props, 100, 1) .≈ props_1)
+
+  for e in axes(props_2, 2)
+    @test all(FiniteElementContainers.properties(props, e, 2) .≈ props_2[:, e])
+  end
+end
+
+@testitem "Fields - test_property_field_all_element_level" begin
+  props_1 = rand(3, 10)
+  props_2 = rand(4, 20)
+  props = FiniteElementContainers.PropertyField([props_1, props_2])
+  for e in axes(props_1, 2)
+    @test all(FiniteElementContainers.properties(props, e, 1) .≈ props_1[:, e])
+  end
+  for e in axes(props_2, 2)
+    @test all(FiniteElementContainers.properties(props, e, 2) .≈ props_2[:, e])
+  end
+end
+
+@testitem "Fields - test_property_field_static_arrays" begin
+  using StaticArrays
+  # `create_properties` implementations hand back an SVector, so the
+  # constructor has to take one.
+  props_1 = SVector{2, Float64}(rand(2))
+  props_2 = SVector{3, Float64}(rand(3))
+  props = FiniteElementContainers.PropertyField([props_1, props_2])
+  @test all(FiniteElementContainers.properties(props, 1, 1) .≈ props_1)
+  @test all(FiniteElementContainers.properties(props, 100, 1) .≈ props_1)
+  @test all(FiniteElementContainers.properties(props, 1, 2) .≈ props_2)
+  @test all(FiniteElementContainers.properties(props, 100, 2) .≈ props_2)
+
+  # ...and mixed with an element-level block, static or not.
+  props_3 = SMatrix{2, 4, Float64, 8}(rand(2, 4))
+  mixed = FiniteElementContainers.PropertyField([props_1, props_3])
+  @test all(FiniteElementContainers.properties(mixed, 7, 1) .≈ props_1)
+  for e in axes(props_3, 2)
+    @test all(FiniteElementContainers.properties(mixed, e, 2) .≈ props_3[:, e])
+  end
+end
+
+@testitem "Fields - test_property_field_promotes_eltypes" begin
+  props = FiniteElementContainers.PropertyField([[1, 2], [3.5, 4.5]])
+  @test eltype(props) == Float64
+  @test all(FiniteElementContainers.properties(props, 1, 1) .≈ [1.0, 2.0])
+  @test all(FiniteElementContainers.properties(props, 1, 2) .≈ [3.5, 4.5])
+end
+
+@testitem "Fields - test_property_field_rejects_bad_input" begin
+  # A rank-3 array has no reading as either constant or element-level, and an
+  # empty block list has no reading at all.  Both should say so.
+  @test_throws ArgumentError FiniteElementContainers.PropertyField([rand(2, 2, 2)])
+  @test_throws ArgumentError FiniteElementContainers.PropertyField(["not numbers"])
+  @test_throws ArgumentError FiniteElementContainers.PropertyField([])
+end
+
+@testitem "Fields - test_property_field_does_not_alias_input" begin
+  props_1 = rand(3)
+  props = FiniteElementContainers.PropertyField([props_1])
+  original = copy(props_1)
+  props_1 .= 0.0
+  @test all(FiniteElementContainers.properties(props, 1, 1) .≈ original)
+end
+
+@testitem "Fields - test_property_field_view_eltype_is_concrete" begin
+  using StaticArrays
+  # `PropertyFieldView` must carry the element type as a parameter.  Declaring
+  # it as `AbstractVector{eltype(D)}` over a bare `D` silently yields
+  # `AbstractVector{Any}`, because `eltype` of an unbound TypeVar is `Any`.
+  # Downstream that is not cosmetic: ConstitutiveModels' `module_props` builds
+  # `SVector{NP, eltype(props)}`, so an `Any` eltype turns every constitutive
+  # evaluation into a boxed, dynamically dispatched call.
+  props = FiniteElementContainers.PropertyField([[1.0, 2.0, 3.0]])
+  view = FiniteElementContainers.properties(props, 1, 1)
+  @test eltype(view) === Float64
+  @test view isa AbstractVector{Float64}
+  @test eltype(collect(view)) === Float64
+  @test isconcretetype(eltype(SVector{2, eltype(view)}(view[1], view[2])))
+  @test Base.IndexStyle(typeof(view)) === IndexLinear()
+end
+
+@testitem "Fields - test_property_field_view_is_bounds_checked" begin
+  # Every block's properties live in one flat vector, so an unchecked
+  # out-of-range read returns the *next* block's properties instead of
+  # failing.  Two blocks with different property counts make that concrete.
+  props = FiniteElementContainers.PropertyField([[1.0, 2.0, 3.0], [10.0, 20.0, 30.0, 40.0]])
+  block1 = FiniteElementContainers.properties(props, 1, 1)
+  @test length(block1) == 3
+  @test block1[3] ≈ 3.0
+  # Without a bounds check this returns 10.0 -- block 2's first property.
+  @test_throws BoundsError block1[4]
+  @test_throws BoundsError block1[0]
+
+  block2 = FiniteElementContainers.properties(props, 1, 2)
+  @test length(block2) == 4
+  @test block2[4] ≈ 40.0
+  @test_throws BoundsError block2[5]
+end
+
+@testitem "Fields - test_state_variable_field_view_indexing" begin
+  # `state_variables(field, q, e, b)` must address the same entry that
+  # `block_view(field, b)[:, q, e]` does -- the flat offset arithmetic is the
+  # only thing standing between a quadrature point and its neighbour's state.
+  a1 = rand(2, 3, 5)   # 2 state vars, 3 quadrature points, 5 elements
+  a2 = rand(4, 2, 7)   # a second block with a different shape
+  field = StateVariableField([a1, a2])
+
+  for (b, a) in enumerate((a1, a2))
+    for e in axes(a, 3), q in axes(a, 2)
+      sv = FiniteElementContainers.state_variables(field, q, e, b)
+      @test length(sv) == size(a, 1)
+      @test all(sv[i] ≈ a[i, q, e] for i in axes(a, 1))
+    end
+  end
+
+  # Same eltype trap as PropertyFieldView: an unparameterized `eltype(D)` in
+  # the supertype silently yields `Any`, which un-isbits anything built from it.
+  sv = FiniteElementContainers.state_variables(field, 1, 1, 1)
+  @test eltype(sv) === Float64
+  @test sv isa AbstractVector{Float64}
+  @test eltype(collect(sv)) === Float64
+  @test Base.IndexStyle(typeof(sv)) === IndexLinear()
+end
+
+@testitem "Fields - test_state_variable_field_view_is_bounds_checked" begin
+  # All blocks share one flat vector, so an unchecked read runs into the
+  # neighbouring quadrature point, element, or block rather than failing.
+  field = StateVariableField([rand(2, 3, 5), rand(4, 2, 7)])
+  sv = FiniteElementContainers.state_variables(field, 1, 1, 1)
+  @test length(sv) == 2
+  @test_throws BoundsError sv[3]
+  @test_throws BoundsError sv[0]
+  @test_throws BoundsError sv[3] = 1.0
+end
+
+@testitem "Fields - test_state_variable_field_view_setindex" begin
+  # `setindex!` is what the constitutive update writes new state through, so
+  # it has to land in the flat storage at the same place `getindex` reads.
+  a = rand(2, 3, 4)
+  field = StateVariableField([copy(a)])
+  sv = FiniteElementContainers.state_variables(field, 2, 3, 1)
+  sv[1] = -1.0
+  sv[2] = -2.0
+  @test FiniteElementContainers.block_view(field, 1)[1, 2, 3] ≈ -1.0
+  @test FiniteElementContainers.block_view(field, 1)[2, 2, 3] ≈ -2.0
+  # Nothing else moved.
+  bv = FiniteElementContainers.block_view(field, 1)
+  for e in axes(a, 3), q in axes(a, 2), i in axes(a, 1)
+    (q, e) == (2, 3) && continue
+    @test bv[i, q, e] ≈ a[i, q, e]
+  end
+end
+
 @testitem "Fields - test_state_variable_field" begin
   a1 = rand(2, 3, 40)
   a2 = rand(3, 4, 10)

@@ -157,7 +157,6 @@ end
     # Single material for the whole mesh: replicated, and keyed by block name.
     p = create_parameters(mesh, asm, one_physics, one_props)
     @test collect(keys(p.physics)) == Symbol.(BLOCK_NAMES)
-    @test collect(keys(p.properties)) == Symbol.(BLOCK_NAMES)
 
     # State variables are allocated per block by walking `values(physics)`
     # against `block_quadrature_size(fspace, b)`, so their element counts are a
@@ -169,7 +168,6 @@ end
     scrambled_props = (b3 = one_props, b1 = one_props, b2 = one_props)
     p = create_parameters(mesh, asm, scrambled_physics, scrambled_props)
     @test collect(keys(p.physics)) == Symbol.(BLOCK_NAMES)
-    @test collect(keys(p.properties)) == Symbol.(BLOCK_NAMES)
     @test [block_size(p.state_old, b)[3] for b in 1:length(BLOCK_NAMES)] == BLOCK_SIZES
 
     # And a mismatch stops the run instead of producing a plausible wrong answer.

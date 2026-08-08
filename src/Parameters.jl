@@ -51,6 +51,27 @@ function _align_blocks(fspace, x, what)
   return NamedTuple{names}(ntuple(_ -> x, length(names)))
 end
 
+# a single properties object shared by every block
+# needs to be constant props, can't be element level
+# unless we have one block, but let's not specialize that muc
+# Any AbstractVector of numbers, so an SVector works here too.
+function _setup_properties(fspace, props::AbstractVector{<:Number})
+  return PropertyField(map(_ -> props, block_names(fspace)))
+end
+
+# namedtuple case that should become deprecated soon
+function _setup_properties(fspace, props::NamedTuple)
+  names = tuple(Symbol.(block_names(fspace))...)
+  _check_block_keys(keys(props), names, "properties")
+  return PropertyField([map(x -> getfield(props, x), names)...])
+end
+
+function _setup_properties(fspace, props::Dict{String})
+  names = block_names(fspace)
+  _check_block_keys(keys(props), names, "properties")
+  return PropertyField([map(x -> props[x], names)...])
+end
+
 function _setup_state_variables(fspace, physics)
   state_old = Array{Float64, 3}[]
   state_new = Array{Float64, 3}[]
@@ -88,6 +109,7 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct Parameters{
+  D,       # dimension
   IT       <: Integer,
   RT       <: Number,
   IV       <: AbstractVector{IT},
@@ -103,8 +125,6 @@ struct Parameters{
   PBCFuncs <: AbstractVector,
   RBCFuncs <: AbstractVector,
   Phys,
-  Props,
-  Coords   <: AbstractField,
   Field    <: AbstractField 
 } <: AbstractParameters
   ics::InitialConditions{ICFuncs, IV, RV}
@@ -115,10 +135,10 @@ struct Parameters{
   sources::Sources{SRCFuncs, RM4}
   times::TimeStepper{RT}
   physics::Phys
-  properties::Props
+  properties::PropertyField{RT, RV, IV}
   state_old::StateVariableField{RT, RV}
   state_new::StateVariableField{RT, RV}
-  coords::Coords
+  coords::H1Field{RT, RV, D}
   field::Field
   field_old::Field
   # scratch fields
@@ -150,7 +170,7 @@ function Parameters(
 
   # for mixed spaces we'll need to do this more carefully
   physics = _align_blocks(fspace, physics, "physics")
-  properties = _align_blocks(fspace, properties, "properties")
+  properties = _setup_properties(fspace, properties)
 
   # setup state variables
   state_old, state_new = _setup_state_variables(fspace, physics)
@@ -172,19 +192,6 @@ function Parameters(
 end
 
 function Adapt.adapt_structure(to, p::Parameters)
-
-  # need to handle props specially
-  props = []
-  for p in values(p.properties)
-    if isa(p, SArray)
-      push!(props, p)
-    else
-      push!(props, adapt(to, p))
-    end
-  end
-
-  props = NamedTuple{keys(p.properties)}(props)
-
   return Parameters(
     adapt(to, p.ics),
     adapt(to, p.dirichlet_bcs),
@@ -194,7 +201,7 @@ function Adapt.adapt_structure(to, p::Parameters)
     adapt(to, p.sources),
     adapt(to, p.times),
     adapt(to, p.physics),
-    props,
+    adapt(to, p.properties),
     adapt(to, p.state_old),
     adapt(to, p.state_new),
     adapt(to, p.coords),
@@ -233,7 +240,7 @@ function KA.get_backend(p::Parameters)
 end
 
 struct TypeStableParameters{
-  # Funcs  <: AbstractVector,
+  D,     # dimension
   SFuncT,
   VFuncT,
   IT     <: Integer,
@@ -242,8 +249,6 @@ struct TypeStableParameters{
   RV     <: AbstractVector{RT},
   RM     <: AbstractMatrix{<:SVector},
   Phys,
-  Props,
-  Coords <: AbstractField,
   Field  <: AbstractField 
 } <: AbstractParameters
   ics::InitialConditions{Vector{InitialConditionFunction{SFuncT}}, IV, RV}
@@ -254,16 +259,16 @@ struct TypeStableParameters{
   sources::Sources{Vector{SourceFunction{VFuncT}}, RM}
   times::TimeStepper{RT}
   physics::Phys
-  properties::Props
+  properties::PropertyField{RT, RV, IV}
   state_old::StateVariableField{RT, RV}
   state_new::StateVariableField{RT, RV}
-  coords::Coords
+  coords::H1Field{RT, RV, D}
   field::Field
   field_old::Field
   # scratch fields
   hvp_scratch_field::Field
 
-  function TypeStableParameters{SF, VF}(mesh, assembler, physics, props, ics, dbcs, nbcs, pbcs, srcs, times) where {SF, VF}
+  function TypeStableParameters{D, SF, VF}(mesh, assembler, physics, props, ics, dbcs, nbcs, pbcs, srcs, times) where {D, SF, VF}
     dof = assembler.dof
     ND = size(dof, 1)
     fspace = function_space(dof)
@@ -274,7 +279,8 @@ struct TypeStableParameters{
     srcs = Sources{VF}(mesh, dof, srcs)
 
     physics = _align_blocks(fspace, physics, "physics")
-    props = _align_blocks(fspace, props, "properties")
+    # props = _align_blocks(fspace, props, "properties")
+    props = _setup_properties(fspace, props)
 
     state_old, state_new = _setup_state_variables(fspace, physics)
 
@@ -287,8 +293,8 @@ struct TypeStableParameters{
     update_dofs!(assembler, dbcs, pbcs)
 
     new{
-      SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
-      typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
+      D, SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
+      typeof(physics), typeof(field)
     }(
       ics, dbcs, nbcs, pbcs, srcs,
       times, 
@@ -296,10 +302,10 @@ struct TypeStableParameters{
     )
   end
 
-  function TypeStableParameters{SF, VF}(
+  function TypeStableParameters{D, SF, VF}(
     mesh, assembler, physics, props, state_old, state_new,
     ics, dbcs, nbcs, pbcs, srcs, times
-  ) where {SF, VF}
+  ) where {D, SF, VF}
     dof = assembler.dof
     ND = size(dof, 1)
     fspace = function_space(dof)
@@ -310,7 +316,8 @@ struct TypeStableParameters{
     srcs = Sources{VF}(mesh, dof, srcs)
 
     physics = _align_blocks(fspace, physics, "physics")
-    props = _align_blocks(fspace, props, "properties")
+    # props = _align_blocks(fspace, props, "properties")
+    props = _setup_properties(fspace, props)
 
     coords = mesh.nodal_coords
     field = create_field(assembler)
@@ -321,8 +328,8 @@ struct TypeStableParameters{
     update_dofs!(assembler, dbcs, pbcs)
 
     new{
-      SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
-      typeof(physics), typeof(props), typeof(mesh.nodal_coords), typeof(field)
+      D, SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
+      typeof(physics), typeof(field)
     }(
       ics, dbcs, nbcs, pbcs, srcs,
       times, 

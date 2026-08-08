@@ -41,15 +41,16 @@ function assemble_lumped_mass!(
   _update_for_assembly!(p, dof, Uu)
   return_type = AssembledVector()
   conns = fspace.elem_conns
-  foreach_block(fspace, p) do physics, props, ref_fe, b
+  foreach_block(fspace, p) do physics, ref_fe, b
     _assemble_block!(
       storage,
-      conns.data, conns.offsets[b],
+      conns,
       func,
+      b,
       physics, ref_fe,
       X, t, Δt,
       U, U_old,
-      block_view(p.state_old, b), block_view(p.state_new, b), props,
+      p.state_old, p.state_new, p.properties,
       return_type
     )
   end

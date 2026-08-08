@@ -50,7 +50,7 @@ end
   f(X, _) = 2. * π^2 * sin(π * X[1]) * sin(π * X[2])
   bc_func(_, _) = 0.
   physics = Poisson(f)
-  props = SVector{0, Float64}()
+  props = zeros(0)
   u = ScalarFunction(V, "u")
   dbcs = DirichletBC[
     DirichletBC("u", bc_func; sideset_name = "boundary")
@@ -337,6 +337,66 @@ end
     assemble_matrix_free_action!(asm, stiffness_action, Uu, Vu, p)
     Kv_mf = Array(hvp(asm, Vu))
     @test Kv_mf ≈ Kv_ref
+  end
+end
+
+@testitem "Assemblers - test_as_matrix_free" setup=[AssemblerHelperMechanics] begin
+  # as_matrix_free(asm) is the transfer-time companion of matrix_free=true:
+  # a copy of a full assembler with the sparse pattern and matrix value
+  # buffers replaced by empty placeholders, so that solvers running only
+  # matrix-free operations on a device don't ship the dominant (and there
+  # unused) part of the assembler's memory to it.
+  include("TestUtils.jl")
+  using LinearAlgebra: diag
+  backends = _get_backends()
+
+  # Assembled gold reference on the full CPU assembler.
+  asm_full = SparseMatrixAssembler(u)
+  p = create_parameters(mesh, asm_full, physics, props; dirichlet_bcs = dbcs, times = times)
+  FiniteElementContainers.initialize!(p)
+  Uu = create_unknowns(asm_full)
+  assemble_stiffness!(asm_full, stiffness, Uu, p)
+  K_ref = copy(stiffness(asm_full))
+  d_ref = diag(K_ref)
+
+  asm_mf = as_matrix_free(asm_full)
+
+  # Matrix-side storage is stripped; everything else is shared, not copied.
+  @test FiniteElementContainers._is_matrix_free(asm_mf)
+  @test isempty(asm_mf.matrix_pattern.Is)
+  @test isempty(asm_mf.mass_storage)
+  @test isempty(asm_mf.stiffness_storage)
+  @test asm_mf.dof === asm_full.dof
+  @test asm_mf.vector_pattern === asm_full.vector_pattern
+  @test asm_mf.constraint_storage === asm_full.constraint_storage
+  @test asm_mf.residual_storage === asm_full.residual_storage
+  @test asm_mf.stiffness_action_storage === asm_full.stiffness_action_storage
+
+  # Idempotent on an already matrix-free assembler; original keeps its pattern.
+  @test as_matrix_free(asm_mf) === asm_mf
+  @test !FiniteElementContainers._is_matrix_free(asm_full)
+
+  # Matrix assembly on the stripped assembler must fail loudly.
+  @test_throws ErrorException assemble_stiffness!(asm_mf, stiffness, Uu, p)
+  @test_throws ErrorException create_assembler_cache(
+    asm_mf, FiniteElementContainers.AssembledMatrix()
+  )
+
+  # The matrix-free operations the stripped assembler exists for must still
+  # match the assembled reference, on every available backend.
+  for dev in backends
+    asm_d = asm_mf |> dev
+    p_d   = p      |> dev
+    Uu_d = create_unknowns(asm_d)
+    Vu_d = create_unknowns(asm_d)
+    fill!(Vu_d, 1.0)
+
+    assemble_matrix_free_action!(asm_d, stiffness_action, Uu_d, Vu_d, p_d)
+    Kv = Array(hvp(asm_d, Vu_d))
+    @test Kv ≈ K_ref * ones(length(Kv))
+
+    assemble_diagonal!(asm_d, stiffness, Uu_d, p_d)
+    @test Array(diagonal(asm_d)) ≈ d_ref
   end
 end
 
