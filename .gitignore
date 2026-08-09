@@ -15,3 +15,6 @@ Manifest.toml
 *.e.*.*
 *.out
 build/
+*.exo
+*.exo.*
+*.msh

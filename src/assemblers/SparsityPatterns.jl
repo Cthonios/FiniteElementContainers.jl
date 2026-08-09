@@ -90,8 +90,8 @@ function SparseMatrixPattern(dof_1::DofManager, dof_2::DofManager)
       conn_2 = connectivity(fspace_2, e, b)
       dof_conn_1 = @views reshape(ids_1[:, conn_1], ND1 * num_entities_per_element(fspace_1, b))
       dof_conn_2 = @views reshape(ids_2[:, conn_2], ND2 * num_entities_per_element(fspace_2, b))
-      for i in axes(dof_conn_1, 1)
-        for j in axes(dof_conn_2, 1)
+      for j in axes(dof_conn_2, 1)
+        for i in axes(dof_conn_1, 1)
           Is[n] = dof_conn_1[i]
           Js[n] = dof_conn_2[j]
           unknown_dofs[n] = n
@@ -206,10 +206,10 @@ function _update_dofs!(
       conns_2 = connectivity(fspace_2, e, b)
       dof_conns_1 = @views reshape(ids_1[:, conns_1], ND1 * num_entities_per_element(fspace_1, b))
       dof_conns_2 = @views reshape(ids_2[:, conns_2], ND2 * num_entities_per_element(fspace_2, b))
-      for i in axes(dof_conns_1, 1)
-        ri = dof_to_unknown_index(dof_1, dof_conns_1[i])
-        for j in axes(dof_conns_2, 1)
-          rj = dof_to_unknown_index(dof_2, dof_conns_2[j])
+      for j in axes(dof_conns_2, 1)
+        rj = dof_to_unknown_index(dof_2, dof_conns_2[j])
+        for i in axes(dof_conns_1, 1)
+          ri = dof_to_unknown_index(dof_1, dof_conns_1[i])
           if ri > 0 && rj > 0
             n_entries += 1
           end
@@ -235,10 +235,10 @@ function _update_dofs!(
       conns_2 = connectivity(fspace_2, e, b)
       dof_conns_1 = @views reshape(ids_1[:, conns_1], ND1 * num_entities_per_element(fspace_1, b))
       dof_conns_2 = @views reshape(ids_2[:, conns_2], ND2 * num_entities_per_element(fspace_2, b))
-      for i in axes(dof_conns_1, 1)
-        ri = dof_to_unknown_index(dof_1, dof_conns_1[i])
-        for j in axes(dof_conns_2, 1)
-          rj = dof_to_unknown_index(dof_2, dof_conns_2[j])
+      for j in axes(dof_conns_2, 1)
+        rj = dof_to_unknown_index(dof_2, dof_conns_2[j])
+        for i in axes(dof_conns_1, 1)
+          ri = dof_to_unknown_index(dof_1, dof_conns_1[i])
           if ri > 0 && rj > 0
             pattern.Is[n] = ri
             pattern.Js[n] = rj

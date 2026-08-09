@@ -102,33 +102,19 @@ function _assemble_element!(
   return nothing
 end
 
-# TODO we'll need a regular matrix implementation
-# as well (Can we live with 1?)
-# sparse matrix
-# function _assemble_element!(
-#   storage, K_el::SMatrix{NDOF1, NDOF2, T, NDOF1xNDOF2}, 
-#   conns, # all connectivities for this element
-#   el_id::Int
-# ) where {NDOF1, NDOF2, T, NDOF1xNDOF2}
-#   base = (el_id - 1) * NDOF1xNDOF2
-#   for j in 1:NDOF2
-#     for i in 1:NDOF1
-#       idx = base + (j - 1) * NDOF1 + i
-#       storage[idx] = K_el[i, j]
-#     end
-#   end
-#   return nothing
-# end
 function _assemble_element!(
   storage, K_el::SMatrix{NDOF1, NDOF2, T, NDOF1xNDOF2}, 
-  conns, el_id::Int
+  conns, # all connectivities for this element
+  el_id::Int
 ) where {NDOF1, NDOF2, T, NDOF1xNDOF2}
-  base = (el_id - 1) * NDOF1xNDOF2
-  for i in 1:NDOF1
-    for j in 1:NDOF2
-      idx = base + (i - 1) * NDOF2 + j    # row-major, matches pattern
-      storage[idx] = K_el[i, j]
-    end
+  # figure out ids needed to update
+  start_id = (el_id - 1) * NDOF1xNDOF2 + 1
+  end_id = start_id + NDOF1xNDOF2 - 1
+  ids = start_id:end_id
+
+  # get appropriate storage and update values
+  for (i, id) in enumerate(ids)
+    storage[id] = K_el.data[i]
   end
   return nothing
 end
