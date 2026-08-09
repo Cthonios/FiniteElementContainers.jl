@@ -150,8 +150,9 @@ function assemble_vector!(
     U = map(x -> x.field, p)
     U_old = map(x -> x.field_old, p)
 
+    # this allocates a bit
     for sol_id in 1:length(fspace)
-        _update_for_assembly!(p[sol_id], assembler.dof[sol_id], Uu[BlockArrays.Block(sol_id)])
+        _update_for_assembly!(p[sol_id], assembler.dof[sol_id], view(Uu, BlockArrays.Block(sol_id)))
     end
 
     return_type = AssembledVector()
@@ -159,6 +160,8 @@ function assemble_vector!(
     coffsets = map(x -> x.elem_conns.offsets, fspace)
     physics = p[1].physics
     props = p[1].properties
+    state_old = p[1].state_old
+    state_new = p[1].state_new
     for b in 1:num_blocks(fspace[1])
         block_physics = values(physics)[b]
         ref_fe = map(x -> block_reference_element(x, b), fspace)
@@ -175,39 +178,22 @@ function assemble_vector!(
             val_el = map((r, u) -> _element_scratch(return_type, r, u), ref_fe, U)
             for q in 1:num_q_pts
                 interps = map(r -> _cell_interpolants(r, q), ref_fe)
-                state_old_q = state_variables(p[1].state_old, q, e, b)
-                state_new_q = state_variables(p[1].state_new, q, e, b)
+                state_old_q = state_variables(state_old, q, e, b)
+                state_new_q = state_variables(state_new, q, e, b)
                 val_q = func(block_physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, state_new_q, props_el)
                 val_el = map((f, vq, ve) -> _accumulate_q_value(return_type, f, vq, ve, q, e), U, val_q, val_el)
-                # @show val_el
             end
-            # out = map((f, v, c) -> _assemble_element!(f, v, c, e), U, val_el, conn)
             for sol_id in 1:length(U)
-                # @show "Hur"
                 _assemble_element!(assembler.residual_storage[sol_id], val_el[sol_id], conn[sol_id], e)
             end
         end
-        # @show assembler.residual_storage
     end
 end
 
-# function assemble_vector_neumann_bc!(assembler, Uu, p)
-#     @warn "Sources not supported in block solvers yet."
-#     return nothing
-# end
-
-# function assemble_vector_source!(assembler, Uu, p)
-#     @warn "Sources not supported in block solvers yet."
-#     return nothing
-# end
-
 function residual(asm::BlockSparseMatrixAssembler)
-    # @show asm.residual_storage
     for (b, (d, s)) in enumerate(zip(asm.dof, asm.residual_storage))
-        # @show s
         extract_field_unknowns!(view(asm.residual_unknowns, BlockArrays.Block(b)), d, s)
     end
-    # @show asm.residual_unknowns
     return asm.residual_unknowns
 end
 
