@@ -136,8 +136,8 @@ struct Parameters{
   times::TimeStepper{RT}
   physics::Phys
   properties::PropertyField{RT, RV, IV}
-  state_old::StateVariableField{RT, RV}
-  state_new::StateVariableField{RT, RV}
+  state_old::StateVariableField{RT, RV, IV}
+  state_new::StateVariableField{RT, RV, IV}
   coords::H1Field{RT, RV, D}
   field::Field
   field_old::Field
@@ -260,8 +260,8 @@ struct TypeStableParameters{
   times::TimeStepper{RT}
   physics::Phys
   properties::PropertyField{RT, RV, IV}
-  state_old::StateVariableField{RT, RV}
-  state_new::StateVariableField{RT, RV}
+  state_old::StateVariableField{RT, RV, IV}
+  state_new::StateVariableField{RT, RV, IV}
   coords::H1Field{RT, RV, D}
   field::Field
   field_old::Field
