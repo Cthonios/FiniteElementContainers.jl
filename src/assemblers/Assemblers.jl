@@ -2,7 +2,7 @@
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-abstract type AbstractAssembler{Dof <: DofManager} end
+abstract type AbstractAssembler end
 """
 $(TYPEDSIGNATURES)
 """
@@ -79,7 +79,6 @@ function _assemble_element!(
     for n in axes(conns, 1)
       global_id = n_dofs * (conns[n] - 1) + d
       local_id = n_dofs * (n - 1) + d
-      # Atomix.@atomic storage.data[global_id] += R_el[local_id]
       fec_atomic_add!(storage, global_id, R_el[local_id])
     end
   end
@@ -103,9 +102,6 @@ function _assemble_element!(
   return nothing
 end
 
-# TODO we'll need a regular matrix implementation
-# as well (Can we live with 1?)
-# sparse matrix
 function _assemble_element!(
   storage, K_el::SMatrix{NDOF1, NDOF2, T, NDOF1xNDOF2}, 
   conns, # all connectivities for this element
@@ -151,7 +147,6 @@ end
   NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
   NxNDof = NNPE * NF
   u_el = @views SMatrix{NF, NNPE, eltype(U), NxNDof}(U[:, conns])
-  # u_el = @views SMatrix{NNPE, ND, eltype(U), NxNDof}(U[:, conns])
   return u_el
 end
 
@@ -228,13 +223,17 @@ end
   return zeros(SVector{NxNDof, eltype(U)})
 end
 
-# """
-# $(TYPEDSIGNATURES)
-# """
-# function _quadrature_level_state(state::AbstractArray{<:Number, 3}, q::Int, e::Int)
-#   state_q = view(state, :, q, e)
-#   return state_q
-# end
+@inline function _element_scratch(
+  ::AssembledMatrix,
+  ref_fe_row,
+  U_row::H1Field{T, D, NFr},
+  ref_fe_col,
+  U_col::H1Field{T, D, NFc},
+) where {T, D, NFr, NFc}
+  nr = num_cell_dofs(ref_fe_row) * NFr
+  nc = num_cell_dofs(ref_fe_col) * NFc
+  return zeros(SMatrix{nr, nc, T, nr * nc})
+end
 
 function _sparse_matrix_mass(asm::AbstractAssembler, coo_storage)
   type = _sparse_matrix_type(asm)
@@ -478,6 +477,7 @@ end
 include("SparsityPatterns.jl")
 
 # types
+include("BlockMatrixAssemblers.jl")
 include("MatrixFreeAssembler.jl")
 include("SparseMatrixAssembler.jl")
 

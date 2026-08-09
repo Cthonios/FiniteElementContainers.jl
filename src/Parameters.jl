@@ -427,6 +427,21 @@ function update_bc_values!(p::AbstractParameters, assembler)
   return nothing
 end
 
+function update_bc_values!(params::Tuple, assembler)
+  for n in 1:length(params)
+    p = params[n]
+    X = coordinates(p)
+    t = current_time(p)
+    update_bc_values!(p.dirichlet_bcs, X, t)
+    # update_bc_values!(p.neumann_bcs, assembler, X, t)
+    # update_bc_values!(p.periodic_bcs, X, t)
+    # # update_bc_values!(p.robin_bcs, assembler, X, t, p.field)
+    # update_source_values!(p.sources, assembler, X, t)
+
+    # update_bc_values!(p[n], assembler)
+  end
+end
+
 function update_bc_values!(p::TypeStableParameters, assembler)
   X = coordinates(p)
   t = current_time(p)
@@ -454,6 +469,18 @@ function update_dofs!(asm::AbstractAssembler, p::Parameters)
   return nothing
 end
 
+function _update_field!(p::AbstractParameters)
+  p.field_old.data .= p.field.data
+  return nothing
+end
+
+function _update_field!(p::Tuple)
+  for n in 1:length(p)
+    _update_field!(p[n])
+  end
+  return nothing
+end
+
 function _update_for_assembly!(p::AbstractParameters, dof::DofManager, Uu)
   update_field_dirichlet_bcs!(p.field, p.dirichlet_bcs)
   update_field_unknowns!(p.field, dof, Uu)
@@ -475,6 +502,12 @@ function _update_for_assembly!(p::AbstractParameters, dof::DofManager, Uu, Vu)
   # # Robin BC values need to be updated here to be correct
   # update_bc_values!(p.robin_bcs, p.coords, current_time(p), p.field)
   return nothing
+end
+
+function _update_for_assembly!(p, dof::Tuple, Uu)
+  for n in 1:length(p)
+    _update_for_assembly!(p[n], dof[n], view(Uu, BlockArrays.Block(n)))
+  end
 end
 
 # Full-DOF flavor: caller is responsible for assembling the merged
@@ -499,5 +532,12 @@ $(TYPEDSIGNATURES)
 """
 function update_time!(p::AbstractParameters)
   p.times.time_current = current_time(p.times) + time_step(p.times)
+  return nothing
+end
+
+function update_time!(p::Tuple)
+  for n in 1:length(p)
+    update_time!(p[n])
+  end
   return nothing
 end

@@ -13,7 +13,7 @@ struct SparseMatrixAssembler{
   RV           <: AbstractArray{Float64, 1},
   Var          <: AbstractFunction,
   FieldStorage
-} <: AbstractAssembler{DofManager{Condensed, Int, IV, Var}}
+} <: AbstractAssembler
   dof::DofManager{Condensed, Int, IV, Var}
   matrix_pattern::SparseMatrixPattern{IV, RV}
   vector_pattern::SparseVectorPattern{IV}

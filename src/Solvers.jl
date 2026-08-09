@@ -49,6 +49,17 @@ struct DirectLinearSolver{
     # what's the best way to do this with general solvers?
     ΔUu::U
 
+    function DirectLinearSolver(assembler::BlockSparseMatrixAssembler)
+        preconditioner = I
+        ΔUu = similar(assembler.residual_unknowns)
+        fill!(ΔUu, zero(eltype(ΔUu)))
+        new{typeof(assembler), typeof(preconditioner), typeof(ΔUu)}(
+            assembler, preconditioner, 
+            DirectLinearSolverSettings(), 
+            TimerOutput(), ΔUu
+        )
+    end 
+
     function DirectLinearSolver(assembler::SparseMatrixAssembler)
         preconditioner = I
         ΔUu = similar(assembler.residual_unknowns)
