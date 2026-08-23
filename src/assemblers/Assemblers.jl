@@ -44,6 +44,12 @@ end
   return val_e + diag_q
 end
 
+# A diagonal-only element kernel returns the per-quadrature-point diagonal
+# directly as an SVector, so the full N×N element matrix is never formed.
+@inline function _accumulate_q_value(::AssembledDiagonal, storage, d_q::SVector{N, T}, val_e, q, e) where {N, T}
+  return val_e + d_q
+end
+
 @inline function _accumulate_q_value(::AssembledScalar, storage::AbstractArray{T, 3}, val_q, val_e, q, e) where T
   # TODO will it always be 1 for how we're using this?
   storage[1, q, e] = val_q
