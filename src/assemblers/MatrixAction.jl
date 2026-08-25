@@ -42,7 +42,8 @@ function assemble_matrix_free_action!(
       physics, ref_fe,
       X, t, Δt,
       U, U_old, V,
-      p.state_old, p.state_new, p.properties
+      p.state_old, p.state_new, p.properties;
+      gpu_block_size = ASSEMBLE_MATRIX_FREE_ACTION_GPU_BLOCK_SIZE
     )
   end
 end
@@ -55,14 +56,15 @@ function _assemble_block_matrix_free_action!(
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
   U::Solution, U_old::Solution, V::Solution,
-  state_old::StateVariableField, state_new::StateVariableField, props::AbstractArray
+  state_old::StateVariableField, state_new::StateVariableField, props::AbstractArray;
+  gpu_block_size = 256
 ) where {
   T        <: Number,
   Solution <: AbstractField
 }
   conns = conns_all.data
   coffset = conns_all.offsets[b]
-  foreach_element(conns_all, b) do e
+  foreach_element(conns_all, b; block_size = gpu_block_size) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = properties(props, e, b)
@@ -134,7 +136,8 @@ function assemble_matrix_free_action_full!(
       physics, ref_fe,
       X, t, Δt,
       U, U_old, V,
-      p.state_old, p.state_new, p.properties
+      p.state_old, p.state_new, p.properties;
+      gpu_block_size = ASSEMBLE_MATRIX_FREE_ACTION_GPU_BLOCK_SIZE
     )
   end
   # The free-DOF entry point above relies on `p.hvp_scratch_field`'s BC
@@ -193,7 +196,8 @@ function assemble_matrix_action!(
         t, Δt,
         p.properties, p.state_old, p.state_new,
         conns,
-        ref_fe, X, U, U_old, V
+        ref_fe, X, U, U_old, V;
+        gpu_block_size = ASSEMBLE_MATRIX_ACTION_GPU_BLOCK_SIZE
       )
     else
       _assemble_block_matrix_action!(
@@ -204,7 +208,8 @@ function assemble_matrix_action!(
         physics, ref_fe,
         X, t, Δt,
         U, U_old, V,
-        p.state_old, p.state_new, p.properties
+        p.state_old, p.state_new, p.properties;
+        gpu_block_size = ASSEMBLE_MATRIX_ACTION_GPU_BLOCK_SIZE
       )
     end
   end
@@ -218,14 +223,15 @@ function _assemble_block_matrix_action!(
   physics::AbstractPhysics, ref_fe::ReferenceFE,
   X::AbstractField, t::T, Δt::T,
   U::Solution, U_old::Solution, V::Solution,
-  state_old::StateVariableField, state_new::StateVariableField, props::AbstractArray
+  state_old::StateVariableField, state_new::StateVariableField, props::AbstractArray;
+  gpu_block_size = 256
 ) where {
   T        <: Number,
   Solution <: AbstractField
 }
   conns = conns_all.data
   coffset = conns_all.offsets[b]
-  foreach_element(conns_all, b) do e
+  foreach_element(conns_all, b; block_size = gpu_block_size) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = properties(props, e, b)
@@ -251,14 +257,15 @@ function _assemble_block_matrix_action!(
   t::T, Δt::T,
   props::PropertyField, state_old::StateVariableField, state_new::StateVariableField,
   conns_all, ref_fe::ReferenceFE,
-  X::AbstractField, U::Solution, U_old::Solution, V::Solution
+  X::AbstractField, U::Solution, U_old::Solution, V::Solution;
+  gpu_block_size = 256
 ) where {
   T        <: Number,
   Solution <: AbstractField
 }
   conns = conns_all.data
   coffset = conns_all.offsets[b]
-  foreach_element(conns_all, b) do e
+  foreach_element(conns_all, b; block_size = gpu_block_size) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = properties(props, e, b)

@@ -54,7 +54,8 @@ function assemble_vector!(
         t, Δt,
         p.properties, p.state_old, p.state_new,
         conns,
-        ref_fe, X, U, U_old
+        ref_fe, X, U, U_old;
+        gpu_block_size = ASSEMBLE_VECTOR_GPU_BLOCK_SIZE
       )
     else
       _assemble_block!(
@@ -66,7 +67,8 @@ function assemble_vector!(
         X, t, Δt,
         U, U_old,
         p.state_old, p.state_new, p.properties,
-        return_type
+        return_type;
+        gpu_block_size = ASSEMBLE_VECTOR_GPU_BLOCK_SIZE
       )
     end
   end
