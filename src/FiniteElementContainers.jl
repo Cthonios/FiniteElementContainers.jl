@@ -188,6 +188,7 @@ using ForwardDiff
 using GPUArrays
 using Krylov
 using LinearAlgebra
+using Preferences
 using ReferenceFiniteElements
 using SparseArrays
 using SparseMatricesCSR
@@ -195,6 +196,33 @@ using StaticArrays
 using Tensors
 using TimerOutputs
 
+##################
+# preferences
+##################
+const ASSEMBLE_DIAGONAL_GPU_BLOCK_SIZE = @load_preference("assemble_diagonal_gpu_block_size", 256)
+const ASSEMBLE_LUMPED_MASS_GPU_BLOCK_SIZE = @load_preference("assemble_lumped_mass_gpu_block_size", 256)
+const ASSEMBLE_MATRIX_GPU_BLOCK_SIZE = @load_preference("assemble_matrix_gpu_block_size", 256)
+const ASSEMBLE_MATRIX_ACTION_GPU_BLOCK_SIZE = @load_preference("assemble_matrix_action_gpu_block_size", 256)
+const ASSEMBLE_MATRIX_FREE_ACTION_GPU_BLOCK_SIZE = @load_preference("assemble_matrix_free_action_gpu_block_size", 256)
+const ASSEMBLE_MATRIX_WEAKLY_ENFORCED_BC_GPU_BLOCK_SIZE = @load_preference("assemble_matrix_weakly_enforced_bc_gpu_block_size", 256)
+const ASSEMBLE_QUADRATURE_QUANTITY_GPU_BLOCK_SIZE = @load_preference("assemble_quadrature_quantity_gpu_block_size", 256)
+const ASSEMBLE_VECTOR_GPU_BLOCK_SIZE = @load_preference("assemble_vector_gpu_block_size", 256)
+const ASSEMBLE_VECTOR_SOURCE_GPU_BLOCK_SIZE = @load_preference("assemble_vector_source_gpu_block_size", 256)
+const ASSEMBLE_VECTOR_WEAKLY_ENFORCE_BC_GPU_BLOCK_SIZE = @load_preference("assemble_vector_weakly_enforced_bc_gpu_block_size", 256)
+
+function summarize_preferences()
+    println("GPU Preferences:")
+    println("  assemble_diagonal_gpu_block_size                  = ", ASSEMBLE_DIAGONAL_GPU_BLOCK_SIZE)
+    println("  assemble_lumped_mass_gpu_block_size               = ", ASSEMBLE_LUMPED_MASS_GPU_BLOCK_SIZE)
+    println("  assemble_matrix_gpu_block_size                    = ", ASSEMBLE_MATRIX_GPU_BLOCK_SIZE)
+    println("  assemble_matrix_action_gpu_block_size             = ", ASSEMBLE_MATRIX_ACTION_GPU_BLOCK_SIZE)
+    println("  assemble_matrix_free_action_gpu_block_size        = ", ASSEMBLE_MATRIX_FREE_ACTION_GPU_BLOCK_SIZE)
+    println("  assemble_matrix_weakly_enforced_bc_gpu_block_size = ", ASSEMBLE_MATRIX_WEAKLY_ENFORCED_BC_GPU_BLOCK_SIZE)
+    println("  assemble_quadrature_quantity_gpu_block_size       = ", ASSEMBLE_QUADRATURE_QUANTITY_GPU_BLOCK_SIZE)
+    println("  assemble_vector_gpu_block_size                    = ", ASSEMBLE_VECTOR_GPU_BLOCK_SIZE)
+    println("  assemble_vector_source_gpu_block_size             = ", ASSEMBLE_VECTOR_SOURCE_GPU_BLOCK_SIZE)
+    println("  assemble_vector_weakly_enforced_bc_gpu_block_size = ", ASSEMBLE_VECTOR_WEAKLY_ENFORCE_BC_GPU_BLOCK_SIZE)
+end
 ##################
 # exceptions
 ##################

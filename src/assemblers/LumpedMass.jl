@@ -51,7 +51,8 @@ function assemble_lumped_mass!(
       X, t, Δt,
       U, U_old,
       p.state_old, p.state_new, p.properties,
-      return_type
+      return_type;
+      gpu_block_size = ASSEMBLE_LUMPED_MASS_GPU_BLOCK_SIZE
     )
   end
   return nothing

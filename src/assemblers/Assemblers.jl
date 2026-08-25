@@ -399,7 +399,8 @@ function _assemble_block!(
   X::AbstractField, t::T, dt::T,
   U::Solution, U_old::Solution, 
   state_old::StateVariableField, state_new::StateVariableField, props::PropertyField,
-  return_type::R
+  return_type::R;
+  gpu_block_size = 256
 ) where {
   T        <: Number,
   Solution <: AbstractField,
@@ -407,7 +408,7 @@ function _assemble_block!(
 }
   conns = conns_all.data
   coffset = conns_all.offsets[b]
-  foreach_element(conns_all, b) do e
+  foreach_element(conns_all, b; block_size = gpu_block_size) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = properties(props, e, b)
@@ -431,14 +432,15 @@ function _assemble_block!(
   t::T, Δt::T,
   props::PropertyField, state_old::StateVariableField, state_new::StateVariableField,
   conns_all, ref_fe::ReferenceFE,
-  X::AbstractField, U::Solution, U_old::Solution
+  X::AbstractField, U::Solution, U_old::Solution;
+  gpu_block_size = 256
 ) where {
   T        <: Number,
   Solution <: AbstractField
 }
   conns = conns_all.data
   coffset = conns_all.offsets[b]
-  foreach_element(conns_all, b) do e
+  foreach_element(conns_all, b; block_size = gpu_block_size) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = properties(props, e, b)

@@ -46,7 +46,7 @@ function _assemble_block_vector_source!(
   field::AbstractField, conns, coffset, ref_fe, X, U, vals
 )
   # need to maybe make this fec_foreach
-  fec_foraxes(vals, 2) do e
+  fec_foraxes(vals, 2; block_size = ASSEMBLE_VECTOR_SOURCE_GPU_BLOCK_SIZE) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     X_el = _element_level_fields_flat(X, ref_fe, conn)
   

@@ -65,7 +65,7 @@ function _assemble_block_vector_weakly_enforced_bc!(
   U::AbstractField, X::AbstractField,
   conns, ref_fe, sides, vals
 )
-  fec_foreach(sides) do e
+  fec_foreach(sides; block_size = ASSEMBLE_VECTOR_WEAKLY_ENFORCE_BC_GPU_BLOCK_SIZE) do e
     side = sides[e]
     conn = connectivity(ref_fe, conns, e, 1) # 1 for coffset
     surf_conns = surface_connectivity(ref_fe, conns, side, e, 1) # 1 for coffset
@@ -121,7 +121,7 @@ function _assemble_block_matrix_weakly_enforced_bc!(
   ND   = size(dof, 1)
   NEPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
 
-  fec_foreach(sides) do e
+  fec_foreach(sides; block_size = ASSEMBLE_MATRIX_WEAKLY_ENFORCED_BC_GPU_BLOCK_SIZE) do e
     side  = sides[e]
     el_id = elements[e]   # local-to-block index — matches SparseMatrixPattern's element loop
     conn  = connectivity(ref_fe, conns, e, 1)

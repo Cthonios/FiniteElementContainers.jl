@@ -39,13 +39,15 @@ function assemble_quadrature_quantity!(
       X, t, Δt,
       U, U_old,
       p.state_old, p.state_new, p.properties,
-      return_type
+      return_type;
+      gpu_block_size = ASSEMBLE_QUADRATURE_QUANTITY_GPU_BLOCK_SIZE
     )
   end
 end
 
 """
 $(TYPEDSIGNATURES)
+Consider deprecating
 """
 function assemble_quadrature_quantity!(
   storage::NamedTuple, pattern, dof,
@@ -76,7 +78,8 @@ function assemble_quadrature_quantity!(
       X, t, Δt,
       U, U_old,
       p.state_old, p.state_new, p.properties,
-      return_type
+      return_type;
+      gpu_block_size = ASSEMBLE_QUADRATURE_QUANTITY_GPU_BLOCK_SIZE
     )
   end
 end
