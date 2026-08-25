@@ -35,7 +35,7 @@ physics = Poisson(f)
 props = create_properties(physics)
 u = ScalarFunction(V, "u")
 # asm = SparseMatrixAssembler(u; use_condensed = true)
-asm = SparseMatrixAssembler(u)
+asm = SparseMatrixAssembler(u; use_inplace_methods = true)
 
 
 # dbcs = nothing

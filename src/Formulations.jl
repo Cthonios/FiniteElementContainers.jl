@@ -191,6 +191,99 @@ function scatter_with_gradients_and_gradients!(
   return nothing
 end
 
+"""
+General stiffness like matrix scatter method
+"""
+function scatter_with_gradients_and_gradients!(
+  storage::AbstractVector,
+  form::AbstractElementFormulation{ND, NF},
+  e,
+  conns,
+  ∇N_X,
+  K::AbstractMatrix{T},
+) where {ND, NF, T <: Number}
+
+  @assert size(K, 1) == NF^2
+  @assert size(K, 2) == NF^2
+  @assert ND == size(∇N_X, 2)
+
+  N    = size(∇N_X, 1)
+  NDPE = N * NF
+
+  start_id = (e - 1) * NDPE^2 + 1
+  ids      = start_id:(start_id + NDPE^2 - 1)
+
+  inc = 1
+
+  for n2 in 1:N
+    for d2 in 1:NF
+      for n1 in 1:N
+        for d1 in 1:NF
+          contrib = zero(T)
+
+          for J in 1:ND
+            a = (J - 1) * ND + d1
+
+            for L in 1:ND
+              b = (L - 1) * ND + d2
+              contrib += ∇N_X[n1, J] * K[a, b] * ∇N_X[n2, L]
+            end
+          end
+
+          storage[ids[inc]] += contrib
+          inc += 1
+        end
+      end
+    end
+  end
+
+  return nothing
+end
+
+function scatter_gradient_gradient!(
+  storage::AbstractField,
+  form::AbstractElementFormulation{ND, NF},
+  e,
+  conns,
+  ∇N_X,
+  A::AbstractMatrix{T},
+  v_el::AbstractVector{T},
+) where {ND, NF, T <: Number}
+
+  @assert ND == size(∇N_X, 2)
+  @assert size(A) == (ND * NF, ND * NF)
+
+  N = size(∇N_X, 1)
+  NDPE = N * NF
+
+  @assert length(v_el) == NDPE
+
+  for n1 in 1:N
+    for d1 in 1:NF
+      global_id = NF * (conns[n1] - 1) + d1
+      contrib = zero(T)
+
+      for n2 in 1:N
+        for d2 in 1:NF
+          local_id = NF * (n2 - 1) + d2
+          for j1 in 1:ND
+            a = (j1 - 1) * NF + d1
+
+            for j2 in 1:ND
+                b = (j2 - 1) * NF + d2
+                contrib += ∇N_X[n1, j1] * A[a, b] * ∇N_X[n2, j2] * v_el[local_id]
+            end
+          end
+        end
+      end
+
+      fec_atomic_add!(storage, global_id, contrib)
+    end
+  end
+
+  return nothing
+end
+
 # implement for those that have it
 """
 Scalar equation specialization
