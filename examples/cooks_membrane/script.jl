@@ -165,8 +165,10 @@ FEC.update_dofs!(
     (p_u.periodic_bcs, p_p.periodic_bcs)
 )
 
-pp_u = PostProcessor(mesh_u, "u.exo", u)
-pp_p = PostProcessor(mesh_p, "p.exo", p)
+# pp_u = PostProcessor(mesh_u, "u.exo", u)
+# pp_p = PostProcessor(mesh_p, "p.exo", p)
+
+
 # solver = NewtonSolver(DirectLinearSolver(asm))
 # integrator = QuasiStaticIntegrator(solver)
 
@@ -186,39 +188,49 @@ Uu = create_unknowns(asm)
 # temp = K_up .- K_pu'
 # display(K_up .- K_pu')
 
-for n in 1:10
-    FiniteElementContainers.update_time!(params)
-    FiniteElementContainers.update_bc_values!(params, asm)
-    r0 = -1e6
-    for iter in 1:10
-        assemble_vector!(asm, residual, Uu, params)
-        R = residual(asm)
-    
-        rnorm = norm(R)
-        if iter == 1
-            r0 = rnorm
-        end
-
-        if rnorm / r0 < 1e-8
-            break
-        end
-    
-        assemble_stiffness!(asm, stiffness, Uu, params)
-        K = stiffness(asm)
-    
-        ΔU = K \ R
-        Uu .-= ΔU
-
-        println("iter = $iter, |R| = $(rnorm / r0), |ΔU| = $(norm(ΔU))")
-    
-    end
-
-    write_times(pp_u, n + 1, params[1].times.time_current)
-    write_times(pp_p, n + 1, params[2].times.time_current)
-    write_field(pp_u, n + 1, ("displ_x", "displ_y"), params[1].field)
-    write_field(pp_p, n + 1, ("pressure",), params[2].field)
+function test_func(asm, u, p)
+    FiniteElementContainers.update_time!(p)
+    FiniteElementContainers.update_bc_values!(p, asm)
+    assemble_vector!(asm, residual, u, p)
+    return nothing
 end
-close(pp_u)
-close(pp_p)
+
+@time test_func(asm, Uu, params)
+@time test_func(asm, Uu, params)
+
+# for n in 1:10
+#     FiniteElementContainers.update_time!(params)
+#     FiniteElementContainers.update_bc_values!(params, asm)
+#     r0 = -1e6
+#     for iter in 1:10
+#         assemble_vector!(asm, residual, Uu, params)
+#         R = residual(asm)
+    
+#         rnorm = norm(R)
+#         if iter == 1
+#             r0 = rnorm
+#         end
+
+#         if rnorm / r0 < 1e-8
+#             break
+#         end
+    
+#         assemble_stiffness!(asm, stiffness, Uu, params)
+#         K = stiffness(asm)
+    
+#         ΔU = K \ R
+#         Uu .-= ΔU
+
+#         println("iter = $iter, |R| = $(rnorm / r0), |ΔU| = $(norm(ΔU))")
+    
+#     end
+
+#     write_times(pp_u, n + 1, params[1].times.time_current)
+#     write_times(pp_p, n + 1, params[2].times.time_current)
+#     write_field(pp_u, n + 1, ("displ_x", "displ_y"), params[1].field)
+#     write_field(pp_p, n + 1, ("pressure",), params[2].field)
+# end
+# close(pp_u)
+# close(pp_p)
 
 # Δu = K \ R
