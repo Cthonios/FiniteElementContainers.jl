@@ -199,16 +199,40 @@ using TimerOutputs
 ##################
 # preferences
 ##################
-const ASSEMBLE_DIAGONAL_GPU_BLOCK_SIZE = @load_preference("assemble_diagonal_gpu_block_size", 256)
-const ASSEMBLE_LUMPED_MASS_GPU_BLOCK_SIZE = @load_preference("assemble_lumped_mass_gpu_block_size", 256)
-const ASSEMBLE_MATRIX_GPU_BLOCK_SIZE = @load_preference("assemble_matrix_gpu_block_size", 256)
-const ASSEMBLE_MATRIX_ACTION_GPU_BLOCK_SIZE = @load_preference("assemble_matrix_action_gpu_block_size", 256)
-const ASSEMBLE_MATRIX_FREE_ACTION_GPU_BLOCK_SIZE = @load_preference("assemble_matrix_free_action_gpu_block_size", 256)
-const ASSEMBLE_MATRIX_WEAKLY_ENFORCED_BC_GPU_BLOCK_SIZE = @load_preference("assemble_matrix_weakly_enforced_bc_gpu_block_size", 256)
-const ASSEMBLE_QUADRATURE_QUANTITY_GPU_BLOCK_SIZE = @load_preference("assemble_quadrature_quantity_gpu_block_size", 256)
-const ASSEMBLE_VECTOR_GPU_BLOCK_SIZE = @load_preference("assemble_vector_gpu_block_size", 256)
-const ASSEMBLE_VECTOR_SOURCE_GPU_BLOCK_SIZE = @load_preference("assemble_vector_source_gpu_block_size", 256)
-const ASSEMBLE_VECTOR_WEAKLY_ENFORCE_BC_GPU_BLOCK_SIZE = @load_preference("assemble_vector_weakly_enforced_bc_gpu_block_size", 256)
+const MAX_BLOCKS = 1024
+# TODO need to also check that it is a valid warp/wave
+# number for the specific device. This will likely get granular
+function _validate_gpu_block_size(name, default_value)
+    if !(1 <= default_value <= MAX_BLOCKS)
+        error(
+            "Invalid GPU block size for `$name`: $default_value. " *
+            "Expected an integer between 1 and $MAX_BLOCKS."
+        )
+    end
+    value = @load_preference(name, default_value)
+    # also correctly handles if it is a string, e.g. "1024" instead of 1024
+    if isa(value, String)
+        value = parse(Int, value)
+    end
+    if !(1 <= value <= MAX_BLOCKS)
+        error(
+            "Invalid GPU block size for `$name`: $value. " *
+            "Expected an integer between 1 and $MAX_BLOCKS."
+        )
+    end
+    return value
+end
+
+const ASSEMBLE_DIAGONAL_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_diagonal_gpu_block_size", 256)
+const ASSEMBLE_LUMPED_MASS_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_lumped_mass_gpu_block_size", 256)
+const ASSEMBLE_MATRIX_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_matrix_gpu_block_size", 256)
+const ASSEMBLE_MATRIX_ACTION_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_matrix_action_gpu_block_size", 256)
+const ASSEMBLE_MATRIX_FREE_ACTION_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_matrix_free_action_gpu_block_size", 256)
+const ASSEMBLE_MATRIX_WEAKLY_ENFORCED_BC_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_matrix_weakly_enforced_bc_gpu_block_size", 256)
+const ASSEMBLE_QUADRATURE_QUANTITY_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_quadrature_quantity_gpu_block_size", 256)
+const ASSEMBLE_VECTOR_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_vector_gpu_block_size", 256)
+const ASSEMBLE_VECTOR_SOURCE_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_vector_source_gpu_block_size", 256)
+const ASSEMBLE_VECTOR_WEAKLY_ENFORCED_BC_GPU_BLOCK_SIZE = _validate_gpu_block_size("assemble_vector_weakly_enforced_bc_gpu_block_size", 256)
 
 function summarize_preferences()
     println("GPU Preferences:")
@@ -221,8 +245,9 @@ function summarize_preferences()
     println("  assemble_quadrature_quantity_gpu_block_size       = ", ASSEMBLE_QUADRATURE_QUANTITY_GPU_BLOCK_SIZE)
     println("  assemble_vector_gpu_block_size                    = ", ASSEMBLE_VECTOR_GPU_BLOCK_SIZE)
     println("  assemble_vector_source_gpu_block_size             = ", ASSEMBLE_VECTOR_SOURCE_GPU_BLOCK_SIZE)
-    println("  assemble_vector_weakly_enforced_bc_gpu_block_size = ", ASSEMBLE_VECTOR_WEAKLY_ENFORCE_BC_GPU_BLOCK_SIZE)
+    println("  assemble_vector_weakly_enforced_bc_gpu_block_size = ", ASSEMBLE_VECTOR_WEAKLY_ENFORCED_BC_GPU_BLOCK_SIZE)
 end
+
 ##################
 # exceptions
 ##################

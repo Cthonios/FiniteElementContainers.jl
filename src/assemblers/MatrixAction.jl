@@ -149,7 +149,7 @@ function assemble_matrix_free_action_full!(
   cache = p.dirichlet_bcs.bc_cache
   data = p.hvp_scratch_field.data
   Z = zero(eltype(data))
-  fec_foreach(cache.dofs) do I
+  fec_foreach(cache.dofs; block_size = ASSEMBLE_MATRIX_FREE_ACTION_GPU_BLOCK_SIZE) do I
     data[cache.dofs[I]] = Z
   end
 end
