@@ -68,22 +68,35 @@ function _assemble_block_matrix_free_action!(
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = properties(props, e, b)
-    if assembles_by_element(physics)
-      states = ElementState(state_old, state_new, e, b)
-      Kv_el = func_action(physics, ref_fe, x_el, t, Δt, u_el, u_el_old, v_el, states, props_el)
-      _assemble_element!(field, Kv_el, conn, e)
-    else
-      Kv_el = _element_scratch(AssembledVector(), ref_fe, U)
-      for q in 1:num_cell_quadrature_points(ref_fe)
-        interps = _cell_interpolants(ref_fe, q)
-        state_old_q = state_variables(state_old, q, e, b)
-        state_new_q = state_variables(state_new, q, e, b)
-        Kv_q = func_action(physics, interps, x_el, t, Δt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el)
-        Kv_el = Kv_el + Kv_q
-      end
-      _assemble_element!(field, Kv_el, conn, e)
-    end
+    Kv_el = _element_action(
+      assembly_granularity(physics), func_action, physics, ref_fe,
+      x_el, t, Δt, u_el, u_el_old, v_el, state_old, state_new, e, b, props_el, U)
+    _assemble_element!(field, Kv_el, conn, e)
   end
+end
+
+# The element action K_el * v_el, at either granularity.
+@inline function _element_action(
+  ::ByElement, func_action, physics, ref_fe, x_el, t, Δt, u_el, u_el_old, v_el,
+  state_old, state_new, e, b, props_el, U
+)
+  states = ElementState(state_old, state_new, e, b)
+  return func_action(physics, ref_fe, x_el, t, Δt, u_el, u_el_old, v_el, states, props_el)
+end
+
+@inline function _element_action(
+  ::ByQuadraturePoint, func_action, physics, ref_fe, x_el, t, Δt, u_el, u_el_old, v_el,
+  state_old, state_new, e, b, props_el, U
+)
+  Kv_el = _element_scratch(AssembledVector(), ref_fe, U)
+  for q in 1:num_cell_quadrature_points(ref_fe)
+    interps = _cell_interpolants(ref_fe, q)
+    state_old_q = state_variables(state_old, q, e, b)
+    state_new_q = state_variables(state_new, q, e, b)
+    Kv_q = func_action(physics, interps, x_el, t, Δt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el)
+    Kv_el = Kv_el + Kv_q
+  end
+  return Kv_el
 end
 
 """
@@ -241,19 +254,9 @@ function _assemble_block_matrix_action!(
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = properties(props, e, b)
-    if assembles_by_element(physics)
-      states = ElementState(state_old, state_new, e, b)
-      K_el = func(physics, ref_fe, x_el, t, Δt, u_el, u_el_old, states, props_el)
-    else
-      K_el = _element_scratch(AssembledMatrix(), ref_fe, U)
-      for q in 1:num_cell_quadrature_points(ref_fe)
-        interps = _cell_interpolants(ref_fe, q)
-        state_old_q = state_variables(state_old, q, e, b)
-        state_new_q = state_variables(state_new, q, e, b)
-        K_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, state_new_q, props_el)
-        K_el = K_el + K_q
-      end
-    end
+    K_el = _element_quantity(
+      assembly_granularity(physics), AssembledMatrix(), field, func, physics, ref_fe,
+      x_el, t, Δt, u_el, u_el_old, state_old, state_new, e, b, props_el, U)
     Kv_el = K_el * v_el
 
     _assemble_element!(field, Kv_el, conn, e)

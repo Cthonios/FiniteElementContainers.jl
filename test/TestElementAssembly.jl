@@ -1,4 +1,4 @@
-# Element-level assembly: a physics with assembles_by_element(physics) == true
+# Element-level assembly: a physics whose assembly_granularity is ByElement()
 # has its kernels called once per element.  The wrapper below sums the
 # per-quadrature-point kernels of the Poisson test physics inside one element
 # call, so every assembly must reproduce the per-quadrature-point result
@@ -12,14 +12,14 @@
   include("poisson/TestPoissonCommon.jl")
   import FiniteElementContainers: _cell_interpolants, state_variables
 
-  struct ByElement{P <: AbstractPhysics} <: AbstractPhysics{1, 0, 0}
+  struct ElementWise{P <: AbstractPhysics} <: AbstractPhysics{1, 0, 0}
     inner::P
   end
-  FiniteElementContainers.assembles_by_element(::ByElement) = true
-  FiniteElementContainers.create_properties(p::ByElement) = create_properties(p.inner)
+  FiniteElementContainers.assembly_granularity(::ElementWise) = ByElement()
+  FiniteElementContainers.create_properties(p::ElementWise) = create_properties(p.inner)
 
   # sum of a per-quadrature-point kernel over the element
-  function sum_qps(kernel, physics::ByElement, ref_fe, x_el, t, dt, u_el, u_el_old, states, props_el)
+  function sum_qps(kernel, physics::ElementWise, ref_fe, x_el, t, dt, u_el, u_el_old, states, props_el)
     return mapreduce(+, 1:num_cell_quadrature_points(ref_fe)) do q
       so, sn = state_variables(states, q)
       kernel(physics.inner, _cell_interpolants(ref_fe, q), x_el, t, dt, u_el, u_el_old, so, sn, props_el)
@@ -28,7 +28,7 @@
 
   for kernel in (:residual, :stiffness, :mass)
     @eval @inline function FiniteElementContainers.$kernel(
-      physics::ByElement, ref_fe::ReferenceFE, x_el, t, dt, u_el, u_el_old, states::ElementState, props_el
+      physics::ElementWise, ref_fe::ReferenceFE, x_el, t, dt, u_el, u_el_old, states::ElementState, props_el
     )
       return sum_qps(FiniteElementContainers.$kernel, physics, ref_fe, x_el, t, dt, u_el, u_el_old, states, props_el)
     end
@@ -36,7 +36,7 @@
 
   # the energy is stored per quadrature point: one entry each
   @inline function FiniteElementContainers.energy(
-    physics::ByElement, ref_fe::ReferenceFE, x_el, t, dt, u_el, u_el_old, states::ElementState, props_el
+    physics::ElementWise, ref_fe::ReferenceFE, x_el, t, dt, u_el, u_el_old, states::ElementState, props_el
   )
     return Tuple(begin
       so, sn = state_variables(states, q)
@@ -45,7 +45,7 @@
   end
 
   @inline function FiniteElementContainers.stiffness_action(
-    physics::ByElement, ref_fe::ReferenceFE, x_el, t, dt, u_el, u_el_old, v_el, states::ElementState, props_el
+    physics::ElementWise, ref_fe::ReferenceFE, x_el, t, dt, u_el, u_el_old, v_el, states::ElementState, props_el
   )
     return mapreduce(+, 1:num_cell_quadrature_points(ref_fe)) do q
       so, sn = state_variables(states, q)
@@ -74,7 +74,7 @@ end
 @testitem "Element assembly - every assembly matches the per-quadrature-point path" setup=[ElementAssemblyHelper] begin
   import FiniteElementContainers: residual, stiffness, mass, diagonal, energy, stiffness_action
   asm_q, p_q = setup(Poisson(f))
-  asm_e, p_e = setup(ByElement(Poisson(f)))
+  asm_e, p_e = setup(ElementWise(Poisson(f)))
 
   Uu = create_unknowns(asm_q)
   Uu .= sin.(1.0:length(Uu))
@@ -115,7 +115,7 @@ end
 
 @testitem "Element assembly - the in-place kernels refuse an element physics" setup=[ElementAssemblyHelper] begin
   import FiniteElementContainers: residual
-  physics = ByElement(Poisson(f))
+  physics = ElementWise(Poisson(f))
   asm = SparseMatrixAssembler(u; sparse_matrix_type = :csc, use_condensed = false,
                               use_inplace_methods = true)
   p = create_parameters(mesh, asm, physics, create_properties(physics); dirichlet_bcs = dbcs)

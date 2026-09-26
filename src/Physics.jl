@@ -4,14 +4,25 @@ num_properties(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NP
 num_states(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NS
 
 """
-    assembles_by_element(physics) -> Bool
+    ByQuadraturePoint()
+    ByElement()
 
-Whether the assemblers call the kernels of `physics` once per element instead
-of once per quadrature point.  The default is `false`.
+The two granularities at which the assemblers call the kernels of a physics:
+once per quadrature point (the default) or once per element.
+"""
+struct ByQuadraturePoint end
+struct ByElement end
 
-A physics that returns `true` defines each kernel it uses (`residual`,
-`energy`, `stiffness`, `stiffness_action`, `mass`, ... and any functor passed
-to an assembler) with the element signature
+"""
+    assembly_granularity(physics) -> ByQuadraturePoint() | ByElement()
+
+The granularity at which the assemblers call the kernels of `physics`.  It
+is a function of the physics type alone, so the assemblers dispatch on it and
+no run-time branch remains.  The default is `ByQuadraturePoint()`.
+
+A physics that returns `ByElement()` defines each kernel it uses
+(`residual`, `energy`, `stiffness`, `stiffness_action`, `mass`, ... and any
+functor passed to an assembler) with the element signature
 
     kernel(physics, ref_fe, x_el, t, dt, u_el, u_el_old, states, props_el)
 
@@ -26,7 +37,7 @@ per quadrature point for the quadrature-point assemblies (`assemble_scalar!`,
 the quadrature points of an element are coupled, such as a volumetric strain
 projected over the element.
 """
-assembles_by_element(::AbstractPhysics) = false
+assembly_granularity(::AbstractPhysics) = ByQuadraturePoint()
 
 # physics like methods
 function damping end

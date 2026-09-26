@@ -8,8 +8,10 @@ export to_backend
 
 # Assemblers
 export SparseMatrixAssembler
+export ByElement
+export ByQuadraturePoint
 export ElementState
-export assembles_by_element
+export assembly_granularity
 export as_matrix_free
 export create_assembler_cache
 export assemble_lumped_mass!

@@ -377,11 +377,15 @@ The solid mechanics implementation follows the same pattern using the constituti
 By default the assemblers call a kernel once per quadrature point and add the
 results over the element.  A physics whose quadrature points are coupled,
 for instance one that projects the volumetric strain over the element, opts
-out of this by returning `true` from
+out of this through the trait
 
 ```julia
-FiniteElementContainers.assembles_by_element(::MyPhysics) = true
+FiniteElementContainers.assembly_granularity(::MyPhysics) = ByElement()
 ```
+
+(the default is `ByQuadraturePoint()`).  The assemblers dispatch on the
+trait, which is a function of the physics type, so no run-time branch
+remains.
 
 Its kernels are then called once per element with the signature
 

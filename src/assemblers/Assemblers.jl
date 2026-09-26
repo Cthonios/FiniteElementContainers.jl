@@ -135,7 +135,7 @@ end
 """
 $(TYPEDEF)
 The state variables of one element, handed to the kernels of a physics with
-`assembles_by_element(physics) == true`.  `state_variables(states, q)` returns
+`assembly_granularity(physics) == ByElement()`.  `state_variables(states, q)` returns
 the pair (old, new) of state-variable views of quadrature point `q`.
 """
 struct ElementState{SO, SN}
@@ -168,12 +168,40 @@ end
 end
 @inline _element_value(::AssembledReturnType, val_el) = val_el
 
-@inline function _check_element_assembly_supported(physics, fname)
-  if assembles_by_element(physics)
-    error("$fname: the in-place assembly kernels are defined per quadrature point " *
-          "and are not available for a physics assembled by element " *
-          "($(typeof(physics))); build the assembler with use_inplace_methods = false.")
+@inline _check_element_assembly_supported(physics, fname) =
+  _check_element_assembly_supported(assembly_granularity(physics), physics, fname)
+@inline _check_element_assembly_supported(::ByQuadraturePoint, physics, fname) = nothing
+@inline function _check_element_assembly_supported(::ByElement, physics, fname)
+  error("$fname: the in-place assembly kernels are defined per quadrature point " *
+        "and are not available for a physics assembled by element " *
+        "($(typeof(physics))); build the assembler with use_inplace_methods = false.")
+end
+
+# The element quantity of the return-type assemblies, at either granularity.
+@inline function _element_quantity(
+  ::ByElement, return_type, field, func, physics, ref_fe, x_el, t, dt, u_el, u_el_old,
+  state_old, state_new, e, b, props_el, U
+)
+  states = ElementState(state_old, state_new, e, b)
+  val_el = _element_value(return_type,
+    func(physics, ref_fe, x_el, t, dt, u_el, u_el_old, states, props_el))
+  _store_element_values!(return_type, field, val_el, e)
+  return val_el
+end
+
+@inline function _element_quantity(
+  ::ByQuadraturePoint, return_type, field, func, physics, ref_fe, x_el, t, dt, u_el, u_el_old,
+  state_old, state_new, e, b, props_el, U
+)
+  val_el = _element_scratch(return_type, ref_fe, U)
+  for q in 1:num_cell_quadrature_points(ref_fe)
+    interps = _cell_interpolants(ref_fe, q)
+    state_old_q = state_variables(state_old, q, e, b)
+    state_new_q = state_variables(state_new, q, e, b)
+    val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
+    val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
   end
+  return val_el
 end
 
 create_field(asm::AbstractAssembler) = create_field(asm.dof)
@@ -456,23 +484,10 @@ function _assemble_block!(
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
     props_el = properties(props, e, b)
-    if assembles_by_element(physics)
-      states = ElementState(state_old, state_new, e, b)
-      val_el = _element_value(return_type,
-        func(physics, ref_fe, x_el, t, dt, u_el, u_el_old, states, props_el))
-      _store_element_values!(return_type, field, val_el, e)
-      _assemble_element!(field, val_el, conn, e)
-    else
-      val_el = _element_scratch(return_type, ref_fe, U)
-      for q in 1:num_cell_quadrature_points(ref_fe)
-        interps = _cell_interpolants(ref_fe, q)
-        state_old_q = state_variables(state_old, q, e, b)
-        state_new_q = state_variables(state_new, q, e, b)
-        val_q = func(physics, interps, x_el, t, dt, u_el, u_el_old, state_old_q, state_new_q, props_el)
-        val_el = _accumulate_q_value(return_type, field, val_q, val_el, q, e)
-      end
-      _assemble_element!(field, val_el, conn, e)
-    end
+    val_el = _element_quantity(
+      assembly_granularity(physics), return_type, field, func, physics, ref_fe,
+      x_el, t, dt, u_el, u_el_old, state_old, state_new, e, b, props_el, U)
+    _assemble_element!(field, val_el, conn, e)
   end
 end
 
