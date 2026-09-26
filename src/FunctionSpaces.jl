@@ -10,8 +10,19 @@ const _default_p = Dict{String, Int}(
   "TET"     => 1,
   "TETRA"   => 1,
   "TETRA4"  => 1,
-  "TETRA10" => 2
+  "TETRA10" => 2,
+  "TETRA15" => 2
 )
+# The polynomial type an element name requires regardless of the type passed
+# to FunctionSpace.  TETRA15 is the quadratic tetrahedron enriched with one
+# cubic bubble per face and one quartic interior bubble, in a nodal basis;
+# its fifteen nodes exist only for that basis.
+const _required_interp_type = Dict{String, Any}(
+  "TETRA15" => EnrichedLagrange
+)
+# The lowest quadrature degree that integrates the stiffness of an element
+# exactly for a constant material; a lower degree leaves spurious zero-energy
+# modes (21 of them on TETRA15 with the 4- or 5-point rules).
 const _default_q = Dict{String, Int}(
   "HEX"     => 2,
   "HEX8"    => 2,
@@ -25,7 +36,8 @@ const _default_q = Dict{String, Int}(
   "TET4"    => 2,
   "TETRA"   => 2,
   "TETRA4"  => 2,
-  "TETRA10" => 2
+  "TETRA10" => 2,
+  "TETRA15" => 5
 )
 const _el_name_to_juliac_safe_id = Dict{String, Int}(
   "HEX"     => 1,
@@ -40,7 +52,8 @@ const _el_name_to_juliac_safe_id = Dict{String, Int}(
   "TET4"    => 6,
   "TETRA"   => 6,
   "TETRA4"  => 6,
-  "TETRA10" => 7
+  "TETRA10" => 7,
+  "TETRA15" => 8
 )
 const _juliac_safe_ref_fes = (
   ReferenceFE(Hex{Lagrange, 1}(), GaussLobattoLegendre(2, 2)),  # HEX8 for Lagrange
@@ -49,7 +62,8 @@ const _juliac_safe_ref_fes = (
   ReferenceFE(Tri{Lagrange, 1}(), GaussLobattoLegendre(2, 2)),  # Tri3 for Lagrange
   ReferenceFE(Tri{Lagrange, 2}(), GaussLobattoLegendre(2, 2)),  # Tri3 for Lagrange
   ReferenceFE(Tet{Lagrange, 1}(), GaussLobattoLegendre(2, 2)),  # Tri3 for Lagrange
-  ReferenceFE(Tet{Lagrange, 2}(), GaussLobattoLegendre(2, 2))   # Tri3 for Lagrange
+  ReferenceFE(Tet{Lagrange, 2}(), GaussLobattoLegendre(2, 2)),  # Tri3 for Lagrange
+  ReferenceFE(Tet{EnrichedLagrange, 2}(), GaussLegendre(5, 5))  # TETRA15
 )
 const MAX_BLOCKS = 16
 
@@ -72,6 +86,19 @@ function _setup_block_to_ref_fe_id(mesh::AbstractMesh, ::Val{is_juliac_safe}) wh
   end
 end
 
+# The polynomial type of a block: the one the element name requires when it
+# requires one, otherwise the one passed to FunctionSpace.  A conflicting
+# request is an error rather than a silent substitution.
+function _block_interp_type(elem_name::String, interp_type)
+  required = get(_required_interp_type, elem_name, nothing)
+  required === nothing && return interp_type
+  if !(interp_type === Lagrange || interp_type === required)
+    error("Element type $elem_name requires the $(required) basis; " *
+          "FunctionSpace was asked for $(interp_type).")
+  end
+  return required
+end
+
 """
 default code path that sets up ref fes as a namedtuple
 """
@@ -83,16 +110,13 @@ function _setup_ref_fes(
   names = block_names(mesh)
   ref_fes = ReferenceFE[]
   for block_name in names
-    elem_name = mesh.element_types[block_name]
-    elem_type = elem_type_map[uppercase(elem_name)]
-    if p_degree === nothing
-      p_degree = _default_p[uppercase(elem_name)]
-    end
-
-    if q_degree === nothing
-      q_degree = _default_q[uppercase(elem_name)]
-    end
-    ref_fe = ReferenceFE(elem_type{interp_type, p_degree}(), q_type(q_degree))
+    elem_name = uppercase(mesh.element_types[block_name])
+    elem_type = elem_type_map[elem_name]
+    # Defaults are per block: a mesh may mix element types.
+    p = p_degree === nothing ? _default_p[elem_name] : p_degree
+    q = q_degree === nothing ? _default_q[elem_name] : q_degree
+    interp = _block_interp_type(elem_name, interp_type)
+    ref_fe = ReferenceFE(elem_type{interp, p}(), q_type(q))
     push!(ref_fes, ref_fe)
   end
   ref_fes = NamedTuple{tuple(Symbol.(names)...)}(tuple(ref_fes...))

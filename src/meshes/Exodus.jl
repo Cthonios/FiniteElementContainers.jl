@@ -85,10 +85,10 @@ function sidesets(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
   sides = Dict{String, Vector{Int}}()
   side_nodes = Dict{String, Matrix{Int}}()
 
+  blocks = nothing
   for (id, name, sset) in zip(ids, names, ssets)
     perm = sortperm(sset.elements)
     elems[name] = convert(Vector{Int}, sset.elements[perm])
-    nodes[name] = convert(Vector{Int}, Exodus.read_side_set_node_list(mesh.mesh_obj, id)[2])
     sides[name] = convert(Vector{Int}, sset.sides[perm])
 
     if length(sset.sides) == 0
@@ -97,16 +97,48 @@ function sidesets(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
       num_nodes_per_side = length(sset.side_nodes) ÷ length(sset.sides)
     end
 
-    side_nodes[name] = reshape(reshape(
-        convert(Vector{Int}, sset.side_nodes), 
-        num_nodes_per_side, length(sset.sides)
-      )[:, perm],
-      1, length(sset.side_nodes)
+    raw = convert(Vector{Int}, sset.side_nodes)
+    if num_nodes_per_side == 7
+      blocks = blocks === nothing ? read_sets(mesh.mesh_obj, Exodus.Block) : blocks
+      _fill_seventh_tet_side_node!(raw, sset, blocks)
+    end
+    nodes[name] = raw
+
+    side_nodes[name] = reshape(
+      reshape(raw, num_nodes_per_side, length(sset.sides))[:, perm],
+      1, length(raw)
     )
   end
 
   names = Dict{Int, String}(zip(ids, names))
   return elems, names, nodes, sides, side_nodes
+end
+
+# The face node of each side of a 14- or 15-node tetrahedron: node 14 on side
+# 1 (face 1-2-4), 12 on side 2 (2-3-4), 13 on side 3 (1-4-3), 11 on side 4
+# (1-3-2).  This is the seventh column of the tetra_table in
+# ex_get_side_set_node_list.c of the Exodus library.
+const _TET15_SIDE_NODE = (14, 12, 13, 11)
+
+# ex_get_side_set_node_list reports seven nodes per side of a 14- or 15-node
+# tetrahedron but writes only six, so the seventh entry of every side holds
+# whatever the buffer held before.  Fill it from the element connectivity.
+# Side-set elements are internal element numbers, 1-based over the blocks in
+# file order.
+function _fill_seventh_tet_side_node!(raw::Vector{Int}, sset, blocks)
+  counts = [size(b.conn, 2) for b in blocks]
+  offsets = cumsum(vcat(0, counts))
+  for (k, (e, s)) in enumerate(zip(sset.elements, sset.sides))
+    b = searchsortedlast(offsets, e - 1) # block index with offsets[b] < e <= offsets[b + 1]
+    b = min(b, length(blocks))
+    conn = blocks[b].conn
+    size(conn, 1) in (14, 15) ||
+      error("Side set $(sset.id): seven nodes per side but element $e has " *
+            "$(size(conn, 1)) nodes; only 14- and 15-node tetrahedra are handled.")
+    1 <= s <= 4 || error("Side set $(sset.id): side $s of element $e is not a tetrahedron side.")
+    raw[7 * k] = Int(conn[_TET15_SIDE_NODE[s], e - offsets[b]])
+  end
+  return raw
 end
 
 # additional optional interface
