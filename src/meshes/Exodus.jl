@@ -102,7 +102,9 @@ function sidesets(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
       blocks = blocks === nothing ? read_sets(mesh.mesh_obj, Exodus.Block) : blocks
       _fill_seventh_tet_side_node!(raw, sset, blocks)
     end
-    nodes[name] = raw
+    # A copy: the periodic boundary conditions resize this vector, and the
+    # reshape below marks its argument as shared on Julia 1.10.
+    nodes[name] = copy(raw)
 
     side_nodes[name] = reshape(
       reshape(raw, num_nodes_per_side, length(sset.sides))[:, perm],
