@@ -227,11 +227,14 @@ function connectivity(conn::Connectivity{T, D}, e::Int, b::Int) where {T, D <: V
     return view(conn.data, start:finish)
 end
 
-# GPU safe
+# GPU safe.  The tuple length is passed as a Val: `ntuple(f, n::Int)` is
+# unrolled by Base only for n <= 10, and for a larger element (fifteen nodes)
+# it returns a tuple of unknown length, which makes the SVector construction
+# and everything after it in a GPU kernel a dynamic call.
 @inline function connectivity(ref_fe::ReferenceFE, conn_data, e::Int, boffset::Int)
     NNPE = ReferenceFiniteElements.num_cell_dofs(ref_fe)
     base = boffset + (e - 1) * NNPE
-    data = ntuple(i -> conn_data[base + i - 1], NNPE)
+    data = ntuple(i -> conn_data[base + i - 1], Val(NNPE))
     return SVector{NNPE, Int}(data)
 end
 
@@ -244,7 +247,7 @@ end
     face_nodes = ReferenceFiniteElements.boundary_dofs(ref_fe, side)  # 1-based local indices
     NNPE_surf = length(face_nodes)
     base = boffset + (e - 1) * NNPE_vol
-    data = ntuple(i -> conn_data[base + face_nodes[i] - 1], NNPE_surf)
+    data = ntuple(i -> conn_data[base + face_nodes[i] - 1], Val(NNPE_surf))
     return SVector{NNPE_surf, Int}(data)
 end
 

@@ -1,6 +1,6 @@
 name = "FiniteElementContainers"
 uuid = "d08262e4-672f-4e7f-a976-f2cea5767631"
-version = "0.15.3"
+version = "0.15.4"
 authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
 
 [deps]
@@ -62,7 +62,7 @@ LinearAlgebra = "1"
 Metis = "1"
 PartitionedArrays = "0.5"
 Preferences = "1"
-ReferenceFiniteElements = "0.14"
+ReferenceFiniteElements = "0.14.7"
 SparseArrays = "1"
 SparseMatricesCSR = "0.6"
 StaticArrays = "1"

@@ -10,7 +10,8 @@ const elem_type_map = Dict{String, Any}(
   "TET"     => Tet,
   "TETRA"   => Tet,
   "TETRA4"  => Tet,
-  "TETRA10" => Tet
+  "TETRA10" => Tet,
+  "TETRA15" => Tet
 )
 
 const elem_type_map_2 = Dict{String, Any}(
