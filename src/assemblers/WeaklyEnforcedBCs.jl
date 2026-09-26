@@ -129,7 +129,7 @@ function _assemble_block_matrix_weakly_enforced_bc!(
 
     raw_ids = indexin(surf_conns, conn)
     @assert all(!isnothing, raw_ids) "Robin side nodes must be a subset of the parent element's nodes"
-    node_to_face_idx = ntuple(NEPE) do n
+    node_to_face_idx = ntuple(Val(NEPE)) do n
       pos = findfirst(==(n), raw_ids)
       pos === nothing ? 0 : pos
     end
@@ -169,7 +169,7 @@ end
 ) where {ND, NEPE}
   NxNDof = ND * NEPE
   return SMatrix{NxNDof, NxNDof}(
-    ntuple(NxNDof * NxNDof) do lin
+    ntuple(Val(NxNDof * NxNDof)) do lin
       row = (lin - 1) % NxNDof + 1
       col = (lin - 1) ÷ NxNDof + 1
       ni, di = (row - 1) ÷ ND + 1, (row - 1) % ND + 1
