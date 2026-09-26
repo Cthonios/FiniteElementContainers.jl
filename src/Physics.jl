@@ -3,6 +3,31 @@ num_fields(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NF
 num_properties(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NP
 num_states(::AbstractPhysics{NF, NP, NS}) where {NF, NP, NS} = NS
 
+"""
+    assembles_by_element(physics) -> Bool
+
+Whether the assemblers call the kernels of `physics` once per element instead
+of once per quadrature point.  The default is `false`.
+
+A physics that returns `true` defines each kernel it uses (`residual`,
+`energy`, `stiffness`, `stiffness_action`, `mass`, ... and any functor passed
+to an assembler) with the element signature
+
+    kernel(physics, ref_fe, x_el, t, dt, u_el, u_el_old, states, props_el)
+
+or, for actions, with `v_el` after `u_el_old`.  `ref_fe` is the block's
+`ReferenceFE`, whose quadrature-point interpolants the kernel reads with
+`_cell_interpolants(ref_fe, q)`, and `states::ElementState` gives the old and
+new state variables of quadrature point `q` through `state_variables(states, q)`.
+The kernel returns the element quantity: the element vector, matrix or
+diagonal for the additive assemblies, and a tuple or `SVector` with one entry
+per quadrature point for the quadrature-point assemblies (`assemble_scalar!`,
+`assemble_quadrature_quantity!`).  This is the path for formulations in which
+the quadrature points of an element are coupled, such as a volumetric strain
+projected over the element.
+"""
+assembles_by_element(::AbstractPhysics) = false
+
 # physics like methods
 function damping end
 function energy end

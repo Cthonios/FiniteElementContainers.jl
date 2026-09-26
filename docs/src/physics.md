@@ -372,6 +372,35 @@ The solid mechanics implementation follows the same pattern using the constituti
 
 ---
 
+# Element-Level Assembly
+
+By default the assemblers call a kernel once per quadrature point and add the
+results over the element.  A physics whose quadrature points are coupled,
+for instance one that projects the volumetric strain over the element, opts
+out of this by returning `true` from
+
+```julia
+FiniteElementContainers.assembles_by_element(::MyPhysics) = true
+```
+
+Its kernels are then called once per element with the signature
+
+```julia
+residual(physics, ref_fe, x_el, t, dt, u_el, u_el_old, states, props_el)
+stiffness_action(physics, ref_fe, x_el, t, dt, u_el, u_el_old, v_el, states, props_el)
+```
+
+where `ref_fe` is the block's reference element (quadrature-point
+interpolants from `FiniteElementContainers._cell_interpolants(ref_fe, q)`) and
+`states::ElementState` yields the state variables of quadrature point `q`
+through `state_variables(states, q)` as the pair `(old, new)`.  The kernel
+returns the element quantity: the element vector, matrix or diagonal for
+`assemble_vector!`, `assemble_matrix!`, `assemble_diagonal!` and the actions,
+and a tuple with one entry per quadrature point for `assemble_scalar!` and
+`assemble_quadrature_quantity!`.  The in-place kernels (`residual!`, ...) have
+no element-level form; an assembler with `use_inplace_methods = true` refuses
+such a physics.
+
 # In-Place Assembly
 
 Every finite element operator in **FiniteElementContainers** has two possible implementations.

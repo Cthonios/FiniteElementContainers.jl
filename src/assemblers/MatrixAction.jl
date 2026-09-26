@@ -68,15 +68,21 @@ function _assemble_block_matrix_free_action!(
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = properties(props, e, b)
-    Kv_el = _element_scratch(AssembledVector(), ref_fe, U)
-    for q in 1:num_cell_quadrature_points(ref_fe)
-      interps = _cell_interpolants(ref_fe, q)
-      state_old_q = state_variables(state_old, q, e, b)
-      state_new_q = state_variables(state_new, q, e, b)
-      Kv_q = func_action(physics, interps, x_el, t, Δt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el)
-      Kv_el = Kv_el + Kv_q
+    if assembles_by_element(physics)
+      states = ElementState(state_old, state_new, e, b)
+      Kv_el = func_action(physics, ref_fe, x_el, t, Δt, u_el, u_el_old, v_el, states, props_el)
+      _assemble_element!(field, Kv_el, conn, e)
+    else
+      Kv_el = _element_scratch(AssembledVector(), ref_fe, U)
+      for q in 1:num_cell_quadrature_points(ref_fe)
+        interps = _cell_interpolants(ref_fe, q)
+        state_old_q = state_variables(state_old, q, e, b)
+        state_new_q = state_variables(state_new, q, e, b)
+        Kv_q = func_action(physics, interps, x_el, t, Δt, u_el, u_el_old, v_el, state_old_q, state_new_q, props_el)
+        Kv_el = Kv_el + Kv_q
+      end
+      _assemble_element!(field, Kv_el, conn, e)
     end
-    _assemble_element!(field, Kv_el, conn, e)
   end
 end
 
@@ -235,13 +241,18 @@ function _assemble_block_matrix_action!(
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old, v_el = element_level_fields(ref_fe, conn, X, U, U_old, V)
     props_el = properties(props, e, b)
-    K_el = _element_scratch(AssembledMatrix(), ref_fe, U)
-    for q in 1:num_cell_quadrature_points(ref_fe)
-      interps = _cell_interpolants(ref_fe, q)
-      state_old_q = state_variables(state_old, q, e, b)
-      state_new_q = state_variables(state_new, q, e, b)
-      K_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, state_new_q, props_el)
-      K_el = K_el + K_q
+    if assembles_by_element(physics)
+      states = ElementState(state_old, state_new, e, b)
+      K_el = func(physics, ref_fe, x_el, t, Δt, u_el, u_el_old, states, props_el)
+    else
+      K_el = _element_scratch(AssembledMatrix(), ref_fe, U)
+      for q in 1:num_cell_quadrature_points(ref_fe)
+        interps = _cell_interpolants(ref_fe, q)
+        state_old_q = state_variables(state_old, q, e, b)
+        state_new_q = state_variables(state_new, q, e, b)
+        K_q = func(physics, interps, x_el, t, Δt, u_el, u_el_old, state_old_q, state_new_q, props_el)
+        K_el = K_el + K_q
+      end
     end
     Kv_el = K_el * v_el
 
@@ -263,6 +274,7 @@ function _assemble_block_matrix_action!(
   T        <: Number,
   Solution <: AbstractField
 }
+  _check_element_assembly_supported(physics, "_assemble_block_matrix_action!")
   conns = conns_all.data
   coffset = conns_all.offsets[b]
   foreach_element(conns_all, b; block_size = gpu_block_size) do e
