@@ -303,8 +303,8 @@ struct DirichletBCs{
 
     for bc in bcs_input
       t_idx        = Int(bc.func.num_vars)        # convention: t is last
-      func_dot     = Expressions.differentiate(bc.func, t_idx)
-      func_dot_dot = Expressions.differentiate(func_dot, t_idx)
+      func_dot     = Expressions.differentiate(bc.func, t_idx, Val(AppTools.EXPR_WIDTH))
+      func_dot_dot = Expressions.differentiate(func_dot, t_idx, Val(AppTools.EXPR_WIDTH))
       push!(bc_funcs,
             DirichletBCFunction{F, F, F}(bc.func, func_dot, func_dot_dot))
     end

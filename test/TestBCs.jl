@@ -111,13 +111,14 @@ end
   # supplied derivatives, no Symbolics — and the resulting BC function is
   # `isbits`, so it passes through KA kernels on any backend.
   import FiniteElementContainers: update_bc_values!
+  import FiniteElementContainers.AppTools: EXPR_WIDTH
   import FiniteElementContainers.Expressions: ScalarExpressionFunction
 
   u   = VectorFunction(fspace, "displ")
   dof = DofManager(u)
 
   # g(t) = 2 t^2 → g'(t) = 4 t → g''(t) = 4
-  F   = ScalarExpressionFunction{Float64}
+  F   = ScalarExpressionFunction{Float64, EXPR_WIDTH}
   bc_func = F("2 * t^2", ["x", "y", "t"])
   bc_in   = DirichletBC("displ_x", bc_func; sideset_name = "sset_1")
   bcs     = DirichletBCs{F}(mesh, dof, DirichletBC[bc_in])

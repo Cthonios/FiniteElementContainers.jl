@@ -285,15 +285,20 @@ print_dict(l::LogFile, d::Dict{String, String}) = print_dict(l, d)
 #######################################################
 # Input file
 #######################################################
+# compile-time expression width used by the app (must fit your largest BC/IC expression)
+const EXPR_WIDTH = 128
+const SFunc{T}    = ScalarExpressionFunction{T, EXPR_WIDTH}
+const VFunc{N, T} = VectorExpressionFunction{N, T, EXPR_WIDTH}
+
 struct FunctionSettings{N, T <: Number}
     dict::Dict{String, Any}
-    scalar_expr_funcs::Dict{String, ScalarExpressionFunction{T}}
-    vector_expr_funcs::Dict{String, VectorExpressionFunction{N, T}}
+    scalar_expr_funcs::Dict{String, SFunc{T}}
+    vector_expr_funcs::Dict{String, VFunc{N, T}}
 
     function FunctionSettings{N, T}(log_file, parser) where {N, T <: Number}
         print_banner(log_file, "Functions")
-        scalar_functions = Dict{String, ScalarExpressionFunction{T}}()
-        vector_functions = Dict{String, VectorExpressionFunction{N, T}}()
+        scalar_functions = Dict{String, SFunc{T}}()
+        vector_functions = Dict{String, VFunc{N, T}}()
         if haskey(parser, "functions")
             func_settings = parser["functions"]::Dict{String, Any}
             for (k, v) in pairs(func_settings)
@@ -308,7 +313,7 @@ struct FunctionSettings{N, T <: Number}
                     expr = temp["expression"]::String
                     expr = String(strip(expr, '"')) # for yaml
                     println(log_file.io, "Parsing analytic function with expression = $expr")
-                    scalar_functions[name] = ScalarExpressionFunction{T}(expr, vars)
+                    scalar_functions[name] = SFunc{T}(expr, vars)
                 elseif type == "vector expression"
                     exprs = InputFileParser.get_string_array(temp, "expressions", parser.input_style)
                     for (n, expr) in enumerate(exprs)
@@ -318,7 +323,7 @@ struct FunctionSettings{N, T <: Number}
                     for expr in exprs
                         println(log_file.io, expr)
                     end
-                    vector_functions[name] = VectorExpressionFunction{N, T}(exprs, vars)
+                    vector_functions[name] = VFunc{N, T}(exprs, vars)
                 else
                     @assert false "Unsupported function type $type"
                 end
@@ -332,11 +337,11 @@ end
 
 struct BCSettings{N, T <: Number}
     dict::Dict{String, Any}
-    dirichlet::Vector{DirichletBC{<:ScalarExpressionFunction{T}}}
-    neumann::Vector{NeumannBC{<:VectorExpressionFunction{N, T}}}
-    periodic::Vector{PeriodicBC{<:ScalarExpressionFunction{T}}}
-    robin::Vector{RobinBC{<:VectorExpressionFunction{N, T}}}
-    source::Vector{Source{<:VectorExpressionFunction{N, T}}}
+    dirichlet::Vector{DirichletBC{SFunc{T}}}
+    neumann::Vector{NeumannBC{VFunc{N, T}}}
+    periodic::Vector{PeriodicBC{SFunc{T}}}
+    robin::Vector{RobinBC{VFunc{N, T}}}
+    source::Vector{Source{VFunc{N, T}}}
 
     function BCSettings{N, T}(log_file, parser, functions::FunctionSettings{N, T}) where {N, T <: Number}
         print_banner(log_file, "Boundary conditions")
@@ -345,11 +350,11 @@ struct BCSettings{N, T <: Number}
         else
             bc_settings = Dict{String, Any}()
         end
-        dbcs = DirichletBC{<:ScalarExpressionFunction{T}}[]
-        nbcs = NeumannBC{<:VectorExpressionFunction{N, T}}[]
-        pbcs = PeriodicBC{<:ScalarExpressionFunction{T}}[]
-        rbcs = RobinBC{<:VectorExpressionFunction{N, T}}[]
-        srcs = Source{<:VectorExpressionFunction{N, T}}[]
+        dbcs = DirichletBC{SFunc{T}}[]
+        nbcs = NeumannBC{VFunc{N, T}}[]
+        pbcs = PeriodicBC{SFunc{T}}[]
+        rbcs = RobinBC{VFunc{N, T}}[]
+        srcs = Source{VFunc{N, T}}[]
         if haskey(bc_settings, "dirichlet")
             dbc_settings = bc_settings["dirichlet"]::Vector{Any}
             for bc in dbc_settings
@@ -445,11 +450,11 @@ struct BCSettings{N, T <: Number}
 end
 
 struct ICSettings{T <: Number}
-    ics::Vector{InitialCondition{<:ScalarExpressionFunction{T}}}
+    ics::Vector{InitialCondition{SFunc{T}}}
 
     function ICSettings{T}(log_file, parser, functions::FunctionSettings{N, T}) where {N, T}
         print_banner(log_file, "Initial conditions")
-        ics = InitialCondition{<:ScalarExpressionFunction{Float64}}[]
+        ics = InitialCondition{SFunc{Float64}}[]
         if haskey(parser, "initial conditions")
             ic_settings = parser["initial conditions"]::Vector{Any}
             for ic in ic_settings
@@ -661,15 +666,15 @@ function setup(app::App{D, N}, args::Vector{String}) where {D, N}
 end
 
 struct Simulation{D, N, T <: Number, IO, Mesh}
-    dbcs::Vector{DirichletBC{<:ScalarExpressionFunction{T}}}
-    ics::Vector{InitialCondition{<:ScalarExpressionFunction{T}}}
+    dbcs::Vector{DirichletBC{SFunc{T}}}
+    ics::Vector{InitialCondition{SFunc{T}}}
     input_settings::InputSettings{N, T}
     log_file::LogFile{IO}
     mesh::Mesh
-    nbcs::Vector{NeumannBC{<:VectorExpressionFunction{N, T}}}
-    pbcs::Vector{PeriodicBC{<:ScalarExpressionFunction{T}}}
-    rbcs::Vector{RobinBC{<:VectorExpressionFunction{N, T}}}
-    srcs::Vector{Source{<:VectorExpressionFunction{N, T}}}
+    nbcs::Vector{NeumannBC{VFunc{N, T}}}
+    pbcs::Vector{PeriodicBC{SFunc{T}}}
+    rbcs::Vector{RobinBC{VFunc{N, T}}}
+    srcs::Vector{Source{VFunc{N, T}}}
 
     function Simulation{D, N}(settings::InputSettings, log_file::LogFile{IO}) where {D, N, IO}
         print_banner(log_file, "Mesh")
