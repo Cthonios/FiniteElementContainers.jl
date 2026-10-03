@@ -216,7 +216,7 @@ end
 
 # this won't work with condensed right now
 function update_dofs!(
-    assembler::BlockSparseMatrixAssembler, dirichlet_bcs, periodic_bcs
+    assembler::BlockSparseMatrixAssembler, dirichlet_bcs::AbstractArray, periodic_bcs::AbstractArray
 )
     ddofs = map(dirichlet_dofs, dirichlet_bcs)
     pdofs = map(periodic_dofs, periodic_bcs)

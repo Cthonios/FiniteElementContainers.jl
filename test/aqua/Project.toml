@@ -1,0 +1,9 @@
+[deps]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+FiniteElementContainers = "d08262e4-672f-4e7f-a976-f2cea5767631"
+
+[compat]
+Aqua = "0.8"
+
+[sources]
+FiniteElementContainers = {path = "../.."}
