@@ -492,7 +492,10 @@ function _flatten(root::Node{T, D}, ::Val{W}) where {T, D, W}
     buf = FlatNode{T}[]
     _flatten_visit!(buf, root)
     n_active = length(buf)
-    n_active <= W || error("expression too large for fixed width. Got n_active = $(n_active)")
+    n_active <= W || error("expression has $(n_active) nodes, more than the fixed width $(W). " *
+                           "The time derivatives of a Dirichlet condition are longer than the " *
+                           "expression and must fit this width too; increase the width " *
+                           "(AppTools.EXPR_WIDTH in an app built with AppTools).")
     while length(buf) < W
         push!(buf, FlatNode{T}())
     end

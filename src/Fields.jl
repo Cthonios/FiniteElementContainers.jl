@@ -531,6 +531,21 @@ struct PropertyField{
     end
 end
 
+# Any other list of blocks: an array literal that mixes a constant block and an
+# element-level block (element type `Array{Float64}`, as `_setup_properties`
+# builds it from a NamedTuple or a Dict), static arrays, views, or invalid
+# input.  Each block is converted to a `Vector` or `Matrix` of one promoted
+# element type and the typed constructor above is called; invalid input fails
+# with an `ArgumentError` that names the problem.  A trimmed app passes a
+# `Vector{<:PropertyBlock{T}}` and does not reach this method.
+function PropertyField(arrs::AbstractVector)
+    isempty(arrs) && throw(ArgumentError(
+        "PropertyField needs at least one block of properties, got none"))
+    blocks = map(_property_block, arrs)
+    T = promote_type(map(eltype, blocks)...)
+    return PropertyField(PropertyBlock{T}[convert(Array{T}, b) for b in blocks])
+end
+
 # Normalize one block's properties to a dense array we own.  This deliberately
 # accepts any AbstractVector/AbstractMatrix rather than Vector/Matrix: an
 # `SVector` is what a `create_properties` implementation naturally returns, and

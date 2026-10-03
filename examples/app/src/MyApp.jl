@@ -82,8 +82,3 @@ function @main(ARGS::Vector{String})
     app_main(ARGS)
     return 0
 end
-
-struct MyVector{T <: Number, V <: AbstractVector{T}}
-    field_names::Vector{String}
-    data::V
-end

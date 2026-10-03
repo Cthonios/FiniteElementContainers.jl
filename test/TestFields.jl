@@ -217,6 +217,12 @@ end
   props_1 = rand(3)
   props_2 = rand(4, 20)
   props = FiniteElementContainers.PropertyField(VecOrMat{Float64}[props_1, props_2])
+  # The plain array literal, element type `Array{Float64}`, is what
+  # `_setup_properties` builds from a NamedTuple or a Dict; it takes the
+  # converting method and gives the same field.
+  props_literal = FiniteElementContainers.PropertyField([props_1, props_2])
+  @test props_literal.data == props.data
+  @test props_literal.isblockconstant == props.isblockconstant
   @test all(FiniteElementContainers.properties(props, 1, 1) .≈ props_1)
   @test all(FiniteElementContainers.properties(props, 100, 1) .≈ props_1)
 
@@ -237,26 +243,26 @@ end
   end
 end
 
-# @testitem "Fields - test_property_field_static_arrays" begin
-#   using StaticArrays
-#   # `create_properties` implementations hand back an SVector, so the
-#   # constructor has to take one.
-#   props_1 = SVector{2, Float64}(rand(2))
-#   props_2 = SVector{3, Float64}(rand(3))
-#   props = FiniteElementContainers.PropertyField([props_1, props_2])
-#   @test all(FiniteElementContainers.properties(props, 1, 1) .≈ props_1)
-#   @test all(FiniteElementContainers.properties(props, 100, 1) .≈ props_1)
-#   @test all(FiniteElementContainers.properties(props, 1, 2) .≈ props_2)
-#   @test all(FiniteElementContainers.properties(props, 100, 2) .≈ props_2)
+@testitem "Fields - test_property_field_static_arrays" begin
+  using StaticArrays
+  # `create_properties` implementations hand back an SVector, so the
+  # constructor has to take one.
+  props_1 = SVector{2, Float64}(rand(2))
+  props_2 = SVector{3, Float64}(rand(3))
+  props = FiniteElementContainers.PropertyField([props_1, props_2])
+  @test all(FiniteElementContainers.properties(props, 1, 1) .≈ props_1)
+  @test all(FiniteElementContainers.properties(props, 100, 1) .≈ props_1)
+  @test all(FiniteElementContainers.properties(props, 1, 2) .≈ props_2)
+  @test all(FiniteElementContainers.properties(props, 100, 2) .≈ props_2)
 
-#   # ...and mixed with an element-level block, static or not.
-#   props_3 = SMatrix{2, 4, Float64, 8}(rand(2, 4))
-#   mixed = FiniteElementContainers.PropertyField([props_1, props_3])
-#   @test all(FiniteElementContainers.properties(mixed, 7, 1) .≈ props_1)
-#   for e in axes(props_3, 2)
-#     @test all(FiniteElementContainers.properties(mixed, e, 2) .≈ props_3[:, e])
-#   end
-# end
+  # ...and mixed with an element-level block, static or not.
+  props_3 = SMatrix{2, 4, Float64, 8}(rand(2, 4))
+  mixed = FiniteElementContainers.PropertyField([props_1, props_3])
+  @test all(FiniteElementContainers.properties(mixed, 7, 1) .≈ props_1)
+  for e in axes(props_3, 2)
+    @test all(FiniteElementContainers.properties(mixed, e, 2) .≈ props_3[:, e])
+  end
+end
 
 @testitem "Fields - test_property_field_promotes_eltypes" begin
   props = FiniteElementContainers.PropertyField([[1, 2], [3.5, 4.5]])
@@ -265,13 +271,13 @@ end
   @test all(FiniteElementContainers.properties(props, 1, 2) .≈ [3.5, 4.5])
 end
 
-# @testitem "Fields - test_property_field_rejects_bad_input" begin
-#   # A rank-3 array has no reading as either constant or element-level, and an
-#   # empty block list has no reading at all.  Both should say so.
-#   @test_throws ArgumentError FiniteElementContainers.PropertyField([rand(2, 2, 2)])
-#   @test_throws ArgumentError FiniteElementContainers.PropertyField(["not numbers"])
-#   @test_throws ArgumentError FiniteElementContainers.PropertyField([])
-# end
+@testitem "Fields - test_property_field_rejects_bad_input" begin
+  # A rank-3 array has no reading as either constant or element-level, and an
+  # empty block list has no reading at all.  Both should say so.
+  @test_throws ArgumentError FiniteElementContainers.PropertyField([rand(2, 2, 2)])
+  @test_throws ArgumentError FiniteElementContainers.PropertyField(["not numbers"])
+  @test_throws ArgumentError FiniteElementContainers.PropertyField([])
+end
 
 @testitem "Fields - test_property_field_does_not_alias_input" begin
   props_1 = rand(3)
