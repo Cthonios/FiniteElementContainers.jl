@@ -301,6 +301,26 @@ end
     end
 end
 
+@testitem "differentiate - Gaussian pulse to 2nd derivative - trim safe" begin
+    import FiniteElementContainers.AppTools: EXPR_WIDTH
+    import FiniteElementContainers.Expressions: ScalarExpressionFunction, differentiate
+    # g(t) = a * exp(-(t - tc)^2 / (2 τ^2))
+    g   = ScalarExpressionFunction{Float64, EXPR_WIDTH}(
+        "a * exp(-(t - tc)^2 / (2 * tau^2))", ["a", "tc", "tau", "t"])
+    gp  = differentiate(g, 4, Val(EXPR_WIDTH))
+    gpp = differentiate(gp, 4, Val(EXPR_WIDTH))
+    a, tc, τ = 1.0e-3, 2.5e-4, 5.0e-5
+    for t in (0.0, 1.0e-4, 2.5e-4, 4.0e-4, 5.0e-4)
+        η  = t - tc
+        g_  = a * exp(-η^2 / (2 * τ^2))
+        gp_ = -(η / τ^2) * g_
+        gpp_= (η^2 / τ^4 - 1 / τ^2) * g_
+        @test g([a, tc, τ, t])   ≈ g_   rtol=1e-12
+        @test gp([a, tc, τ, t])  ≈ gp_  rtol=1e-12
+        @test gpp([a, tc, τ, t]) ≈ gpp_ rtol=1e-9
+    end
+end
+
 @testitem "differentiate - spatial (traveling-wave IC)" begin
     import FiniteElementContainers.Expressions: ScalarExpressionFunction, differentiate
     # u₀(z) = a * exp(-z^2 / (2 s^2));  ∂u/∂z = -(z/s²) u

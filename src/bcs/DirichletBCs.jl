@@ -175,6 +175,9 @@ struct DirichletBCFunction{F1, F2, F3} <: AbstractBCFunction{F1}
     t_idx        = Int(func.num_vars)
     func_dot     = Expressions.differentiate(func, t_idx)
     func_dot_dot = Expressions.differentiate(func_dot, t_idx)
+    # # DO NOT COMMIT THIS!
+    # func_dot = func
+    # func_dot_dot = func
     # Derivative trees grow, so each component may land on a different
     # `FEC_EXPR_WIDTHS` rung; the three type parameters exist precisely so
     # they need not agree.  Padding them to a common width would make every
@@ -303,8 +306,11 @@ struct DirichletBCs{
 
     for bc in bcs_input
       t_idx        = Int(bc.func.num_vars)        # convention: t is last
-      func_dot     = Expressions.differentiate(bc.func, t_idx)
-      func_dot_dot = Expressions.differentiate(func_dot, t_idx)
+      func_dot     = Expressions.differentiate(bc.func, t_idx, Val(AppTools.EXPR_WIDTH))
+      func_dot_dot = Expressions.differentiate(func_dot, t_idx, Val(AppTools.EXPR_WIDTH))
+      # # DO NOT COMMIT THIS
+      # func_dot = bc.func
+      # func_dot_dot = bc.func
       push!(bc_funcs,
             DirichletBCFunction{F, F, F}(bc.func, func_dot, func_dot_dot))
     end
