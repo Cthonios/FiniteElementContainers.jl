@@ -275,7 +275,6 @@ include("DofManagers.jl")
 # include("Utils.jl")
 
 include("bcs/BoundaryConditions.jl")
-include("Constraints.jl")
 include("InitialConditions.jl")
 
 include("Formulations.jl")
