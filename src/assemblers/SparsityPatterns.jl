@@ -161,7 +161,7 @@ function KA.get_backend(pattern::SparseMatrixPattern)
 end
 
 function block_view(storage::AbstractVector, pattern::SparseMatrixPattern, b::Int)
-  @assert b > 0 && b <= length(pattern.block_start_indices)
+  @boundscheck 1 <= b <= length(pattern.block_start_indices) || _field_access_exception()
   if b == length(pattern.block_start_indices) || length(pattern.block_start_indices) == 1
     start_index = pattern.block_start_indices[end]
     end_index = length(storage)

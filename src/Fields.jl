@@ -39,6 +39,13 @@ $(TYPEDSIGNATURES)
 """
 KA.get_backend(field::AbstractField) = KA.get_backend(field.data)
 
+struct FieldAccessException <: Exception
+end
+
+function _field_access_exception()
+    throw(FieldAccessException())
+end
+
 ######################################################################################################
 # Abstract type for all continuous fields e.g. H1, Hdiv, Hcurl
 ######################################################################################################
@@ -52,8 +59,8 @@ function Base.axes(field::AbstractContinuousField{T, D, NF}) where {T, D, NF}
 end
 
 function Base.getindex(field::AbstractContinuousField, d::Int, n::Int)
-    @assert d > 0 && d <= num_fields(field)
-    @assert n > 0 && n <= num_entities(field)
+    @boundscheck 1 <= d <= num_fields(field) || _field_access_exception()
+    @boundscheck 1 <= n <= num_entities(field) || _field_access_exception()
     return getindex(field.data, (n - 1) * num_fields(field) + d)
 end
 
@@ -63,8 +70,8 @@ function Base.resize!(field::AbstractContinuousField{T, D, NF}, n::Int) where {T
 end
 
 function Base.setindex!(field::AbstractContinuousField{T, D, NF}, v, d::Int, n::Int) where {T, D, NF}
-    @assert d > 0 && d <= num_fields(field)
-    @assert n > 0 && n <= num_entities(field)
+    @boundscheck 1 <= d <= num_fields(field) || _field_access_exception()
+    @boundscheck 1 <= n <= num_entities(field) || _field_access_exception()
     setindex!(field.data, v, (n - 1) * num_fields(field) + d)
     return nothing
 end
@@ -551,7 +558,7 @@ function num_fields(field::PropertyField, b::Int)
 end
 
 function properties(field::PropertyField, e::Int, b::Int)
-    @assert 1 <= b && b <= field.nblocks
+    @boundscheck 1 <= b <= field.nblocks || _field_access_exception()
     offset = field.offsets[b]
     nfields = num_fields(field, b)
     # `if/elseif` with no `else` leaves `start` undefined on any third value,
@@ -560,8 +567,8 @@ function properties(field::PropertyField, e::Int, b::Int)
     if field.isblockconstant[b] == PROPS_CONST
         start = offset
     else
-        @assert field.isblockconstant[b] == PROPS_ELEMS
-        @assert 1 <= e && e <= field.nelems[b]
+        @boundscheck field.isblockconstant[b] == PROPS_ELEMS || _field_access_exception()
+        @boundscheck 1 <= e <= field.nelems[b] || _field_access_exception()
         start = offset + nfields * (e - 1)
     end
     return PropertyFieldView(field.data, start, nfields)
@@ -661,8 +668,8 @@ function num_fields(field::StateVariableField, b::Int)
 end
 
 function state_variables(field::StateVariableField, q::Int, e::Int, b::Int)
-    @assert 1 <= q <= field.nepes[b]
-    @assert 1 <= e <= field.nelems[b]
+    @boundscheck 1 <= q <= field.nepes[b] || _field_access_exception()
+    @boundscheck 1 <= e <= field.nelems[b] || _field_access_exception()
     offset  = field.offsets[b]
     nfields = field.nfields[b]
     nqs     = field.nepes[b]

@@ -115,10 +115,8 @@ export FileMesh
 export StructuredMesh
 export UnstructuredMesh
 export block_names
-export distribute_mesh
 export element_blocks
 export element_ids
-export global_colorings
 export nodal_coordinates
 export nodesets # rename to boundary_nodes
 export num_dimensions
@@ -275,7 +273,6 @@ include("DofManagers.jl")
 # include("Utils.jl")
 
 include("bcs/BoundaryConditions.jl")
-include("Constraints.jl")
 include("InitialConditions.jl")
 
 include("Formulations.jl")

@@ -2,7 +2,7 @@ module SimpleYAML
 
 export YAMLValue, YAMLNull, YAMLBool, YAMLInt, YAMLFloat, YAMLString,
        YAMLArray, YAMLDict,
-       load, loads,
+       loads,
        as_dict, as_array, as_string, as_int, as_float, as_bool, is_null,
        get_value, to_dict
 
