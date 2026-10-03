@@ -24,6 +24,7 @@ import ..nodesets
 import ..sidesets
 using Exodus
 using ..InputFileParser
+using Preferences
 using ReferenceFiniteElements
 using TOML
 
@@ -286,7 +287,7 @@ print_dict(l::LogFile, d::Dict{String, String}) = print_dict(l, d)
 # Input file
 #######################################################
 # compile-time expression width used by the app (must fit your largest BC/IC expression)
-const EXPR_WIDTH = 128
+const EXPR_WIDTH  = @load_preference("FIXED_EXPRESSION_WIDTH", 128)
 const SFunc{T}    = ScalarExpressionFunction{T, EXPR_WIDTH}
 const VFunc{N, T} = VectorExpressionFunction{N, T, EXPR_WIDTH}
 
