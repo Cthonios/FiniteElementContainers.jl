@@ -111,13 +111,14 @@ end
   # supplied derivatives, no Symbolics — and the resulting BC function is
   # `isbits`, so it passes through KA kernels on any backend.
   import FiniteElementContainers: update_bc_values!
+  import FiniteElementContainers.AppTools: EXPR_WIDTH
   import FiniteElementContainers.Expressions: ScalarExpressionFunction
 
   u   = VectorFunction(fspace, "displ")
   dof = DofManager(u)
 
   # g(t) = 2 t^2 → g'(t) = 4 t → g''(t) = 4
-  F   = ScalarExpressionFunction{Float64}
+  F   = ScalarExpressionFunction{Float64, EXPR_WIDTH}
   bc_func = F("2 * t^2", ["x", "y", "t"])
   bc_in   = DirichletBC("displ_x", bc_func; sideset_name = "sset_1")
   bcs     = DirichletBCs{F}(mesh, dof, DirichletBC[bc_in])
@@ -134,6 +135,27 @@ end
   @test all(U[dof.dirichlet_dofs] .≈ 18.0)
   @test all(V[dof.dirichlet_dofs] .≈ 12.0)
   @test all(A[dof.dirichlet_dofs] .≈  4.0)
+end
+
+@testitem "BCs - juliac-safe DirichletBCs, derivatives in the width of F" setup=[BCHelper] begin
+  # The derivatives are flattened to the width of the container's function
+  # type, so `DirichletBCFunction{F, F, F}` holds them for any fixed width,
+  # not only AppTools.EXPR_WIDTH; an F without a fixed width also works.
+  import FiniteElementContainers: update_bc_values!
+  import FiniteElementContainers.Expressions: ScalarExpressionFunction
+
+  u   = VectorFunction(fspace, "displ")
+  dof = DofManager(u)
+  X   = mesh.nodal_coords
+  for F in (ScalarExpressionFunction{Float64, 32}, ScalarExpressionFunction{Float64})
+    bc_func = F("2 * t^2", ["x", "y", "t"])
+    bcs = DirichletBCs{F}(mesh, dof,
+                          DirichletBC[DirichletBC("displ_x", bc_func; sideset_name = "sset_1")])
+    update_bc_values!(bcs, X, 3.0)
+    @test all(bcs.bc_cache.vals         .≈ 18.0)
+    @test all(bcs.bc_cache.vals_dot     .≈ 12.0)
+    @test all(bcs.bc_cache.vals_dot_dot .≈  4.0)
+  end
 end
 
 @testitem "BCs - juliac-safe DirichletBCs Gaussian pulse" setup=[BCHelper] begin

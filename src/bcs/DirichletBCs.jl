@@ -220,6 +220,15 @@ function _update_bc_values!(bc::DirichletBCContainer, func::DirichletBCFunction,
   end
 end
 
+# Derivatives of a Dirichlet condition in the function type `F` of the
+# container, so that `DirichletBCFunction{F, F, F}` holds them: for
+# `F = ScalarExpressionFunction{T, W}` the derivatives are flattened to the same
+# width `W` (the trim-safe path); for an `F` without a fixed width, such as
+# `ScalarExpressionFunction{T}`, the width is chosen for each derivative.
+_differentiate_as(::Type{Expressions.ScalarExpressionFunction{T, W}}, f, var_idx) where {T, W} =
+  Expressions.differentiate(f, var_idx, Val(W))
+_differentiate_as(::Type, f, var_idx) = Expressions.differentiate(f, var_idx)
+
 struct DirichletBCs{
   BCFuncs,
   IV      <: AbstractArray{<:Integer, 1},
@@ -303,8 +312,8 @@ struct DirichletBCs{
 
     for bc in bcs_input
       t_idx        = Int(bc.func.num_vars)        # convention: t is last
-      func_dot     = Expressions.differentiate(bc.func, t_idx)
-      func_dot_dot = Expressions.differentiate(func_dot, t_idx)
+      func_dot     = _differentiate_as(F, bc.func, t_idx)
+      func_dot_dot = _differentiate_as(F, func_dot, t_idx)
       push!(bc_funcs,
             DirichletBCFunction{F, F, F}(bc.func, func_dot, func_dot_dot))
     end

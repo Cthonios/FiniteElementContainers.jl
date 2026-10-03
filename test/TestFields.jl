@@ -216,7 +216,13 @@ end
 @testitem "Fields - test_property_field_,mixed_constant_and_element_level" begin
   props_1 = rand(3)
   props_2 = rand(4, 20)
-  props = FiniteElementContainers.PropertyField([props_1, props_2])
+  props = FiniteElementContainers.PropertyField(VecOrMat{Float64}[props_1, props_2])
+  # The plain array literal, element type `Array{Float64}`, is what
+  # `_setup_properties` builds from a NamedTuple or a Dict; it takes the
+  # converting method and gives the same field.
+  props_literal = FiniteElementContainers.PropertyField([props_1, props_2])
+  @test props_literal.data == props.data
+  @test props_literal.isblockconstant == props.isblockconstant
   @test all(FiniteElementContainers.properties(props, 1, 1) .≈ props_1)
   @test all(FiniteElementContainers.properties(props, 100, 1) .≈ props_1)
 

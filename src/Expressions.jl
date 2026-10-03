@@ -487,6 +487,21 @@ function _flatten(root::Node{T, D}) where {T, D}
     return nodes, UInt16(n_active)
 end
 
+# Fixed-width flatten: W is a type parameter, so the result type is inferrable.
+function _flatten(root::Node{T, D}, ::Val{W}) where {T, D, W}
+    buf = FlatNode{T}[]
+    _flatten_visit!(buf, root)
+    n_active = length(buf)
+    n_active <= W || error("expression has $(n_active) nodes, more than the fixed width $(W). " *
+                           "The time derivatives of a Dirichlet condition are longer than the " *
+                           "expression and must fit this width too; increase the width " *
+                           "(AppTools.EXPR_WIDTH in an app built with AppTools).")
+    while length(buf) < W
+        push!(buf, FlatNode{T}())
+    end
+    return _vector_to_ntuple(buf, Val(W)), UInt16(n_active)
+end
+
 # Inverse used by `differentiate`: rebuild a recursive `Node{T, D}` from a
 # flat NTuple so the existing recursive symbolic differentiator can run on
 # it.  Called once per `differentiate` invocation, off the GPU.
@@ -594,40 +609,51 @@ struct ScalarExpressionFunction{T <: Number, N} <: AbstractExpressionFunction{T,
     ) where {T <: Number, N}
         new{T, N}(nodes, n_active, UInt8(num_vars))
     end
-end
 
-"""
-$(TYPEDSIGNATURES)
+    """
+    Trim-safe constructor: width `W` is fixed at compile time.
+    """
+    function ScalarExpressionFunction{T, W}(string::String, var_names::Vector{String}) where {T <: Number, W}
+        p = Parser{T}(string, var_names)
+        _reset!(p)
+        ast = _parse_statement(p, 0, T)
+        nodes, n_active = _flatten(ast, Val(W))
+        return ScalarExpressionFunction{T, W}(nodes, n_active, length(var_names))
+    end
 
-Parse `string` as an expression in the variable namespace `var_names` and
-store the resulting tree in flat form.  `var_names` is consumed by the
-parser to bind identifiers to feature indices; it is not retained on the
-resulting function.  The tuple width is chosen from `FEC_EXPR_WIDTHS` to
-fit this tree, so the returned type is `ScalarExpressionFunction{T, N}`
-with N depending on the expression.
-"""
-function ScalarExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
-    p = Parser{T}(string, var_names)
-    _reset!(p)
-    ast = _parse_statement(p, 0)
-    nodes, n_active = _flatten(ast)
-    return ScalarExpressionFunction{T, length(nodes)}(nodes, n_active,
-                                                      UInt8(length(var_names)))
-end
+    """
+    $(TYPEDSIGNATURES)
 
-"""
-$(TYPEDSIGNATURES)
+    Parse `string` as an expression in the variable namespace `var_names` and
+    store the resulting tree in flat form.  `var_names` is consumed by the
+    parser to bind identifiers to feature indices; it is not retained on the
+    resulting function.  The tuple width is chosen from `FEC_EXPR_WIDTHS` to
+    fit this tree, so the returned type is `ScalarExpressionFunction{T, N}`
+    with N depending on the expression.
+    """
+    function ScalarExpressionFunction{T}(string::String, var_names::Vector{String}) where T <: Number
+        p = Parser{T}(string, var_names)
+        _reset!(p)
+        ast = _parse_statement(p, 0)
+        nodes, n_active = _flatten(ast)
+        return ScalarExpressionFunction{T, length(nodes)}(nodes, n_active,
+                                                        UInt8(length(var_names)))
+    end
 
-Build a `ScalarExpressionFunction` from a prebuilt flat NTuple — used
-internally by [`differentiate`](@ref) to wrap the result of a tree rewrite
-without round-tripping through the parser.
-"""
-function ScalarExpressionFunction{T}(
-    nodes::NTuple{N, FlatNode{T}},
-    n_active::UInt16,
-    num_vars::Integer
-) where {T <: Number, N}
-    return ScalarExpressionFunction{T, N}(nodes, n_active, num_vars)
+    """
+    $(TYPEDSIGNATURES)
+
+    Build a `ScalarExpressionFunction` from a prebuilt flat NTuple — used
+    internally by [`differentiate`](@ref) to wrap the result of a tree rewrite
+    without round-tripping through the parser.
+    """
+    function ScalarExpressionFunction{T}(
+        nodes::NTuple{N, FlatNode{T}},
+        n_active::UInt16,
+        num_vars::Integer
+    ) where {T <: Number, N}
+        return ScalarExpressionFunction{T, N}(nodes, n_active, num_vars)
+    end
 end
 
 """
@@ -706,21 +732,35 @@ struct VectorExpressionFunction{N, T <: Number, M} <: AbstractExpressionFunction
     ) where {N, T <: Number, M}
         return new{N, T, M}(exprs, Int(num_vars))
     end
-end
 
-# The components are parsed independently and may land on different ladder
-# widths; the SVector needs one concrete element type, so widen them all to
-# the widest.
-function VectorExpressionFunction{N, T}(
-    strings::Vector{String},
-    var_names::Vector{String},
-) where {N, T <: Number}
-    @assert length(strings) == N
-    funcs = ntuple(i -> ScalarExpressionFunction{T}(strings[i], var_names), Val(N))
-    M = maximum(length, funcs)
-    padded = ntuple(i -> _repad(funcs[i], Val(M)), Val(N))
-    return VectorExpressionFunction{N, T, M}(
-        SVector{N, ScalarExpressionFunction{T, M}}(padded), length(var_names))
+    # The components are parsed independently and may land on different ladder
+    # widths; the SVector needs one concrete element type, so widen them all to
+    # the widest.
+    function VectorExpressionFunction{N, T}(
+        strings::Vector{String},
+        var_names::Vector{String},
+    ) where {N, T <: Number}
+        @assert length(strings) == N
+        funcs = ntuple(i -> ScalarExpressionFunction{T}(strings[i], var_names), Val(N))
+        M = maximum(length, funcs)
+        padded = ntuple(i -> _repad(funcs[i], Val(M)), Val(N))
+        return VectorExpressionFunction{N, T, M}(
+            SVector{N, ScalarExpressionFunction{T, M}}(padded), length(var_names))
+    end
+
+    """
+    Trim-safe vector constructor: every component uses the same width `M`.
+    """
+    function VectorExpressionFunction{N, T, M}(
+        strings::Vector{String},
+        var_names::Vector{String}
+    ) where {N, T <: Number, M}
+        @assert length(strings) == N
+        funcs = ntuple(i -> ScalarExpressionFunction{T, M}(strings[i], var_names), Val(N))
+        return VectorExpressionFunction{N, T, M}(
+            SVector{N, ScalarExpressionFunction{T, M}}(funcs), length(var_names)
+        )
+    end
 end
 
 function (f::VectorExpressionFunction)(var::T) where T <: Number
@@ -905,12 +945,24 @@ operators) — no dependency on ForwardDiff, Zygote, or Symbolics.
 The result is a fresh `ScalarExpressionFunction` over the same variable
 slots; the trailing variable is conventionally time.
 """
-function differentiate(f::ScalarExpressionFunction{T}, var_idx::Integer) where T
+function differentiate(f::ScalarExpressionFunction{T, N}, var_idx::Integer) where {T, N}
     @assert 1 <= Int(var_idx) <= Int(f.num_vars) "var_idx $(var_idx) out of range 1..$(Int(f.num_vars))"
     tree        = _unflatten(f.nodes)
     deriv_tree  = _differentiate(tree, Int(var_idx))
     nodes, n_active = _flatten(deriv_tree)
     return ScalarExpressionFunction{T}(nodes, n_active, f.num_vars)
+end
+
+function differentiate(
+    f::ScalarExpressionFunction{T, N},
+    var_idx::Integer,
+    ::Val{W}
+) where {T, N, W}
+    @assert 1 <= Int(var_idx) <= Int(f.num_vars) "var_idx out of range"
+    tree            = _unflatten(f.nodes, 1)
+    deriv_tree      = _differentiate(tree, Int(var_idx))
+    nodes, n_active = _flatten(deriv_tree, Val(W))   # fixed-width version
+    return ScalarExpressionFunction{T, W}(nodes, n_active, f.num_vars)
 end
 
 """

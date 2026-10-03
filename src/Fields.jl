@@ -470,6 +470,7 @@ end
 ######################################################################################################
 const PROPS_CONST = -1
 const PROPS_ELEMS = -2
+const PropertyBlock{T} = Union{Vector{T}, Matrix{T}}
 
 struct PropertyField{
     T <: Number,
@@ -490,42 +491,59 @@ struct PropertyField{
     # One entry per block.  A vector-like entry means the properties are
     # constant across that block; a matrix-like entry means one column per
     # element.  The two may be mixed freely.
-    function PropertyField(arrs::AbstractVector)
-        isempty(arrs) && throw(ArgumentError(
-            "PropertyField needs at least one block of properties, got none"))
+    function PropertyField(arrs::Vector{<:PropertyBlock{T}}) where {T <: Number}
+        isempty(arrs) && throw(ArgumentError("PropertyField needs at least one block of properties"))
 
-        blocks = map(_property_block, arrs)
-        T = promote_type(map(eltype, blocks)...)
-        blocks = map(x -> convert(AbstractArray{T}, x), blocks)
+        nblocks = length(arrs)
 
-        nblocks = length(blocks)
         isblockconstant = Vector{Int}(undef, nblocks)
-        nepes           = Vector{Int}(undef, nblocks)
-        nelems          = Vector{Int}(undef, nblocks)
-        offsets         = Vector{Int}(undef, nblocks)
+        nepes = Vector{Int}(undef, nblocks)
+        nelems = Vector{Int}(undef, nblocks)
+        offsets = Vector{Int}(undef, nblocks)
 
         offset = 1
-        for (n, x) in enumerate(blocks)
-            elementwise = x isa AbstractMatrix
-            isblockconstant[n] = elementwise ? PROPS_ELEMS : PROPS_CONST
-            nepes[n]           = elementwise ? size(x, 1) : length(x)
-            nelems[n]          = elementwise ? size(x, 2) : -1
-            offsets[n]         = offset
-            offset            += length(x)
+        for n in 1:nblocks
+            x = arrs[n]
+            if x isa Vector{T}
+                isblockconstant[n] = PROPS_CONST
+                nepes[n] = length(x)
+                nelems[n] = -1
+            else
+                isblockconstant[n] = PROPS_ELEMS
+                nepes[n] = size(x, 1)
+                nelems[n] = size(x, 2)
+            end
+            offsets[n] = offset
+            offset += length(x)
         end
-
         data = Vector{T}(undef, offset - 1)
         i = 1
-        for x in blocks
-            n = length(x)
-            copyto!(data, i, vec(x), 1, n)
-            i += n
+        for n in 1:nblocks
+            x = arrs[n]
+            nx = length(x)
+            copyto!(data, i, vec(x), 1, nx)
+            i += nx
         end
 
         return PropertyField{T, typeof(data), typeof(isblockconstant)}(
             data, isblockconstant, nblocks, nepes, nelems, offsets
         )
     end
+end
+
+# Any other list of blocks: an array literal that mixes a constant block and an
+# element-level block (element type `Array{Float64}`, as `_setup_properties`
+# builds it from a NamedTuple or a Dict), static arrays, views, or invalid
+# input.  Each block is converted to a `Vector` or `Matrix` of one promoted
+# element type and the typed constructor above is called; invalid input fails
+# with an `ArgumentError` that names the problem.  A trimmed app passes a
+# `Vector{<:PropertyBlock{T}}` and does not reach this method.
+function PropertyField(arrs::AbstractVector)
+    isempty(arrs) && throw(ArgumentError(
+        "PropertyField needs at least one block of properties, got none"))
+    blocks = map(_property_block, arrs)
+    T = promote_type(map(eltype, blocks)...)
+    return PropertyField(PropertyBlock{T}[convert(Array{T}, b) for b in blocks])
 end
 
 # Normalize one block's properties to a dense array we own.  This deliberately

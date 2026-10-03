@@ -20,8 +20,8 @@ function app_main(ARGS::Vector{String})
     #####################################
     # N = 1 # number of fields to solve for in app
     ET = ExodusDatabase{Int32, Int32, Int32, Float64}
-    SFT = AT.ScalarExpressionFunction{Float64}
-    VFT = AT.VectorExpressionFunction{N, Float64}
+    SFT = AT.SFunc{Float64}
+    VFT = AT.VFunc{N, Float64}
     SPT = FEC.CSCMatrix()
 
     ##################################################
@@ -39,18 +39,15 @@ function app_main(ARGS::Vector{String})
     asm = SparseMatrixAssembler{SPT, false, false}(dof)
 
     # setup physics and properties
-    # physics = Poisson{typeof(f)}[]
-    physics = Laplace[]
-    props = Vector{Float64}[]
-    for _ in 1:length(sim.mesh.element_conns)
-        # temp_physics = Poisson(f)
-        temp_physics = Laplace()
-        push!(physics, temp_physics)
-        push!(props, create_properties(temp_physics))
-    end
+    physics = Dict{String, Laplace}(
+        "block_1" => Laplace()
+    )
+    props = Dict{String, Vector{Float64}}(
+        "block_1" => Float64[]
+    )
 
     times = TimeStepper(0.0, 0.0, 1)
-    p = FEC.TypeStableParameters{SFT, VFT}(
+    p = FEC.TypeStableParameters{D, SFT, VFT}(
         sim.mesh, asm,
         physics, props,
         sim.ics, sim.dbcs, sim.nbcs, sim.pbcs, sim.srcs, times

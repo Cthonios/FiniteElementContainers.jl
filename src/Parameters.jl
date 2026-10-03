@@ -45,6 +45,16 @@ function _align_blocks(fspace, x::Tuple, what)
   )
 end
 
+function _align_blocks(fspace, x::Dict{String, T}, what) where T
+  b_names = block_names(fspace)
+  _check_block_keys(keys(x), b_names, what)
+  out = T[]
+  for block in b_names
+    push!(out, x[block])
+  end
+  return out
+end
+
 # a single physics/properties object shared by every block
 function _align_blocks(fspace, x, what)
   names = tuple(Symbol.(block_names(fspace))...)
@@ -57,6 +67,10 @@ end
 # Any AbstractVector of numbers, so an SVector works here too.
 function _setup_properties(fspace, props::AbstractVector{<:Number})
   return PropertyField(map(_ -> props, block_names(fspace)))
+end
+
+function _setup_properties(fspace, props::Vector{<:AbstractVector{T}}) where T <: Number
+  return PropertyField(props)
 end
 
 # namedtuple case that should become deprecated soon
@@ -279,7 +293,7 @@ struct TypeStableParameters{
     srcs = Sources{VF}(mesh, dof, srcs)
 
     physics = _align_blocks(fspace, physics, "physics")
-    # props = _align_blocks(fspace, props, "properties")
+    props = _align_blocks(fspace, props, "properties")
     props = _setup_properties(fspace, props)
 
     state_old, state_new = _setup_state_variables(fspace, physics)
@@ -316,7 +330,7 @@ struct TypeStableParameters{
     srcs = Sources{VF}(mesh, dof, srcs)
 
     physics = _align_blocks(fspace, physics, "physics")
-    # props = _align_blocks(fspace, props, "properties")
+    props = _align_blocks(fspace, props, "properties")
     props = _setup_properties(fspace, props)
 
     coords = mesh.nodal_coords
