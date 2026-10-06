@@ -44,7 +44,7 @@ PartitionedArraysExt = "PartitionedArrays"
 [compat]
 AMDGPU = "2"
 AbaqusReader = "0.2.7"
-AcceleratedKernels = "0.4"
+AcceleratedKernels = "0.4.3"
 Adapt = "4"
 Atomix = "1"
 BlockArrays = "1"
