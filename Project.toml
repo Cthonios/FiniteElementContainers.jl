@@ -27,7 +27,6 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [weakdeps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
-AbaqusReader = "bc6b9049-e460-56d6-94b4-a597b2c0390d"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
 Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
@@ -35,7 +34,6 @@ PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 
 [extensions]
 AMDGPUExt = "AMDGPU"
-AbaqusReaderExt = "AbaqusReader"
 CUDAExt = "CUDA"
 GmshExt = "Gmsh"
 MetisExt = "Metis"
@@ -43,7 +41,6 @@ PartitionedArraysExt = "PartitionedArrays"
 
 [compat]
 AMDGPU = "2"
-AbaqusReader = "0.2.7"
 AcceleratedKernels = "0.4.3 - 0.4"
 Adapt = "4"
 Atomix = "1"
@@ -67,7 +64,7 @@ SparseMatricesCSR = "0.6"
 StaticArrays = "1"
 TOML = "1"
 Tensors = "1"
-TimerOutputs = "0.5"
+TimerOutputs = "0.5.29, 1"
 julia = "1.10"
 
 [workspace]
