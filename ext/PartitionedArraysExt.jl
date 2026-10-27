@@ -423,9 +423,9 @@ function FEC.create_unknowns(pattern::PSparseVectorPattern)
 end
 
 function PartitionedArrays.pvector(pattern::PSparseVectorPattern, vals; reuse::Bool = false)
-	# vals = map(pattern.unknown_dofs, vals) do dofs, val
-	# 	val[dofs]
-	# end
+	vals = map(pattern.unknown_dofs, vals) do dofs, val
+		val[dofs]
+	end
 	return pvector(pattern.Is, vals, pattern.dof.solution_partition.parts; reuse = reuse)
 end
 
@@ -563,7 +563,7 @@ function Krylov.CgWorkspace(A::PSparseMatrix, b::PVector)
     p  = similar(b, axes(A, 2))
     Ap = similar(b, axes(A, 1))
     z  = similar(b, axes(A, 1))
-    stats = SimpleStats(0, false, false, false, 0, T[], T[], T[], 0.0, 0.0, "unknown")
+    stats = SimpleStats(0, false, false, false, 0, T[], T[], T[], T[], T(0.0), T(0.0), "unknown")
     workspace = CgWorkspace{T, FC, S}(m, n, Δx, x, r, npc_dir, p, Ap, z, false, stats)
     workspace.stats.allocation_timer = start_allocation_time |> Krylov.ktimer
     return workspace
