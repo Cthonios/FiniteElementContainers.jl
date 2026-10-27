@@ -92,7 +92,7 @@ function sidesets(mesh::FileMesh{<:ExodusDatabase, ExodusMesh})
     sides[name] = convert(Vector{Int}, sset.sides[perm])
 
     if length(sset.sides) == 0
-      num_nodes_per_side
+      num_nodes_per_side = 0
     else
       num_nodes_per_side = length(sset.side_nodes) ÷ length(sset.sides)
     end
