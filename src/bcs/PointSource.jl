@@ -89,7 +89,7 @@ function Adapt.adapt_structure(to, bc::PointSourceBCContainer)
   dofs = adapt(to, bc.dofs)
   nodes = adapt(to, bc.nodes)
   vals = adapt(to, bc.vals)
-  return DirichletBCContainer(dofs, nodes, vals)
+  return PointSourceBCContainer(dofs, nodes, vals)
 end
 
 function Base.show(io::IO, bc::PointSourceBCContainer)
