@@ -123,28 +123,30 @@ $(TYPEDSIGNATURES)
 $(TYPEDFIELDS)
 """
 struct Parameters{
-  D,       # dimension
-  IT       <: Integer,
-  RT       <: Number,
-  IV       <: AbstractVector{IT},
-  RV       <: AbstractVector{RT},
-  RM1      <: AbstractMatrix,
-  RM2      <: AbstractMatrix,
-  RM3      <: AbstractMatrix,
-  RM4      <: AbstractMatrix,
-  ICFuncs  <: AbstractVector,
-  DBCFuncs <: AbstractVector,
-  SRCFuncs <: AbstractVector,
-  NBCFuncs <: AbstractVector,
-  PBCFuncs <: AbstractVector,
-  RBCFuncs <: AbstractVector,
+  D,        # dimension
+  IT        <: Integer,
+  RT        <: Number,
+  IV        <: AbstractVector{IT},
+  RV        <: AbstractVector{RT},
+  RM1       <: AbstractMatrix,
+  RM2       <: AbstractMatrix,
+  RM3       <: AbstractMatrix,
+  RM4       <: AbstractMatrix,
+  ICFuncs   <: AbstractVector,
+  DBCFuncs  <: AbstractVector,
+  NBCFuncs  <: AbstractVector,
+  PBCFuncs  <: AbstractVector,
+  PSRCFuncs <: AbstractVector,
+  RBCFuncs  <: AbstractVector,
+  SRCFuncs  <: AbstractVector,
   Phys,
-  Field    <: AbstractField 
+  Field     <: AbstractField 
 } <: AbstractParameters
   ics::InitialConditions{ICFuncs, IV, RV}
   dirichlet_bcs::DirichletBCs{DBCFuncs, IV, RV}
   neumann_bcs::NeumannBCs{NBCFuncs, IT, IV, RM1}
   periodic_bcs::PeriodicBCs{PBCFuncs, IV, RV}
+  point_source_bcs::PointSourceBCs{PSRCFuncs, IV, RV}
   robin_bcs::RobinBCs{RBCFuncs, IT, IV, RM2, RM3}
   sources::Sources{SRCFuncs, RM4}
   times::TimeStepper{RT}
@@ -163,7 +165,7 @@ function Parameters(
   mesh, assembler,
   physics, properties,
   ics,
-  dbcs, nbcs, pbcs, rbcs,
+  dbcs, nbcs, pbcs, point_source_bcs, rbcs,
   sources,
   times
 )
@@ -175,6 +177,7 @@ function Parameters(
   dbcs = DirichletBCs(mesh, dof, dbcs)
   nbcs = NeumannBCs(mesh, dof, nbcs)
   pbcs = PeriodicBCs(mesh, dof, pbcs)
+  point_source_bcs = PointSourceBCs(mesh, dof, point_source_bcs)
   rbcs = RobinBCs(mesh, dof, rbcs)
   sources = Sources(mesh, dof, sources)
 
@@ -198,7 +201,7 @@ function Parameters(
   update_dofs!(assembler, dbcs, pbcs)
 
   return Parameters(
-    ics, dbcs, nbcs, pbcs, rbcs, sources, times,
+    ics, dbcs, nbcs, pbcs, point_source_bcs, rbcs, sources, times,
     physics, properties,
     state_old, state_new,
     coords, field, field_old, hvp_scratch_field
@@ -211,6 +214,7 @@ function Adapt.adapt_structure(to, p::Parameters)
     adapt(to, p.dirichlet_bcs),
     adapt(to, p.neumann_bcs),
     adapt(to, p.periodic_bcs),
+    adapt(to, p.point_source_bcs),
     adapt(to, p.robin_bcs),
     adapt(to, p.sources),
     adapt(to, p.times),
@@ -236,6 +240,8 @@ function Base.show(io::IO, parameters::Parameters)
   println(io, parameters.neumann_bcs)
   println(io, "Periodic Boundary Conditions:")
   println(io, parameters.periodic_bcs)
+  println(io, "Point Source Boundary Conditions:")
+  println(io, parameters.point_source_bcs)
   println(io, "Robin Boundary Conditions:")
   println(io, parameters.robin_bcs)
   println(io, "Sources:")
@@ -269,6 +275,7 @@ struct TypeStableParameters{
   dirichlet_bcs::DirichletBCs{Vector{DirichletBCFunction{SFuncT, SFuncT, SFuncT}}, IV, RV}
   neumann_bcs::NeumannBCs{Vector{NeumannBCFunction{VFuncT}}, IT, IV, RM}
   periodic_bcs::PeriodicBCs{Vector{PeriodicBCFunction{SFuncT}}, IV, RV}
+  point_source_bcs::PointSourceBCs{Vector{PointSourceBCFunction{SFuncT}}, IV, RV}
   # robin_bcs::RobinBCs{RBCFuncs, IT, IV, RM2, RM3}
   sources::Sources{Vector{SourceFunction{VFuncT}}, RM}
   times::TimeStepper{RT}
@@ -282,7 +289,10 @@ struct TypeStableParameters{
   # scratch fields
   hvp_scratch_field::Field
 
-  function TypeStableParameters{D, SF, VF}(mesh, assembler, physics, props, ics, dbcs, nbcs, pbcs, srcs, times) where {D, SF, VF}
+  function TypeStableParameters{D, SF, VF}(
+    mesh, assembler, physics, props,
+    ics, dbcs, nbcs, pbcs, point_source_bcs, srcs, times
+  ) where {D, SF, VF}
     dof = assembler.dof
     ND = size(dof, 1)
     fspace = function_space(dof)
@@ -290,6 +300,7 @@ struct TypeStableParameters{
     dbcs = DirichletBCs{SF}(mesh, dof, dbcs)
     nbcs = NeumannBCs{VF}(mesh, dof, nbcs)
     pbcs = PeriodicBCs{SF}(mesh, dof, pbcs)
+    point_source_bcs = PointSourceBCs{SF}(mesh, dof, point_source_bcs)
     srcs = Sources{VF}(mesh, dof, srcs)
 
     physics = _align_blocks(fspace, physics, "physics")
@@ -310,7 +321,7 @@ struct TypeStableParameters{
       D, SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
       typeof(physics), typeof(field)
     }(
-      ics, dbcs, nbcs, pbcs, srcs,
+      ics, dbcs, nbcs, pbcs, point_source_bcs, srcs,
       times, 
       physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
     )
@@ -318,7 +329,7 @@ struct TypeStableParameters{
 
   function TypeStableParameters{D, SF, VF}(
     mesh, assembler, physics, props, state_old, state_new,
-    ics, dbcs, nbcs, pbcs, srcs, times
+    ics, dbcs, nbcs, point_source_bcs, pbcs, srcs, times
   ) where {D, SF, VF}
     dof = assembler.dof
     ND = size(dof, 1)
@@ -327,6 +338,7 @@ struct TypeStableParameters{
     dbcs = DirichletBCs{SF}(mesh, dof, dbcs)
     nbcs = NeumannBCs{VF}(mesh, dof, nbcs)
     pbcs = PeriodicBCs{SF}(mesh, dof, pbcs)
+    point_source_bcs = PointSourceBCs{SF}(mesh, dof, point_source_bcs)
     srcs = Sources{VF}(mesh, dof, srcs)
 
     physics = _align_blocks(fspace, physics, "physics")
@@ -345,7 +357,7 @@ struct TypeStableParameters{
       D, SF, VF, Int, Float64, Vector{Int}, Vector{Float64}, Matrix{SVector{ND, Float64}},
       typeof(physics), typeof(field)
     }(
-      ics, dbcs, nbcs, pbcs, srcs,
+      ics, dbcs, nbcs, pbcs, point_source_bcs, srcs,
       times, 
       physics, props, state_old, state_new, coords, field, field_old, hvp_scratch_field
     )
@@ -358,13 +370,15 @@ function create_parameters(
   dirichlet_bcs        = DirichletBC[],
   neumann_bcs          = NeumannBC[],
   periodic_bcs         = PeriodicBC[],
+  point_source_bcs     = PointSourceBC[],
   robin_bcs            = RobinBC[],
   sources              = Source[],
   times                = nothing
 )
   return Parameters(
     mesh, assembler, physics, props, ics, 
-    dirichlet_bcs, neumann_bcs, periodic_bcs, robin_bcs, sources, times
+    dirichlet_bcs, neumann_bcs, periodic_bcs, point_source_bcs,
+    robin_bcs, sources, times
   )
 end
 
@@ -399,6 +413,13 @@ end
 """
 $(TYPEDSIGNATURES)
 """
+function point_source_dofs(p::AbstractParameters)
+  return point_source_dofs(p.periodic_dofs)
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
 function initialize!(p::AbstractParameters)
   update_ic_values!(p.ics, coordinates(p))
   update_field_ics!(p.field, p.ics)
@@ -428,6 +449,7 @@ function update_bc_values!(p::AbstractParameters, assembler)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, assembler, X, t)
   update_bc_values!(p.periodic_bcs, X, t)
+  update_bc_values!(p.point_source_bcs, X, t)
   # update_bc_values!(p.robin_bcs, assembler, X, t, p.field)
   update_source_values!(p.sources, assembler, X, t)
 
@@ -462,6 +484,7 @@ function update_bc_values!(p::TypeStableParameters, assembler)
   update_bc_values!(p.dirichlet_bcs, X, t)
   update_bc_values!(p.neumann_bcs, assembler, X, t)
   update_bc_values!(p.periodic_bcs, X, t)
+  update_bc_values!(p.point_source_bcs, X, t)
   # update_bc_values!(p.robin_bcs, assembler, X, t, p.field)
   update_source_values!(p.sources, assembler, X, t)
 

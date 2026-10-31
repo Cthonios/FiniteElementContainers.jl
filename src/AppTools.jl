@@ -13,6 +13,7 @@ import ..InitialCondition
 import ..InputFileParser
 import ..NeumannBC
 import ..PeriodicBC
+import ..PointSourceBC
 import ..RobinBC
 import ..Source
 import ..TimeStepper
@@ -341,6 +342,7 @@ struct BCSettings{N, T <: Number}
     dirichlet::Vector{DirichletBC{SFunc{T}}}
     neumann::Vector{NeumannBC{VFunc{N, T}}}
     periodic::Vector{PeriodicBC{SFunc{T}}}
+    point_source::Vector{PointSourceBC{SFunc{T}}}
     robin::Vector{RobinBC{VFunc{N, T}}}
     source::Vector{Source{VFunc{N, T}}}
 
@@ -354,6 +356,7 @@ struct BCSettings{N, T <: Number}
         dbcs = DirichletBC{SFunc{T}}[]
         nbcs = NeumannBC{VFunc{N, T}}[]
         pbcs = PeriodicBC{SFunc{T}}[]
+        point_source_bcs = PointSourceBC{SFunc{T}}[]
         rbcs = RobinBC{VFunc{N, T}}[]
         srcs = Source{VFunc{N, T}}[]
         if haskey(bc_settings, "dirichlet")
@@ -413,6 +416,11 @@ struct BCSettings{N, T <: Number}
             @assert false
         end
 
+        if haskey(bc_settings, "point source")
+            # TODO
+            @assert false
+        end
+
         if haskey(bc_settings, "robin")
             rbc_settings = bc_settings["robin"]::Vector{Any}
             for bc in rbc_settings
@@ -446,7 +454,7 @@ struct BCSettings{N, T <: Number}
             end
         end
     
-        new{N, T}(bc_settings, dbcs, nbcs, pbcs, rbcs, srcs)
+        new{N, T}(bc_settings, dbcs, nbcs, pbcs, point_source_bcs, rbcs, srcs)
     end
 end
 
@@ -674,6 +682,7 @@ struct Simulation{D, N, T <: Number, IO, Mesh}
     mesh::Mesh
     nbcs::Vector{NeumannBC{VFunc{N, T}}}
     pbcs::Vector{PeriodicBC{SFunc{T}}}
+    point_source_bcs::Vector{PointSourceBC{SFunc{T}}}
     rbcs::Vector{RobinBC{VFunc{N, T}}}
     srcs::Vector{Source{VFunc{N, T}}}
 
@@ -698,6 +707,7 @@ struct Simulation{D, N, T <: Number, IO, Mesh}
             settings.bcs.dirichlet, settings.ics.ics, 
             settings, log_file, mesh,
             settings.bcs.neumann, settings.bcs.periodic,
+            settings.bcs.point_source,
             settings.bcs.robin, settings.bcs.source
         )
     end

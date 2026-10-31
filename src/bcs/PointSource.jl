@@ -1,0 +1,366 @@
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+User facing API to define a ```PointSourceBC```.
+"""
+struct PointSourceBC{F} <: AbstractBC{F}
+  func::F
+  nset_name::EntityName
+  sset_name::EntityName
+  var_name::String
+
+  """
+  $(TYPEDEF)
+  $(TYPEDSIGNATURES)
+  $(TYPEDFIELDS)
+  """
+  function PointSourceBC(
+    var_name::String, func::Function;
+    nodeset_name::EntityName = nothing,
+    sideset_name::EntityName = nothing
+  )
+    if nodeset_name === nothing && sideset_name === nothing
+      _entity_not_provided_error(
+        "block_name, nodeset_name, or sideset_name required" *
+        " as input arguments in PointSourceBC"
+      )
+    end
+    count = (nodeset_name !== nothing) +
+            (sideset_name !== nothing)
+    if count != 1
+      _unsure_entity_type_error("More than one entity type specificed in PointSourceBC")
+    end
+    new{typeof(func)}(func, nodeset_name, sideset_name, var_name)
+  end
+end
+
+"""
+$(TYPEDEF)
+$(TYPEDSIGNATURES)
+$(TYPEDFIELDS)
+Internal implementation of dirichlet BCs
+"""
+struct PointSourceBCContainer{
+  IV <: AbstractArray{<:Integer, 1},
+  RV <: AbstractArray{<:Number, 1}
+} <: AbstractBCContainer{IV, RV}
+  dofs::IV
+  nodes::IV
+  vals::RV
+
+  """
+  $(TYPEDEF)
+  $(TYPEDSIGNATURES)
+  $(TYPEDFIELDS)
+  """
+  function PointSourceBCContainer(mesh, dof::DofManager, dbc::PointSourceBC)
+    dof_index = _dof_index_from_var_name(dof, dbc.var_name)
+    all_dofs = reshape(1:length(dof), size(dof))
+
+    if dbc.nset_name !== nothing
+      nodes = mesh.nodeset_nodes[dbc.nset_name]
+    elseif dbc.sset_name !== nothing
+      nodes = mesh.sideset_nodes[dbc.sset_name]
+    end
+
+    # gather dofs associated with nodes
+    dofs = all_dofs[dof_index, nodes]
+
+    # sort nodes and dofs for dirichlet bc
+    dof_perm = _unique_sort_perm(dofs)
+    dofs = dofs[dof_perm]
+    nodes = nodes[dof_perm]
+
+    vals = zeros(length(nodes))
+    return PointSourceBCContainer(dofs, nodes, vals)
+  end
+
+  function PointSourceBCContainer(dofs, nodes, vals)
+    new{typeof(dofs), typeof(vals)}(dofs, nodes, vals)
+  end
+
+  function PointSourceBCContainer{IV, RV}() where {IV, RV}
+    new{IV, RV}(Int[], Int[], Float64[])
+  end
+end
+
+function Adapt.adapt_structure(to, bc::PointSourceBCContainer)
+  dofs = adapt(to, bc.dofs)
+  nodes = adapt(to, bc.nodes)
+  vals = adapt(to, bc.vals)
+  return DirichletBCContainer(dofs, nodes, vals)
+end
+
+function Base.show(io::IO, bc::PointSourceBCContainer)
+  println(io, "$(typeof(bc).name.name):")
+  println(io, "  Number of active dofs     = $(length(bc.dofs))")
+  println(io, "  Number of active nodes    = $(length(bc.nodes))")
+end
+
+# this will break whatever is in vals and zero things out
+function fuse_bcs(sort_and_unique::Bool, bc1::PointSourceBCContainer, args...)
+  dofs = bc1.dofs
+  nodes = bc1.nodes
+  for bc2 in args
+    append!(dofs, bc2.dofs)
+    append!(nodes, bc2.nodes)
+  end
+
+  if sort_and_unique
+    perm = _unique_sort_perm(dofs)
+    dofs = dofs[perm]
+    nodes = nodes[perm]
+  end
+
+  vals = zeros(eltype(bc1.vals), length(dofs))
+  return PointSourceBCContainer(dofs, nodes, vals)
+end
+
+function _fuse_bcs(sort_and_unique::Bool, bc1::PointSourceBCContainer, bc2::PointSourceBCContainer)
+  dofs = bc1.dofs
+  nodes = bc1.nodes
+  append!(dofs, bc2.dofs)
+  append!(nodes, bc2.nodes)
+
+  if sort_and_unique
+    perm = _unique_sort_perm(dofs)
+    dofs = dofs[perm]
+    nodes = nodes[perm]
+  end
+
+  vals = zeros(eltype(bc1.vals), length(dofs))
+  return PointSourceBCContainer(dofs, nodes, vals)
+end
+
+struct PointSourceBCFunction{F} <: AbstractBCFunction{F}
+  func::F
+
+  function PointSourceBCFunction(func::F) where F <: Function
+    new{F}(func)
+  end
+
+  function PointSourceBCFunction{F}(f::F) where F <: Function
+    new{F}(f)
+  end
+end
+
+"""
+$(TYPEDSIGNATURES)
+"""
+function _update_bc_values!(bc::PointSourceBCContainer, func::PointSourceBCFunction, X, t, bc_length::Int, offset::Int)
+  backend = KA.get_backend(bc)
+  fec_foreach(1:bc_length, backend) do n
+    ND = num_fields(X)
+    index = n + offset
+    node = bc.nodes[index]
+  
+    # hacky for now, but it works
+    # can't do X[:, node] on the GPU, this results in a dynamic
+    # function call
+    if ND == 1
+      X_temp = SVector{ND, eltype(X)}(X[1, node])
+    elseif ND == 2
+      X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node])
+    elseif ND == 3
+      X_temp = SVector{ND, eltype(X)}(X[1, node], X[2, node], X[3, node])
+    end
+
+    bc.vals[index] = func.func(X_temp, t)
+  end
+end
+
+struct PointSourceBCs{
+  BCFuncs,
+  IV      <: AbstractArray{<:Integer, 1},
+  RV      <: AbstractArray{<:Number, 1},
+} <: AbstractBCs{BCFuncs}
+  bc_cache::PointSourceBCContainer{IV, RV}
+  bc_funcs::BCFuncs
+  bc_lengths::Vector{Int}
+
+  function PointSourceBCs(mesh::AbstractMesh, dof, bcs_input)
+    # base case return empty stuff
+    if length(bcs_input) == 0
+      bc_cache = PointSourceBCContainer{Vector{Int}, Vector{Float64}}()
+      bc_funcs = PointSourceBCFunction[]
+      return new{Vector{PointSourceBCFunction}, Vector{Int}, Vector{Float64}}(
+        bc_cache, bc_funcs, Int[]
+      )
+    end
+
+    # wrap funcs in our DirichletBCFunction
+    funcs = map(x -> PointSourceBCFunction(x.func), bcs_input)
+
+    # TODO can we make it cleaner so we don't need to fuse
+    # and just query mesh for length info?
+    caches = PointSourceBCContainer.((mesh,), (dof,), bcs_input)
+
+    # fusing bcs with a common function
+    func_to_ids = Dict{PointSourceBCFunction, Vector{Int}}()
+    for (n, func) in enumerate(funcs)
+      if haskey(func_to_ids, func)
+        push!(func_to_ids[func], n)
+      else
+        func_to_ids[func] = [n]
+      end
+    end
+
+    bc_cache = typeof(caches[1])[]
+    bc_funcs = PointSourceBCFunction[]
+    for (func, ids) in pairs(func_to_ids)
+      push!(bc_funcs, func)
+      push!(bc_cache, fuse_bcs(true, caches[ids]...))
+    end
+
+    # get all lengths for indexing purposes later
+    bc_lengths = map(x -> length(x.dofs), bc_cache)
+
+    # now we'll fuse bcs one more time so we only have a single
+    # container for all dirichlet bcs. We just use the indexes
+    # for dispatching to individual kernels for the different functions
+    # TODO the setup could be made more efficient
+    # make sure not to sort and unique
+    bc_cache = fuse_bcs(false, bc_cache...)
+
+    # finally update dofs in dof based on bcs
+    # temp_dofs = unique(sort(bc_cache.dofs))
+    # update_dofs!(dof, temp_dofs)
+
+    # return DirichletBCs(bc_cache, bc_funcs, bc_lengths)
+    new{typeof(bc_funcs), typeof(bc_lengths), typeof(bc_cache.vals)}(
+      bc_cache, bc_funcs, bc_lengths
+    )
+  end
+
+  # juliac-safe path: derives `func_dot` and `func_dot_dot` symbolically via
+  # [`Expressions.differentiate`](@ref) on the user's expression tree, so
+  # dynamic Dirichlet BCs work under `juliac --trim` without requiring
+  # ForwardDiff, Zygote, Symbolics, or user-supplied derivatives.
+  #
+  # F is expected to be `Expressions.ScalarExpressionFunction{T}`.  The
+  # convention is that the last variable in the user's expression is time,
+  # so the time-derivative index is `bc.func.num_vars` (e.g. 4 for the
+  # standard `["x", "y", "z", "t"]` namespace).
+  function PointSourceBCs{F}(mesh::AbstractMesh, dof, bcs_input) where {F <: Function}
+    bc_funcs = PointSourceBCFunction{F}[]
+    if length(bcs_input) == 0
+      IV = Vector{Int}
+      RV = Vector{Float64}
+      bc_cache = PointSourceBCContainer{IV, RV}()
+      return new{typeof(bc_funcs), IV, RV}(bc_cache, bc_funcs)
+    end
+
+    for bc in bcs_input
+      push!(bc_funcs,
+            PointSourceBCFunction{F}(bc.func))
+    end
+
+    bc_caches = PointSourceBCContainer.((mesh,), (dof,), bcs_input)
+
+    # fusing bcs with a common function
+    func_to_ids = Dict{PointSourceBCFunction, Vector{Int}}()
+    for (n, func) in enumerate(bc_funcs)
+      if haskey(func_to_ids, func)
+        push!(func_to_ids[func], n)
+      else
+        func_to_ids[func] = [n]
+      end
+    end
+
+    bc_cache = typeof(bc_caches[1])[]
+    bc_funcs = DirichletBCFunction{F, F, F}[]
+    for (func, ids) in pairs(func_to_ids)
+      ids_typed = ids::Vector{Int}
+      temp_cache = bc_caches[ids_typed[1]]
+      for n in 2:length(ids_typed)
+        temp_cache = _fuse_bcs(true, temp_cache, bc_caches[ids_typed[n]])
+      end
+      push!(bc_cache, temp_cache)
+      push!(bc_funcs, func)
+    end
+
+
+    # get all lengths for indexing purposes later
+    bc_lengths = map(x -> length(x.dofs), bc_cache)
+
+    # now we'll fuse bcs one more time so we only have a single
+    # container for all dirichlet bcs. We just use the indexes
+    # for dispatching to individual kernels for the different functions
+    # TODO the setup could be made more efficient
+    # make sure not to sort and unique
+    # bc_cache = _fuse_bcs_final(false, bc_cache)
+    bc_cache_new = bc_cache[1]
+    for n in 2:length(bc_cache)
+      bc_cache_new = _fuse_bcs(false, bc_cache_new, bc_cache[n])
+    end
+
+    # finally update dofs in dof based on bcs
+    # temp_dofs = unique(sort(bc_cache_new.dofs))
+    # update_dofs!(dof, temp_dofs)
+
+    new{typeof(bc_funcs), typeof(bc_lengths), typeof(bc_cache_new.vals)}(
+      bc_cache_new, bc_funcs, bc_lengths
+    )
+  end
+
+  function PointSourceBCs{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths) where {BCF <: Vector, IV <: AbstractVector, RV <: AbstractVector}
+    new{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths)
+  end
+end
+
+function Adapt.adapt_structure(to, bcs::PointSourceBCs{BCF, IV, RV}) where {BCF, IV, RV}
+  # NOTE
+  # below logic is needed due to improper
+  # adapt mapping for an empty array in julia 1.10/1.11
+  # where Vector{T}(undef, 0) gets mappend to Vector{Any}
+  if length(bcs.bc_lengths) > 0
+    bc_cache = adapt(to, bcs.bc_cache)
+  else
+    temp_int = adapt(to, zeros(Int, 0))
+    temp_floats = adapt(to, zeros(Float64, 0))
+    bc_cache = PointSourceBCContainer(temp_int, copy(temp_int), temp_floats)
+  end
+  return PointSourceBCs{BCF, typeof(bc_cache.dofs), typeof(bc_cache.vals)}(
+    bc_cache,
+    bcs.bc_funcs,
+    bcs.bc_lengths
+  )
+end
+
+Base.length(bcs::PointSourceBCs) = length(bcs.bc_funcs)
+
+# TODO improve this guy
+function Base.show(io::IO, bcs::PointSourceBCs)
+  # for (n, (cache, func)) in enumerate(zip(bcs.bc_cache, bcs.bc_funcs))
+  show(io, "PointSourceBC:")
+  show(io, bcs.bc_cache)
+  show(io, bcs.bc_lengths)
+  # show(io, func)
+  show(io, "\n")
+  # end
+end
+
+function point_source_dofs(bcs::PointSourceBCs)
+  return unique(sort(bcs.bc_cache.dofs))
+end
+
+function update_bc_values!(bcs::PointSourceBCs, X, t)
+  offset = 0
+  for n in axes(bcs.bc_funcs, 1)
+    func = bcs.bc_funcs[n]
+    bc_length = bcs.bc_lengths[n]
+    _update_bc_values!(bcs.bc_cache, func, X, t, bc_length, offset)
+    offset += bc_length
+  end
+  return nothing
+end
+
+function update_field_bcs!(U, bcs::PointSourceBCs)
+  cache = bcs.bc_cache
+  fec_foreach(cache.dofs) do I
+    dof = cache.dofs[I]
+    U[dof] -= cache.vals[I]
+  end
+  return nothing
+end
