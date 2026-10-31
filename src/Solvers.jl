@@ -78,6 +78,7 @@ function solve!(solver::DirectLinearSolver, Uu, p)
     assemble_vector!(solver.assembler, residual_method, Uu, p)
     assemble_vector_source!(solver.assembler, Uu, p)
     assemble_vector_neumann_bc!(solver.assembler, Uu, p)
+    
     # assemble_vector_robin_bc!(solver.assembler, Uu, p)
     assemble_stiffness!(solver.assembler, stiffness_method, Uu, p)
 
@@ -85,6 +86,8 @@ function solve!(solver::DirectLinearSolver, Uu, p)
     update_bc_values!(p.robin_bcs, solver.assembler, p.coords, p.times.time_current, p.field)
     assemble_vector_robin_bc!(solver.assembler, Uu, p)
     assemble_matrix_robin_bc!(solver.assembler, Uu, p)
+
+    update_field_bcs!(solver.assembler.residual_storage, p.point_source_bcs)
 
     R = residual(solver.assembler)
     K = stiffness(solver.assembler)
@@ -146,6 +149,8 @@ function solve!(solver::IterativeLinearSolver, Uu, p)
         assemble_vector_source!(asm, Uu, p)
         assemble_vector_neumann_bc!(asm, Uu, p)
         # assemble_vector_robin_bc!(asm, Uu, p)
+        # update point source bcs
+        update_field_bcs!(asm.residual_storage, p.point_source_bcs)
     end
     @timeit solver.timer "stiffness assembly" begin
         assemble_stiffness!(asm, stiffness_method, Uu, p)
@@ -183,7 +188,7 @@ struct NewtonSolverSettings{T <: Number, CB} <: AbstractNonLinearSolverSettings
     log_callback::CB
 
     function NewtonSolverSettings()
-        new{Float64, Nothing}(10, 1e-12, 1e-12, 1e-12, nothing)
+        new{Float64, Nothing}(10, 1e-12, 1e-12, 1e-14, nothing)
     end
 end
 

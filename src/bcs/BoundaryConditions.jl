@@ -16,20 +16,6 @@ struct VariableNameNotFoundError <: Exception
 end
 _var_not_found_err() = throw(VariableNameNotFoundError())
 
-# function _dof_index_from_var_name(dof, var_name)
-#   # dbc/nbc or robin for scalar case
-#   dof_index = findfirst(x -> x == var_name, names(dof.var))
-#   if dof_index === nothing
-#     # try a vector/tensor neumann/robin bc type
-#     dof_index = findfirst(x -> occursin("$(var_name)_", x), names(dof.var))
-
-#     # if we still haven't found anything, this variable likely doesn't exist
-#     if dof_index === nothing
-#       _var_not_found_err()
-#     end
-#   end
-#   return dof_index
-# end
 function _dof_index_from_var_name(dof, var_name)
   var_names = names(dof.var)
 
@@ -246,21 +232,12 @@ function update_bc_values! end
 
 Base.length(bcs::AbstractBCs) = length(bcs.bc_funcs)
 
-# function Base.show(io::IO, bcs::AbstractBCs)
-#   type = typeof(bcs).name.name
-#   for (n, (cache, func)) in enumerate(zip(bcs.bc_caches, bcs.bc_funcs))
-#     show(io, "$(type)_$n")
-#     show(io, cache)
-#     show(io, func)
-#     show(io, "\n")
-#   end
-# end
-
-include("DirichletBCs.jl")
-include("NeumannBCs.jl")
-include("PeriodicBCs.jl")
-include("RobinBCs.jl")
-include("Sources.jl")
+include("DirichletBC.jl")
+include("NeumannBC.jl")
+include("PeriodicBC.jl")
+include("PointSource.jl")
+include("RobinBC.jl")
+include("Source.jl")
 
 # returns vectors
 # callers are responsible for converting to named tuples
@@ -385,19 +362,6 @@ function _setup_sideset(mesh, dof, bc)
 
   # setup cache and connectivity
   fspace = function_space(dof)
-  # NQs = Int[]
-  # # foreach_block(fspace.block_to_ref_fe_id) do ref_fe, b
-  # foreach_block(fspace) do ref_fe, b
-  #   if b == block_id
-  #     # NQ = num_surface_quadrature_points(ref_fe)::Int
-  #     # NQ = 1
-  #     # push!(NQs, NQ)
-  #     push!(NQs, NQ)
-  #   end
-  # end
-  # @assert length(NQs) == 1
-  # NQ = NQs[1]
-  # @assert NQ != -1 "Bad quadrature"
   nqs = -1 * ones(Int, MAX_BLOCKS)
   foreach_block(fspace) do ref_fe, b
     if b == block_id

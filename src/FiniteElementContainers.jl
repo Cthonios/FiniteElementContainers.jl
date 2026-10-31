@@ -33,6 +33,8 @@ export NeumannBC
 export NeumannBCs
 export PeriodicBC
 export PeriodicBCs
+export PointSourceBC
+export PointSourceBCs
 export RobinBC
 export RobinBCs
 export Source

@@ -1,13 +1,28 @@
 # using Enzyme
 
-struct Mechanics{Form} <: AbstractPhysics{2, 3, 0}
+struct Mechanics{D, Form} <: AbstractPhysics{D, 3, 0}
   formulation::Form
+
+  function Mechanics(form)
+    if isa(form, PlaneStrain)
+      D = 2
+    elseif isa(form, ThreeDimensional)
+      D = 3
+    else
+      @assert false "Currently unsupported"
+    end
+    new{D, typeof(form)}(form)
+  end
 end
 
 function FiniteElementContainers.create_properties(::Mechanics)
   ρ = 1e3
-  K = 10.e9
-  G = 1.e9
+  # K = 10.e9
+  # G = 1.e9
+  # K = 666700000.0
+  # G = 400000000.0
+  K = 6.66e8
+  G = 4e8
   return [ρ, K, G]
 end
 

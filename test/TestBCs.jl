@@ -3,7 +3,7 @@
   dummy_func_2(x, t) = 5. * SVector{2, Float64}(1., 0.)
   dummy_func_3(x, t, u) = 5. * SVector{2, Float64}(1., 0.) + u
 
-  mesh = UnstructuredMesh("poisson/poisson.g")
+  mesh = UnstructuredMesh(Base.source_dir() * "/poisson/poisson.g")
   fspace = FunctionSpace(mesh, H1Field, Lagrange)
 end
 
@@ -348,4 +348,15 @@ end
   for dev in gpu_backends
     @test ic_values(dev) ≈ ic_reference
   end
+end
+
+@testitem "PointSourceBCs - init" setup=[BCHelper] begin
+  if "--test-amdgpu" in ARGS @eval using AMDGPU end
+  if "--test-cuda" in ARGS @eval using CUDA end
+  # include("mechanics/MechanicsCommon.jl")
+  u = VectorFunction(fspace, "displ")
+  dof = DofManager(u)
+  source_in = PointSourceBC("displ", dummy_func_1, nodeset_name = "nset_1")
+  sources = PointSourceBCs(mesh, dof, PointSourceBC[source_in])
+  @show sources
 end
