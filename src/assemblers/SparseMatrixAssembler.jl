@@ -224,7 +224,7 @@ end
 
 function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledSparseVector)
   backend = KA.get_backend(asm)
-  return KA.zeros(backend, Float64, asm.vector_pattern.max_entries[1])
+  return fec_dense_array(backend, Float64, asm.vector_pattern.max_entries[1])
 end
 
 function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledMatrix)
@@ -233,7 +233,7 @@ function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledMatrix)
           "SparseMatrixAssembler.  Re-create the assembler with matrix_free=false.")
   end
   backend = KA.get_backend(asm)
-  return KA.zeros(backend, Float64, asm.matrix_pattern.max_entries[1])
+  return fec_dense_array(backend, Float64, asm.matrix_pattern.max_entries[1])
 end
 
 # helper methods for accessing parametric types

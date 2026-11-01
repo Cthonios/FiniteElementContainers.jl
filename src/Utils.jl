@@ -122,16 +122,20 @@ function fec_foreach(
     # GPU settings
     block_size = 256,
 )
-    if AK.use_gpu_algorithm(backend, prefer_threads)
-        AK._forindices_gpu(f, eachindex(itr), backend; block_size)
-    elseif max_tasks == 1
-        _forindices_serial(f, eachindex(itr))
+    if isa(backend, KA.CPU)
+        if max_tasks == 1
+            _forindices_serial(f, eachindex(itr))
+        else
+            _forindices_threads(
+                f, eachindex(itr),
+                max_tasks = max_tasks,
+                min_elems = min_elems
+            )
+        end
     else
-        _forindices_threads(
-            f, eachindex(itr),
-            max_tasks = max_tasks,
-            min_elems = min_elems
-        )
+        indices = eachindex(itr)
+        blocks = cld(length(indices), block_size)
+        AK.foreachindex_kernel!(backend, block_size)(f, indices, ndrange=(block_size * blocks,))
     end
 end
 
@@ -154,16 +158,20 @@ function fec_foraxes(
         )
     end
 
-    if AK.use_gpu_algorithm(backend, prefer_threads)
-        AK._forindices_gpu(f, axes(itr, dims), backend; block_size)
-    elseif max_tasks == 1
-        _forindices_serial(f, axes(itr, dims))
+    if isa(backend, KA.CPU)
+        if max_tasks == 1
+            _forindices_serial(f, axes(itr, dims))
+        else
+            _forindices_threads(
+                f, axes(itr, dims);
+                max_tasks = max_tasks,
+                min_elems = min_elems
+            )
+        end
     else
-        _forindices_threads(
-            f, axes(itr, dims);
-            max_tasks = max_tasks,
-            min_elems = min_elems
-        )
+        indices = axes(itr, dims)
+        blocks = cld(length(indices), block_size)
+        AK.foreachindex_kernel!(backend, block_size)(f, indices, ndrange=(block_size * blocks,))
     end
 end
 
@@ -280,16 +288,20 @@ function foreach_element(
     block_size = 256
 )
     nelems = conns.nelems[block_id]
-    if AK.use_gpu_algorithm(backend, prefer_threads)
-        AK._forindices_gpu(f, 1:nelems, backend; block_size)
-    elseif max_tasks == 1
-        _forindices_serial(f, 1:nelems)
+    if isa(backend, KA.CPU)
+        if max_tasks == 1
+            _forindices_serial(f, 1:nelems)
+        else
+            _forindices_threads(
+                f, 1:nelems,
+                max_tasks = max_tasks,
+                min_elems = min_elems
+            )
+        end
     else
-        _forindices_threads(
-            f, 1:nelems,
-            max_tasks = max_tasks,
-            min_elems = min_elems
-        )
+        indices = eachindex(1:nelems)
+        blocks = cld(length(indices), block_size)
+        AK.foreachindex_kernel!(backend, block_size)(f, indices, ndrange=(block_size * blocks,))
     end
 end
 
