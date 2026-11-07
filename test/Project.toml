@@ -1,6 +1,6 @@
 [deps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 FiniteElementContainers = "d08262e4-672f-4e7f-a976-f2cea5767631"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"

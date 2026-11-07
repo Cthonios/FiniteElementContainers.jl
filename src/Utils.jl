@@ -1,15 +1,3 @@
-abstract type FECBackend <: KI.Backend end
-
-struct CPUBackend
-end
-
-# struct GPUBackend
-# end
-
-function execution_mode(::AbstractArray)
-    return CPUBackend()
-end
-
 function fec_atomic_add!(
     field::AbstractField{T, N, D},
     index::Int, val::T
@@ -36,15 +24,15 @@ end
 $(TYPEDSIGNATURES)
 Create a dense array on ``backend`` of default type.
 """
-function fec_dense_array(backend::KI.Backend, size...)
-    return fec_dense_array(backend, Float64, size...)
+function fec_dense_array(exec::AbstractExec, size...)
+    return fec_dense_array(exec, Float64, size...)
 end
 
 """
 $(TYPEDSIGNATURES)
 Create a dense array on the host of arbitrary type ``RT``.
 """
-function fec_dense_array(::KA.CPU, ::Type{RT}, size...) where RT <: Number
+function fec_dense_array(::CPUExec, ::Type{RT}, size...) where RT <: Number
     return zeros(RT, size...)
 end
 
@@ -126,7 +114,8 @@ end
 
 function fec_foreach(
     f, itr,
-    backend::KI.Backend = KI.get_backend(itr);
+    # backend::KI.Backend = KI.get_backend(itr);
+    exec::AbstractExec = execution_mode(itr);
     # CPU settings
     max_tasks = Threads.nthreads(),
     min_elems = 1,
@@ -134,7 +123,7 @@ function fec_foreach(
     # GPU settings
     block_size = 256,
 )
-    if isa(backend, KA.CPU)
+    if isa(exec, CPUExec)
         if max_tasks == 1
             _forindices_serial(f, eachindex(itr))
         else
@@ -147,14 +136,15 @@ function fec_foreach(
     else
         indices = eachindex(itr)
         blocks = cld(length(indices), block_size)
-        AK.foreachindex_kernel!(backend, block_size)(f, indices, ndrange=(block_size * blocks,))
+        AK.foreachindex_kernel!(get_backend(exec), block_size)(f, indices, ndrange=(block_size * blocks,))
     end
 end
 
 function fec_foraxes(
     f, itr,
     dims::Union{Nothing, <:Integer} = nothing,
-    backend::KI.Backend = KI.get_backend(itr);
+    # backend::KI.Backend = KI.get_backend(itr);
+    exec = execution_mode(itr);
     # CPU settings
     max_tasks = Threads.nthreads(),
     min_elems = 1,
@@ -170,7 +160,7 @@ function fec_foraxes(
         )
     end
 
-    if isa(backend, KA.CPU)
+    if isa(exec, CPUExec)
         if max_tasks == 1
             _forindices_serial(f, axes(itr, dims))
         else
@@ -183,7 +173,7 @@ function fec_foraxes(
     else
         indices = axes(itr, dims)
         blocks = cld(length(indices), block_size)
-        AK.foreachindex_kernel!(backend, block_size)(f, indices, ndrange=(block_size * blocks,))
+        AK.foreachindex_kernel!(get_backend(exec), block_size)(f, indices, ndrange=(block_size * blocks,))
     end
 end
 
@@ -292,7 +282,8 @@ takes in connectivity and element id
 """
 function foreach_element(
     f, conns, block_id,
-    backend = KI.get_backend(conns.data);
+    # backend = KI.get_backend(conns.data);
+    exec = execution_mode(conns.data);
     max_tasks = Threads.nthreads(),
     min_elems = 1,
     prefer_threads::Bool = true,
@@ -300,7 +291,7 @@ function foreach_element(
     block_size = 256
 )
     nelems = conns.nelems[block_id]
-    if isa(backend, KA.CPU)
+    if isa(exec, CPUExec)
         if max_tasks == 1
             _forindices_serial(f, 1:nelems)
         else
@@ -313,6 +304,7 @@ function foreach_element(
     else
         indices = eachindex(1:nelems)
         blocks = cld(length(indices), block_size)
+        backend = get_backend(exec)
         AK.foreachindex_kernel!(backend, block_size)(f, indices, ndrange=(block_size * blocks,))
     end
 end
@@ -320,40 +312,6 @@ end
 #########################################
 # hooks for extensions
 #########################################
-# device stuff
-function cpu end
-# TODO need to further specialize for staticarrays, etc.
-cpu(x) = adapt(Array, x)
-function cuda end
-function rocm end
-
-get_backend(a::T) where T = KI.get_backend(a)
-function get_host end
-
-# assumptiosn are following
-# things default to CPU unless certain contracts
-# are satisfied in extensions
-is_cpu(::KI.Backend) = true
-is_gpu(::KI.Backend) = false
-
-"""
-$(TYPEDSIGNATURES)
-Move `x` onto the given KernelAbstractions backend.  CPU is identity —
-CPU-built data already lives on the CPU backend.  GPU backends (CUDABackend,
-ROCBackend) are provided by the CUDA / AMDGPU package extensions.
-"""
-to_backend(b::KI.Backend, x) = error(
-  "to_backend is not implemented for backend $(typeof(b)); load the " *
-  "corresponding GPU package (CUDA.jl or AMDGPU.jl) so its extension activates."
-)
-
-# to_backend(::KA.CPU, x) = x
-
-"""
-$(TYPEDSIGNATURES)
-Move `x` onto the host.
-"""
-to_host(x) = to_backend(KA.CPU(), x)
 
 # general array stuff
 function _coo_matrix end

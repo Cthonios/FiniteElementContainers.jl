@@ -182,7 +182,6 @@ export MappedH1OrL2SurfaceInterpolants
 
 # dependencies
 import AcceleratedKernels as AK
-import KernelAbstractions as KA
 import KernelInterface as KI
 using Adapt
 using Atomix
@@ -264,6 +263,7 @@ end
 
 # TODO clean this up, make it make sense in an ordered way
 # include("parallel/Parallel.jl")
+include("Device.jl")
 include("Expressions.jl")
 include("Fields.jl")
 include("PostProcessors.jl")

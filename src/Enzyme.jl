@@ -17,7 +17,7 @@ function assemble_scalar_enzyme_safe!(
     values(p.physics), values(fspace.ref_fes)
   ))
     _assemble_scalar_block_enzyme_safe!(
-      KA.CPU(),
+      CPUExec(),
       block_view(storage, b),
       conns, 
       func,
@@ -32,7 +32,7 @@ function assemble_scalar_enzyme_safe!(
 end
 
 function _assemble_scalar_block_enzyme_safe!(
-  ::KA.CPU,
+  ::CPUExec,
   field,
   conns_all,
   func::Function,
@@ -102,7 +102,7 @@ function assemble_vector_enzyme_safe!(
     values(p.physics), values(fspace.ref_fes)
   ))
     _assemble_vector_block_enzyme_safe!(
-      KA.CPU(),
+      CPUExec(),
       storage,
       conns,
       func,
@@ -126,7 +126,7 @@ with no threading.
 TODO add state variables and physics properties
 """
 function _assemble_vector_block_enzyme_safe!(
-  ::KA.CPU,
+  ::CPUExec,
   field,
   conns_all,
   func::Function,

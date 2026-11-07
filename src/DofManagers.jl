@@ -137,6 +137,7 @@ print(io, "$(pad)DofManager\n",
           "$(pad)  Number of unknown dofs    = $(length(dof.unknown_dofs))\n",
           "$(pad)  Storage type              = $(typeof(dof.unknown_dofs))")
 
+execution_mode(dof::DofManager) = execution_mode(dof.dirichlet_dofs)
 KI.get_backend(dof::DofManager) = KI.get_backend(dof.dirichlet_dofs)
 
 """
@@ -145,8 +146,9 @@ Creates a field where ```typeof(field) <: AbstractField```
 based on the variable ```dof``` was created with
 """
 function create_field(dof::DofManager, float_type::Type{RT} = Float64) where RT <: Number
-    backend = KI.get_backend(dof)
-    data = fec_dense_array(backend, float_type, length(dof))
+    # backend = KI.get_backend(dof)
+    exec = execution_mode(dof)
+    data = fec_dense_array(exec, float_type, length(dof))
     var = dof.var
     fspace = var.fspace
     if _field_type(fspace) == H1Field
@@ -175,11 +177,11 @@ The backend of ``dof`` will be used as the backend for the generated array.
 There is an optional argument ``float_type`` that defaults to ``Float64``.
 """
 function create_unknowns(dof::DofManager{Flag, IT, IDs, Var}, float_type = Float64) where {Flag, IT, IDs, Var}
-    backend = KI.get_backend(dof)
+    exec = execution_mode(dof)
     if Flag
-        return fec_dense_array(backend, float_type, length(dof))
+        return fec_dense_array(exec, float_type, length(dof))
     else
-        return fec_dense_array(backend, float_type, length(dof.unknown_dofs))
+        return fec_dense_array(exec, float_type, length(dof.unknown_dofs))
     end
 end
 
@@ -339,49 +341,8 @@ function _resolve_periodic_chains(
     return resolved_a, side_b_dofs
 end
 
-# COV_EXCL_START
-KA.@kernel function _update_field_unknowns_kernel_1!(
-    U::AbstractField, 
-    unknown_dofs::IDs,
-    Uu::V
-) where {V <: AbstractVector{<:Number}, IDs}
-    N = KA.@index(Global)
-    @inbounds U.data[unknown_dofs[N]] = Uu[unknown_dofs[N]]
-end
-# COV_EXCL_STOP
-  
-# COV_EXCL_START
-KA.@kernel function _update_field_unknowns_kernel_2!(
-    U::AbstractField, 
-    unknown_dofs::IDs,
-    Uu::V
-) where {V <: AbstractVector{<:Number}, IDs}
-    N = KA.@index(Global)
-    @inbounds U.data[unknown_dofs[N]] = Uu[N]
-end
-# COV_EXCL_STOP
-
 function _update_field_unknowns!(
-    backend::KA.Backend,
-    U::AbstractField, 
-    dof::DofManager{flag, IT, IDs, Var}, 
-    Uu::T
-) where {
-    T <: AbstractVector{<:Number},
-    flag, IT, IDs, Var
-}
-    if _is_condensed(dof)
-        kernel! = _update_field_unknowns_kernel_1!(backend)
-    else
-        kernel! = _update_field_unknowns_kernel_2!(backend)
-    end
-    kernel!(U, dof.unknown_dofs, Uu, ndrange = length(dof.unknown_dofs))
-    return nothing
-end
-  
-# Need a seperate CPU method since CPU is basically busted in KA
-function _update_field_unknowns!(
-    ::KA.CPU,
+    ::CPUExec,
     U::AbstractField, 
     dof::DofManager{false, IT, IDs, Var}, 
     Uu::T
@@ -391,7 +352,7 @@ function _update_field_unknowns!(
 end
 
 function _update_field_unknowns!(
-    ::KA.CPU,
+    ::CPUExec,
     U::AbstractField, 
     dof::DofManager{true, IT, IDs, Var}, 
     Uu::T, 
@@ -411,9 +372,10 @@ function update_field_unknowns!(
     Uu::V
     # enzyme_safe::Bool = false
 ) where V <: AbstractVector{<:Number}
-    backend = KI.get_backend(dof)
-    @assert KI.get_backend(U) == backend
-    @assert KI.get_backend(Uu) == backend
+    exec = execution_mode(dof)
+    if execution_mode(U) != exec || execution_mode(Uu) != exec
+        @assert false "Got $(execution_mode(U)), $(execution_mode(dof)), $(execution_mode(Uu))"
+    end
 
     if _is_condensed(dof)
         @assert length(Uu) == length(U) "Unknown size $(length(Uu)), field size $(size(U))"
@@ -421,7 +383,7 @@ function update_field_unknowns!(
         @assert length(Uu) == length(dof.unknown_dofs) "Unknown size $(length(Uu)), field size $(size(U))"
     end
 
-    _update_field_unknowns!(KI.get_backend(U), U, dof, Uu)
+    _update_field_unknowns!(execution_mode(U), U, dof, Uu)
     return nothing
 end
 
@@ -430,7 +392,7 @@ $(TYPEDSIGNATURES)
 Takes in a field and updates the field
 """
 function update_field_unknowns!(
-U::F, dof::DofManager, Uu::F
+    U::F, dof::DofManager, Uu::F
 ) where F <: AbstractField
     update_field_unknowns!(U, dof, Uu.data)
 end

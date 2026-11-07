@@ -175,7 +175,8 @@ abstract type AbstractBCContainer{
   RV <: AbstractArray
 } end
 
-KA.get_backend(x::AbstractBCContainer) = KA.get_backend(x.vals)
+execution_mode(x::AbstractBCContainer) = execution_mode(x.vals)
+KI.get_backend(x::AbstractBCContainer) = KI.get_backend(x.vals)
 
 """
 $(TYPEDEF)

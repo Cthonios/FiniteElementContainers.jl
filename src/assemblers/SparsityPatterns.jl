@@ -156,6 +156,8 @@ function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   )
 end
 
+execution_mode(pattern) = execution_mode(pattern.Is)
+
 function KI.get_backend(pattern::SparseMatrixPattern)
   return KI.get_backend(pattern.Is)
 end
@@ -297,12 +299,12 @@ end
 
 # some low level sparse matrix type helpers
 function _coo_matrix(pattern::SparseMatrixPattern, dof, storage)
-  backend = KI.get_backend(pattern)
-  return _coo_matrix(backend, pattern, dof, storage)
+  exec = execution_mode(pattern)
+  return _coo_matrix(exec, pattern, dof, storage)
 end
 
-function _coo_matrix(backend::KI.Backend, pattern::SparseMatrixPattern, dof, storage)
-  constructor = _coo_matrix_constructor(backend)
+function _coo_matrix(exec::AbstractExec, pattern::SparseMatrixPattern, dof, storage)
+  constructor = _coo_matrix_constructor(exec)
 
   if FiniteElementContainers._is_condensed(dof)
     n_dofs = length(dof)
@@ -319,27 +321,28 @@ function _coo_matrix(backend::KI.Backend, pattern::SparseMatrixPattern, dof, sto
   )
 end
 
-# TODO could add SparseMatricsCOO.jl as a package to support this
-function _coo_matrix(::KA.CPU, ::SparseMatrixPattern, dof, storage)
-  @assert false "Currently unsupported"
-end
+# # TODO could add SparseMatricsCOO.jl as a package to support this
+# function _coo_matrix(::KA.CPU, ::SparseMatrixPattern, dof, storage)
+#   @assert false "Currently unsupported"
+# end
 
-function _coo_matrix_constructor(backend::KI.Backend) 
+function _coo_matrix_constructor(exec::CPUExec) 
   @assert false "Need to implement for $backend"
 end
 
 function _csc_matrix(pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
-  backend = KI.get_backend(pattern)
-  return _csc_matrix(backend, pattern, dof, coo_storage, csc_storage)
+  # backend = KA.get_backend(pattern)
+  exec = execution_mode(pattern)
+  return _csc_matrix(exec, pattern, dof, coo_storage, csc_storage)
 end
 
-function _csc_matrix(backend::KI.Backend, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
-  coo = _coo_matrix(backend, pattern, dof, coo_storage)
-  constructor = _csc_matrix_constructor(backend)
+function _csc_matrix(exec::AbstractExec, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+  coo = _coo_matrix(exec, pattern, dof, coo_storage)
+  constructor = _csc_matrix_constructor(exec)
   return constructor(coo)
 end
 
-function _csc_matrix(::KA.CPU, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+function _csc_matrix(::CPUExec, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
   return @views SparseArrays.sparse!(
     pattern.Is, pattern.Js, coo_storage[pattern.unknown_dofs],
     length(pattern.klasttouch), length(pattern.klasttouch), +, pattern.klasttouch,
@@ -348,29 +351,30 @@ function _csc_matrix(::KA.CPU, pattern::SparseMatrixPattern, dof, coo_storage, c
   )
 end
 
-function _csc_matrix_constructor(backend::KI.Backend)
-  @assert false "Need to implement for $backend"
+function _csc_matrix_constructor(exec::AbstractExec)
+  @assert false "Need to implement for $exec"
 end
 
 function _csr_matrix(pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
-  backend = KI.get_backend(pattern)
-  return _csr_matrix(backend, pattern, dof, coo_storage, csc_storage)
+  # backend = KA.get_backend(pattern)
+  exec = execution_mode(pattern)
+  return _csr_matrix(exec, pattern, dof, coo_storage, csc_storage)
 end
 
-function _csr_matrix(backend::KI.Backend, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
-  coo = _coo_matrix(backend, pattern, dof, coo_storage)
-  constructor = _csr_matrix_constructor(backend)
+function _csr_matrix(exec::AbstractExec, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+  coo = _coo_matrix(exec, pattern, dof, coo_storage)
+  constructor = _csr_matrix_constructor(exec)
   return constructor(coo)
 end
 
 # TODO eventually write kernels to do this without going to csc first
-function _csr_matrix(backend::KA.CPU, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
-  csc = _csc_matrix(backend, pattern, dof, coo_storage, csc_storage)
+function _csr_matrix(exec::CPUExec, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+  csc = _csc_matrix(exec, pattern, dof, coo_storage, csc_storage)
   return SparseMatrixCSR(csc)
 end
 
-function _csr_matrix_constructor(backend::KI.Backend)
-  @assert false "Need to implement for $backend"
+function _csr_matrix_constructor(exec::AbstractExec)
+  @assert false "Need to implement for $exec"
 end
 
 struct SparseVectorPattern{

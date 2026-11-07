@@ -19,7 +19,7 @@ function Base.show(io::IO, int::AbstractIntegral)
     println(io, "  Integrand function = $(int.integrand)")
 end
 
-KA.get_backend(int::AbstractIntegral) = KA.get_backend(int.cache)
+KI.get_backend(int::AbstractIntegral) = KI.get_backend(int.cache)
 
 function create_field(int::AbstractIntegral)
     return create_field(int.assembler)
@@ -106,7 +106,7 @@ function integrate(integral::MatrixCellIntegral, U, p)
 end
 
 function remove_fixed_dofs!(integral::MatrixCellIntegral)
-    backend = KA.get_backend(integral)
+    backend = KI.get_backend(integral)
 
     # TODO change API so we don't need to
     # bring this guy to life
@@ -143,7 +143,7 @@ function integrate(integral::VectorCellIntegral, U, p)
 end
 
 function remove_fixed_dofs!(integral::VectorCellIntegral)
-    backend = KA.get_backend(integral)
+    backend = KI.get_backend(integral)
     _adjust_vector_entries_for_constraints!(
         integral.cache, integral.assembler.constraint_storage, backend
     )

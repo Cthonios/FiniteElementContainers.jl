@@ -149,8 +149,8 @@ end
 $(TYPEDSIGNATURES)
 """
 function _update_bc_values!(bc::PointSourceBCContainer, func::PointSourceBCFunction, X, t, bc_length::Int, offset::Int)
-  backend = KA.get_backend(bc)
-  fec_foreach(1:bc_length, backend) do n
+  exec = execution_mode(bc)
+  fec_foreach(1:bc_length, exec) do n
     ND = num_fields(X)
     index = n + offset
     node = bc.nodes[index]

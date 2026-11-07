@@ -1,6 +1,8 @@
+using AMDGPU
 using Exodus
 using FiniteElementContainers
 # using Gmsh
+using KernelAbstractions
 using LinearAlgebra
 using SparseArrays
 
@@ -41,7 +43,10 @@ asm = SparseMatrixAssembler(u; use_inplace_methods = true)
 # dbcs = nothing
 
 p = create_parameters(mesh, asm, physics, props; dirichlet_bcs = dbcs)
-solver = NewtonSolver(DirectLinearSolver(asm))
+
+asm = asm |> rocm
+p = p |> rocm
+solver = NewtonSolver(IterativeLinearSolver(asm, :cg))
 integrator = QuasiStaticIntegrator(solver)
 evolve!(integrator, p)
 # Uu = create_unknowns(asm)
@@ -68,7 +73,7 @@ evolve!(integrator, p)
 
 
 # display(Uu)
-U = p.field
+U = p.field |> cpu
 
 # pp = PostProcessor(mesh, output_file, u; copy_mesh_file = false)
 pp = PostProcessor(mesh, output_file, u)
