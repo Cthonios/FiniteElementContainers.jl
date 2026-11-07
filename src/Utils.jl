@@ -1,3 +1,15 @@
+abstract type FECBackend <: KI.Backend end
+
+struct CPUBackend
+end
+
+# struct GPUBackend
+# end
+
+function execution_mode(::AbstractArray)
+    return CPUBackend()
+end
+
 function fec_atomic_add!(
     field::AbstractField{T, N, D},
     index::Int, val::T
@@ -24,7 +36,7 @@ end
 $(TYPEDSIGNATURES)
 Create a dense array on ``backend`` of default type.
 """
-function fec_dense_array(backend::KA.Backend, size...)
+function fec_dense_array(backend::KI.Backend, size...)
     return fec_dense_array(backend, Float64, size...)
 end
 
@@ -114,7 +126,7 @@ end
 
 function fec_foreach(
     f, itr,
-    backend::KA.Backend = KA.get_backend(itr);
+    backend::KI.Backend = KI.get_backend(itr);
     # CPU settings
     max_tasks = Threads.nthreads(),
     min_elems = 1,
@@ -142,7 +154,7 @@ end
 function fec_foraxes(
     f, itr,
     dims::Union{Nothing, <:Integer} = nothing,
-    backend::KA.Backend = KA.get_backend(itr);
+    backend::KI.Backend = KI.get_backend(itr);
     # CPU settings
     max_tasks = Threads.nthreads(),
     min_elems = 1,
@@ -280,7 +292,7 @@ takes in connectivity and element id
 """
 function foreach_element(
     f, conns, block_id,
-    backend = KA.get_backend(conns.data);
+    backend = KI.get_backend(conns.data);
     max_tasks = Threads.nthreads(),
     min_elems = 1,
     prefer_threads::Bool = true,
@@ -315,18 +327,27 @@ cpu(x) = adapt(Array, x)
 function cuda end
 function rocm end
 
+get_backend(a::T) where T = KI.get_backend(a)
+function get_host end
+
+# assumptiosn are following
+# things default to CPU unless certain contracts
+# are satisfied in extensions
+is_cpu(::KI.Backend) = true
+is_gpu(::KI.Backend) = false
+
 """
 $(TYPEDSIGNATURES)
 Move `x` onto the given KernelAbstractions backend.  CPU is identity —
 CPU-built data already lives on the CPU backend.  GPU backends (CUDABackend,
 ROCBackend) are provided by the CUDA / AMDGPU package extensions.
 """
-to_backend(b::KA.Backend, x) = error(
+to_backend(b::KI.Backend, x) = error(
   "to_backend is not implemented for backend $(typeof(b)); load the " *
   "corresponding GPU package (CUDA.jl or AMDGPU.jl) so its extension activates."
 )
 
-to_backend(::KA.CPU, x) = x
+# to_backend(::KA.CPU, x) = x
 
 """
 $(TYPEDSIGNATURES)

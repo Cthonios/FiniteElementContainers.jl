@@ -37,7 +37,7 @@ Base.unique(field::AbstractField) = unique(field.data)
 """
 $(TYPEDSIGNATURES)
 """
-KA.get_backend(field::AbstractField) = KA.get_backend(field.data)
+KI.get_backend(field::AbstractField) = KI.get_backend(field.data)
 
 struct FieldAccessException <: Exception
 end

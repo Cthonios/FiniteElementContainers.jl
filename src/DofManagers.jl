@@ -137,7 +137,7 @@ print(io, "$(pad)DofManager\n",
           "$(pad)  Number of unknown dofs    = $(length(dof.unknown_dofs))\n",
           "$(pad)  Storage type              = $(typeof(dof.unknown_dofs))")
 
-KA.get_backend(dof::DofManager) = KA.get_backend(dof.dirichlet_dofs)
+KI.get_backend(dof::DofManager) = KI.get_backend(dof.dirichlet_dofs)
 
 """
 $(TYPEDSIGNATURES)
@@ -145,7 +145,7 @@ Creates a field where ```typeof(field) <: AbstractField```
 based on the variable ```dof``` was created with
 """
 function create_field(dof::DofManager, float_type::Type{RT} = Float64) where RT <: Number
-    backend = KA.get_backend(dof)
+    backend = KI.get_backend(dof)
     data = fec_dense_array(backend, float_type, length(dof))
     var = dof.var
     fspace = var.fspace
@@ -175,7 +175,7 @@ The backend of ``dof`` will be used as the backend for the generated array.
 There is an optional argument ``float_type`` that defaults to ``Float64``.
 """
 function create_unknowns(dof::DofManager{Flag, IT, IDs, Var}, float_type = Float64) where {Flag, IT, IDs, Var}
-    backend = KA.get_backend(dof)
+    backend = KI.get_backend(dof)
     if Flag
         return fec_dense_array(backend, float_type, length(dof))
     else
@@ -411,9 +411,9 @@ function update_field_unknowns!(
     Uu::V
     # enzyme_safe::Bool = false
 ) where V <: AbstractVector{<:Number}
-    backend = KA.get_backend(dof)
-    @assert KA.get_backend(U) == backend
-    @assert KA.get_backend(Uu) == backend
+    backend = KI.get_backend(dof)
+    @assert KI.get_backend(U) == backend
+    @assert KI.get_backend(Uu) == backend
 
     if _is_condensed(dof)
         @assert length(Uu) == length(U) "Unknown size $(length(Uu)), field size $(size(U))"
@@ -421,7 +421,7 @@ function update_field_unknowns!(
         @assert length(Uu) == length(dof.unknown_dofs) "Unknown size $(length(Uu)), field size $(size(U))"
     end
 
-    _update_field_unknowns!(KA.get_backend(U), U, dof, Uu)
+    _update_field_unknowns!(KI.get_backend(U), U, dof, Uu)
     return nothing
 end
 

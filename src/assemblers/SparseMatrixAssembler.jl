@@ -223,7 +223,7 @@ function Base.show(io::IO, asm::SparseMatrixAssembler)
 end
 
 function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledSparseVector)
-  backend = KA.get_backend(asm)
+  backend = KI.get_backend(asm)
   return fec_dense_array(backend, Float64, asm.vector_pattern.max_entries[1])
 end
 
@@ -232,7 +232,7 @@ function create_assembler_cache(asm::SparseMatrixAssembler, ::AssembledMatrix)
     error("create_assembler_cache(::AssembledMatrix) called on a matrix-free " *
           "SparseMatrixAssembler.  Re-create the assembler with matrix_free=false.")
   end
-  backend = KA.get_backend(asm)
+  backend = KI.get_backend(asm)
   return fec_dense_array(backend, Float64, asm.matrix_pattern.max_entries[1])
 end
 

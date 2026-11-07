@@ -31,8 +31,8 @@ end
 # interface to define
 function solve! end
 
-function KA.get_backend(solver::AbstractLinearSolver)
-    return KA.get_backend(solver.assembler)
+function KI.get_backend(solver::AbstractLinearSolver)
+    return KI.get_backend(solver.assembler)
 end
 
 struct DirectLinearSolverSettings <: AbstractLinearSolverSettings

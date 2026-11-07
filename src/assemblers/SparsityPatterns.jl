@@ -156,8 +156,8 @@ function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
   )
 end
 
-function KA.get_backend(pattern::SparseMatrixPattern)
-  return KA.get_backend(pattern.Is)
+function KI.get_backend(pattern::SparseMatrixPattern)
+  return KI.get_backend(pattern.Is)
 end
 
 function block_view(storage::AbstractVector, pattern::SparseMatrixPattern, b::Int)
@@ -297,11 +297,11 @@ end
 
 # some low level sparse matrix type helpers
 function _coo_matrix(pattern::SparseMatrixPattern, dof, storage)
-  backend = KA.get_backend(pattern)
+  backend = KI.get_backend(pattern)
   return _coo_matrix(backend, pattern, dof, storage)
 end
 
-function _coo_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, storage)
+function _coo_matrix(backend::KI.Backend, pattern::SparseMatrixPattern, dof, storage)
   constructor = _coo_matrix_constructor(backend)
 
   if FiniteElementContainers._is_condensed(dof)
@@ -324,16 +324,16 @@ function _coo_matrix(::KA.CPU, ::SparseMatrixPattern, dof, storage)
   @assert false "Currently unsupported"
 end
 
-function _coo_matrix_constructor(backend::KA.Backend) 
+function _coo_matrix_constructor(backend::KI.Backend) 
   @assert false "Need to implement for $backend"
 end
 
 function _csc_matrix(pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
-  backend = KA.get_backend(pattern)
+  backend = KI.get_backend(pattern)
   return _csc_matrix(backend, pattern, dof, coo_storage, csc_storage)
 end
 
-function _csc_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+function _csc_matrix(backend::KI.Backend, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
   coo = _coo_matrix(backend, pattern, dof, coo_storage)
   constructor = _csc_matrix_constructor(backend)
   return constructor(coo)
@@ -348,16 +348,16 @@ function _csc_matrix(::KA.CPU, pattern::SparseMatrixPattern, dof, coo_storage, c
   )
 end
 
-function _csc_matrix_constructor(backend::KA.Backend)
+function _csc_matrix_constructor(backend::KI.Backend)
   @assert false "Need to implement for $backend"
 end
 
 function _csr_matrix(pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
-  backend = KA.get_backend(pattern)
+  backend = KI.get_backend(pattern)
   return _csr_matrix(backend, pattern, dof, coo_storage, csc_storage)
 end
 
-function _csr_matrix(backend::KA.Backend, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
+function _csr_matrix(backend::KI.Backend, pattern::SparseMatrixPattern, dof, coo_storage, csc_storage)
   coo = _coo_matrix(backend, pattern, dof, coo_storage)
   constructor = _csr_matrix_constructor(backend)
   return constructor(coo)
@@ -369,7 +369,7 @@ function _csr_matrix(backend::KA.CPU, pattern::SparseMatrixPattern, dof, coo_sto
   return SparseMatrixCSR(csc)
 end
 
-function _csr_matrix_constructor(backend::KA.Backend)
+function _csr_matrix_constructor(backend::KI.Backend)
   @assert false "Need to implement for $backend"
 end
 

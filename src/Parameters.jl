@@ -255,8 +255,8 @@ function Base.show(io::IO, parameters::Parameters)
   println("Number of active state variables = $(length(parameters.state_old.data))")
 end
 
-function KA.get_backend(p::Parameters)
-  return KA.get_backend(p.field)
+function KI.get_backend(p::Parameters)
+  return KI.get_backend(p.field)
 end
 
 struct TypeStableParameters{

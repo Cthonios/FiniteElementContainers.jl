@@ -183,6 +183,7 @@ export MappedH1OrL2SurfaceInterpolants
 # dependencies
 import AcceleratedKernels as AK
 import KernelAbstractions as KA
+import KernelInterface as KI
 using Adapt
 using Atomix
 using BlockArrays

@@ -3,8 +3,8 @@ _colval(A::SparseMatrixCSR) = A.colval
 _rowptr(A::GPUArrays.AbstractGPUSparseMatrixCSR) = A.rowPtr
 _rowptr(A::SparseMatrixCSR) = A.rowptr
 
-function __sptrace(backend::KA.Backend, A::GPUArrays.AbstractGPUSparseMatrixCSC)
-    diagA = KA.zeros(backend, eltype(A), size(A, 2))
+function __sptrace(backend::KI.Backend, A::GPUArrays.AbstractGPUSparseMatrixCSC)
+    diagA = KI.zeros(backend, eltype(A), size(A, 2))
     colptr = SparseArrays.getcolptr(A)
     rowvals = SparseArrays.rowvals(A)
     nz = SparseArrays.nonzeros(A)
@@ -20,8 +20,8 @@ function __sptrace(backend::KA.Backend, A::GPUArrays.AbstractGPUSparseMatrixCSC)
     return reduce(+, diagA)
 end
 
-function __sptrace(backend::KA.Backend, A::GPUArrays.AbstractGPUSparseMatrixCSR)
-    diagA = KA.zeros(backend, eltype(A), size(A, 1))
+function __sptrace(backend::KI.Backend, A::GPUArrays.AbstractGPUSparseMatrixCSR)
+    diagA = KI.zeros(backend, eltype(A), size(A, 1))
     rowptr = A.rowPtr
     colvals = A.colVal
     nz = SparseArrays.nonzeros(A)
@@ -38,7 +38,7 @@ function __sptrace(backend::KA.Backend, A::GPUArrays.AbstractGPUSparseMatrixCSR)
     return reduce(+, diagA)
 end
 
-function __sptrace(::KA.Backend, A::AbstractSparseMatrix)
+function __sptrace(::KI.Backend, A::AbstractSparseMatrix)
     return tr(A)
 end
 
@@ -47,7 +47,7 @@ function _sptrace(A::SparseMatrixCSR)
 end
 
 function _sptrace(A::AbstractSparseMatrix)
-    return __sptrace(KA.get_backend(A), A)
+    return __sptrace(KI.get_backend(A), A)
 end
 
 function _adjust_matrix_entries_for_constraints!(

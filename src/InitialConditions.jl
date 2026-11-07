@@ -111,7 +111,7 @@ function Base.show(io::IO, ic::InitialConditionContainer)
     println(io, "  Number of active dofs = $(length(ic.dofs))")
 end
 
-KA.get_backend(ic::InitialConditionContainer) = KA.get_backend(ic.dofs)
+KI.get_backend(ic::InitialConditionContainer) = KI.get_backend(ic.dofs)
 
 function _update_field_ics!(U, ic::InitialConditionContainer)
     fec_foreach(ic.dofs) do n

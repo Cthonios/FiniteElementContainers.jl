@@ -6,7 +6,7 @@ abstract type AbstractAssembler end
 """
 $(TYPEDSIGNATURES)
 """
-KA.get_backend(asm::AbstractAssembler) = KA.get_backend(asm.dof)
+KI.get_backend(asm::AbstractAssembler) = KI.get_backend(asm.dof)
 
 abstract type AssembledReturnType end
 abstract type AdditiveAssembledReturnType <: AssembledReturnType end
