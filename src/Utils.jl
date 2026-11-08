@@ -36,6 +36,28 @@ function fec_dense_array(::KA.CPU, ::Type{RT}, size...) where RT <: Number
     return zeros(RT, size...)
 end
 
+# boosted from AcceleratedKernels.jl
+# The `i`-th element of `indices`, counting from 1 whatever the first index of `indices` is
+@inline nth(indices, i) = @inbounds indices[firstindex(indices) - 1 + i]
+KA.@kernel inbounds=true cpu=false unsafe_indices=true function foreachindex_kernel!(f, indices)
+    N = KA.@groupsize()[1]
+    iblock = KA.@index(Group, Linear)
+    ithread = KA.@index(Local, Linear)
+    i = ithread + (iblock - 0x1) * N
+
+    # Avoid an out-of-line device call that can copy captured state to local memory.
+    if i <= length(indices)
+        @inline f(nth(indices, i))
+    end
+end
+
+# end code boosted from AcceleratedKernels.jl
+
+function _forindices_gpu(f, indices, backend::KA.Backend, block_size::Int)
+    blocks = cld(length(indices), block_size)
+    foreachindex_kernel!(backend, block_size)(f, indices, ndrange=(block_size * blocks,))
+end
+
 function _forindices_serial(f, indices)
     for i in indices
         @inline f(i)
@@ -67,6 +89,14 @@ function _fec_forindices(
             min_elems = min_elems
         )
     end
+end
+
+# gpu implementation
+function _fec_forindices(
+    backend::KA.Backend, f, indices,
+    block_size::Int, max_tasks::Int, min_elems::Int
+)
+    _forindices_gpu(f, indices, backend, block_size)
 end
 
 function fec_foreach(
