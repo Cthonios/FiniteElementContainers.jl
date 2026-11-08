@@ -181,7 +181,6 @@ export MappedH1OrL2Interpolants
 export MappedH1OrL2SurfaceInterpolants
 
 # dependencies
-import AcceleratedKernels as AK
 import KernelAbstractions as KA
 using Adapt
 using Atomix
@@ -189,7 +188,6 @@ using BlockArrays
 using DocStringExtensions
 using Exodus
 using ForwardDiff
-using GPUArrays
 using Krylov
 using LinearAlgebra
 using Preferences
@@ -203,14 +201,14 @@ using TimerOutputs
 ##################
 # preferences
 ##################
-const MAX_BLOCKS = 1024
+const MAX_GPU_BLOCKS = 1024
 # TODO need to also check that it is a valid warp/wave
 # number for the specific device. This will likely get granular
 function _validate_gpu_block_size(name, default_value)
-    if !(1 <= default_value <= MAX_BLOCKS)
+    if !(1 <= default_value <= MAX_GPU_BLOCKS)
         error(
             "Invalid GPU block size for `$name`: $default_value. " *
-            "Expected an integer between 1 and $MAX_BLOCKS."
+            "Expected an integer between 1 and $MAX_GPU_BLOCKS."
         )
     end
     value = @load_preference(name, default_value)
@@ -218,10 +216,10 @@ function _validate_gpu_block_size(name, default_value)
     if isa(value, String)
         value = parse(Int, value)
     end
-    if !(1 <= value <= MAX_BLOCKS)
+    if !(1 <= value <= MAX_GPU_BLOCKS)
         error(
             "Invalid GPU block size for `$name`: $value. " *
-            "Expected an integer between 1 and $MAX_BLOCKS."
+            "Expected an integer between 1 and $MAX_GPU_BLOCKS."
         )
     end
     return value
