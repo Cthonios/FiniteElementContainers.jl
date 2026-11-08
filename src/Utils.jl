@@ -51,27 +51,34 @@ function _forindices_threads(f, indices; max_tasks, min_elems)
     end
 end
 
+# cpu implementation for both serial and multi-threading.
+# one method name at the cost of a branch on CPU runs.
+# no such branch in the GPU code path
+function _fec_forindices(
+    ::KA.CPU, f, indices,
+    block_size::Int, max_tasks::Int, min_elems::Int
+)
+    if max_tasks == 1
+        _forindices_serial(f, indices)
+    else
+        _forindices_threads(
+            f, indices;
+            max_tasks = max_tasks,
+            min_elems = min_elems
+        )
+    end
+end
+
 function fec_foreach(
     f, itr,
     backend::KA.Backend = KA.get_backend(itr);
     # CPU settings
     max_tasks = Threads.nthreads(),
     min_elems = 1,
-    prefer_threads::Bool = true,
-    # GPU settings
+    # GPU settingss
     block_size = 256,
 )
-    if use_gpu(backend, prefer_threads)
-        _forindices_gpu(f, eachindex(itr), backend; block_size)
-    elseif max_tasks == 1
-        _forindices_serial(f, eachindex(itr))
-    else
-        _forindices_threads(
-            f, eachindex(itr),
-            max_tasks = max_tasks,
-            min_elems = min_elems
-        )
-    end
+    _fec_forindices(backend, f, eachindex(itr), block_size, max_tasks, min_elems)
 end
 
 function fec_foraxes(
@@ -81,29 +88,17 @@ function fec_foraxes(
     # CPU settings
     max_tasks = Threads.nthreads(),
     min_elems = 1,
-    prefer_threads::Bool = true,
     # GPU settings
     block_size = 256,
 )
     if isnothing(dims)
         return fec_foreach(
             f, itr, backend;
-            max_tasks, min_elems,
-            prefer_threads, block_size,
+            block_size, max_tasks, min_elems
         )
     end
 
-    if use_gpu(backend, prefer_threads)
-        _forindices_gpu(f, axes(itr, dims), backend; block_size)
-    elseif max_tasks == 1
-        _forindices_serial(f, axes(itr, dims))
-    else
-        _forindices_threads(
-            f, axes(itr, dims);
-            max_tasks = max_tasks,
-            min_elems = min_elems
-        )
-    end
+    _fec_forindices(backend, f, axes(itr, dims), block_size, max_tasks, min_elems)
 end
 
 # this one only does the right thing when physics is a namedtuple
@@ -214,22 +209,11 @@ function foreach_element(
     backend = KA.get_backend(conns.data);
     max_tasks = Threads.nthreads(),
     min_elems = 1,
-    prefer_threads::Bool = true,
     # GPU settings
     block_size = 256
 )
     nelems = conns.nelems[block_id]
-    if use_gpu(backend, prefer_threads)
-        _forindices_gpu(f, 1:nelems, backend; block_size)
-    elseif max_tasks == 1
-        _forindices_serial(f, 1:nelems)
-    else
-        _forindices_threads(
-            f, 1:nelems,
-            max_tasks = max_tasks,
-            min_elems = min_elems
-        )
-    end
+    _fec_forindices(backend, f, 1:nelems, block_size, max_tasks, min_elems)
 end
 
 # below is taken directly from AcceleratedKernels.jl
@@ -327,11 +311,6 @@ function itask_partition(f, tp::TaskPartitioner)
     end
 end
 
-# end AK code boost
-function use_gpu(::KA.CPU, ::Bool)
-    return false
-end
-
 #########################################
 # hooks for extensions
 #########################################
@@ -364,6 +343,3 @@ to_host(x) = to_backend(KA.CPU(), x)
 function _coo_matrix end
 function _csc_matrix end
 function _csr_matrix end
-function _forindices_gpu end
-function _task_partition end
-
