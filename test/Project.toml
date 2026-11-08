@@ -1,7 +1,5 @@
 [deps]
-AcceleratedKernels = "6a4ca0a5-0e36-4168-a932-d9be78d558f1"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Exodus = "f57ae99e-f805-4780-bdca-96e224be1e5a"
 FiniteElementContainers = "d08262e4-672f-4e7f-a976-f2cea5767631"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
@@ -23,7 +21,6 @@ TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
 FiniteElementContainers = {path = ".."}
 
 [compat]
-AcceleratedKernels = "0.4.3 - 0.4"
 Adapt = "4"
 Exodus = "0.15"
 Gmsh = "0.3"
