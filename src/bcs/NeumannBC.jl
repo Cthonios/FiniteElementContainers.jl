@@ -48,14 +48,6 @@ _eltype(::Vector{NeumannBCContainer{IT, IV, RM}}) where {IT, IV, RM} = IT
 _indices_type(::Vector{NeumannBCContainer{IT, IV, RM}}) where {IT, IV, RM} = IV
 _vals_type(::Vector{NeumannBCContainer{IT, IV, RM}}) where {IT, IV, RM} = RM
 
-function Adapt.adapt_structure(to, bc::NeumannBCContainer)
-  el_conns = adapt(to, bc.element_conns)
-  elements = adapt(to, bc.elements)
-  sides = adapt(to, bc.sides)
-  vals = adapt(to, bc.vals)
-  return NeumannBCContainer(el_conns, elements, sides, vals)
-end
-
 function _update_bc_values!(vals, func, ref_fe, conns, sides, X, t)
   fec_foraxes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, 1)
@@ -132,27 +124,6 @@ struct NeumannBCs{
       block_id_to_bc, bc_caches, bc_funcs, block_ids, block_names
     )
   end
-end
-
-function Adapt.adapt_structure(to, bcs::NeumannBCs)
-  # NOTE
-  # below logic is needed due to improper
-  # adapt mapping for an empty array in julia 1.10/1.11
-  # where Vector{T}(undef, 0) gets mappend to Vector{Any}
-  if length(bcs.bc_caches) > 0
-    bc_caches = map(x -> adapt(to, x), bcs.bc_caches)
-  else
-    temp_int = adapt(to, zeros(Int, 0))
-    temp_vals = adapt(to, _vals_type(bcs.bc_caches)(undef, 0, 0))
-    bc_caches = NeumannBCContainer{Int, typeof(temp_int), typeof(temp_vals)}[]
-  end
-  return NeumannBCs(
-    bcs.block_id_to_bc,
-    bc_caches,
-    bcs.bc_funcs,
-    bcs.block_ids,
-    bcs.block_names
-  )
 end
 
 function update_bc_values!(bcs::NeumannBCs, assembler, X, t)

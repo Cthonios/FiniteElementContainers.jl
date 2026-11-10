@@ -50,11 +50,6 @@ struct ScalarFunction{F} <: AbstractScalarFunction{F}
   end
 end
 
-function Adapt.adapt_structure(to, f::ScalarFunction)
-  fspace = adapt(to, f.fspace)
-  return ScalarFunction{typeof(fspace)}(fspace, f.names)
-end
-
 """
 $(TYPEDEF)
 $(TYPEDFIELDS)
@@ -84,10 +79,6 @@ struct VectorFunction{F, NF} <: AbstractFunction{F, NF}
   function VectorFunction(fspace::F, syms::NTuple{NF, String}) where {F, NF}
     new{F, NF}(fspace, syms)
   end
-end
-
-function Adapt.adapt_structure(to, f::VectorFunction)
-  return VectorFunction(adapt(to, f.fspace), f.names)
 end
 
 """
@@ -128,10 +119,6 @@ function TensorFunction(fspace::FunctionSpace, sym::String; use_spatial_dimensio
 
   syms = map(x -> "$sym$x", components)
   return TensorFunction(fspace, syms)
-end
-
-function Adapt.adapt_structure(to, f::TensorFunction)
-  return TensorFunction(adapt(to, f.fspace), f.names)
 end
 
 """
@@ -177,10 +164,6 @@ function SymmetricTensorFunction(fspace::FunctionSpace, sym::String; use_spatial
   return SymmetricTensorFunction(fspace, syms)
 end
 
-function Adapt.adapt_structure(to, f::SymmetricTensorFunction)
-  return SymmetricTensorFunction(adapt(to, f.fspace), f.names)
-end
-
 struct GeneralFunction{F, NF} <: AbstractFunction{F, NF}
   fspace::F
   names::NTuple{NF, String}
@@ -204,8 +187,4 @@ function GeneralFunction(args...)
   end
   # return GeneralFunction(fspace, syms)
   return GeneralFunction{typeof(fspace), length(syms)}(fspace, syms)
-end
-
-function Adapt.adapt_structure(to, f::GeneralFunction)
-  return GeneralFunction(adapt(to, f.fspace), f.names)
 end

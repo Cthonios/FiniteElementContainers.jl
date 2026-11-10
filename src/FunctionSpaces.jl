@@ -254,19 +254,6 @@ function FunctionSpace{is_juliac_safe}(
   )
 end
 
-function Adapt.adapt_structure(to, fspace::FunctionSpace)
-  return FunctionSpace{_is_juliac_safe(fspace), _field_type(fspace)}(
-    fspace.block_names, fspace.block_to_ref_fe_id,
-    adapt(to, fspace.coords),
-    adapt(to, fspace.elem_conns), 
-    map(x -> adapt(to, x), fspace.elem_id_maps),
-    adapt(to, fspace.elem_to_facets),
-    adapt(to, fspace.facet_orientation),
-    adapt(to, fspace.node_id_map),
-    map(x -> adapt(to, x), fspace.ref_fes)
-  )
-end
-
 function Base.show(io::IO, fspace::FunctionSpace)
   println(io, "FunctionSpace:")
   println(io, "  Type: $(typeof(fspace.coords).name.name)")

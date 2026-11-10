@@ -203,16 +203,6 @@ struct Connectivity{
     end
 end
 
-function Adapt.adapt_structure(to, conn::Connectivity{T, D}) where {T, D}
-    return Connectivity(
-        adapt(to, conn.data),
-        conn.nblocks,
-        conn.nepes,
-        conn.nelems,
-        conn.offsets
-    )
-end
-
 function block_size(conn::Connectivity, b::Int)
     return (conn.nepes[b], conn.nelems[b])
 end
@@ -279,16 +269,6 @@ function Connectivity_v2(conn::Connectivity)
     return Connectivity_v2(conn.data, conn.nblocks, conn.nepes, conn.nelems, conn.offsets)
 end
 
-function Adapt.adapt_structure(to, conn::Connectivity_v2)
-    return Connectivity_v2(
-        adapt(to, conn.data),
-        conn.nblocks,
-        adapt(to, conn.nepes),
-        adapt(to, conn.nelems),
-        adapt(to, conn.offsets)
-    )
-end
-
 @inline function connectivity(conn::Connectivity_v2, n::Int, e::Int, b::Int)
     idx = conn.offsets[b] + conn.nepes[b] * (e - 1) + n - 1
     return conn.data[idx]
@@ -321,11 +301,6 @@ struct H1Field{T, D, NF} <: AbstractContinuousField{T, D, NF}
     end
 end
 
-function Adapt.adapt_structure(to, field::H1Field{T, D, NF}) where {T, D, NF}
-    data = adapt(to, field.data)
-    return H1Field{T, typeof(data), NF}(data)
-end
-
 ######################################################################################################
 # HcurlField
 ######################################################################################################
@@ -353,11 +328,6 @@ struct HcurlField{T, D, NF} <: AbstractContinuousField{T, D, NF}
     end
 end
 
-function Adapt.adapt_structure(to, field::HcurlField{T, D, NF}) where {T, D, NF}
-    data = adapt(to, field.data)
-    return HcurlField{T, typeof(data), NF}(data)
-end
-
 ######################################################################################################
 # HdivField
 ######################################################################################################
@@ -383,11 +353,6 @@ struct HdivField{T, D, NF} <: AbstractContinuousField{T, D, NF}
         data = vec(data)
         return HdivField{eltype(data), typeof(data), NF}(data)
     end
-end
-
-function Adapt.adapt_structure(to, field::HdivField{T, D, NF}) where {T, D, NF}
-    data = adapt(to, field.data)
-    return HdivField{T, typeof(data), NF}(data)
 end
 
 ######################################################################################################
@@ -448,17 +413,6 @@ struct L2Field{
         data = mapreduce(vec, vcat, arrs)
         return L2Field{T, typeof(data), NF}(data, length(nepes), nepes, nelems, offsets)
     end
-end
-
-function Adapt.adapt_structure(to, field::L2Field{T, D, NF}) where {T, D, NF}
-    data = adapt(to, field.data)
-    return L2Field{T, typeof(data), NF}(
-        data,
-        field.nblocks,
-        field.nepes,
-        field.nelems,
-        field.offsets
-    )
 end
 
 function num_fields(::L2Field{T, D, NF}, b::Int) where {T, D, NF}
@@ -558,19 +512,6 @@ _property_block(x) = throw(ArgumentError(
     "across the block) or an AbstractMatrix of numbers with one column per " *
     "element (element-level properties); got $(typeof(x))"))
 
-function Adapt.adapt_structure(to, field::PropertyField)
-    data = adapt(to, field.data)
-    isblockconstant = adapt(to, field.isblockconstant)
-    return PropertyField{eltype(field), typeof(data), typeof(isblockconstant)}(
-        data,
-        isblockconstant,
-        field.nblocks,
-        adapt(to, field.nepes),
-        adapt(to, field.nelems),
-        adapt(to, field.offsets)
-    )
-end
-
 function num_fields(field::PropertyField, b::Int)
     return field.nepes[b]
 end
@@ -654,19 +595,6 @@ struct StateVariableField{
         end
         return StateVariableField(arrs)
     end
-end
-
-function Adapt.adapt_structure(to, field::StateVariableField{T, D, I}) where {T, D, I}
-    data = adapt(to, field.data)
-    nfields = adapt(to, field.nfields)
-    return StateVariableField{T, typeof(data), typeof(nfields)}(
-        data,
-        field.nblocks,
-        nfields,
-        adapt(to, field.nepes),
-        adapt(to, field.nelems),
-        adapt(to, field.offsets)
-    )
 end
 
 function Base.resize!(field::StateVariableField, block_sizes::Vector{Tuple{Int, Int, Int}})

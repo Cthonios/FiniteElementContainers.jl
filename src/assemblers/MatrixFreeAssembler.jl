@@ -40,18 +40,6 @@ function MatrixFreeAssembler(u::AbstractFunction)
     return MatrixFreeAssembler(dof)
 end
 
-function Adapt.adapt_structure(to, asm::MatrixFreeAssembler)
-    return MatrixFreeAssembler(
-        adapt(to, asm.dof),
-        adapt(to, asm.vector_pattern),
-        adapt(to, asm.constraint_storage),
-        adapt(to, asm.residual_storage),
-        adapt(to, asm.residual_unknowns),
-        adapt(to, asm.stiffness_action_storage),
-        adapt(to, asm.stiffness_action_unknowns)
-    )
-end
-
 function update_dofs!(assembler::MatrixFreeAssembler, dirichlet_bcs::DirichletBCs)
     # collect dbcs
     if length(dirichlet_bcs) > 0

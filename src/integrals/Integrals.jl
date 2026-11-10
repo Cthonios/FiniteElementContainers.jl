@@ -4,14 +4,6 @@ abstract type AbstractIntegral{
     I <: Function
 } end
 
-function Adapt.adapt_storage(to, int::AbstractIntegral)
-    return eval(typeof(int).name.name)(
-        adapt(to, int.assembler),
-        adapt(to, int.cache),
-        int.integrand
-    )
-end
-
 function Base.show(io::IO, int::AbstractIntegral)
     println(io, typeof(int).name.name, ":")
     println(io, "  Assembler type     = $(typeof(int.assembler))")

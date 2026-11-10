@@ -345,9 +345,8 @@ end
 # hooks for extensions
 #########################################
 # device stuff
-function cpu end
-# TODO need to further specialize for staticarrays, etc.
-cpu(x) = adapt(Array, x)
+# function cpu end
+cpu(x) = to_host(x)
 function cuda end
 function rocm end
 
@@ -362,7 +361,7 @@ to_backend(b::KA.Backend, x) = error(
   "corresponding GPU package (CUDA.jl or AMDGPU.jl) so its extension activates."
 )
 
-to_backend(::KA.CPU, x) = x
+# to_backend(::KA.CPU, x) = x
 
 """
 $(TYPEDSIGNATURES)

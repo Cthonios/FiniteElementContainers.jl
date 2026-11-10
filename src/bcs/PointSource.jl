@@ -85,13 +85,6 @@ struct PointSourceBCContainer{
   end
 end
 
-function Adapt.adapt_structure(to, bc::PointSourceBCContainer)
-  dofs = adapt(to, bc.dofs)
-  nodes = adapt(to, bc.nodes)
-  vals = adapt(to, bc.vals)
-  return PointSourceBCContainer(dofs, nodes, vals)
-end
-
 function Base.show(io::IO, bc::PointSourceBCContainer)
   println(io, "$(typeof(bc).name.name):")
   println(io, "  Number of active dofs     = $(length(bc.dofs))")
@@ -307,25 +300,6 @@ struct PointSourceBCs{
   function PointSourceBCs{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths) where {BCF <: Vector, IV <: AbstractVector, RV <: AbstractVector}
     new{BCF, IV, RV}(bc_cache, bc_funcs, bc_lengths)
   end
-end
-
-function Adapt.adapt_structure(to, bcs::PointSourceBCs{BCF, IV, RV}) where {BCF, IV, RV}
-  # NOTE
-  # below logic is needed due to improper
-  # adapt mapping for an empty array in julia 1.10/1.11
-  # where Vector{T}(undef, 0) gets mappend to Vector{Any}
-  if length(bcs.bc_lengths) > 0
-    bc_cache = adapt(to, bcs.bc_cache)
-  else
-    temp_int = adapt(to, zeros(Int, 0))
-    temp_floats = adapt(to, zeros(Float64, 0))
-    bc_cache = PointSourceBCContainer(temp_int, copy(temp_int), temp_floats)
-  end
-  return PointSourceBCs{BCF, typeof(bc_cache.dofs), typeof(bc_cache.vals)}(
-    bc_cache,
-    bcs.bc_funcs,
-    bcs.bc_lengths
-  )
 end
 
 Base.length(bcs::PointSourceBCs) = length(bcs.bc_funcs)
