@@ -44,14 +44,6 @@ end
 
 _vals_type(::Vector{SourceContainer{RM}}) where RM = RM
 
-function Adapt.adapt_structure(to, source::SourceContainer)
-  SourceContainer(
-    adapt(to, source.vals),
-    source.is_constant,
-    source.initialized,
-  )
-end
-
 function _update_source_values!(vals, func, ref_fe, conns, coffset, X, t)
   fec_foraxes(vals, 2) do e
     conn = connectivity(ref_fe, conns, e, coffset)
@@ -205,23 +197,6 @@ struct Sources{
       block_id_to_source, source_block_ids, source_block_names, caches, funcs
     )
   end
-end
-
-function Adapt.adapt(to, sources::Sources{SourceFuncs, RM}) where {SourceFuncs, RM}
-  if length(sources.source_caches) > 0
-    caches = map(x -> adapt(to, x), sources.source_caches)
-  else
-    temp_floats = adapt(to, _vals_type(sources.source_caches)(undef, 0, 0))
-    caches = SourceContainer{typeof(temp_floats)}[]
-  end
-
-  return Sources{SourceFuncs, _vals_type(caches)}(
-    sources.block_id_to_source,
-    sources.source_block_ids,
-    sources.source_block_names,
-    caches,
-    sources.source_funcs
-  )
 end
 
 function Base.show(io::IO, sources::Sources)

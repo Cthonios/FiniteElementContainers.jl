@@ -94,14 +94,6 @@ struct InitialConditionContainer{
     end
 end
 
-function Adapt.adapt_structure(to, ic::InitialConditionContainer)
-    return InitialConditionContainer(
-        adapt(to, ic.dofs),
-        adapt(to, ic.locations),
-        adapt(to, ic.vals)
-    )
-end
-
 function Base.length(ic::InitialConditionContainer)
     return length(ic.dofs)
 end
@@ -189,25 +181,6 @@ struct InitialConditions{
         end
         new{typeof(ic_funcs), IV, RV}(ic_caches, ic_funcs)
     end
-end
-
-function Adapt.adapt_structure(to, ics::InitialConditions)
-    # NOTE
-    # below logic is needed due to improper
-    # adapt mapping for an empty array in julia 1.10/1.11
-    # where Vector{T}(undef, 0) gets mappend to Vector{Any}
-    if length(ics.ic_caches) > 0
-        ic_caches = map(x -> adapt(to, x), ics.ic_caches)
-    else
-        temp_int = adapt(to, zeros(Int, 0))
-        temp_floats = adapt(to, zeros(Float64, 0))
-        ic_caches = InitialConditionContainer{typeof(temp_int), typeof(temp_floats)}[]
-    end
-
-    return InitialConditions(
-        ic_caches,
-        ics.ic_funcs
-    )
 end
 
 function Base.show(io::IO, ics::InitialConditions)

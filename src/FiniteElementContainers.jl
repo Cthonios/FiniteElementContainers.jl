@@ -182,7 +182,6 @@ export MappedH1OrL2SurfaceInterpolants
 
 # dependencies
 import KernelAbstractions as KA
-using Adapt
 using Atomix
 using BlockArrays
 using DocStringExtensions

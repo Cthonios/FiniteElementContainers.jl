@@ -208,28 +208,6 @@ function Parameters(
   )
 end
 
-function Adapt.adapt_structure(to, p::Parameters)
-  return Parameters(
-    adapt(to, p.ics),
-    adapt(to, p.dirichlet_bcs),
-    adapt(to, p.neumann_bcs),
-    adapt(to, p.periodic_bcs),
-    adapt(to, p.point_source_bcs),
-    adapt(to, p.robin_bcs),
-    adapt(to, p.sources),
-    adapt(to, p.times),
-    adapt(to, p.physics),
-    adapt(to, p.properties),
-    adapt(to, p.state_old),
-    adapt(to, p.state_new),
-    adapt(to, p.coords),
-    adapt(to, p.field),
-    adapt(to, p.field_old),
-    # scratch fields
-    adapt(to, p.hvp_scratch_field)
-  )
-end
-
 function Base.show(io::IO, parameters::Parameters)
   println(io, "Parameters:")
   println(io, "Initial Conditions:")

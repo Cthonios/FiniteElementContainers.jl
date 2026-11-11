@@ -71,18 +71,6 @@ struct DofManager{
     end
 end
 
-function Adapt.adapt_structure(to, dof::DofManager)
-    return DofManager{_is_condensed(dof)}(
-        adapt(to, dof.dirichlet_dofs),
-        adapt(to, dof.dof_to_unknown),
-        adapt(to, dof.periodic_side_a_dofs),
-        adapt(to, dof.periodic_side_b_dofs),
-        adapt(to, dof.periodic_side_b_to_side_a_unknown),
-        adapt(to, dof.unknown_dofs),
-        adapt(to, dof.var)
-    )
-end
-
 _ids_type(::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = IDs
 _is_condensed(::DofManager{C, IT, IDs, V}) where {C, IT, IDs, V} = C
 

@@ -139,23 +139,6 @@ function SparseMatrixPattern(dof_1::DofManager, dof_2::DofManager)
   return pattern
 end
 
-function Adapt.adapt_structure(to, asm::SparseMatrixPattern)
-  return SparseMatrixPattern(
-    adapt(to, asm.Is),
-    adapt(to, asm.Js),
-    adapt(to, asm.unknown_dofs),
-    asm.block_start_indices, asm.max_entries,
-    adapt(to, asm.klasttouch),
-    adapt(to, asm.csrrowptr),
-    adapt(to, asm.csrcolval),
-    adapt(to, asm.csrnzval),
-    adapt(to, asm.csccolptr),
-    adapt(to, asm.cscrowval),
-    adapt(to, asm.cscnzval_mass), adapt(to, asm.cscnzval_stiffness),
-    adapt(to, asm.permutation)
-  )
-end
-
 function KA.get_backend(pattern::SparseMatrixPattern)
   return KA.get_backend(pattern.Is)
 end
@@ -415,16 +398,6 @@ function SparseVectorPattern(dof::DofManager)
   return SparseVectorPattern(
     Is, permutation, unknown_dofs,
     block_start_indices, [n_entries]
-  )
-end
-
-function Adapt.adapt_structure(to, pattern::SparseVectorPattern)
-  return SparseVectorPattern(
-    adapt(to, pattern.Is),
-    adapt(to, pattern.permutation),
-    adapt(to, pattern.unknown_dofs),
-    pattern.block_start_indices,
-    pattern.max_entries
   )
 end
 

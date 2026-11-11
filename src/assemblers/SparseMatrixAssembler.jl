@@ -196,27 +196,6 @@ function as_matrix_free(asm::SparseMatrixAssembler)
   )
 end
 
-function Adapt.adapt_structure(to, asm::SparseMatrixAssembler)
-  return SparseMatrixAssembler{
-    _is_condensed(asm.dof),
-    _sparse_matrix_type(asm),
-    _use_inplace_methods(asm),
-    _use_sparse_vector(asm),
-  }(
-    adapt(to, asm.dof),
-    adapt(to, asm.matrix_pattern),
-    adapt(to, asm.vector_pattern),
-    adapt(to, asm.constraint_storage),
-    adapt(to, asm.mass_storage),
-    adapt(to, asm.residual_storage),
-    adapt(to, asm.residual_unknowns),
-    adapt(to, asm.scalar_quadrature_storage),
-    adapt(to, asm.stiffness_storage),
-    adapt(to, asm.stiffness_action_storage),
-    adapt(to, asm.stiffness_action_unknowns)
-  )
-end
-
 function Base.show(io::IO, asm::SparseMatrixAssembler)
   println(io, "SparseMatrixAssembler")
   println(io, "  ", asm.dof)

@@ -7,7 +7,6 @@ authors = ["Craig M. Hamel <cmhamel32@gmail.com> and contributors"]
 projects = ["docs", "test", "test/aqua"]
 
 [deps]
-Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 Atomix = "a9b6321e-bd34-4604-b9c9-b65b8de01458"
 BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
 DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
@@ -28,6 +27,7 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [weakdeps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 GPUArrays = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
 Gmsh = "705231aa-382f-11e9-3f0c-b7cb4346fdeb"
@@ -35,8 +35,9 @@ Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
 PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 
 [extensions]
-AMDGPUExt = "AMDGPU"
-CUDAExt = "CUDA"
+AdaptExt = "Adapt"
+AMDGPUExt = ["AMDGPU", "Adapt"]
+CUDAExt = ["Adapt", "CUDA"]
 GPUArraysExt = ["GPUArrays", "KernelAbstractions", "SparseArrays"]
 GmshExt = "Gmsh"
 MetisExt = "Metis"

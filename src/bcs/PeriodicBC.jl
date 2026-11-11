@@ -108,16 +108,6 @@ struct PeriodicBCContainer{
     end
 end
 
-function Adapt.adapt_structure(to, bc::PeriodicBCContainer)
-    return PeriodicBCContainer(
-        adapt(to, bc.side_a_dofs),
-        adapt(to, bc.side_a_nodes),
-        adapt(to, bc.side_b_dofs),
-        adapt(to, bc.side_b_nodes),
-        adapt(to, bc.vals)
-    )
-end
-
 function _update_bc_values!(bc::PeriodicBCContainer, func, X, t)
     fec_foreach(bc.vals) do n
         node = bc.side_b_nodes[n]
@@ -193,29 +183,6 @@ struct PeriodicBCs{
     function PeriodicBCs(bc_caches::Vector{PeriodicBCContainer{IV, RV}}, bc_funcs::Funcs) where {IV, RV, Funcs}
         new{Funcs, IV, RV}(bc_caches, bc_funcs)
     end
-end
-
-function Adapt.adapt_structure(to, pbcs::PeriodicBCs)
-    # NOTE
-    # below logic is needed due to improper
-    # adapt mapping for an empty array in julia 1.10/1.11
-    # where Vector{T}(undef, 0) gets mappend to Vector{Any}
-    if length(pbcs) > 0
-        bc_caches = map(x -> adapt(to, x), pbcs.bc_caches)
-    else
-        temp_int = adapt(to, zeros(Int, 0))
-        temp_floats = adapt(to, zeros(Float64, 0))
-        bc_cache = PeriodicBCContainer(
-            copy(temp_int), copy(temp_int),
-            copy(temp_int), copy(temp_int),
-            temp_floats
-        )
-        bc_caches = Vector{typeof(bc_cache)}(undef, 0)
-    end
-    return PeriodicBCs(
-        bc_caches,
-        pbcs.bc_funcs
-    )
 end
 
 Base.length(bcs::PeriodicBCs) = length(bcs.bc_funcs)
