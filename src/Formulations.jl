@@ -23,11 +23,18 @@ end
 $(TYPEDSIGNATURES)
 Method to in place take a set of ```vals``` and calculate
 f_i = G * vals where is the discrete_gradient
+
+The optional input ``dof_id_start`` can be used for 
+convenience in coupled problems. For instance
+if ``dof_id_start = 2`` the vals input will accumulate
+starting at dof id 2.
 """
 function scatter_with_gradients!(
   storage::AbstractField, form::AbstractElementFormulation{ND, NF},
-  e, conns, ∇N_X, vals
+  e, conns, ∇N_X, vals, dof_id_start = 1
 ) where {ND, NF}
+  @boundscheck 1 <= dof_id_start <= NF
+
   N = size(∇N_X, 1)
 
   # potentially more conversion types here
@@ -43,7 +50,7 @@ function scatter_with_gradients!(
       for j in axes(vals, 2)
         contrib += ∇N_X[n, j] * vals[d, j]
       end
-      fec_atomic_add!(storage, global_base + d, contrib)
+      fec_atomic_add!(storage, global_base + dof_id_start + d - 1, contrib)
     end
   end
 end
@@ -59,28 +66,40 @@ function scatter_with_gradients_and_gradients!(
   e,
   conns,
   ∇N_X,
-  k::T
+  k::T,
+  row_dof_start = 1,
+  col_dof_start = 1
 ) where {ND, NF, T <: Number}
+
   @assert ND == size(∇N_X, 2)
+  @boundscheck 1 <= row_dof_start <= NF
+  @boundscheck 1 <= col_dof_start <= NF
+
   N        = size(∇N_X, 1)
   NDPE     = N * NF
-  start_id = (e - 1) * NDPE * NDPE + 1
-  ids      = start_id:(start_id + NDPE * NDPE - 1)
-  inc      = 1
+  start_id = (e - 1) * NDPE^2 + 1
 
   for n1 in 1:N
     for n2 in 1:N
+
       contrib = zero(T)
+
       for j in 1:ND
         contrib += ∇N_X[n1, j] * k * ∇N_X[n2, j]
       end
-      storage[ids[inc]] += contrib
-      inc += 1
+
+      row = (n1 - 1) * NF + row_dof_start
+      col = (n2 - 1) * NF + col_dof_start
+
+      idx = start_id + (row - 1) * NDPE + col - 1
+
+      storage[idx] += contrib
     end
   end
 
   return nothing
 end
+
 """
 Case for total lagrange formulations
 of solid mechanics or other physics
@@ -92,31 +111,44 @@ function scatter_with_gradients_and_gradients!(
   e,
   conns,
   ∇N_X,
-  A::Tensor{4, 3, T, 81}
+  A::Tensor{4, 3, T, 81},
+  row_dof_start = 1,
+  col_dof_start = 1
 ) where {ND, NF, T <: Number}
-  K_voigt  = extract_stiffness(form, A)
+
   @assert ND == size(∇N_X, 2)
+  @boundscheck row_dof_start + ND - 1 <= NF
+  @boundscheck col_dof_start + ND - 1 <= NF
+
+  K_voigt = extract_stiffness(form, A)
+
   N        = size(∇N_X, 1)
   NDPE     = N * NF
-  start_id = (e - 1) * NDPE * NDPE + 1
-  ids      = start_id:(start_id + NDPE * NDPE - 1)
-  inc      = 1
+  start_id = (e - 1) * NDPE^2 + 1
 
   for n2 in 1:N
-    for d2 in 1:NF
+    for d2 in 1:ND
       for n1 in 1:N
-        for d1 in 1:NF
+        for d1 in 1:ND
+
           contrib = zero(T)
+
           for j1 in 1:ND
             a = (j1 - 1) * ND + d1
+
             for j2 in 1:ND
               b = (j2 - 1) * ND + d2
+
               contrib += ∇N_X[n1, j1] * K_voigt[a, b] * ∇N_X[n2, j2]
             end
           end
 
-          storage[ids[inc]] += contrib
-          inc += 1
+          row = (n1 - 1) * NF + row_dof_start + d1 - 1
+          col = (n2 - 1) * NF + col_dof_start + d2 - 1
+
+          idx = start_id + (row - 1) * NDPE + col - 1
+
+          storage[idx] += contrib
         end
       end
     end
@@ -132,26 +164,30 @@ function scatter_with_gradients_and_gradients!(
   conns,
   ∇N_X,
   k::T,
-  v_el::SVector{NDPE, T}
+  v_el::SVector{NDPE, T},
+  row_dof_start = 1,
+  col_dof_start = 1
 ) where {ND, NF, T <: Number, NDPE}
+
   @assert ND == size(∇N_X, 2)
+  @assert NDPE == length(conns) * NF
+  @boundscheck 1 <= row_dof_start <= NF
+  @boundscheck 1 <= col_dof_start <= NF
+
   N = size(∇N_X, 1)
 
   for n1 in 1:N
-    for d1 in 1:NF
-      global_id = NF * (conns[n1] - 1) + d1
-      contrib   = zero(T)
+    global_id = NF * (conns[n1] - 1) + row_dof_start
+    contrib   = zero(T)
 
-      for n2 in 1:N
-        # local index into v_el for node n2, dof d1
-        local_id = NF * (n2 - 1) + d1
-        for j in 1:ND
-          contrib += ∇N_X[n1, j] * k * ∇N_X[n2, j] * v_el[local_id]
-        end
+    for n2 in 1:N
+      local_id = NF * (n2 - 1) + col_dof_start
+      for j in 1:ND
+        contrib += ∇N_X[n1, j] * k * ∇N_X[n2, j] * v_el[local_id]
       end
-
-      fec_atomic_add!(storage, global_id, contrib)
     end
+
+    fec_atomic_add!(storage, global_id, contrib)
   end
 
   return nothing
@@ -164,121 +200,161 @@ function scatter_with_gradients_and_gradients!(
   conns,
   ∇N_X,
   A::Tensor{4, 3, T, ND4},
-  v_el::SVector{NDPE, T}
+  v_el::SVector{NDPE, T},
+  row_dof_start = 1,
+  col_dof_start = 1
 ) where {ND, NF, T <: Number, ND4, NDPE}
+
   @assert ND == size(∇N_X, 2)
+  @assert NDPE == length(conns) * NF
+  @boundscheck row_dof_start + ND - 1 <= NF
+  @boundscheck col_dof_start + ND - 1 <= NF
+
   K_voigt = extract_stiffness(form, A)
   N       = size(∇N_X, 1)
+
   for n1 in 1:N
-    for d1 in 1:NF
-      global_id = NF * (conns[n1] - 1) + d1
+    for d1 in 1:ND
+      global_id = NF * (conns[n1] - 1) + row_dof_start + d1 - 1
       contrib   = zero(T)
       for n2 in 1:N
-        for d2 in 1:NF                          # FIX 1: loop over d2, not just d1
-          local_id = NF * (n2 - 1) + d2         # FIX 1: index v_el with d2
+        for d2 in 1:ND
+          local_id = NF * (n2 - 1) + col_dof_start + d2 - 1
           for j1 in 1:ND
             a = (j1 - 1) * ND + d1
             for j2 in 1:ND
-              b = (j2 - 1) * ND + d2            # FIX 2: use d2, not d1
+              b = (j2 - 1) * ND + d2
               contrib += ∇N_X[n1, j1] * K_voigt[a, b] * ∇N_X[n2, j2] * v_el[local_id]
             end
           end
         end
       end
+
       fec_atomic_add!(storage, global_id, contrib)
-    end
-  end
-  return nothing
-end
-
-"""
-General stiffness like matrix scatter method
-"""
-function scatter_with_gradients_and_gradients!(
-  storage::AbstractVector,
-  form::AbstractElementFormulation{ND, NF},
-  e,
-  conns,
-  ∇N_X,
-  K::AbstractMatrix{T},
-) where {ND, NF, T <: Number}
-
-  @assert size(K, 1) == NF^2
-  @assert size(K, 2) == NF^2
-  @assert ND == size(∇N_X, 2)
-
-  N    = size(∇N_X, 1)
-  NDPE = N * NF
-
-  start_id = (e - 1) * NDPE^2 + 1
-  ids      = start_id:(start_id + NDPE^2 - 1)
-
-  inc = 1
-
-  for n2 in 1:N
-    for d2 in 1:NF
-      for n1 in 1:N
-        for d1 in 1:NF
-          contrib = zero(T)
-
-          for J in 1:ND
-            a = (J - 1) * ND + d1
-
-            for L in 1:ND
-              b = (L - 1) * ND + d2
-              contrib += ∇N_X[n1, J] * K[a, b] * ∇N_X[n2, L]
-            end
-          end
-
-          storage[ids[inc]] += contrib
-          inc += 1
-        end
-      end
     end
   end
 
   return nothing
 end
 
-function scatter_gradient_gradient!(
-  storage::AbstractField,
-  form::AbstractElementFormulation{ND, NF},
-  e,
-  conns,
+# are the below two methods needed anymore?
+
+# """
+# General stiffness like matrix scatter method
+# """
+# function scatter_with_gradients_and_gradients!(
+#   storage::AbstractVector,
+#   form::AbstractElementFormulation{ND, NF},
+#   e,
+#   conns,
+#   ∇N_X,
+#   K::AbstractMatrix{T},
+# ) where {ND, NF, T <: Number}
+
+#   @assert size(K, 1) == NF^2
+#   @assert size(K, 2) == NF^2
+#   @assert ND == size(∇N_X, 2)
+
+#   N    = size(∇N_X, 1)
+#   NDPE = N * NF
+
+#   start_id = (e - 1) * NDPE^2 + 1
+#   ids      = start_id:(start_id + NDPE^2 - 1)
+
+#   inc = 1
+
+#   for n2 in 1:N
+#     for d2 in 1:NF
+#       for n1 in 1:N
+#         for d1 in 1:NF
+#           contrib = zero(T)
+
+#           for J in 1:ND
+#             a = (J - 1) * ND + d1
+
+#             for L in 1:ND
+#               b = (L - 1) * ND + d2
+#               contrib += ∇N_X[n1, J] * K[a, b] * ∇N_X[n2, L]
+#             end
+#           end
+
+#           storage[ids[inc]] += contrib
+#           inc += 1
+#         end
+#       end
+#     end
+#   end
+
+#   return nothing
+# end
+
+# function scatter_with_gradient_gradient!(
+#   storage::AbstractField,
+#   form::AbstractElementFormulation{ND, NF},
+#   e,
+#   conns,
+#   ∇N_X,
+#   A::AbstractMatrix{T},
+#   v_el::AbstractVector{T},
+# ) where {ND, NF, T <: Number}
+
+#   @assert ND == size(∇N_X, 2)
+#   @assert size(A) == (ND * NF, ND * NF)
+
+#   N = size(∇N_X, 1)
+#   NDPE = N * NF
+
+#   @assert length(v_el) == NDPE
+
+#   for n1 in 1:N
+#     for d1 in 1:NF
+#       global_id = NF * (conns[n1] - 1) + d1
+#       contrib = zero(T)
+
+#       for n2 in 1:N
+#         for d2 in 1:NF
+#           local_id = NF * (n2 - 1) + d2
+#           for j1 in 1:ND
+#             a = (j1 - 1) * NF + d1
+
+#             for j2 in 1:ND
+#                 b = (j2 - 1) * NF + d2
+#                 contrib += ∇N_X[n1, j1] * A[a, b] * ∇N_X[n2, j2] * v_el[local_id]
+#             end
+#           end
+#         end
+#       end
+
+#       fec_atomic_add!(storage, global_id, contrib)
+#     end
+#   end
+
+#   return nothing
+# end
+
+function scatter_with_symmetric_gradients!(
+  storage::AbstractField, 
+  form::ThreeDimensional, 
+  e, 
+  conns, 
   ∇N_X,
-  A::AbstractMatrix{T},
-  v_el::AbstractVector{T},
-) where {ND, NF, T <: Number}
+  S::SymmetricTensor{2, 3, T, 6}
+) where T <: Number
+  N       = size(∇N_X, 1)
+  n_dofs  = size(storage, 1)
+  S_vec   = extract_stress(form, S)
+  for n in 1:N
+      contrib_1 = ∇N_X[n, 1] * S_vec[1] + ∇N_X[n, 2] * S_vec[4] + ∇N_X[n, 3] * S_vec[6]
+      contrib_2 = ∇N_X[n, 2] * S_vec[2] + ∇N_X[n, 1] * S_vec[4] + ∇N_X[n, 3] * S_vec[5]
+      contrib_3 = ∇N_X[n, 3] * S_vec[3] + ∇N_X[n, 2] * S_vec[5] + ∇N_X[n, 1] * S_vec[6]
 
-  @assert ND == size(∇N_X, 2)
-  @assert size(A) == (ND * NF, ND * NF)
-
-  N = size(∇N_X, 1)
-  NDPE = N * NF
-
-  @assert length(v_el) == NDPE
-
-  for n1 in 1:N
-    for d1 in 1:NF
-      global_id = NF * (conns[n1] - 1) + d1
-      contrib = zero(T)
-
-      for n2 in 1:N
-        for d2 in 1:NF
-          local_id = NF * (n2 - 1) + d2
-          for j1 in 1:ND
-            a = (j1 - 1) * NF + d1
-
-            for j2 in 1:ND
-                b = (j2 - 1) * NF + d2
-                contrib += ∇N_X[n1, j1] * A[a, b] * ∇N_X[n2, j2] * v_el[local_id]
-            end
-          end
-        end
-      end
-
-      fec_atomic_add!(storage, global_id, contrib)
-    end
+      global_base = n_dofs * (conns[n] - 1)
+      # Atomix.@atomic storage.data[global_base + 1] += contrib_1
+      # Atomix.@atomic storage.data[global_base + 2] += contrib_2
+      # Atomix.@atomic storage.data[global_base + 3] += contrib_3
+      fec_atomic_add!(storage, global_base + 1, contrib_1)
+      fec_atomic_add!(storage, global_base + 2, contrib_2)
+      fec_atomic_add!(storage, global_base + 3, contrib_3)
   end
 
   return nothing
@@ -290,37 +366,56 @@ Scalar equation specialization
 f_el = N * vals
 """
 function scatter_with_values!(
-  storage::AbstractField, ::AbstractElementFormulation{ND, NF},
-  e, conns, N, vals::T
+  storage::AbstractField,
+  ::AbstractElementFormulation{ND, NF},
+  e,
+  conns,
+  N,
+  vals::T,
+  row_dof_start = 1
 ) where {ND, NF, T <: Number}
-  # TODO make this compile time checked through generics
-  n_dofs = size(storage, 1)
-  @assert n_dofs == NF
-  for n in 1:length(N)
-    contrib = N[n] * vals
-    global_id = n_dofs * (conns[n] - 1) + 1
+
+  @assert size(storage, 1) == NF
+  @boundscheck 1 <= row_dof_start <= NF
+
+  for n in eachindex(N)
+    contrib   = N[n] * vals
+    global_id = NF * (conns[n] - 1) + row_dof_start
     fec_atomic_add!(storage, global_id, contrib)
   end
+
+  return nothing
 end
+
 """
 General vector specialization
 f_el = N * vals
 """
 function scatter_with_values!(
-    storage::AbstractField, ::AbstractElementFormulation{ND, NF},
-    e, conns, N, vals::SVector{NF, T}
-) where {ND, NF, T <: Number}
-    # TODO make this compile time checked through generics
-    n_dofs = size(storage, 1)
-    @assert n_dofs == NF
-    for nf in axes(storage, 1)
-      for n in 1:length(N)
-        contrib = N[n] * vals
-        global_id = n_dofs * (conns[n] - 1) + nf
-        fec_atomic_add!(storage, global_id, contrib[nf])
-      end
+  storage::AbstractField,
+  ::AbstractElementFormulation{ND, NF},
+  e,
+  conns,
+  N,
+  vals::SVector{NROW, T},
+  row_dof_start = 1
+) where {ND, NF, NROW, T <: Number}
+
+  @assert size(storage, 1) == NF
+  @boundscheck row_dof_start + NROW - 1 <= NF
+
+  for n in eachindex(N)
+    global_base = NF * (conns[n] - 1)
+    for d in 1:NROW
+      contrib = N[n] * vals[d]
+      global_id = global_base + row_dof_start + d - 1
+      fec_atomic_add!(storage, global_id, contrib)
     end
+  end
+
+  return nothing
 end
+
 """
 scalar implementation
 """
@@ -330,21 +425,30 @@ function scatter_with_values_and_values!(
   e,
   conns,
   N,
-  ρ::T
+  ρ::T,
+  row_dof_start = 1,
+  col_dof_start = 1,
+  ncomponents = min(NF - row_dof_start + 1, NF - col_dof_start + 1)
 ) where {ND, NF, T <: Number}
-  Nn       = size(N, 1)
-  NDPE     = Nn * NF
-  NDOF     = NDPE
-  start_id = (e - 1) * NDPE * NDPE + 1
 
-  for n2 in 1:Nn          # col node — slow
-    for d in 1:NF       # col dof
-      c = NF * (n2 - 1) + d
-      for n1 in 1:Nn  # row node — fast
-        r          = NF * (n1 - 1) + d
-        linear_idx = start_id + r + NDOF * (c - 1) - 1
-        contrib    = N[n1] * ρ * N[n2]
-        storage[linear_idx] += contrib  # += not =
+  @boundscheck 1 <= row_dof_start <= NF
+  @boundscheck 1 <= col_dof_start <= NF
+  @boundscheck ncomponents >= 1
+  @boundscheck row_dof_start + ncomponents - 1 <= NF
+  @boundscheck col_dof_start + ncomponents - 1 <= NF
+
+  Nn       = length(N)
+  NDPE     = Nn * NF
+  start_id = (e - 1) * NDPE^2 + 1
+
+  for n2 in 1:Nn
+    for d in 1:ncomponents
+      col = NF * (n2 - 1) + col_dof_start + d - 1
+      for n1 in 1:Nn
+        row = NF * (n1 - 1) + row_dof_start + d - 1
+        idx = start_id + (row - 1) + NDPE * (col - 1)
+        contrib = N[n1] * ρ * N[n2]
+        storage[idx] += contrib
       end
     end
   end
@@ -359,20 +463,26 @@ function scatter_with_values_and_values!(
   conns,
   N,
   ρ::T,
-  v_el::SVector{NDPE, T}
+  v_el::SVector{NDPE, T},
+  row_dof_start = 1,
+  col_dof_start = 1,
+  ncomponents = min(NF - row_dof_start + 1, NF - col_dof_start + 1)
 ) where {ND, NF, T <: Number, NDPE}
-  Nn = size(N, 1)
 
+  @assert NDPE == length(conns) * NF
+  @boundscheck row_dof_start + ncomponents - 1 <= NF
+  @boundscheck col_dof_start + ncomponents - 1 <= NF
+
+  Nn = length(N)
   for n1 in 1:Nn
-    for d in 1:NF
-      global_id = NF * (conns[n1] - 1) + d
+    global_base = NF * (conns[n1] - 1)
+    for d in 1:ncomponents
+      global_id = global_base + row_dof_start + d - 1
       contrib   = zero(T)
-
       for n2 in 1:Nn
-        local_id = NF * (n2 - 1) + d
+        local_id = NF * (n2 - 1) + col_dof_start + d - 1
         contrib += N[n1] * ρ * N[n2] * v_el[local_id]
       end
-
       fec_atomic_add!(storage, global_id, contrib)
     end
   end
@@ -673,32 +783,4 @@ $(TYPEDSIGNATURES)
 """
 function modify_field_gradients(::ThreeDimensional, ∇u_q::SMatrix{3, 3, T, 9}) where T <: Number
   return Tensor{2, 3, T, 9}(∇u_q.data)
-end
-
-function scatter_with_symmetric_gradients!(
-  storage::AbstractField, 
-  form::ThreeDimensional, 
-  e, 
-  conns, 
-  ∇N_X,
-  S::SymmetricTensor{2, 3, T, 6}
-) where T <: Number
-  N       = size(∇N_X, 1)
-  n_dofs  = size(storage, 1)
-  S_vec   = extract_stress(form, S)
-  for n in 1:N
-      contrib_1 = ∇N_X[n, 1] * S_vec[1] + ∇N_X[n, 2] * S_vec[4] + ∇N_X[n, 3] * S_vec[6]
-      contrib_2 = ∇N_X[n, 2] * S_vec[2] + ∇N_X[n, 1] * S_vec[4] + ∇N_X[n, 3] * S_vec[5]
-      contrib_3 = ∇N_X[n, 3] * S_vec[3] + ∇N_X[n, 2] * S_vec[5] + ∇N_X[n, 1] * S_vec[6]
-
-      global_base = n_dofs * (conns[n] - 1)
-      # Atomix.@atomic storage.data[global_base + 1] += contrib_1
-      # Atomix.@atomic storage.data[global_base + 2] += contrib_2
-      # Atomix.@atomic storage.data[global_base + 3] += contrib_3
-      fec_atomic_add!(storage, global_base + 1, contrib_1)
-      fec_atomic_add!(storage, global_base + 2, contrib_2)
-      fec_atomic_add!(storage, global_base + 3, contrib_3)
-  end
-
-  return nothing
 end
