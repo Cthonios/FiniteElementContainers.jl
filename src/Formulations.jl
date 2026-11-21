@@ -31,7 +31,7 @@ starting at dof id 2.
 """
 function scatter_with_gradients!(
   storage::AbstractField, form::AbstractElementFormulation{ND, NF},
-  e, conns, ∇N_X, vals, dof_id_start = 1
+  e, conns, ∇N_X, vals; dof_id_start = 1
 ) where {ND, NF}
   @boundscheck 1 <= dof_id_start <= NF
 
@@ -66,7 +66,7 @@ function scatter_with_gradients_and_gradients!(
   e,
   conns,
   ∇N_X,
-  k::T,
+  k::T;
   row_dof_start = 1,
   col_dof_start = 1
 ) where {ND, NF, T <: Number}
@@ -111,7 +111,7 @@ function scatter_with_gradients_and_gradients!(
   e,
   conns,
   ∇N_X,
-  A::Tensor{4, 3, T, 81},
+  A::Tensor{4, 3, T, 81};
   row_dof_start = 1,
   col_dof_start = 1
 ) where {ND, NF, T <: Number}
@@ -164,7 +164,7 @@ function scatter_with_gradients_and_gradients!(
   conns,
   ∇N_X,
   k::T,
-  v_el::SVector{NDPE, T},
+  v_el::SVector{NDPE, T};
   row_dof_start = 1,
   col_dof_start = 1
 ) where {ND, NF, T <: Number, NDPE}
@@ -200,7 +200,7 @@ function scatter_with_gradients_and_gradients!(
   conns,
   ∇N_X,
   A::Tensor{4, 3, T, ND4},
-  v_el::SVector{NDPE, T},
+  v_el::SVector{NDPE, T};
   row_dof_start = 1,
   col_dof_start = 1
 ) where {ND, NF, T <: Number, ND4, NDPE}
@@ -332,34 +332,6 @@ end
 #   return nothing
 # end
 
-function scatter_with_symmetric_gradients!(
-  storage::AbstractField, 
-  form::ThreeDimensional, 
-  e, 
-  conns, 
-  ∇N_X,
-  S::SymmetricTensor{2, 3, T, 6}
-) where T <: Number
-  N       = size(∇N_X, 1)
-  n_dofs  = size(storage, 1)
-  S_vec   = extract_stress(form, S)
-  for n in 1:N
-      contrib_1 = ∇N_X[n, 1] * S_vec[1] + ∇N_X[n, 2] * S_vec[4] + ∇N_X[n, 3] * S_vec[6]
-      contrib_2 = ∇N_X[n, 2] * S_vec[2] + ∇N_X[n, 1] * S_vec[4] + ∇N_X[n, 3] * S_vec[5]
-      contrib_3 = ∇N_X[n, 3] * S_vec[3] + ∇N_X[n, 2] * S_vec[5] + ∇N_X[n, 1] * S_vec[6]
-
-      global_base = n_dofs * (conns[n] - 1)
-      # Atomix.@atomic storage.data[global_base + 1] += contrib_1
-      # Atomix.@atomic storage.data[global_base + 2] += contrib_2
-      # Atomix.@atomic storage.data[global_base + 3] += contrib_3
-      fec_atomic_add!(storage, global_base + 1, contrib_1)
-      fec_atomic_add!(storage, global_base + 2, contrib_2)
-      fec_atomic_add!(storage, global_base + 3, contrib_3)
-  end
-
-  return nothing
-end
-
 # implement for those that have it
 """
 Scalar equation specialization
@@ -371,7 +343,7 @@ function scatter_with_values!(
   e,
   conns,
   N,
-  vals::T,
+  vals::T;
   row_dof_start = 1
 ) where {ND, NF, T <: Number}
 
@@ -397,7 +369,7 @@ function scatter_with_values!(
   e,
   conns,
   N,
-  vals::SVector{NROW, T},
+  vals::SVector{NROW, T};
   row_dof_start = 1
 ) where {ND, NF, NROW, T <: Number}
 
@@ -425,7 +397,7 @@ function scatter_with_values_and_values!(
   e,
   conns,
   N,
-  ρ::T,
+  ρ::T;
   row_dof_start = 1,
   col_dof_start = 1,
   ncomponents = min(NF - row_dof_start + 1, NF - col_dof_start + 1)
@@ -463,7 +435,7 @@ function scatter_with_values_and_values!(
   conns,
   N,
   ρ::T,
-  v_el::SVector{NDPE, T},
+  v_el::SVector{NDPE, T};
   row_dof_start = 1,
   col_dof_start = 1,
   ncomponents = min(NF - row_dof_start + 1, NF - col_dof_start + 1)
@@ -783,4 +755,32 @@ $(TYPEDSIGNATURES)
 """
 function modify_field_gradients(::ThreeDimensional, ∇u_q::SMatrix{3, 3, T, 9}) where T <: Number
   return Tensor{2, 3, T, 9}(∇u_q.data)
+end
+
+function scatter_with_symmetric_gradients!(
+  storage::AbstractField, 
+  form::ThreeDimensional, 
+  e, 
+  conns, 
+  ∇N_X,
+  S::SymmetricTensor{2, 3, T, 6}
+) where T <: Number
+  N       = size(∇N_X, 1)
+  n_dofs  = size(storage, 1)
+  S_vec   = extract_stress(form, S)
+  for n in 1:N
+      contrib_1 = ∇N_X[n, 1] * S_vec[1] + ∇N_X[n, 2] * S_vec[4] + ∇N_X[n, 3] * S_vec[6]
+      contrib_2 = ∇N_X[n, 2] * S_vec[2] + ∇N_X[n, 1] * S_vec[4] + ∇N_X[n, 3] * S_vec[5]
+      contrib_3 = ∇N_X[n, 3] * S_vec[3] + ∇N_X[n, 2] * S_vec[5] + ∇N_X[n, 1] * S_vec[6]
+
+      global_base = n_dofs * (conns[n] - 1)
+      # Atomix.@atomic storage.data[global_base + 1] += contrib_1
+      # Atomix.@atomic storage.data[global_base + 2] += contrib_2
+      # Atomix.@atomic storage.data[global_base + 3] += contrib_3
+      fec_atomic_add!(storage, global_base + 1, contrib_1)
+      fec_atomic_add!(storage, global_base + 2, contrib_2)
+      fec_atomic_add!(storage, global_base + 3, contrib_3)
+  end
+
+  return nothing
 end
