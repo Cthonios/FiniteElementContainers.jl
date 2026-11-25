@@ -478,6 +478,7 @@ end
 
 """
 $(TYPEDSIGNATURES)
+this doesn't appear to be used.
 """
 function update_dofs!(asm::AbstractAssembler, p::Parameters)
   update_dofs!(asm, p.dirichlet_bcs, asm.periodic_bcs)
@@ -486,13 +487,6 @@ end
 
 function _update_field!(p::AbstractParameters)
   p.field_old.data .= p.field.data
-  return nothing
-end
-
-function _update_field!(p::Tuple)
-  for n in 1:length(p)
-    _update_field!(p[n])
-  end
   return nothing
 end
 
@@ -519,12 +513,6 @@ function _update_for_assembly!(p::AbstractParameters, dof::DofManager, Uu, Vu)
   return nothing
 end
 
-function _update_for_assembly!(p, dof::Tuple, Uu)
-  for n in 1:length(p)
-    _update_for_assembly!(p[n], dof[n], view(Uu, BlockArrays.Block(n)))
-  end
-end
-
 # Full-DOF flavor: caller is responsible for assembling the merged
 # vectors U_full = [Uu; U_BC] and v_full = [v_free; v_BC] themselves.
 # Unlike the free-DOF flavors above, we do NOT call
@@ -547,12 +535,5 @@ $(TYPEDSIGNATURES)
 """
 function update_time!(p::AbstractParameters)
   p.times.time_current = current_time(p.times) + time_step(p.times)
-  return nothing
-end
-
-function update_time!(p::Tuple)
-  for n in 1:length(p)
-    update_time!(p[n])
-  end
   return nothing
 end

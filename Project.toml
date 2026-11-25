@@ -35,8 +35,8 @@ Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
 PartitionedArrays = "5a9dfac6-5c52-46f7-8278-5e2210713be9"
 
 [extensions]
-AdaptExt = "Adapt"
 AMDGPUExt = ["AMDGPU", "Adapt"]
+AdaptExt = "Adapt"
 CUDAExt = ["Adapt", "CUDA"]
 GPUArraysExt = ["GPUArrays", "KernelAbstractions", "SparseArrays"]
 GmshExt = "Gmsh"

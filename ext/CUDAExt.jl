@@ -15,15 +15,15 @@ FiniteElementContainers.cuda(x) =
 
 # private API
 function FiniteElementContainers._coo_matrix_constructor(::CUDA.CUDABackend)
-  return CUDA.CUSPARSE.CuSparseMatrixCOO
+  return CUDA.cuSPARSE.CuSparseMatrixCOO
 end
 
 function FiniteElementContainers._csc_matrix_constructor(::CUDA.CUDABackend)
-  return CUDA.CUSPARSE.CuSparseMatrixCSC
+  return CUDA.cuSPARSE.CuSparseMatrixCSC
 end
 
 function FiniteElementContainers._csr_matrix_constructor(::CUDA.CUDABackend)
-  return CUDA.CUSPARSE.CuSparseMatrixCSR
+  return CUDA.cuSPARSE.CuSparseMatrixCSR
 end
 
 function FiniteElementContainers.fec_dense_array(::CUDA.CUDABackend, ::Type{RT}, size...) where RT <: Number

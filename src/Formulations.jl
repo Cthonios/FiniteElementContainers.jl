@@ -473,7 +473,7 @@ end
 ##########################################################################
 # Mechanics base
 ##########################################################################
-abstract type AbstractMechanicsElementFormulation{ND} <: AbstractElementFormulation{ND, ND} end
+abstract type AbstractMechanicsElementFormulation{ND, NF} <: AbstractElementFormulation{ND, NF} end
 function extract_stiffness end
 function extract_stress end
 function scatter_with_symmetric_gradient! end
@@ -490,7 +490,21 @@ function scatter_with_symmetric_gradient! end
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct PlaneStrain <: AbstractMechanicsElementFormulation{2}
+struct PlaneStrain{NF} <: AbstractMechanicsElementFormulation{2, NF}
+  """
+  Constructor for plane strain uncoupled solid mechanics problems
+  """
+  function PlaneStrain()
+    new{2}()
+  end
+
+  """
+  Constructor for plane strain coupled solid mechanics problems
+  """
+  function PlaneStrain{NF}() where NF
+    @assert NF >= 2 "Plane strain problems need at least two fields."
+    new{NF}()
+  end
 end
 
 """
@@ -628,7 +642,21 @@ end
 $(TYPEDEF)
 $(TYPEDFIELDS)
 """
-struct ThreeDimensional <: AbstractMechanicsElementFormulation{3}
+struct ThreeDimensional{NF} <: AbstractMechanicsElementFormulation{3, NF}
+  """
+  Constructor for three dimensional uncoupled solid mechanics problems
+  """
+  function ThreeDimensional()
+    new{3}()
+  end
+
+  """
+  Constructor for three dimensional uncoupled solid mechanics problems
+  """
+  function ThreeDimensional{NF}() where NF
+    @assert NF >= 3 "Three dimensional problems need at least three fields."
+    new{NF}()
+  end
 end
 
 """

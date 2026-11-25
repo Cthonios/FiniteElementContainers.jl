@@ -1,3 +1,7 @@
+```@meta
+CurrentModule = FiniteElementContainers
+```
+
 # Boundary Conditions
 This section describes the user facing API for boundary conditions
 along with the implementation details.
@@ -16,7 +20,7 @@ Dirichlet bcs can be setup on element blocks, nodesets, or sidesets. The appropr
 
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["DirichletBCs.jl"]
+Pages = ["bcs/DirichletBC.jl"]
 Order = [:type, :function]
 ```
 
@@ -41,39 +45,41 @@ where ```ND``` is the number of dimensions.
 
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["NeumannBCs.jl"]
+Pages = ["bcs/NeumannBC.jl"]
 Order = [:type, :function]
 ```
 
 # PeriodicBC
-Periodic boundary conditions are very much a work in progress. There is currently
-some machinary to implement a Lagrange multiplier approach. 
-
-Stay tuned.
-
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["PeriodicBCs.jl"]
+Pages = ["bcs/PeriodicBC.jl"]
+Order = [:type, :function]
+```
+
+# PointSource
+```@autodocs
+Modules = [FiniteElementContainers]
+Pages = ["bcs/PointSource.jl"]
 Order = [:type, :function]
 ```
 
 # RobinBC
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["RobinBCs.jl"]
+Pages = ["bcs/RobinBC.jl"]
 Order = [:type, :function]
 ```
 
 # Source
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["Sources.jl"]
+Pages = ["bcs/Source.jl"]
 Order = [:type, :function]
 ```
 
 ## Boundary Condition Implementation Details
 ```@autodocs
 Modules = [FiniteElementContainers]
-Pages = ["BoundaryConditions.jl"]
+Pages = ["bcs/BoundaryConditions.jl"]
 Order = [:type, :function]
 ```

@@ -138,9 +138,6 @@ struct PointSourceBCFunction{F} <: AbstractBCFunction{F}
   end
 end
 
-"""
-$(TYPEDSIGNATURES)
-"""
 function _update_bc_values!(bc::PointSourceBCContainer, func::PointSourceBCFunction, X, t, bc_length::Int, offset::Int)
   backend = KA.get_backend(bc)
   fec_foreach(1:bc_length, backend) do n
