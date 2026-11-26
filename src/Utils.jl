@@ -39,7 +39,8 @@ end
 # boosted from AcceleratedKernels.jl
 # The `i`-th element of `indices`, counting from 1 whatever the first index of `indices` is
 @inline nth(indices, i) = @inbounds indices[firstindex(indices) - 1 + i]
-KA.@kernel inbounds=true cpu=false unsafe_indices=true function foreachindex_kernel!(f, indices)
+# KA.@kernel inbounds=true cpu=false unsafe_indices=true function foreachindex_kernel!(f, indices)
+KA.@kernel inbounds=true cpu=false function foreachindex_kernel!(f, indices)
     N = KA.@groupsize()[1]
     iblock = KA.@index(Group, Linear)
     ithread = KA.@index(Local, Linear)
@@ -242,7 +243,7 @@ function foreach_element(
     # GPU settings
     block_size = 256
 )
-    nelems = conns.nelems[block_id]
+    nelems = num_elements(conns, block_id)
     _fec_forindices(backend, f, 1:nelems, block_size, max_tasks, min_elems)
 end
 

@@ -51,3 +51,6 @@ If you have had success with this package on other devices, please open a PR wit
 
 # MPI execution
 This is not completely supported yet. This is actively being worked on with [PartitionedArrays.jl](https://github.com/PartitionedArrays/PartitionedArrays.jl) as the distributed linear algebra backend.
+
+# Notes on using --trim with JuliaC.jl
+Currently [JuliaC.jl](https://github.com/JuliaLang/Juliac.jl) only has partial support for JLL packages built with [BinaryBuilder2.jl](https://github.com/JuliaPackaging/BinaryBuilder2.jl). Currently the only package in this software stack (as of November 25th 2026) is ``Libiconv_jll.jl``. To ensure things can be trimmed, pin the version of ``Libiconv_jll.jl`` to v1.18.0 or else errors will be encountered.

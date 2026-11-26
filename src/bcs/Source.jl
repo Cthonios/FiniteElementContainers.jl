@@ -222,7 +222,7 @@ function update_source_values!(sources::Sources, assembler, X, t)
       else
         func = sources.source_funcs[block_id]
         conns_data = fspace.elem_conns.data
-        coffset = fspace.elem_conns.offsets[block_id]
+        coffset = block_offset(fspace.elem_conns, block_id)
         _update_source_values!(cache.vals, func, ref_fe, conns_data, coffset, X, t)
         cache.initialized[] = true
       end
