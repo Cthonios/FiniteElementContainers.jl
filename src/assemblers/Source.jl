@@ -34,7 +34,7 @@ function assemble_vector_source!(storage, pattern, dof, Uu, p)
       cache = sources.source_caches[block_id]
       _assemble_block_vector_source!(
         storage,
-        conns.data, conns.offsets[block_id],
+        conns.data, block_offset(conns, block_id),
         ref_fe, X, U, cache.vals
       )
     end

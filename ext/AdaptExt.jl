@@ -276,14 +276,17 @@ Adapt.adapt_structure(to, f::FEC.Expressions.ScalarExpressionFunction) = f
 Adapt.adapt_structure(to, f::FEC.Expressions.VectorExpressionFunction) = f
 
 # fields
-function Adapt.adapt_structure(to, conn::FEC.Connectivity{T, D}) where {T, D}
-    return FEC.Connectivity(
-        adapt(to, conn.data),
-        conn.nblocks,
-        conn.nepes,
-        conn.nelems,
-        conn.offsets
-    )
+function Adapt.adapt_structure(to, layout::FEC.BlockLayout)
+  return FEC.BlockLayout(
+    layout.nblocks,
+    adapt(to, layout.nepes),
+    adapt(to, layout.nelems),
+    adapt(to, layout.offsets)
+  )
+end
+
+function Adapt.adapt_structure(to, conn::FEC.Connectivity)
+    return FEC.Connectivity(adapt(to, conn.data), conn.layout)
 end
 
 function Adapt.adapt_structure(to, conn::FEC.Connectivity_v2)
@@ -311,41 +314,33 @@ function Adapt.adapt_structure(to, field::FEC.HdivField{T, D, NF}) where {T, D, 
     return FEC.HdivField{T, typeof(data), NF}(data)
 end
 
-function Adapt.adapt_structure(to, field::FEC.L2Field{T, D, NF}) where {T, D, NF}
+function Adapt.adapt_structure(to, field::FEC.L2Field{I, T, IV, TV, NF}) where {I, T, IV, TV, NF}
     data = adapt(to, field.data)
-    return FEC.L2Field{T, typeof(data), NF}(
-        data,
-        field.nblocks,
-        field.nepes,
-        field.nelems,
-        field.offsets
-    )
+    return FEC.L2Field{I, T, IV, typeof(data), NF}(data, field.layout)
 end
 
 function Adapt.adapt_structure(to, field::FEC.PropertyField)
     data = adapt(to, field.data)
     isblockconstant = adapt(to, field.isblockconstant)
-    return FEC.PropertyField{eltype(field), typeof(data), typeof(isblockconstant)}(
+    return FEC.PropertyField{eltype(field.layout), eltype(data), typeof(isblockconstant), typeof(data)}(
         data,
         isblockconstant,
-        field.nblocks,
-        adapt(to, field.nepes),
-        adapt(to, field.nelems),
-        adapt(to, field.offsets)
+        adapt(to, field.layout)
     )
 end
 
-function Adapt.adapt_structure(to, field::FEC.StateVariableField{T, D, I}) where {T, D, I}
+function Adapt.adapt_structure(to, field::FEC.StateVariableField{I, T, IV, TV}) where {I, T, IV, TV}
     data = adapt(to, field.data)
     nfields = adapt(to, field.nfields)
-    return FEC.StateVariableField{T, typeof(data), typeof(nfields)}(
+    return FEC.StateVariableField{I, T, typeof(nfields), typeof(data)}(
         data,
-        field.nblocks,
-        nfields,
-        adapt(to, field.nepes),
-        adapt(to, field.nelems),
-        adapt(to, field.offsets)
+        adapt(to, field.layout),
+        nfields
     )
+end
+
+function Adapt.parent_type(::Type{FEC.H1Field{T, D, NF}}) where {T, D, NF}
+  return D
 end
 
 # functions

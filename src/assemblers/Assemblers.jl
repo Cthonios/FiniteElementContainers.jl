@@ -479,7 +479,7 @@ function _assemble_block!(
   R        <: AssembledReturnType
 }
   conns = conns_all.data
-  coffset = conns_all.offsets[b]
+  coffset = block_offset(conns_all, b)
   foreach_element(conns_all, b; block_size = gpu_block_size) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)
@@ -507,7 +507,7 @@ function _assemble_block!(
 }
   _check_element_assembly_supported(physics, "_assemble_block!")
   conns = conns_all.data
-  coffset = conns_all.offsets[b]
+  coffset = block_offset(conns_all, b)
   foreach_element(conns_all, b; block_size = gpu_block_size) do e
     conn = connectivity(ref_fe, conns, e, coffset)
     x_el, u_el, u_el_old = element_level_fields(ref_fe, conn, X, U, U_old)

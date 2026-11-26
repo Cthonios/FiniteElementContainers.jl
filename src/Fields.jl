@@ -10,6 +10,16 @@ abstract type AbstractField{T, N, D <: AbstractArray{T, 1}} <: AbstractArray{T, 
 """
 $(TYPEDSIGNATURES)
 """
+get_data(field::AbstractField) = field.data
+"""
+$(TYPEDSIGNATURES)
+"""
+function set_data!(field::AbstractField{T, N, D}, new_data::D) where {T, N, D}
+    field.data .= new_data
+end
+"""
+$(TYPEDSIGNATURES)
+"""
 Base.IndexStyle(::Type{<:AbstractField}) = IndexLinear()
 """
 $(TYPEDSIGNATURES)
@@ -18,26 +28,26 @@ Base.eltype(::AbstractField{T, N, D}) where {T, N, D} = T
 """
 $(TYPEDSIGNATURES)
 """
-Base.fill!(field::AbstractField{T, N, D}, v::T) where {T, N, D} = fill!(field.data, v)
+Base.fill!(field::AbstractField{T, N, D}, v::T) where {T, N, D} = fill!(get_data(field), v)
 """
 $(TYPEDSIGNATURES)
 """
-Base.getindex(field::AbstractField, n::Int) = getindex(field.data, n)
+Base.getindex(field::AbstractField, n::Int) = getindex(get_data(field), n)
 """
 $(TYPEDSIGNATURES)
 """
 function Base.setindex!(field::AbstractField{T, N, D}, v::T, n::Int) where {T, N, D}
-    setindex!(field.data, v, n)
+    setindex!(get_data(field), v, n)
     return nothing
 end
 """
 $(TYPEDSIGNATURES)
 """
-Base.unique(field::AbstractField) = unique(field.data)
+Base.unique(field::AbstractField) = unique(get_data(field))
 """
 $(TYPEDSIGNATURES)
 """
-KA.get_backend(field::AbstractField) = KA.get_backend(field.data)
+KA.get_backend(field::AbstractField) = KA.get_backend(get_data(field))
 
 struct FieldAccessException <: Exception
 end
@@ -61,28 +71,28 @@ end
 function Base.getindex(field::AbstractContinuousField, d::Int, n::Int)
     @boundscheck 1 <= d <= num_fields(field) || _field_access_exception()
     @boundscheck 1 <= n <= num_entities(field) || _field_access_exception()
-    return getindex(field.data, (n - 1) * num_fields(field) + d)
+    return getindex(get_data(field), (n - 1) * num_fields(field) + d)
 end
 
 function Base.resize!(field::AbstractContinuousField{T, D, NF}, n::Int) where {T, D, NF}
-    resize!(field.data, NF * n)
+    resize!(get_data(field), NF * n)
     return nothing
 end
 
 function Base.setindex!(field::AbstractContinuousField{T, D, NF}, v, d::Int, n::Int) where {T, D, NF}
     @boundscheck 1 <= d <= num_fields(field) || _field_access_exception()
     @boundscheck 1 <= n <= num_entities(field) || _field_access_exception()
-    setindex!(field.data, v, (n - 1) * num_fields(field) + d)
+    setindex!(get_data(field), v, (n - 1) * num_fields(field) + d)
     return nothing
 end
 
 function Base.similar(field::AbstractContinuousField)
-  data = similar(field.data)
+  data = similar(get_data(field))
   return typeof(field)(data)
 end
 
 function Base.size(field::AbstractContinuousField{T, D, NF}) where {T, D, NF} 
-  NN = length(field.data) ÷ NF
+  NN = length(get_data(field)) ÷ NF
   return (NF, NN)
 end
 
@@ -90,7 +100,7 @@ end
 $(TYPEDSIGNATURES)
 """
 function num_entities(field::AbstractContinuousField{T, D, NF}) where {T, D, NF}
-  return length(field.data) ÷ NF
+  return length(get_data(field)) ÷ NF
 end
 """
 $(TYPEDSIGNATURES)
@@ -102,36 +112,63 @@ end
 ######################################################################################################
 # Abstract type for all block like fields
 ######################################################################################################
-abstract type AbstractBlockField{T, D <: AbstractArray{T, 1}} <: AbstractField{T, 1, D} end
+struct BlockLayout{I, IV <: AbstractVector{I}}
+    nblocks::I
+    nepes::IV
+    nelems::IV
+    offsets::IV
 
-Base.size(field::AbstractBlockField) = size(field.data)
+    function BlockLayout(nblocks, nepes, nelems, offsets)
+        new{eltype(nepes), typeof(nepes)}(nblocks, nepes, nelems, offsets)
+    end
+
+    function BlockLayout{I}() where I <: Integer
+        new{I, Vector{I}}(0, I[], I[], I[])
+    end
+end
+
+Base.eltype(::BlockLayout{I, IV}) where {I, IV} = I
+
+abstract type AbstractBlockField{I, IV <: AbstractVector{I}} <: AbstractField{I, 1, IV} end
+
+Base.size(field::AbstractBlockField) = size(get_data(field))
+
+function block_offset(field::AbstractBlockField, b)
+    return field.layout.offsets[b]
+end
 
 function block_sizes(field::AbstractBlockField)
     return block_size.((field,), 1:num_blocks(field))
 end
 
 function num_blocks(field::AbstractBlockField)
-    return field.nblocks
+    return field.layout.nblocks
 end
 
 function num_elements(field::AbstractBlockField)
-    return reduce(+, field.nelems)
+    return reduce(+, field.layout.nelems)
 end
 
 # NOT GPU safe
-function num_elements(field::AbstractBlockField{T, D}, b::Int) where {T, D <: Vector{T}}
-    return field.nelems[b]
+function num_elements(field::AbstractBlockField, b::Int)
+    return field.layout.nelems[b]
 end
 
 # NOT GPU safe
-function num_entities_per_element(field::AbstractBlockField{T, D}, b::Int) where {T, D <: Vector{T}}
-    return field.nepes[b]
+function num_entities_per_element(field::AbstractBlockField, b::Int)
+    return field.layout.nepes[b]
 end
 
 ######################################################################################################
 # Abstract type for all continuous fields e.g. L2Field, StateVariableField, etc.
 ######################################################################################################
-abstract type AbstractDiscontinuousField{T, D <: AbstractArray{T, 1}} <: AbstractBlockField{T, D} end
+abstract type AbstractDiscontinuousField{
+    # T, D <: AbstractArray{T, 1}
+    I  <: Integer,
+    T,
+    IV <: AbstractVector{I},
+    TV <: AbstractVector{T}
+} <: AbstractBlockField{T, TV} end
 
 # need to implement num_fields method
 # function num_fields end
@@ -152,16 +189,16 @@ function Base.show(io::IO, ::MIME"text/plain", field::AbstractDiscontinuousField
 end
 
 function block_size(field::AbstractDiscontinuousField, b::Int)
-    return (num_fields(field, b), field.nepes[b], field.nelems[b])
+    return (num_fields(field, b), num_entities_per_element(field, b), num_elements(field, b))
 end
 
 function block_view(field::AbstractDiscontinuousField, b::Int)
     nfield = num_fields(field, b)
-    nepe = field.nepes[b]
-    nelem = field.nelems[b]
-    boffset = field.offsets[b]
+    nepe = num_entities_per_element(field, b)
+    nelem = num_elements(field, b)
+    boffset = block_offset(field, b)
     bend = boffset + nfield * nepe * nelem - 1
-    return reshape(view(field.data, boffset:bend), nfield, nepe, nelem)
+    return reshape(view(get_data(field), boffset:bend), nfield, nepe, nelem)
 end
 
 ######################################################################################################
@@ -171,14 +208,11 @@ end
 $(TYPEDEF)
 """
 struct Connectivity{
-    T <: Integer, 
-    D <: AbstractVector{T}
-} <: AbstractBlockField{T, D}
-    data::D
-    nblocks::T
-    nepes::Vector{T}
-    nelems::Vector{T}
-    offsets::Vector{T}
+    I  <: Integer, 
+    IV <: AbstractVector{I}
+} <: AbstractBlockField{I, IV}
+    data::IV
+    layout::BlockLayout{I, Vector{I}}
 
     function Connectivity(mats::Vector{<:AbstractMatrix{<:Integer}})
         nblocks = length(mats)
@@ -191,15 +225,16 @@ struct Connectivity{
             offset += nepe * nelem
         end
         data = mapreduce(vec, vcat, mats)
-        new{eltype(data), typeof(data)}(data, nblocks, nepes, nelems, offsets)
+        layout = BlockLayout(nblocks, nepes, nelems, offsets)
+        new{eltype(data), typeof(data)}(data, layout)
     end
 
-    function Connectivity(data, nblocks, nepes, nelems, offsets)
-        new{eltype(data), typeof(data)}(data, nblocks, nepes, nelems, offsets)
+    function Connectivity(data, layout)
+        new{eltype(data), typeof(data)}(data, layout)
     end
 
-    function Connectivity{T, D}() where {T, D}
-        new{T, D}(T[], 0, T[], T[], T[])
+    function Connectivity{I, IV}() where {I, IV}
+        new{I, IV}(T[], BlockLayout{I}())
     end
 end
 
@@ -208,20 +243,20 @@ function block_size(conn::Connectivity, b::Int)
 end
 
 # NOT GPU safe
-function connectivity(conn::Connectivity{T, D}, b::Int) where {T, D <: Vector{T}}
-    nepe = conn.nepes[b]
-    nelem = conn.nelems[b]
-    boffset = conn.offsets[b]
-    return reshape(view(conn.data, boffset:boffset + nepe * nelem - 1), nepe, nelem)
+function connectivity(conn::Connectivity{I, IV}, b::Int) where {I, IV <: Vector{I}}
+    nepe = num_entities_per_element(conn, b)
+    nelem = num_elements(conn, b)
+    boffset = block_offset(conn, b)
+    return reshape(view(get_data(conn), boffset:boffset + nepe * nelem - 1), nepe, nelem)
 end
 
 # NOT GPU safe
-function connectivity(conn::Connectivity{T, D}, e::Int, b::Int) where {T, D <: Vector{T}}
-    nepe = conn.nepes[b]
-    boffset = conn.offsets[b]
+function connectivity(conn::Connectivity{I, IV}, e::Int, b::Int) where {I, IV <: Vector{I}}
+    nepe = num_entities_per_element(conn, b)
+    boffset = block_offset(conn, b)
     start = boffset + nepe * (e - 1)
     finish = boffset + nepe * e - 1
-    return view(conn.data, start:finish)
+    return view(get_data(conn), start:finish)
 end
 
 # GPU safe.  The tuple length is passed as a Val: `ntuple(f, n::Int)` is
@@ -255,23 +290,20 @@ end
 $(TYPEDEF)
 """
 struct Connectivity_v2{
-    T <: Integer, 
-    D <: AbstractVector{T}
-} <: AbstractBlockField{T, D}
-    data::D
-    nblocks::T
-    nepes::D
-    nelems::D
-    offsets::D
+    I  <: Integer, 
+    IV <: AbstractVector{I}
+} <: AbstractBlockField{I, IV}
+    data::IV
+    layout::BlockLayout{I, IV}
 end
 
 function Connectivity_v2(conn::Connectivity)
-    return Connectivity_v2(conn.data, conn.nblocks, conn.nepes, conn.nelems, conn.offsets)
+    return Connectivity_v2(get_data(conn), conn.layout)
 end
 
 @inline function connectivity(conn::Connectivity_v2, n::Int, e::Int, b::Int)
-    idx = conn.offsets[b] + conn.nepes[b] * (e - 1) + n - 1
-    return conn.data[idx]
+    idx = block_offset(conn, b) + num_entities_per_element(conn, b) * (e - 1) + n - 1
+    return get_data(conn)[idx]
 end
 
 ######################################################################################################
@@ -359,18 +391,17 @@ end
 # L2Field
 ######################################################################################################
 struct L2Field{
-    T, # Let it be anything to allow for structs
-    D  <: AbstractVector{T},
+    I  <: Integer,
+    T,  # Let it be anything to allow for structs
+    IV <: AbstractVector{I},
+    TV <: AbstractVector{T},
     NF
-} <: AbstractDiscontinuousField{T, D}
-    data::D              # flat storage (CPU or GPU)
-    nblocks::Int
-    nepes::Vector{Int}   # num nodes, q points, etc.
-    nelems::Vector{Int}
-    offsets::Vector{Int}
+} <: AbstractDiscontinuousField{I, T, IV, TV}
+    data::TV              # flat storage (CPU or GPU)
+    layout::BlockLayout{I, Vector{I}}
 
-    function L2Field{T, D, NF}(data, nblocks, nepes, nelems, offsets) where {T, D, NF}
-        new{T, D, NF}(data, nblocks, nepes, nelems, offsets)
+    function L2Field{I, T, IV, TV, NF}(data, layout) where {I, T, IV, TV, NF}
+        new{I, T, IV, TV, NF}(data, layout)
     end
 
     function L2Field(arrs::Vector{<:AbstractArray{T, 3}}) where T
@@ -386,7 +417,8 @@ struct L2Field{
             offset += nfields * nepes[b] * nelems[b]
         end
         data = mapreduce(vec, vcat, arrs)
-        return L2Field{T, typeof(data), nfields}(data, length(nepes), nepes, nelems, offsets)
+        layout = BlockLayout(length(nepes), nepes, nelems, offsets)
+        return L2Field{eltype(layout), T, typeof(layout.nelems), typeof(data), nfields}(data, layout)
     end
 
     function L2Field(::UndefInitializer, ::Type{T}, nfields::Int, qsizes::Vector{Tuple{Int, Int}}) where T
@@ -397,7 +429,7 @@ struct L2Field{
         return L2Field(arrs)
     end
 
-    function L2Field{T, D, NF}(::UndefInitializer, qsizes::Vector{Tuple{Int, Int}}) where {T, D, NF}
+    function L2Field{I, T, IV, TV, NF}(::UndefInitializer, qsizes::Vector{Tuple{Int, Int}}) where {I, T, IV, TV, NF}
         arrs = Array{T, 3}[]
         for (nq, ne) in qsizes
             push!(arrs, Array{T, 3}(undef, NF, nq, ne))
@@ -411,11 +443,12 @@ struct L2Field{
             offset += NF * nepes[b] * nelems[b]
         end
         data = mapreduce(vec, vcat, arrs)
-        return L2Field{T, typeof(data), NF}(data, length(nepes), nepes, nelems, offsets)
+        layout = BlockLayout(length(nepes), nepes, nelems, offsets)
+        return L2Field{eltype(layout), T, typeof(layout.nelems), typeof(data), NF}(data, layout)
     end
 end
 
-function num_fields(::L2Field{T, D, NF}, b::Int) where {T, D, NF}
+function num_fields(::L2Field{I, T, IV, TV, NF}, b::Int) where {I, T, IV, TV, NF}
     return NF
 end
 
@@ -427,19 +460,17 @@ const PROPS_ELEMS = -2
 const PropertyBlock{T} = Union{Vector{T}, Matrix{T}}
 
 struct PropertyField{
-    T <: Number,
-    D <: AbstractVector{T},
-    I <: AbstractVector{Int}
-} <: AbstractDiscontinuousField{T, D}
-    data::D
-    isblockconstant::I
-    nblocks::Int
-    nepes::I
-    nelems::I
-    offsets::I
+    I  <: Integer,
+    T  <: Number,
+    IV <: AbstractVector{I},
+    TV <: AbstractVector{T}
+} <: AbstractDiscontinuousField{I, T, IV, TV}
+    data::TV
+    isblockconstant::IV
+    layout::BlockLayout{I, IV}
 
-    function PropertyField{T, D, I}(data, isblockconstant, nblocks, nepes, nelems, offsets) where {T, D, I}
-        new{T, D, I}(data, isblockconstant, nblocks, nepes, nelems, offsets)
+    function PropertyField{I, T, IV, TV}(data, isblockconstant, layout) where {I, T, IV, TV}
+        new{I, T, IV, TV}(data, isblockconstant, layout)
     end
 
     # One entry per block.  A vector-like entry means the properties are
@@ -479,8 +510,9 @@ struct PropertyField{
             i += nx
         end
 
-        return PropertyField{T, typeof(data), typeof(isblockconstant)}(
-            data, isblockconstant, nblocks, nepes, nelems, offsets
+        layout = BlockLayout(nblocks, nepes, nelems, offsets)
+        return PropertyField{eltype(layout), T, typeof(layout.nelems), typeof(data)}(
+            data, isblockconstant, layout
         )
     end
 end
@@ -513,12 +545,12 @@ _property_block(x) = throw(ArgumentError(
     "element (element-level properties); got $(typeof(x))"))
 
 function num_fields(field::PropertyField, b::Int)
-    return field.nepes[b]
+    return num_entities_per_element(field, b)
 end
 
 function properties(field::PropertyField, e::Int, b::Int)
-    @boundscheck 1 <= b <= field.nblocks || _field_access_exception()
-    offset = field.offsets[b]
+    @boundscheck 1 <= b <= num_blocks(field) || _field_access_exception()
+    offset = block_offset(field, b)
     nfields = num_fields(field, b)
     # `if/elseif` with no `else` leaves `start` undefined on any third value,
     # which surfaces as an `UndefVarError` rather than saying what went wrong.
@@ -527,10 +559,10 @@ function properties(field::PropertyField, e::Int, b::Int)
         start = offset
     else
         @boundscheck field.isblockconstant[b] == PROPS_ELEMS || _field_access_exception()
-        @boundscheck 1 <= e <= field.nelems[b] || _field_access_exception()
+        @boundscheck 1 <= e <= num_elements(field, b) || _field_access_exception()
         start = offset + nfields * (e - 1)
     end
-    return PropertyFieldView(field.data, start, nfields)
+    return PropertyFieldView(get_data(field), start, nfields)
 end
 
 struct PropertyFieldView{T, D <: AbstractVector{T}} <: AbstractVector{T}
@@ -551,19 +583,17 @@ Base.size(v::PropertyFieldView) = (v.len,)
 # StateVariableField
 ######################################################################################################
 struct StateVariableField{
+    I  <: Integer,
     T, # Let it be anything to allow for structs
-    D <: AbstractVector{T},
-    I <: AbstractVector{Int}
-} <: AbstractDiscontinuousField{T, D}
-    data::D                    # flat storage (CPU or GPU)
-    nblocks::Int
-    nfields::I
-    nepes::I # num nodes, q points, etc.
-    nelems::I
-    offsets::I
+    IV <: AbstractVector{I},
+    TV <: AbstractVector{T}
+} <: AbstractDiscontinuousField{I, T, IV, TV}
+    data::TV                    # flat storage (CPU or GPU)
+    layout::BlockLayout{I, IV}
+    nfields::IV
 
-    function StateVariableField{T, D, I}(data, nblocks, nfields, nepes, nelems, offsets) where {T, D, I}
-        new{T, D, I}(data, nblocks, nfields, nepes, nelems, offsets)
+    function StateVariableField{I, T, IV, TV}(data, layout, nfields) where {I, T, IV, TV}
+        new{I, T, IV, TV}(data, layout, nfields)
     end
 
     function StateVariableField(arrs::Vector{<:AbstractArray{T, 3}}) where T
@@ -577,7 +607,10 @@ struct StateVariableField{
             offset += nfields[b] * nepes[b] * nelems[b]
         end
         data = mapreduce(vec, vcat, arrs)
-        return StateVariableField{T, typeof(data), typeof(nepes)}(data, length(nepes), nfields, nepes, nelems, offsets)
+        layout = BlockLayout(length(nepes), nepes, nelems, offsets)
+        return StateVariableField{eltype(layout), T, typeof(layout.nelems), typeof(data)}(
+            data, layout, nfields
+        )
     end
 
     function StateVariableField(::UndefInitializer, ::Type{T}, nfields::Int, qsizes::Vector{Tuple{Int, Int}}) where T
@@ -602,9 +635,9 @@ function Base.resize!(field::StateVariableField, block_sizes::Vector{Tuple{Int, 
     offset = 1
     for n in 1:n_blocks
         field.nfields[n] = block_sizes[n][1]
-        field.nepes[n] = block_sizes[n][2]
-        field.nelems[n] = block_sizes[n][3]
-        field.offsets[n] = offset
+        field.layout.nepes[n] = block_sizes[n][2]
+        field.layout.nelems[n] = block_sizes[n][3]
+        field.layout.offsets[n] = offset
         offset += prod(block_sizes[n])
     end
 end
@@ -614,13 +647,13 @@ function num_fields(field::StateVariableField, b::Int)
 end
 
 function state_variables(field::StateVariableField, q::Int, e::Int, b::Int)
-    @boundscheck 1 <= q <= field.nepes[b] || _field_access_exception()
-    @boundscheck 1 <= e <= field.nelems[b] || _field_access_exception()
-    offset  = field.offsets[b]
-    nfields = field.nfields[b]
-    nqs     = field.nepes[b]
+    @boundscheck 1 <= q <= num_entities_per_element(field, b) || _field_access_exception()
+    @boundscheck 1 <= e <= num_elements(field, b) || _field_access_exception()
+    offset  = block_offset(field, b)
+    nfields = num_fields(field, b)
+    nqs     = num_entities_per_element(field, b)
     start   = offset + nfields * (q - 1) + nfields * nqs * (e - 1)
-    return StateVariableFieldView(field.data, start, nfields)
+    return StateVariableFieldView(get_data(field), start, nfields)
 end
 
 struct StateVariableFieldView{T, D <: AbstractVector{T}} <: AbstractVector{T}

@@ -190,6 +190,7 @@ using ForwardDiff
 using Krylov
 using LinearAlgebra
 using Preferences
+using ReactantCore
 using ReferenceFiniteElements
 using SparseArrays
 using SparseMatricesCSR

@@ -151,9 +151,9 @@ struct Parameters{
   sources::Sources{SRCFuncs, RM4}
   times::TimeStepper{RT}
   physics::Phys
-  properties::PropertyField{RT, RV, IV}
-  state_old::StateVariableField{RT, RV, IV}
-  state_new::StateVariableField{RT, RV, IV}
+  properties::PropertyField{IT, RT, IV, RV}
+  state_old::StateVariableField{IT, RT, IV, RV}
+  state_new::StateVariableField{IT, RT, IV, RV}
   coords::H1Field{RT, RV, D}
   field::Field
   field_old::Field
@@ -230,7 +230,7 @@ function Base.show(io::IO, parameters::Parameters)
     println(io, physics)
     println(io, "Props = $props")
   end
-  println("Number of active state variables = $(length(parameters.state_old.data))")
+  println("Number of active state variables = $(length(get_data(parameters.state_old)))")
 end
 
 function KA.get_backend(p::Parameters)
@@ -258,9 +258,9 @@ struct TypeStableParameters{
   sources::Sources{Vector{SourceFunction{VFuncT}}, RM}
   times::TimeStepper{RT}
   physics::Phys
-  properties::PropertyField{RT, RV, IV}
-  state_old::StateVariableField{RT, RV, IV}
-  state_new::StateVariableField{RT, RV, IV}
+  properties::PropertyField{IT, RT, IV, RV}
+  state_old::StateVariableField{IT, RT, IV, RV}
+  state_new::StateVariableField{IT, RT, IV, RV}
   coords::H1Field{RT, RV, D}
   field::Field
   field_old::Field
@@ -486,7 +486,7 @@ function update_dofs!(asm::AbstractAssembler, p::Parameters)
 end
 
 function _update_field!(p::AbstractParameters)
-  p.field_old.data .= p.field.data
+  set_data!(p.field_old, get_data(p.field))
   return nothing
 end
 
@@ -523,10 +523,10 @@ function _update_for_assembly_full!(
   U_full::AbstractVector{<:Number},
   v_full::AbstractVector{<:Number}
 )
-  @assert length(U_full) == length(p.field.data)
-  @assert length(v_full) == length(p.hvp_scratch_field.data)
-  copyto!(p.field.data, U_full)
-  copyto!(p.hvp_scratch_field.data, v_full)
+  @assert length(U_full) == length(get_data(p.field))
+  @assert length(v_full) == length(get_data(p.hvp_scratch_field))
+  copyto!(get_data(p.field), U_full)
+  copyto!(get_data(p.hvp_scratch_field), v_full)
   return nothing
 end
 
