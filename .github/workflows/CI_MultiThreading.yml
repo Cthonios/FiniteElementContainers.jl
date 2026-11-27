@@ -6,28 +6,21 @@ on:
     tags: ['*']
   pull_request:
 concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        version:
-          - '1.13'
-          - '1.10'
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
     uses: julia-testitems/testitem-workflow/.github/workflows/juliaci.yml@v2
+    permissions: write-all
     with:
       threads: auto
       max-workers: 2
       coverage: true
+      # Optional: restrict matrix to Linux x64 only (defaults to all OS/arch)
+      include-windows-x86: false
+      include-linux-x86: false
+      include-macos-x64: false
+      include-macos-aarch64: false
     secrets:
       codecov_token: ${{ secrets.CODECOV_TOKEN }}
