@@ -614,7 +614,7 @@ function read_exodus_mesh(mesh_settings::MeshSettings, ::Val{D}) where D
             ExodusDatabase{Int32, Int32, Int32, Float64},
             ExodusMesh
         },
-        D, Float64, Int, Nothing, Nothing
+        D, Float64, Int
     }(
         fm,
         nodal_coords, 
@@ -623,8 +623,7 @@ function read_exodus_mesh(mesh_settings::MeshSettings, ::Val{D}) where D
         n_id_map,
         nset_names, nset_nodes,
         sset_names, sset_elems, sset_nodes, 
-        sset_sides, sset_side_nodes,
-        nothing, nothing
+        sset_sides, sset_side_nodes
     )
     return mesh
 end
@@ -734,8 +733,8 @@ function generate_app(
     mkdir(joinpath(path, "src"))
 
     compats = Pair{String, String}[
-        "Exodus" => "0.14",
-        "FiniteElementContainers" => "0.13"
+        "Exodus" => "0.15",
+        "FiniteElementContainers" => "0.15"
     ]
     deps = Pair{String, String}[
         "Exodus" => "f57ae99e-f805-4780-bdca-96e224be1e5a",
