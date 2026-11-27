@@ -102,12 +102,7 @@ end
 @inline function interpolate_field_gradients(
   physics::P, interps::M, U_el::SVector{N, T}
 ) where {P <: AbstractPhysics, M <: MappedH1OrL2Interpolants, N, T}
-  # @show size(U_el)
   U_el = reshape_element_level_field(physics, U_el)
-  # return U_el * interps.∇N_X
-  # @show size(U_el)
-  # @show size(interps.∇N_X)
-  # return (U_el * interps.∇N_X')'
   return U_el * interps.∇N_X
 end
 
@@ -115,7 +110,6 @@ end
   physics::P, interps::M, U_el::SVector{N, T}
 ) where {P <: AbstractPhysics, M <: MappedH1OrL2Interpolants, N, T}
   U_el = reshape_element_level_field(physics, U_el)
-  # return U_el * interps.N, (U_el * interps.∇N_X')'
   return U_el * interps.N, U_el * interps.∇N_X
 end
 

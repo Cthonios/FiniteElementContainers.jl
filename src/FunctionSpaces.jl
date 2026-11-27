@@ -160,6 +160,7 @@ struct FunctionSpace{
   block_names::Vector{String}
   block_to_ref_fe_id::BTRE
   coords::H1Field{RT, RV, ND}
+  elem_colors::MeshColoring{IT, IV}
   elem_conns::Connectivity{IT, IV}
   # need to remove this mabye?
   elem_id_maps::Vector{Vector{IT}} # TODO create new type for ID map similar to connectivity
@@ -170,7 +171,7 @@ struct FunctionSpace{
   ref_fes::RefFEs
 
   function FunctionSpace{is_juliac_safe, FT}(
-    block_names, block_to_ref_fe_id, coords, elem_conns,
+    block_names, block_to_ref_fe_id, coords, elem_colors, elem_conns,
     elem_id_maps, elem_to_facets, facet_orientation, node_id_map, ref_fes
   ) where {is_juliac_safe, FT}
     new{
@@ -178,7 +179,7 @@ struct FunctionSpace{
       eltype(coords), typeof(coords.data), size(coords, 1),
       typeof(block_to_ref_fe_id), typeof(ref_fes)
     }(
-      block_names, block_to_ref_fe_id, coords, elem_conns, elem_id_maps,
+      block_names, block_to_ref_fe_id, coords, elem_colors, elem_conns, elem_id_maps,
       elem_to_facets, facet_orientation, node_id_map, ref_fes
     )
   end
@@ -205,10 +206,11 @@ function FunctionSpace{is_juliac_safe}(
   conns = Connectivity(block_conns(mesh))
   elem_id_maps = block_id_maps(mesh)
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, Val{is_juliac_safe}())
+  elem_colors = MeshColoring(mesh)
 
   return FunctionSpace{is_juliac_safe, H1Field}(
     mesh.element_block_names, block_to_ref_fe_id, coords, 
-    conns, elem_id_maps, nothing, nothing, mesh.node_id_map, ref_fes
+    elem_colors, conns, elem_id_maps, nothing, nothing, mesh.node_id_map, ref_fes
   )
 end
 
@@ -223,6 +225,7 @@ function FunctionSpace{is_juliac_safe}(
   conns = Connectivity([val for val in values(mesh.element_conns)])
   elem_id_maps = [val for val in values(mesh.element_id_maps)]
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, Val{is_juliac_safe}())
+  elem_colors = MeshColoring(mesh)
 
   # TODO only will work for likely linear elements right now
   topology = MeshTopology(mesh)
@@ -231,7 +234,7 @@ function FunctionSpace{is_juliac_safe}(
 
   return FunctionSpace{is_juliac_safe, HdivField}(
     block_names(mesh), block_to_ref_fe_id, coords, 
-    conns, elem_id_maps, elem_to_facets, facet_orientation, mesh.node_id_map, ref_fes
+    elem_colors, conns, elem_id_maps, elem_to_facets, facet_orientation, mesh.node_id_map, ref_fes
   )
 end
 
@@ -247,10 +250,11 @@ function FunctionSpace{is_juliac_safe}(
   coords = mesh.nodal_coords
   elem_id_maps = block_id_maps(mesh)
   block_to_ref_fe_id = _setup_block_to_ref_fe_id(mesh, Val{is_juliac_safe}())
+  elem_colors = MeshColoring(mesh)
 
   return FunctionSpace{is_juliac_safe, L2Field}(
     block_names(mesh), block_to_ref_fe_id, coords,
-    conns, elem_id_maps, nothing, nothing, mesh.node_id_map, ref_fes
+    elem_colors, conns, elem_id_maps, nothing, nothing, mesh.node_id_map, ref_fes
   )
 end
 
