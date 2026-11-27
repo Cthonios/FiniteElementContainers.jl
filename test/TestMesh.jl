@@ -171,3 +171,14 @@ end
   mesh = UnstructuredMesh(file_name)
   topology = FEC.MeshTopology(mesh)
 end
+
+@testitem "Meshes - coloring" begin
+  import FiniteElementContainers as FEC
+  file_name = "poisson/poisson.g"
+  mesh = UnstructuredMesh(file_name)
+  coloring = FEC.MeshColoring(mesh)
+  @test FEC.validate_coloring(mesh, coloring)
+
+  coloring = FEC.MeshColoring(mesh; share_across_blocks = false)
+  @test FEC.validate_coloring(mesh, coloring)
+end

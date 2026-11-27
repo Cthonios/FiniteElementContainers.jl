@@ -370,6 +370,7 @@ function Adapt.adapt_structure(to, fspace::FEC.FunctionSpace)
   return FEC.FunctionSpace{FEC._is_juliac_safe(fspace), FEC._field_type(fspace)}(
     fspace.block_names, fspace.block_to_ref_fe_id,
     adapt(to, fspace.coords),
+    adapt(to, fspace.elem_colors),
     adapt(to, fspace.elem_conns), 
     map(x -> adapt(to, x), fspace.elem_id_maps),
     adapt(to, fspace.elem_to_facets),
@@ -411,6 +412,23 @@ function Adapt.adapt_storage(to, int::FEC.AbstractIntegral)
         adapt(to, int.cache),
         int.integrand
     )
+end
+
+# mesh
+function Adapt.adapt_structure(to, bc::FEC.BlockColoring)
+  return FEC.BlockColoring(
+    adapt(to, bc.colors),
+    bc.color_offsets,
+    adapt(to, bc.color_elems)
+  )
+end
+
+function Adapt.adapt_structure(to, mc::FEC.MeshColoring)
+  return FEC.MeshColoring(
+    map(x -> adapt(to, x), mc.blocks),
+    mc.num_colors,
+    mc.shared
+  )
 end
 
 # parameters
